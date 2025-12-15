@@ -1,0 +1,101 @@
+.login-container {
+  display: flex;
+  height: 100vh;
+  font-family: 'Poppins', sans-serif;
+}
+
+.left-panel {
+    flex: 1;
+    background: linear-gradient(150deg, #000428 60%, #004e92 100%);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 40px;
+    position: relative;
+    overflow: hidden;
+    margin: 32px 16px 32px 32px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    /* Ajout d'une bordure oblique à droite tout en gardant les coins arrondis */
+    clip-path: polygon(0 0, 100% 0, 90% 100%, 0% 100%);
+}
+
+.left-panel h1 {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 0;
+  padding: 0;
+  letter-spacing: 1px;
+}
+
+.right-panel {
+  flex: 1;
+  background-color: #fff;
+  padding: 60px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+  position: relative;
+}
+
+.logo {
+  width: 90px;
+  position: absolute;
+  top: 30px;
+  right: 30px;
+}
+
+.right-panel h2 {
+  margin-bottom: 30px;
+  color: #101010;
+}
+
+.login-form {
+  max-width: 400px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.login-form input[type="email"],
+.login-form input[type="password"] {
+  padding: 16px;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
+
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.form-options a {
+  text-decoration: none;
+  color: #004e92;
+}
+
+.btn {
+  padding: 16px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-primary {
+  background-color: #000428;
+  color: white;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid #000428;
+  color: #000428;
+}
