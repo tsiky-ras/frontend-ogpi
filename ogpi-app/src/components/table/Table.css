@@ -1,0 +1,193 @@
+/* === Structure de la carte === */
+.table-card {
+  background: #fff;
+  border-radius: 12px;
+  margin: 20px 0;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* === Header du tableau === */
+.table-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.table-title h5 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #08143d;
+}
+
+.col-count {
+  background: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #e0e0e0;
+  color: #08143d;
+}
+
+/* === Sélecteur de colonnes === */
+.col-selector-container {
+  position: relative;
+}
+
+.col-toggle-btn {
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #08143d;
+  transition: 0.2s;
+}
+
+.col-toggle-btn:hover {
+  background: #f8f9fa;
+  border-color: #c0c0c0;
+}
+
+/* Dropdown avec scroll interne */
+.col-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  animation: fadeIn 0.2s ease;
+}
+
+/* Animation douce d’apparition */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Boutons d’action */
+.col-selector-actions {
+  padding: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  gap: 8px;
+}
+
+.col-selector-actions button {
+  flex: 1;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #08143d;
+}
+
+.col-selector-actions button:hover {
+  background: #f0f0f0;
+}
+
+/* Liste des colonnes */
+.col-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.col-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: 0.15s;
+}
+
+.col-item:hover {
+  background: #f8f9fa;
+}
+
+.col-item.visible {
+  background: #f5f7fa;
+  border-left: 3px solid #08143d;
+  font-weight: 600;
+}
+
+.col-item input {
+  margin-right: 12px;
+  width: 16px;
+  height: 16px;
+  accent-color: #08143d;
+}
+
+.col-item span {
+  flex: 1;
+  font-size: 14px;
+  color: #08143d;
+}
+
+/* === Table === */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  max-width: 100%;
+  padding-bottom: 8px;
+}
+
+/* Largeur minimale pour éviter les changements de taille */
+.custom-table {
+  width: 100%;
+  min-width: 800px;
+  border-collapse: collapse;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.custom-table th,
+.custom-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.custom-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #08143d;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.custom-table tr:hover td {
+  background-color: #f5f7fa;
+}

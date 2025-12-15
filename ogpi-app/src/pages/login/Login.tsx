@@ -3,6 +3,8 @@ import './Login.css';
 import logo from '../../assets/logo.jpeg';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useNavigate } from 'react-router-dom';
+import Loader from '../../components/loader/Loader.tsx';
+import Message from '../../components/message/Message.tsx';
 
 const Login: React.FC = () => {
   const { login } = useAuth();
@@ -20,7 +22,7 @@ const Login: React.FC = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        navigate('/home');
+        navigate('/admin/gestion-user');
       } else {
         setErrorMessage(result.error || 'Échec de la connexion');
       }
@@ -34,11 +36,11 @@ const Login: React.FC = () => {
   return (
     <div className="login-container">
       <div className="left-panel">
-        <h1>Bienvenue</h1>
+        <h1>BU CONSULTING</h1>
       </div>
       <div className="right-panel">
         <img src={logo} alt="Logo" className="logo" />
-        <h2>Login</h2>
+        <h2>Connexion</h2>
         <form className="login-form" onSubmit={handleSubmit}>
           <input
             type="email"
@@ -56,13 +58,16 @@ const Login: React.FC = () => {
           />
           <div className="form-options">
             <label>
-              <input type="checkbox" /> Se souvenir de moi
             </label>
             <a href="#">Mot de passe oublié</a>
           </div>
-          {errorMessage && <p className="error-message">{errorMessage}</p>}
+            {errorMessage && (
+            <div style={{ width: '100%', marginBottom: 5 }}>
+              <Message type="error" message={errorMessage} onClose={() => setErrorMessage('')} />
+            </div>
+            )}
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Connexion...' : 'Connexion'}
+            {loading ? <Loader size={18} text="Connexion..." /> : 'Connexion'}
           </button>
           <button type="button" className="btn btn-secondary">S’inscrire</button>
         </form>

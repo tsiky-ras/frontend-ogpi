@@ -186,7 +186,7 @@ import React, {
       } catch (error: any) {
         return {
           success: false,
-          error: error.response?.data?.message || 'Login failed',
+          error: error.response?.data?.message || 'Mot de passe ou email incorrect',
         };
       }
     };

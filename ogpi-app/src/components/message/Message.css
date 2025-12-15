@@ -1,0 +1,39 @@
+.message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.message .message-text {
+  flex: 1;
+}
+
+.message-close {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.message.error {
+  background-color: #ffecec;
+  color: #9b1c1c;
+  border: 1px solid #f5c2c2;
+}
+
+.message.success {
+  background-color: #e6ffed;
+  color: #1b7f3a;
+  border: 1px solid #c7f0d1;
+}
+
+.message.info {
+  background-color: #eef6ff;
+  color: #0b5fa5;
+  border: 1px solid #cfe8ff;
+}
