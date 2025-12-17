@@ -6,6 +6,7 @@ import Table from "../../../components/table/Table.tsx";
 import FilterBar from "../../../components/filters/FilterBar.tsx";
 import { FaUser } from "react-icons/fa";
 import StatCard from "../../../components/stat/StatCard.tsx";
+import Title from "../../../components/title/Title.tsx";
 import "./ListeUser.css";
 // Exemple de données utilisateurs
 const mockUsers = [
@@ -53,8 +54,10 @@ const ListeUser: React.FC = () => {
         <main className="listeuser-main">
           <div className="listeuser-content">
             <div className="container">
-              <h2>Liste des utilisateurs</h2>
-
+            <Title
+              title="Gestion des utilisateurs"
+              subtitle="Administrez les comptes utilisateurs de l'application"
+            />
               {/* Stat cards */}
               <div className="stats-cards">
                 <StatCard title="Total utilisateurs" value={users.length} />

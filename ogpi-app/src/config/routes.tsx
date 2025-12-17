@@ -13,7 +13,7 @@ export interface RouteType {
 export const routes: RouteType[] = [
   {
     path: '/admin/users',
-    label: 'Utilisateurs',
+    label: 'Gestion des utilisateurs',
     icon: <FaUsers />,
   },
 ];

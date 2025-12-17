@@ -3,13 +3,16 @@
   width: 200px;
   background-color: #08143d;
   color: white;
-  height: calc(118vh - 60px); 
+  /* sticky under header (header height ~60px) */
+  position: fixed;
+  top: 60px;
+  z-index: 5;
+  height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 20px 0;
-  position: relative;
-  top: 0;
+  overflow: hidden;
 }
 
 /* === WRAPPER DU MENU === */
