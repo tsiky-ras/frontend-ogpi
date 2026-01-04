@@ -1,0 +1,50 @@
+.custom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 200;
+  font-size: 14px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+/* Bouton principal */
+.custom-btn.primary {
+  background-color: #0b0b45; 
+  color: white;
+}
+
+.custom-btn.primary:hover {
+  background-color: #1a1a66;
+}
+
+/* Variante secondaire */
+.custom-btn.secondary {
+  background-color: #f5f5f5;
+  color: #0b0b45;
+  border: 1px solid #ddd;
+}
+
+.custom-btn.secondary:hover {
+  background-color: #eaeaea;
+}
+
+/* Variante contour (outline) */
+.custom-btn.outline {
+  background: transparent;
+  border: 1px solid #0b0b45;
+  color: #0b0b45;
+}
+
+.custom-btn.outline:hover {
+  background: #0b0b45;
+  color: white;
+}
+
+.btn-icon {
+  margin-left: 8px;
+  display: inline-flex;
+}

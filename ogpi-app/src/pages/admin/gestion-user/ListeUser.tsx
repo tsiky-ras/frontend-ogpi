@@ -1,14 +1,18 @@
 // src/pages/ListeUser/ListeUser.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
 import Table from "../../../components/table/Table.tsx";
 import FilterBar from "../../../components/filters/FilterBar.tsx";
-import { FaUser } from "react-icons/fa";
+import { FaUser, FaPlus } from "react-icons/fa";
 import StatCard from "../../../components/stat/StatCard.tsx";
 import Title from "../../../components/title/Title.tsx";
+import Button from "../../../components/button/Button.tsx";
+import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeUser.css";
-// Exemple de données utilisateurs
+import MenuListeUser from "./MenuListeUser.tsx";
+
+// Mock data
 const mockUsers = [
   { id: 1, nom: "Rakoto", prenom: "Mamy", email: "mamy@example.com", role: "admin" },
   { id: 2, nom: "Rasoa", prenom: "Lala", email: "lala@example.com", role: "user" },
@@ -20,11 +24,10 @@ const mockUsers = [
 ];
 
 const ListeUser: React.FC = () => {
-  const [users, setUsers] = useState(mockUsers);
-  const [search, setSearch] = useState<string>('');
-  const [statut, setStatut] = useState<string>('');
+  const [users] = useState(mockUsers);
+  const [search, setSearch] = useState("");
+  const [statut, setStatut] = useState("");
 
-  // Définir les colonnes du tableau
   const columns = [
     { key: "id", label: "ID" },
     { key: "nom", label: "Nom" },
@@ -35,9 +38,10 @@ const ListeUser: React.FC = () => {
       key: "actions",
       label: "Actions",
       render: (row: any) => (
-        <button onClick={() => alert(`Voir ${row.nom}`)}>
-          <FaUser />
-        </button>
+        <MenuListeUser
+          onDetails={() => alert(`Détails de ${row.nom}`)}
+          onEdit={() => alert(`Modifier ${row.nom}`)}
+        />
       ),
     },
   ];
@@ -46,63 +50,80 @@ const ListeUser: React.FC = () => {
     <div className="listeuser-layout">
       <Header />
 
-      <div className="listeuser-body">
+      {/* === LAYOUT FLEX (sidebar + main) === */}
+      <div className="listeuser-wrapper">
+
+        {/* Sidebar fixe */}
         <aside className="listeuser-sidebar">
           <Sidebar />
         </aside>
 
+        {/* Contenu principal */}
         <main className="listeuser-main">
-          <div className="listeuser-content">
-            <div className="container">
-            <Title
-              title="Gestion des utilisateurs"
-              subtitle="Administrez les comptes utilisateurs de l'application"
-            />
-              {/* Stat cards */}
-              <div className="stats-cards">
-                <StatCard title="Total utilisateurs" value={users.length} />
-                <StatCard title="Administrateurs" value={users.filter(u => (u as any).role === 'admin').length} />
-                <StatCard title="Utilisateurs" value={users.filter(u => (u as any).role !== 'admin').length} />
+          <div className="container-fluid">
+
+            {/* Header page */}
+            <div className="row align-items-center mb-4">
+              <div className="col-12 col-md-8">
+                <Title
+                  title="Gestion des utilisateurs"
+                  subtitle="Administrez les comptes utilisateurs de l'application"
+                />
               </div>
 
-              <FilterBar
-                filters={[
-                  {
-                    type: "text",
-                    placeholder: "Rechercher un utilisateur...",
-                    onChange: setSearch,
-                  },
-                  {
-                    type: "select",
-                    label: "Statut",
-                    options: [
-                      { value: "", label: "Tous" },
-                      { value: "active", label: "Actif" },
-                      { value: "inactive", label: "Inactif" },
-                    ],
-                    value: statut,
-                    onChange: setStatut,
-                  },
-                ]}
-              />
-
-              {/* Filtrage local simple */}
-              {(() => {
-                const s = search.trim().toLowerCase();
-                const filtered = users.filter((u) => {
-                  if (statut && (u as any).statut && statut !== (u as any).statut) return false;
-                  if (!s) return true;
-                  return (
-                    (u.nom || '').toLowerCase().includes(s) ||
-                    (u.prenom || '').toLowerCase().includes(s) ||
-                    (u.email || '').toLowerCase().includes(s) ||
-                    (u.role || '').toLowerCase().includes(s)
-                  );
-                });
-
-                return <Table columns={columns} data={filtered} />;
-              })()}
+              <div className="col-12 col-md-4 text-md-end mt-3 mt-md-0">
+                <Button
+                  label="Nouvel utilisateur"
+                  icon={<FaPlus />}
+                />
+              </div>
             </div>
+
+            {/* Stats */}
+            <div className="row g-3 mb-4">
+              <div className="col-12 col-md-4">
+                <StatCard title="Total utilisateurs" value={users.length} />
+              </div>
+              <div className="col-12 col-md-4">
+                <StatCard
+                  title="Administrateurs"
+                  value={users.filter(u => u.role === "admin").length}
+                />
+              </div>
+              <div className="col-12 col-md-4">
+                <StatCard
+                  title="Utilisateurs"
+                  value={users.filter(u => u.role !== "admin").length}
+                />
+              </div>
+            </div>
+
+            {/* Filters */}
+            <FilterBar
+              filters={[
+                {
+                  type: "text",
+                  placeholder: "Rechercher un utilisateur...",
+                  onChange: setSearch,
+                },
+                {
+                  type: "select",
+                  options: [
+                    { value: "", label: "Tous" },
+                    { value: "active", label: "Actif" },
+                    { value: "inactive", label: "Inactif" },
+                  ],
+                  value: statut,
+                  onChange: setStatut,
+                },
+              ]}
+            />
+
+            {/* Table */}
+            <div className="table-responsive">
+              <Table columns={columns} data={users} />
+            </div>
+
           </div>
         </main>
       </div>

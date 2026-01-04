@@ -1,14 +1,14 @@
 /* Page layout for ListeUser */
 
 .listeuser-layout {
-  display: flex;
-  flex-direction: column;
   min-height: 100vh;
   background: #f7f9fc;
-  /* offset for fixed header */
-  padding-top: 60px;
+  padding-top: 60px; /* hauteur du Header */
 }
-
+.listeuser-wrapper {
+  display: flex;
+  width: 100%;
+}
 .listeuser-body {
   display: flex;
   align-items: flex-start;
@@ -17,16 +17,15 @@
 
 /* Sidebar */
 .listeuser-sidebar {
-  width: 260px;
-  flex-shrink: 0;
+  width: 200px; 
+  min-width: 200px;
 }
 
 /* Main content */
 .listeuser-main {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 0 24px; /* ✅ espace identique à gauche et à droite */
+  padding: 24px;
+  overflow-x: auto;
 }
 
 /* Content wrapper */
@@ -71,13 +70,25 @@
   margin-top: 6px;
 }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .listeuser-main {
-    padding: 0 16px;
-  }
-
-  .stats-cards {
-    flex-direction: column;
-  }
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
+
+.page-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Bouton bien aligné */
+.page-actions {
+  display: flex;
+  align-items: center;
+}
+
+
+
+

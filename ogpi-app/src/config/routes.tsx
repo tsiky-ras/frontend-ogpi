@@ -1,19 +1,10 @@
-import { 
-  FaTachometerAlt, FaFileAlt, FaQuestionCircle, FaFolder, 
-  FaCalendarAlt, FaUsers, FaBook, FaClock, FaTasks, FaFlag 
-} from "react-icons/fa";
-import React from "react";
-export interface RouteType {
-  path: string;
-  label: string;
-  icon: React.ReactNode;
-  element?: React.ReactNode;
-}
+// config/routes.tsx
+import { FaUsers } from "react-icons/fa";
 
-export const routes: RouteType[] = [
+export const routes = [
   {
-    path: '/admin/users',
-    label: 'Gestion des utilisateurs',
+    path: "/admin/gestion-user",
+    label: "Utilisateurs",
     icon: <FaUsers />,
   },
 ];

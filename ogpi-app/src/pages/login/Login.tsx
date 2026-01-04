@@ -66,10 +66,10 @@ const Login: React.FC = () => {
               <Message type="error" message={errorMessage} onClose={() => setErrorMessage('')} />
             </div>
             )}
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn-login" disabled={loading}>
             {loading ? <Loader size={18} text="Connexion..." /> : 'Connexion'}
           </button>
-          <button type="button" className="btn btn-secondary">S’inscrire</button>
+          <button type="button" className="btn-signup">S’inscrire</button>
         </form>
       </div>
     </div>
