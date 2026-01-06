@@ -7,7 +7,7 @@ import React, {
   } from 'react';
   import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
   import { jwtDecode } from 'jwt-decode';
-  import { User } from '../types/User';
+  import { User } from '../types/user/User.tsx';
   import { ENV } from '../constants/env.ts';
     
   interface JwtPayload {

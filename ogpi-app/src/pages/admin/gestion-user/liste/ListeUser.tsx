@@ -1,16 +1,16 @@
 // src/pages/ListeUser/ListeUser.tsx
 import React, { useState } from "react";
-import Header from "../../../components/header/Header.tsx";
-import Sidebar from "../../../components/sidebar/Sidebar.tsx";
-import Table from "../../../components/table/Table.tsx";
-import FilterBar from "../../../components/filters/FilterBar.tsx";
+import Header from "../../../../components/header/Header.tsx";
+import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
+import Table from "../../../../components/table/Table.tsx";
+import FilterBar from "../../../../components/filters/FilterBar.tsx";
 import { FaUser, FaPlus } from "react-icons/fa";
-import StatCard from "../../../components/stat/StatCard.tsx";
-import Title from "../../../components/title/Title.tsx";
-import Button from "../../../components/button/Button.tsx";
+import StatCard from "../../../../components/stat/StatCard.tsx";
+import Title from "../../../../components/title/Title.tsx";
+import Button from "../../../../components/button/Button.tsx";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeUser.css";
-import MenuListeUser from "./MenuListeUser.tsx";
+import MenuListeUser from "../menu/MenuListeUser.tsx";
 
 // Mock data
 const mockUsers = [

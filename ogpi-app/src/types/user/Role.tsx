@@ -1,5 +1,5 @@
 export interface Role {
-    id?: number;
+    id_role?: number;
     label?: string;
   }
   
