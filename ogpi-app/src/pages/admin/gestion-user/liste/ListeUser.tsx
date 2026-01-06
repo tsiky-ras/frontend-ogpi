@@ -82,18 +82,20 @@ const ListeUser: React.FC = () => {
             {/* Stats */}
             <div className="row g-3 mb-4">
               <div className="col-12 col-md-4">
-                <StatCard title="Total utilisateurs" value={users.length} />
+                <StatCard title="Total utilisateurs" value={users.length} variant={["tomato","tuscan"]} />
               </div>
               <div className="col-12 col-md-4">
                 <StatCard
                   title="Administrateurs"
                   value={users.filter(u => u.role === "admin").length}
+                  variant="charcoal"
                 />
               </div>
               <div className="col-12 col-md-4">
                 <StatCard
                   title="Utilisateurs"
                   value={users.filter(u => u.role !== "admin").length}
+                  variant="tuscan"
                 />
               </div>
             </div>

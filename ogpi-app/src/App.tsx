@@ -16,19 +16,18 @@ const App: React.FC = () => {
 
         {/* Admin sécurisé */}
         <Route
-          path="/admin"
-          element={
-            <AuthGuard>
-              <AdminLayout />
-            </AuthGuard>
-          }
+          // path="/admin"
+          // element={
+          //   <AuthGuard>
+          //     <AdminLayout />
+          //   </AuthGuard>
+          // } 
         >
-          <Route path="gestion-user" element={<ListeUser />} />
-          <Route path="collaborateurs" element={<ListeProfils />} />
+          <Route path="/admin/gestion-user" element={<ListeUser />} />
+          <Route path="/admin/collaborateurs" element={<ListeProfils />} />
         </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}
       </Routes>
     </Router>
   );

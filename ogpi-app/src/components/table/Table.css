@@ -1,13 +1,12 @@
-/* === Structure de la carte === */
 .table-card {
   background: #fff;
   border-radius: 12px;
   margin: 20px 0;
-  overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: visible;
 }
 
-/* === Header du tableau === */
 .table-header {
   padding: 16px 20px;
   border-bottom: 1px solid #e0e0e0;
@@ -16,19 +15,8 @@
   align-items: center;
 }
 
-.table-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.table-title h5 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #08143d;
-}
-
+.table-title { display: flex; align-items: center; gap: 12px; }
+.table-title h5 { margin: 0; font-size: 16px; font-weight: 600; color: #08143d; }
 .col-count {
   background: #f8f9fa;
   padding: 4px 8px;
@@ -39,11 +27,7 @@
   color: #08143d;
 }
 
-/* === Sélecteur de colonnes === */
-.col-selector-container {
-  position: relative;
-}
-
+.col-selector-container { position: relative; }
 .col-toggle-btn {
   padding: 8px 12px;
   background: #fff;
@@ -58,43 +42,29 @@
   color: #08143d;
   transition: 0.2s;
 }
+.col-toggle-btn:hover { background: #f8f9fa; border-color: #c0c0c0; }
 
-.col-toggle-btn:hover {
-  background: #f8f9fa;
-  border-color: #c0c0c0;
-}
-
-/* Dropdown avec scroll interne */
+/* Dropdown au-dessus du body */
 .col-selector-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed; 
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 9999;
   min-width: 250px;
-  max-height: 300px; 
+  max-height: 300px;
   display: flex;
   flex-direction: column;
-  animation: fadeIn 0.2s ease;
+  overflow: hidden;
 }
 
-/* Animation douce d’apparition */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Boutons d’action */
 .col-selector-actions {
   padding: 8px 12px;
   border-bottom: 1px solid #e0e0e0;
   display: flex;
   gap: 8px;
 }
-
 .col-selector-actions button {
   flex: 1;
   padding: 6px 10px;
@@ -104,17 +74,14 @@
   cursor: pointer;
   font-size: 12px;
 }
-
-.col-selector-actions button:hover {
-  background: #f0f0f0;
-}
+.col-selector-actions button:hover { background: #f0f0f0; }
 
 .col-list-scroll {
   overflow-y: auto;
   flex: 1;
+  padding: 8px 0;
 }
 
-/* Items colonnes */
 .col-item {
   display: flex;
   align-items: center;
@@ -123,34 +90,15 @@
   border-left: 3px solid transparent;
   transition: 0.15s;
 }
+.col-item:hover { background-color: #f8f9fa; }
+.col-item.visible { background-color: #E8E5D7; border-left: 3px solid #C93C29; font-weight: 600; }
+.col-item input { margin-right: 8px; width: 16px; height: 16px; accent-color: #5F6F6E; }
+.col-item span { flex: 1; font-size: 14px; color: #08143d; }
 
-.col-item:hover {
-  background-color: #f8f9fa;
-}
-
-.col-item.visible {
-  background-color: #E8E5D7;
-  border-left: 3px solid #C93C29;
-  font-weight: 600;
-}
-
-.col-item input {
-  margin-right: 8px;
-  width: 16px;
-  height: 16px;
-  accent-color: #5F6F6E;
-}
-
-.col-item span {
-  flex: 1;
-  font-size: 14px;
-  color: #08143d;
-}
-
-/* === Table === */
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   max-width: 100%;
   padding-bottom: 8px;
 }
@@ -170,9 +118,8 @@
   vertical-align: middle;
 }
 
-/* Table headers */
 .table-wrapper .custom-table th {
-  background-color: #e1b95e; /* accent secondaire */
+  background-color: #e1b95e;
   color: #223A46;
   font-weight: 600;
   position: sticky;
@@ -180,12 +127,8 @@
   z-index: 2;
 }
 
-/* Table rows hover */
-.custom-table tr:hover td {
-  background-color: #E8E5D7; /* hover palette */
-}
+.custom-table tr:hover td { background-color: #E8E5D7; }
 
-/* Action buttons in table */
 .table-action-btn {
   background: #C93C29;
   color: #fff;
@@ -195,7 +138,6 @@
   font-weight: 500;
   transition: all 0.3s ease;
 }
-
 .table-action-btn:hover {
   background: #A02E22;
   transform: translateY(-2px);

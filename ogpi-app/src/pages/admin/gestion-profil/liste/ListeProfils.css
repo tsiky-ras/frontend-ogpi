@@ -1,3 +1,5 @@
+@import '../../../../styles/shared-lists.css';
+
 /* ===============================
    Page layout for ListeProfils
    =============================== */
@@ -48,29 +50,7 @@
   margin-bottom: 16px;
 }
 
-.stat-card {
-  background: #fff;
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-}
-
-.stat-title {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #08143d;
-  margin-top: 6px;
-}
+/* stat-card rules and variants are provided by shared-lists.css */
 
 /* ===============================
    Page header
@@ -87,6 +67,21 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* page-title h1/h2 and .table-responsive are provided by shared-lists.css */
+
+/* Responsive tweaks similar to ListeUser */
+@media (max-width: 768px) {
+  .listeprofils-wrapper {
+    flex-direction: column;
+  }
+
+  .listeprofils-sidebar {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 20px;
+  }
 }
 
 /* Actions (bouton ajouter) */

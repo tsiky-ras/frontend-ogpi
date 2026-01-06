@@ -253,7 +253,7 @@ const ListeProfils: React.FC = () => {
 
             <div className="row mb-4">
               <div className="col-md-4">
-                <StatCard title="Total collaborateurs" value={profils.length} />
+                <StatCard title="Total collaborateurs" value={profils.length} variant={["tomato","charcoal"]} />
               </div>
             </div>
 
