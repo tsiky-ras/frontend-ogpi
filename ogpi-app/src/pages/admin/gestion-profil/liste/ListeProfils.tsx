@@ -18,6 +18,22 @@ import "./ListeProfils.css";
 const getPosteActuel = (profil: Profil) =>
   profil.postes.find(p => !p.endDate);
 
+/* Helpers */
+const getContractLabel = (c?: number) => {
+  switch (c) {
+    case 1:
+      return "CDI";
+    case 2:
+      return "CDD";
+    case 3:
+      return "STAGE";
+    default:
+      return "—";
+  }
+};
+
+const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "—");
+
 /* ================= MOCK DATA ================= */
 const mockProfils: Profil[] = [
   {
@@ -36,6 +52,8 @@ const mockProfils: Profil[] = [
     type_profil: 1,
     type_contrat: 1,
     date_embauche: "2022-01-10",
+    date_integration: "2022-02-01",
+    date_debauche: undefined,
     experience_avant: 2,
 
     postes: [
@@ -82,6 +100,7 @@ const mockProfils: Profil[] = [
           id: 1,
           label: "Udemy",
         },
+        badge: "https://example.com/badges/react-advanced.png",
       },
     ],
 
@@ -137,6 +156,8 @@ const mockProfils: Profil[] = [
     type_profil: 2,
     type_contrat: 1,
     date_embauche: "2021-06-01",
+    date_integration: "2021-06-15",
+    date_debauche: undefined,
 
     postes: [
       {
@@ -199,6 +220,21 @@ const ListeProfils: React.FC = () => {
     { key: "matricule", label: "Matricule" },
     { key: "nom", label: "Nom" },
     { key: "prenom", label: "Prénom" },
+    {
+      key: "contrat",
+      label: "Contrat",
+      render: (row: Profil) => getContractLabel((row as any).type_contrat ?? (row as any).typeContrat ?? (row as any).type_contrat),
+    },
+    {
+      key: "date_integration",
+      label: "Date intégration",
+      render: (row: Profil) => fmt((row as any).date_integration ?? (row as any).dateIntegration ?? (row as any).date_embauche),
+    },
+    {
+      key: "date_debauche",
+      label: "Date débauche",
+      render: (row: Profil) => fmt((row as any).date_debauche ?? (row as any).dateDebauche ?? null),
+    },
 
     {
       key: "poste",
@@ -214,6 +250,21 @@ const ListeProfils: React.FC = () => {
     },
 
     { key: "email_pro", label: "Email professionnel" },
+    {
+      key: "badge",
+      label: "Badge numérique",
+      render: (row: Profil) => {
+        const certWithBadge = (row as any).certifications?.find((c: any) => c.badge);
+        if (certWithBadge) {
+          return (
+            <a href={certWithBadge.badge} target="_blank" rel="noreferrer" className="badge-link">
+              <img src={certWithBadge.badge} alt="badge" style={{ height: 26, borderRadius: 4 }} />
+            </a>
+          );
+        }
+        return "—";
+      },
+    },
 
     {
       key: "actions",

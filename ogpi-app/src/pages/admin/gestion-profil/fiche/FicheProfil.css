@@ -61,27 +61,15 @@
 .soft-skill,
 .hard-skill,
 .cert-badge {
-  background: #EABF5B;
   color: #223A46;
   padding: 7px 14px;
-  border-radius: 12px;
-  display: inline-block;
   margin-right: 8px;
   margin-bottom: 8px;
   font-size: 13px;
   font-weight: 500;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
-.soft-skill:hover,
-.hard-skill:hover,
-.cert-badge:hover {
-  background: #6F3533;
-  color: #fff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-}
 
 /* Section diplôme avec upload PDF */
 .fiche-diplome {
@@ -138,3 +126,43 @@
 .fiche-profil-body * {
   transition: all 0.3s ease;
 }
+
+/* Wrapper pour le sticker, flottant à droite et avec marge */
+.type-collab-badge-wrapper {
+  display: flex;
+  justify-content: flex-end; /* sticker à droite */
+  margin-bottom: 20px;       /* espace avant la section suivante */
+}
+
+/* Badge */
+.type-collab-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 12px;
+  color: #fff;
+  text-align: center;
+}
+
+.type-collab-badge.interne {
+  background-color: #4CAF50; /* vert pour interne */
+}
+
+.type-collab-badge.externe {
+  background-color: #FF7043; /* orange pour externe */
+}
+
+.soft-skills-list {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin: 0;
+  color: #223A46;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.soft-skills-list li {
+  margin-bottom: 6px;
+}
+
