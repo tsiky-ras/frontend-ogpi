@@ -13,6 +13,7 @@ import FicheProfil from "../../gestion-profil/fiche/FicheProfil.tsx";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeProfils.css";
+import FormProfil from "../../gestion-profil/form/FormProfil.tsx";
 
 /* ================= UTIL ================= */
 const getPosteActuel = (profil: Profil) =>
@@ -187,6 +188,7 @@ const ListeProfils: React.FC = () => {
   const [search, setSearch] = useState("");
   const [bu, setBu] = useState("");
   const [selectedProfil, setSelectedProfil] = useState<Profil | null>(null);
+  const [showFormProfil, setShowFormProfil] = useState(false);
 
   /* ===== Options BU ===== */
   const buOptions = [
@@ -272,11 +274,16 @@ const ListeProfils: React.FC = () => {
       render: (row: Profil) => (
         <MenuListeProfils
           onView={() => setSelectedProfil(row)}
-          onEdit={() => alert(`Modifier profil de ${row.nom}`)}
-        />
+          onEdit={() => handleEditProfil(row)}        />
       ),
     },
   ];
+
+  const handleEditProfil = (profil: Profil) => {
+    setSelectedProfil(profil);   
+    setShowFormProfil(true);    
+  };
+
   return (
     <div className="listeprofils-layout">
       <Header />
@@ -298,7 +305,11 @@ const ListeProfils: React.FC = () => {
               </div>
 
               <div className="col-md-4 text-end">
-                <Button label="Nouveau collaborateur" icon={<FaPlus />} />
+                <Button
+                  label="Nouveau collaborateur"
+                  icon={<FaPlus />}
+                  onClick={() => setShowFormProfil(true)}
+                />
               </div>
             </div>
 
@@ -334,6 +345,19 @@ const ListeProfils: React.FC = () => {
       <FicheProfil
         profil={selectedProfil}
         onClose={() => setSelectedProfil(null)}
+      />
+      <FicheProfil
+        profil={selectedProfil}
+        onClose={() => setSelectedProfil(null)}
+      />
+      <FormProfil
+        show={showFormProfil}
+        onClose={() => setShowFormProfil(false)}
+        profil={selectedProfil}   
+        onSubmit={(newProfil) => {
+          console.log("Nouveau collaborateur :", newProfil);
+          setShowFormProfil(false);
+        }}
       />
     </div>
     

@@ -146,13 +146,20 @@
 }
 
 .type-collab-badge.interne {
-  background-color: #4CAF50; /* vert pour interne */
+  background: linear-gradient(
+    135deg,
+    var(--color-tomato),
+    var(--color-tuscan)
+  );
 }
 
 .type-collab-badge.externe {
-  background-color: #FF7043; /* orange pour externe */
+  background: linear-gradient(
+    135deg,
+    var(--color-dim),
+    var(--color-charcoal)
+  );
 }
-
 .soft-skills-list {
   list-style-type: disc;
   padding-left: 20px;
