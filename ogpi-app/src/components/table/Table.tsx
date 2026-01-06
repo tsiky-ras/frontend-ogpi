@@ -177,7 +177,7 @@ const Table: React.FC<TableProps> = ({
               }}
             />
           </button>
-
+          
           {showColumnSelector && (
             <div className="col-selector-dropdown">
               <div className="col-selector-actions">
@@ -191,7 +191,8 @@ const Table: React.FC<TableProps> = ({
                 </button>
               </div>
 
-              <div className="col-list">
+              {/* Liste des colonnes avec scroll vertical */}
+              <div className="col-list-scroll">
                 {columns.map((col) => {
                   const isVisible = visibleColumns.includes(col.key);
                   return (
@@ -202,11 +203,7 @@ const Table: React.FC<TableProps> = ({
                     >
                       <input type="checkbox" checked={isVisible} readOnly />
                       <span>{col.label}</span>
-                      {isVisible ? (
-                        <Eye size={14} />
-                      ) : (
-                        <EyeOff size={14} />
-                      )}
+                      {isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
                     </div>
                   );
                 })}

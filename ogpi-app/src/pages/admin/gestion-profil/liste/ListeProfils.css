@@ -1,0 +1,95 @@
+/* ===============================
+   Page layout for ListeProfils
+   =============================== */
+
+.listeprofils-layout {
+  min-height: 100vh;
+  background: #f7f9fc;
+  padding-top: 60px; /* hauteur du Header */
+}
+
+.listeprofils-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+/* Sidebar */
+.listeprofils-sidebar {
+  width: 200px;
+  min-width: 200px;
+}
+
+/* Main content */
+.listeprofils-main {
+  flex: 1;
+  padding: 24px;
+  overflow-x: auto;
+}
+
+/* Content wrapper */
+.listeprofils-content {
+  flex: 1;
+}
+
+/* Container */
+.listeprofils-content .container {
+  max-width: 1200px;
+  margin: 24px auto;
+}
+
+/* ===============================
+   Stats cards
+   =============================== */
+
+.stats-cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.stat-title {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #08143d;
+  margin-top: 6px;
+}
+
+/* ===============================
+   Page header
+   =============================== */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Actions (bouton ajouter) */
+.page-actions {
+  display: flex;
+  align-items: center;
+}

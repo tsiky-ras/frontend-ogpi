@@ -74,9 +74,10 @@
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  min-width: 300px;
-  max-height: 400px;
-  overflow-y: auto;
+  min-width: 250px;
+  max-height: 300px; 
+  display: flex;
+  flex-direction: column;
   animation: fadeIn 0.2s ease;
 }
 
@@ -100,32 +101,38 @@
   gap: 8px;
 }
 
+/* Actions (Tout cocher / Réinitialiser) */
+.col-selector-actions {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  gap: 8px;
+}
+
 .col-selector-actions button {
   flex: 1;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: #f8f9fa;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 500;
-  color: #08143d;
 }
 
 .col-selector-actions button:hover {
   background: #f0f0f0;
 }
 
-/* Liste des colonnes */
-.col-list {
-  max-height: 320px;
+.col-list-scroll {
   overflow-y: auto;
+  flex: 1; /* prend tout l’espace restant dans le dropdown */
 }
 
+/* Items colonnes */
 .col-item {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
+  padding: 8px 12px;
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: 0.15s;
@@ -142,7 +149,7 @@
 }
 
 .col-item input {
-  margin-right: 12px;
+  margin-right: 8px;
   width: 16px;
   height: 16px;
   accent-color: #08143d;
@@ -191,3 +198,5 @@
 .custom-table tr:hover td {
   background-color: #f5f7fa;
 }
+
+
