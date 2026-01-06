@@ -1,14 +1,18 @@
-/* Page layout for ListeUser */
+/* ================= Page layout for ListeUser ================= */
 
 .listeuser-layout {
   min-height: 100vh;
-  background: #f7f9fc;
+  background: #f7f9fc; /* fond clair de la palette */
   padding-top: 60px; /* hauteur du Header */
+  font-family: 'Poppins', sans-serif;
+  color: #223A46; /* texte principal foncé */
 }
+
 .listeuser-wrapper {
   display: flex;
   width: 100%;
 }
+
 .listeuser-body {
   display: flex;
   align-items: flex-start;
@@ -17,8 +21,13 @@
 
 /* Sidebar */
 .listeuser-sidebar {
-  width: 200px; 
-  min-width: 200px;
+  width: 220px; 
+  min-width: 220px;
+  background: #223A46; /* couleur sombre pour le sidebar */
+  color: #E8E5D7;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 /* Main content */
@@ -39,37 +48,7 @@
   margin: 24px auto;
 }
 
-/* Stats cards */
-.stats-cards {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  background: #fff;
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-}
-
-.stat-title {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #08143d;
-  margin-top: 6px;
-}
-
+/* Page header */
 .page-header {
   display: flex;
   align-items: center;
@@ -77,18 +56,80 @@
   margin-bottom: 24px;
 }
 
-.page-title {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.page-title h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #C93C29; /* accent principal */
 }
 
-/* Bouton bien aligné */
+.page-title h2 {
+  font-size: 16px;
+  color: #5F6F6E; /* texte secondaire */
+  font-weight: 500;
+}
+
+/* Boutons bien alignés */
 .page-actions {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
+/* Stats cards */
+.stats-cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
 
+.stat-card {
+  background: #fff; /* blanc pour contraste */
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  transition: all 0.3s ease;
+}
 
+.stat-card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
 
+.stat-title {
+  font-size: 14px;
+  color: #5F6F6E; /* texte secondaire */
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #C93C29; /* accent principal */
+}
+
+/* Table wrapper */
+.table-responsive {
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .listeuser-wrapper {
+    flex-direction: column;
+  }
+
+  .listeuser-sidebar {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 20px;
+  }
+}

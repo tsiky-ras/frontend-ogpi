@@ -9,7 +9,7 @@ import Title from "../../../../components/title/Title.tsx";
 import Button from "../../../../components/button/Button.tsx";
 import MenuListeProfils from "../menu/MenuListeProfils.tsx";
 import { Profil } from "../../../../types/profil/Profil.tsx";
-
+import FicheProfil from "../../gestion-profil/fiche/FicheProfil.tsx";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeProfils.css";
@@ -165,8 +165,8 @@ const ListeProfils: React.FC = () => {
   const [profils] = useState(mockProfils);
   const [search, setSearch] = useState("");
   const [bu, setBu] = useState("");
+  const [selectedProfil, setSelectedProfil] = useState<Profil | null>(null);
 
-  
   /* ===== Options BU ===== */
   const buOptions = [
     { value: "", label: "Toutes les BU" },
@@ -220,14 +220,12 @@ const ListeProfils: React.FC = () => {
       label: "Actions",
       render: (row: Profil) => (
         <MenuListeProfils
-          onView={() => alert(`Voir fiche profil de ${row.nom}`)}
+          onView={() => setSelectedProfil(row)}
           onEdit={() => alert(`Modifier profil de ${row.nom}`)}
         />
       ),
     },
   ];
-  
-
   return (
     <div className="listeprofils-layout">
       <Header />
@@ -282,8 +280,14 @@ const ListeProfils: React.FC = () => {
           </div>
         </main>
       </div>
+      <FicheProfil
+        profil={selectedProfil}
+        onClose={() => setSelectedProfil(null)}
+      />
     </div>
+    
   );
+  
 };
 
 export default ListeProfils;
