@@ -316,7 +316,11 @@ const ListeProfils: React.FC = () => {
                 <Button
                   label="Nouveau collaborateur"
                   icon={<FaPlus />}
-                  onClick={() => setShowFormProfil(true)}
+                  onClick={() => {
+                    setSelectedProfil(null);
+                    setMode("edit");
+                    setShowFormProfil(true);
+                  }}
                 />
               </div>
             </div>
