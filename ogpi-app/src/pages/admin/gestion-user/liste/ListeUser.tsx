@@ -8,21 +8,23 @@ import { FaUser, FaPlus } from "react-icons/fa";
 import StatCard from "../../../../components/stat/StatCard.tsx";
 import Title from "../../../../components/title/Title.tsx";
 import Button from "../../../../components/button/Button.tsx";
+import { Modal, Form, Row, Col } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeUser.css";
 import MenuListeUser from "../menu/MenuListeUser.tsx";
 import FormUser from "../form/FormUser.tsx";
+import FicheUser from "../fiche/FicheUser.tsx";
 import { Profil } from "../../../../types/profil/Profil.tsx";
 
 // Mock data
 const mockUsers = [
-  { id: 1, nom: "Rakoto", prenom: "Mamy", email: "mamy@example.com", role: "admin" },
-  { id: 2, nom: "Rasoa", prenom: "Lala", email: "lala@example.com", role: "user" },
-  { id: 3, nom: "Andry", prenom: "Tiana", email: "tiana@example.com", role: "user" },
-  { id: 4, nom: "Hery", prenom: "Tsiky", email: "tsiky@example.com", role: "admin" },
-  { id: 5, nom: "Fidy", prenom: "Jean", email: "jean@example.com", role: "user" },
-  { id: 6, nom: "Miora", prenom: "Sitraka", email: "sitraka@example.com", role: "user" },
-  { id: 7, nom: "Solo", prenom: "Rivo", email: "rivo@example.com", role: "user" },
+  { id: 1, username: "mamy.rakoto", nom: "Rakoto", prenom: "Mamy", email: "mamy@example.com", role_id: 1, role_label: "Admin", is_active: true },
+  { id: 2, username: "lala.rasoa", nom: "Rasoa", prenom: "Lala", email: "lala@example.com", role_id: 5, role_label: "Collaborateur", is_active: true },
+  { id: 3, username: "tiana.andry", nom: "Andry", prenom: "Tiana", email: "tiana@example.com", role_id: 5, role_label: "Collaborateur", is_active: false },
+  { id: 4, username: "tsiky.hery", nom: "Hery", prenom: "Tsiky", email: "tsiky@example.com", role_id: 1, role_label: "Admin", is_active: true },
+  { id: 5, username: "jean.fidy", nom: "Fidy", prenom: "Jean", email: "jean@example.com", role_id: 5, role_label: "Collaborateur", is_active: true },
+  { id: 6, username: "sitraka.miora", nom: "Miora", prenom: "Sitraka", email: "sitraka@example.com", role_id: 3, role_label: "Manager", is_active: true },
+  { id: 7, username: "rivo.solo", nom: "Solo", prenom: "Rivo", email: "rivo@example.com", role_id: 5, role_label: "Collaborateur", is_active: false },
 ];
 
 // Mock collaborateurs (pour le formulaire)
@@ -70,24 +72,112 @@ const mockCollaborateurs: Profil[] = [
 ];
 
 const ListeUser: React.FC = () => {
-  const [users] = useState(mockUsers);
+  const [users, setUsers] = useState(mockUsers);
   const [search, setSearch] = useState("");
   const [statut, setStatut] = useState("");
   const [showFormUser, setShowFormUser] = useState(false);
+  const [selectedUserEdit, setSelectedUserEdit] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>(null);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [showFicheUser, setShowFicheUser] = useState(false);
+  const [selectedUserDetail, setSelectedUserDetail] = useState<any>(null);
+
+  // Fonction pour basculer l'activation d'un utilisateur
+  const toggleUserStatus = (userId: number) => {
+    setUsers(users.map(u => 
+      u.id === userId ? { ...u, is_active: !u.is_active } : u
+    ));
+  };
+
+  // Ouvrir la fiche détails utilisateur
+  const openFicheUser = (user: any) => {
+    setSelectedUserDetail(user);
+    setShowFicheUser(true);
+  };
+
+  // Ouvrir le modal d'édition avec autocomplétion
+  const openEditModal = (user: any) => {
+    setSelectedUserEdit(user);
+    setEditFormData({ ...user });
+    setShowEditModal(true);
+  };
+
+  // Fermer le modal d'édition
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedUserEdit(null);
+    setEditFormData(null);
+    setShowResetPassword(false);
+    setNewPassword("");
+  };
+
+  // Fermer la fiche
+  const closeFicheUser = () => {
+    setShowFicheUser(false);
+    setSelectedUserDetail(null);
+  };
+
+  // Sauvegarder depuis la fiche
+  const handleSaveFromFiche = (updatedUser: any) => {
+    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+    closeFicheUser();
+  };
+
+  // Sauvegarder les modifications
+  const saveUserChanges = () => {
+    if (!editFormData) return;
+    setUsers(users.map(u => u.id === editFormData.id ? editFormData : u));
+    closeEditModal();
+  };
+
+  // Réinitialiser le mot de passe
+  const resetUserPassword = () => {
+    if (!newPassword) {
+      alert("Veuillez entrer un nouveau mot de passe");
+      return;
+    }
+    setEditFormData({ ...editFormData, password: newPassword });
+    setNewPassword("");
+    setShowResetPassword(false);
+    alert("Mot de passe réinitialisé avec succès");
+  };
 
   const columns = [
-    { key: "id", label: "ID" },
+    { key: "username", label: "Utilisateur" },
     { key: "nom", label: "Nom" },
     { key: "prenom", label: "Prénom" },
     { key: "email", label: "Email" },
-    { key: "role", label: "Rôle" },
+    { key: "role_label", label: "Rôle" },
+    {
+      key: "is_active",
+      label: "Statut",
+      render: (row: any) => (
+        <span className={`badge ${row.is_active ? "bg-success" : "bg-danger"}`}>
+          {row.is_active ? "Actif" : "Inactif"}
+        </span>
+      ),
+    },
+    {
+      key: "toggle_status",
+      label: "Activation",
+      render: (row: any) => (
+        <button
+          className={`btn btn-sm ${row.is_active ? "btn-outline-danger" : "btn-outline-success"}`}
+          onClick={() => toggleUserStatus(row.id)}
+        >
+          {row.is_active ? "Désactiver" : "Activer"}
+        </button>
+      ),
+    },
     {
       key: "actions",
       label: "Actions",
       render: (row: any) => (
         <MenuListeUser
-          onDetails={() => alert(`Détails de ${row.nom}`)}
-          onEdit={() => setShowFormUser(true)}
+          onDetails={() => openFicheUser(row)}
+          onEdit={() => openEditModal(row)}
         />
       ),
     },
@@ -134,15 +224,15 @@ const ListeUser: React.FC = () => {
               </div>
               <div className="col-12 col-md-4">
                 <StatCard
-                  title="Administrateurs"
-                  value={users.filter(u => u.role === "admin").length}
+                  title="Actifs"
+                  value={users.filter(u => u.is_active).length}
                   variant="charcoal"
                 />
               </div>
               <div className="col-12 col-md-4">
                 <StatCard
-                  title="Utilisateurs"
-                  value={users.filter(u => u.role !== "admin").length}
+                  title="Inactifs"
+                  value={users.filter(u => !u.is_active).length}
                   variant="tuscan"
                 />
               </div>
@@ -159,7 +249,7 @@ const ListeUser: React.FC = () => {
                 {
                   type: "select",
                   options: [
-                    { value: "", label: "Tous" },
+                    { value: "", label: "Tous les statuts" },
                     { value: "active", label: "Actif" },
                     { value: "inactive", label: "Inactif" },
                   ],
@@ -188,6 +278,39 @@ const ListeUser: React.FC = () => {
           setShowFormUser(false);
         }}
       />
+
+      {/* Modal détails utilisateur (Fiche) - LECTURE SEULE */}
+      <Modal show={showFicheUser} onHide={closeFicheUser} size="lg" centered scrollable>
+        <Modal.Body>
+          {selectedUserDetail && (
+            <FicheUser
+              user={selectedUserDetail}
+              profil={mockCollaborateurs.find(c => c.nom === selectedUserDetail.nom && c.prenom === selectedUserDetail.prenom)}
+              onClose={closeFicheUser}
+              onSave={handleSaveFromFiche}
+              isEditMode={false}
+            />
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Modal d'édition utilisateur */}
+      <Modal show={showEditModal} onHide={closeEditModal} size="lg" centered scrollable>
+        <Modal.Body>
+          {editFormData && (
+            <FicheUser
+              user={editFormData}
+              profil={mockCollaborateurs.find(c => c.nom === editFormData.nom && c.prenom === editFormData.prenom)}
+              onClose={closeEditModal}
+              onSave={(updatedUser) => {
+                setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+                closeEditModal();
+              }}
+              isEditMode={true}
+            />
+          )}
+        </Modal.Body>
+      </Modal>
     </div>
   );
 };
