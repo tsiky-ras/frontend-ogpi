@@ -52,7 +52,7 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
   return (
     <Modal show={!!profil} onHide={onClose} size="lg" centered className="fiche-profil-modal">
       <Modal.Header closeButton>
-        <Modal.Title>Fiche de {profil.prenom} {profil.nom}</Modal.Title>
+        <Modal.Title>Fiche de : {profil.prenom} {profil.nom}</Modal.Title>
       </Modal.Header>
 
       <Modal.Body className="fiche-profil-body">

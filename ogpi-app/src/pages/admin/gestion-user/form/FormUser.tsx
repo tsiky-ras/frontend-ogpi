@@ -9,6 +9,7 @@ type FormUserProps = {
   onClose: () => void;
   onSubmit: (user: User) => void;
   collaborateurs: Profil[];
+  profilToEdit?: Profil | null; // facultatif si on édite un profil existant
 };
 
 const ROLE_OPTIONS = [
@@ -32,9 +33,9 @@ const BU_OPTIONS = [
   "IT",
 ];
 
-const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborateurs }) => {
+const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborateurs, profilToEdit }) => {
   const [mode, setMode] = useState<"manual" | "existing">("manual");
-  const [selectedProfil, setSelectedProfil] = useState<Profil | null>(null);
+  const [selectedProfil, setSelectedProfil] = useState<Profil | null>(profilToEdit || null);
   const [searchCollab, setSearchCollab] = useState("");
 
   const [form, setForm] = useState<any>({
@@ -61,14 +62,27 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
     profil: null,
   });
 
-  // Pré-remplissage si collaborateur sélectionné
+  // Pré-remplissage si collaborateur sélectionné ou profilToEdit
   useEffect(() => {
-    if (selectedProfil) {
+    const prof = selectedProfil;
+    if (prof) {
       setForm((prev: any) => ({
         ...prev,
-        username: `${selectedProfil.prenom}.${selectedProfil.nom}`.toLowerCase(),
-        email: selectedProfil.email_pro,
-        profil: selectedProfil,
+        username: `${prof.prenom}.${prof.nom}`.toLowerCase(),
+        email: prof.email_pro,
+        matricule: prof.matricule ?? "",
+        nom: prof.nom ?? "",
+        prenom: prof.prenom ?? "",
+        appelation: prof.appelation ?? "",
+        poste: prof.poste ?? "",
+        type_profil: prof.type_profil ?? 1,
+        bu: prof.bu ?? "",
+        type_contrat: prof.type_contrat ?? 1,
+        date_naissance: prof.date_naissance ?? "",
+        date_embauche: prof.date_embauche ?? "",
+        date_integration: prof.date_integration ?? "",
+        date_debauche: prof.date_debauche ?? "",
+        profil: prof,
       }));
     }
   }, [selectedProfil]);
@@ -80,7 +94,37 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
       [name]: type === "checkbox" ? checked : value,
     }));
   };
+    /* ===== Fonctions diplômes ===== */
+  const addDiplome = () => {
+    setForm((prev: any) => ({
+      ...prev,
+      etudes: [...prev.etudes, { diplome: "", etablissement: "", obtention: "", file: null }],
+    }));
+  };
+  const updateDiplome = (i: number, key: string, value: any) => {
+    const updated = [...form.etudes];
+    updated[i][key] = value;
+    setForm({ ...form, etudes: updated });
+  };
+  const removeDiplome = (i: number) => {
+    setForm({ ...form, etudes: form.etudes.filter((_: any, idx: number) => idx !== i) });
+  };
 
+  /* ===== Fonctions certifications ===== */
+  const addCertification = () => {
+    setForm((prev: any) => ({
+      ...prev,
+      certifications: [...prev.certifications, { label: "", organisme: "", score: "", badge: "" }],
+    }));
+  };
+  const updateCertification = (i: number, key: string, value: any) => {
+    const updated = [...form.certifications];
+    updated[i][key] = value;
+    setForm({ ...form, certifications: updated });
+  };
+  const removeCertification = (i: number) => {
+    setForm({ ...form, certifications: form.certifications.filter((_: any, idx: number) => idx !== i) });
+  };
   const handleSubmit = () => {
     if (!form.username || !form.password || !form.role_id) {
       alert("Veuillez remplir les champs obligatoires");
@@ -120,46 +164,31 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
       c.prenom.toLowerCase().includes(searchCollab.toLowerCase())
   );
 
-  /* ===== Fonctions diplômes ===== */
-  const addDiplome = () => {
-    setForm((prev: any) => ({
-      ...prev,
-      etudes: [...prev.etudes, { diplome: "", etablissement: "", obtention: "", file: null }],
-    }));
-  };
-  const updateDiplome = (i: number, key: string, value: any) => {
-    const updated = [...form.etudes];
-    updated[i][key] = value;
-    setForm({ ...form, etudes: updated });
-  };
-  const removeDiplome = (i: number) => {
-    setForm({ ...form, etudes: form.etudes.filter((_: any, idx: number) => idx !== i) });
-  };
-
-  /* ===== Fonctions certifications ===== */
-  const addCertification = () => {
-    setForm((prev: any) => ({
-      ...prev,
-      certifications: [...prev.certifications, { label: "", organisme: "", score: "", badge: "" }],
-    }));
-  };
-  const updateCertification = (i: number, key: string, value: any) => {
-    const updated = [...form.certifications];
-    updated[i][key] = value;
-    setForm({ ...form, certifications: updated });
-  };
-  const removeCertification = (i: number) => {
-    setForm({ ...form, certifications: form.certifications.filter((_: any, idx: number) => idx !== i) });
-  };
+  const getSexLabel = (s?: number | null) => (s === 1 ? "Masculin" : s === 2 ? "Féminin" : "—");
+  const getContractLabel = (c?: number) => (c === 1 ? "CDI" : c === 2 ? "CDD" : c === 3 ? "Stage" : "—");
 
   return (
     <Modal show={show} onHide={onClose} size="lg" centered scrollable>
       <Modal.Header closeButton>
-        <Modal.Title>Créer un utilisateur</Modal.Title>
+        <Modal.Title>
+          {selectedProfil ? `Modifier ${selectedProfil.prenom} ${selectedProfil.nom}` : "Créer un utilisateur"}
+        </Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        {/* ===== Choix du mode ===== */}
+        {/* ===== En-tête style FicheProfil ===== */}
+        {selectedProfil && (
+          <div className="mb-3">
+            <span className={`type-collab-badge ${selectedProfil.type_profil === 1 ? "interne" : "externe"}`}>
+              {selectedProfil.type_profil === 1 ? "Collaborateur interne" : "Collaborateur externe"}
+            </span>
+            <div className="mt-2">
+              <strong>Poste :</strong> {selectedProfil.poste ?? "—"} | <strong>BU :</strong> {selectedProfil.bu ?? "—"} | <strong>Contrat :</strong> {getContractLabel(selectedProfil.type_contrat)}
+            </div>
+          </div>
+        )}
+
+        {/* ===== Boutons de mode ===== */}
         <div className="d-flex mb-3 gap-2">
           <Button
             size="sm"

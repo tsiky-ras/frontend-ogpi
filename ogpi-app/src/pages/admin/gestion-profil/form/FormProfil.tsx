@@ -121,10 +121,10 @@ const FormProfil: React.FC<FormProfilProps> = ({
   };
 
   return (
-    <Modal show={show} onHide={onClose} size="xl" centered scrollable>
+    <Modal show={show} onHide={onClose} size="xl" centered scrollable className="fiche-profil-modal">
       <Modal.Header closeButton>
-        <Modal.Title>
-          {profil ? "Modifier collaborateur" : "Ajouter collaborateur"}
+        <Modal.Title >
+          {profil ? `Modifier la fiche du collaborateur : ${profil.prenom} ${profil.nom}` : "Ajouter collaborateur"}
         </Modal.Title>
       </Modal.Header>
 
@@ -257,14 +257,13 @@ const FormProfil: React.FC<FormProfilProps> = ({
                 onChange={e => updateDiplome(i, "file", e.target.files?.[0])}
                 />
             </Col>
-            <Col md={1} className="d-flex flex-column align-items-center justify-content-center">
+            <Col sm={1} className="d-flex flex-column align-items-center justify-content-center ps-2">
                 <Button
-                type="button"
-                variant="outline-danger"
-                size="sm"
-                onClick={() => removeDiplome(i)}
+                  type="button"
+                  variant="outline-danger"
+                  onClick={() => removeDiplome(i)}
                 >
-                -
+                  -
                 </Button>
             </Col>
             </Row>
@@ -316,7 +315,6 @@ const FormProfil: React.FC<FormProfilProps> = ({
                 <Button
                 type="button"
                 variant="outline-danger"
-                size="sm"
                 onClick={() => removeCertification(i)}
                 >
                 -

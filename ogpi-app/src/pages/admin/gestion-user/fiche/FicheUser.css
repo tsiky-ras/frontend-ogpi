@@ -1,0 +1,24 @@
+.fiche-user-modal .modal-content {
+  border-radius: 18px;
+  border: none;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.15);
+}
+
+.fiche-user-modal .modal-header {
+  background: linear-gradient(
+    135deg,
+    var(--color-charcoal),
+    var(--color-dim)
+  );
+  color: #fff;
+  border-bottom: none;
+}
+
+.fiche-profil-modal .modal-title {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.fiche-user-modal .btn-close {
+  filter: brightness(0) invert(1);
+}

@@ -163,3 +163,7 @@
 .modal-footer .btn-secondary:hover {
   background: var(--color-charcoal);
 }
+
+.fiche-section .btn-outline-danger {
+  margin-left: 8px; 
+}
