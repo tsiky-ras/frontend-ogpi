@@ -45,23 +45,20 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, variant }) 
 
   if (Array.isArray(variant) && variant.length >= 1) {
     const primary = normalizeHex(variant[0]) || PALETTE.tomato;
-    const secondary = normalizeHex(variant[1]) || primary;
-    style.background = `linear-gradient(180deg, ${rgba(primary,0.06)}, ${rgba(secondary,0.03)})`;
-    style.borderLeft = `6px solid ${rgba(primary,0.12)}`;
-    style['--accent'] = secondary;
-    statValueStyle.color = secondary;
+    style.background = rgba(primary, 0.08);
+    style['--accent-color'] = primary;
+    style['--accent-light'] = rgba(primary, 0.1);
+    statValueStyle.color = primary;
   } else if (typeof variant === 'string') {
     const normalized = normalizeHex(variant);
     if (normalized) {
-      // try to map to named class if variant matches a palette key
       const key = variant.toLowerCase();
       if (PALETTE[key]) {
         className += ` stat-card--${key}`;
       } else {
-        // hex provided
-        style.background = `linear-gradient(180deg, ${rgba(normalized,0.06)}, ${rgba(normalized,0.03)})`;
-        style.borderLeft = `6px solid ${rgba(normalized,0.12)}`;
-        style['--accent'] = normalized;
+        style.background = rgba(normalized, 0.08);
+        style['--accent-color'] = normalized;
+        style['--accent-light'] = rgba(normalized, 0.1);
         statValueStyle.color = normalized;
       }
     }

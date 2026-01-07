@@ -43,26 +43,21 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
     password: "",
     role_id: null,
     is_active: true,
-
     matricule: "",
     nom: "",
     prenom: "",
     appelation: "",
     sexe: "",
     date_naissance: "",
-
     poste: "",
     type_profil: 1,
     bu: "",
-
     type_contrat: 1,
     date_embauche: "",
     date_integration: "",
     date_debauche: "",
-
     etudes: [],
     certifications: [],
-
     profil: null,
   });
 
@@ -161,21 +156,31 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
     <Modal show={show} onHide={onClose} size="lg" centered scrollable>
       <Modal.Header closeButton>
         <Modal.Title>Créer un utilisateur</Modal.Title>
-        <Button
-          size="sm"
-          variant="outline-primary"
-          className="ms-auto"
-          onClick={() => setMode(mode === "manual" ? "existing" : "manual")}
-        >
-          {mode === "manual" ? "À partir d’un collaborateur existant" : "Création manuelle"}
-        </Button>
       </Modal.Header>
 
       <Modal.Body>
+        {/* ===== Choix du mode ===== */}
+        <div className="d-flex mb-3 gap-2">
+          <Button
+            size="sm"
+            variant={mode === "existing" ? "primary" : "outline-primary"}
+            onClick={() => setMode("existing")}
+          >
+            À partir d’un collaborateur existant
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "manual" ? "primary" : "outline-primary"}
+            onClick={() => setMode("manual")}
+          >
+            Saisie manuelle
+          </Button>
+        </div>
+
         <Form>
           {/* ================= MODE EXISTING ================= */}
           {mode === "existing" && (
-            <>
+            <div>
               <section className="mb-4">
                 <h5>Choisir un collaborateur</h5>
                 <Form.Control
@@ -205,29 +210,27 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
                 )}
               </section>
 
-              {/* Afficher les infos du collaborateur sélectionné */}
               {selectedProfil && (
-                <>
-                  <section className="fiche-section">
-                    <h4>Informations du collaborateur</h4>
-                    <Row className="g-3">
-                      <Col md={6}><Form.Label>Nom</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.nom}</div></Col>
-                      <Col md={6}><Form.Label>Prénom</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.prenom}</div></Col>
-                      <Col md={6}><Form.Label>Appellation</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.appelation}</div></Col>
-                      <Col md={6}><Form.Label>Matricule</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.matricule}</div></Col>
-                      <Col md={6}><Form.Label>Email professionnel</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.email_pro}</div></Col>
-                      <Col md={6}><Form.Label>Téléphone</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.telephone}</div></Col>
-                    </Row>
-                  </section>
-                </>
+                <section className="fiche-section">
+                  <h4>Informations du collaborateur</h4>
+                  <Row className="g-3">
+                    <Col md={6}><Form.Label>Nom</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.nom}</div></Col>
+                    <Col md={6}><Form.Label>Prénom</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.prenom}</div></Col>
+                    <Col md={6}><Form.Label>Appellation</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.appelation}</div></Col>
+                    <Col md={6}><Form.Label>Matricule</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.matricule}</div></Col>
+                    <Col md={6}><Form.Label>Email professionnel</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.email_pro}</div></Col>
+                    <Col md={6}><Form.Label>Téléphone</Form.Label><div className="p-2 bg-light rounded">{selectedProfil.telephone}</div></Col>
+                  </Row>
+                </section>
               )}
-            </>
+            </div>
           )}
 
           {/* ================= MODE MANUAL ================= */}
           {mode === "manual" && (
-            <>
-              {/* ===== Identité ===== */}
+            <div>
+              <h5>Saisie Manuelle</h5>
+              {/* Identité */}
               <section className="fiche-section">
                 <h4>1. Identité professionnelle</h4>
                 <Row className="g-3">
@@ -235,33 +238,54 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
                   <Col md={4}><Form.Label>Nom</Form.Label><Form.Control name="nom" value={form.nom} onChange={handleChange} /></Col>
                   <Col md={4}><Form.Label>Prénom</Form.Label><Form.Control name="prenom" value={form.prenom} onChange={handleChange} /></Col>
                   <Col md={4}><Form.Label>Appellation</Form.Label><Form.Control name="appelation" value={form.appelation} onChange={handleChange} /></Col>
-                  <Col md={4}><Form.Label>Sexe</Form.Label><Form.Select name="sexe" value={form.sexe} onChange={handleChange}><option value="">Sexe</option><option value="1">Masculin</option><option value="2">Féminin</option></Form.Select></Col>
+                  <Col md={4}><Form.Label>Sexe</Form.Label>
+                    <Form.Select name="sexe" value={form.sexe} onChange={handleChange}>
+                      <option value="">Sexe</option>
+                      <option value="1">Masculin</option>
+                      <option value="2">Féminin</option>
+                    </Form.Select>
+                  </Col>
                   <Col md={4}><Form.Label>Date de naissance</Form.Label><Form.Control type="date" name="date_naissance" value={form.date_naissance} onChange={handleChange} /></Col>
                 </Row>
               </section>
 
-              {/* ===== Organisation ===== */}
+              {/* Organisation */}
               <section className="fiche-section">
                 <h4>2. Organisation</h4>
                 <Row className="g-3">
                   <Col md={4}><Form.Label>Poste actuel</Form.Label><Form.Control name="poste" value={form.poste} onChange={handleChange} /></Col>
-                  <Col md={4}><Form.Label>Type de collaborateur</Form.Label><Form.Select name="type_profil" value={form.type_profil} onChange={handleChange}><option value={1}>Collaborateur interne</option><option value={2}>Collaborateur externe</option></Form.Select></Col>
-                  <Col md={4}><Form.Label>Business Unit</Form.Label><Form.Select name="bu" value={form.bu} onChange={handleChange}>{BU_OPTIONS.map(bu => (<option key={bu} value={bu}>{bu}</option>))}</Form.Select></Col>
+                  <Col md={4}><Form.Label>Type de collaborateur</Form.Label>
+                    <Form.Select name="type_profil" value={form.type_profil} onChange={handleChange}>
+                      <option value={1}>Collaborateur interne</option>
+                      <option value={2}>Collaborateur externe</option>
+                    </Form.Select>
+                  </Col>
+                  <Col md={4}><Form.Label>Business Unit</Form.Label>
+                    <Form.Select name="bu" value={form.bu} onChange={handleChange}>
+                      {BU_OPTIONS.map(bu => <option key={bu} value={bu}>{bu}</option>)}
+                    </Form.Select>
+                  </Col>
                 </Row>
               </section>
 
-              {/* ===== Contrat ===== */}
+              {/* Contrat & Dates */}
               <section className="fiche-section">
                 <h4>3. Contrat & Dates</h4>
                 <Row className="g-3">
-                  <Col md={4}><Form.Label>Type de contrat</Form.Label><Form.Select name="type_contrat" value={form.type_contrat} onChange={handleChange}><option value={1}>CDI</option><option value={2}>CDD</option><option value={3}>Stage</option></Form.Select></Col>
+                  <Col md={4}><Form.Label>Type de contrat</Form.Label>
+                    <Form.Select name="type_contrat" value={form.type_contrat} onChange={handleChange}>
+                      <option value={1}>CDI</option>
+                      <option value={2}>CDD</option>
+                      <option value={3}>Stage</option>
+                    </Form.Select>
+                  </Col>
                   <Col md={4}><Form.Label>Date embauche</Form.Label><Form.Control type="date" name="date_embauche" value={form.date_embauche} onChange={handleChange} /></Col>
                   <Col md={4}><Form.Label>Date intégration</Form.Label><Form.Control type="date" name="date_integration" value={form.date_integration} onChange={handleChange} /></Col>
                   <Col md={4}><Form.Label>Date de départ</Form.Label><Form.Control type="date" name="date_debauche" value={form.date_debauche} onChange={handleChange} /></Col>
                 </Row>
               </section>
 
-              {/* ===== Diplômes ===== */}
+              {/* Diplômes */}
               <section className="fiche-section">
                 <h4>4. Diplômes</h4>
                 {form.etudes.map((d: any, i: number) => (
@@ -276,7 +300,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
                 <Button type="button" size="sm" variant="outline-primary" onClick={addDiplome}>+ Ajouter un diplôme</Button>
               </section>
 
-              {/* ===== Certifications ===== */}
+              {/* Certifications */}
               <section className="fiche-section">
                 <h4>5. Certifications</h4>
                 {form.certifications.map((c: any, i: number) => (
@@ -290,7 +314,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
                 ))}
                 <Button type="button" size="sm" variant="outline-primary" onClick={addCertification}>+ Ajouter une certification</Button>
               </section>
-            </>
+            </div>
           )}
 
           {/* ================= FORMULAIRE AUTHENTIFICATION COMMUN ================= */}
@@ -300,7 +324,12 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
               <Col md={6}><Form.Label>Username *</Form.Label><Form.Control name="username" value={form.username} onChange={handleChange} disabled={mode === "existing"} /></Col>
               <Col md={6}><Form.Label>Email</Form.Label><Form.Control name="email" value={form.email} onChange={handleChange} disabled={mode === "existing"} /></Col>
               <Col md={6}><Form.Label>Mot de passe *</Form.Label><Form.Control type="password" name="password" value={form.password} onChange={handleChange} /></Col>
-              <Col md={6}><Form.Label>Rôle *</Form.Label><Form.Select value={form.role_id || ""} onChange={e => setForm((prev: any) => ({ ...prev, role_id: Number(e.target.value) }))}><option value="">-- Sélectionner --</option>{ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}</Form.Select></Col>
+              <Col md={6}><Form.Label>Rôle *</Form.Label>
+                <Form.Select value={form.role_id || ""} onChange={e => setForm((prev: any) => ({ ...prev, role_id: Number(e.target.value) }))}>
+                  <option value="">-- Sélectionner --</option>
+                  {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </Form.Select>
+              </Col>
               <Col md={12}><Form.Check label="Utilisateur actif" checked={form.is_active} onChange={handleChange} name="is_active" /></Col>
             </Row>
           </section>
