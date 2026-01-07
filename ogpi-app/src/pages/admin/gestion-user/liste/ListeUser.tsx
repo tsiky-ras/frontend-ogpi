@@ -11,6 +11,8 @@ import Button from "../../../../components/button/Button.tsx";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeUser.css";
 import MenuListeUser from "../menu/MenuListeUser.tsx";
+import FormUser from "../form/FormUser.tsx";
+import { Profil } from "../../../../types/profil/Profil.tsx";
 
 // Mock data
 const mockUsers = [
@@ -23,10 +25,55 @@ const mockUsers = [
   { id: 7, nom: "Solo", prenom: "Rivo", email: "rivo@example.com", role: "user" },
 ];
 
+// Mock collaborateurs (pour le formulaire)
+const mockCollaborateurs: Profil[] = [
+  {
+    profil_id: 1,
+    matricule: "EMP-001",
+    nom: "Rakoto",
+    prenom: "Mamy",
+    appelation: "Développeur",
+    sexe: 1,
+    email_pro: "mamy@entreprise.com",
+    email_perso: "mamy@gmail.com",
+    telephone: "0340000000",
+    type_profil: 1,
+    type_contrat: 1,
+    date_embauche: "2022-01-10",
+    experience_avant: 2,
+    postes: [],
+    etudes: [],
+    certifications: [],
+    hard_skills: [],
+    soft_skills: [],
+  },
+  {
+    profil_id: 2,
+    matricule: "EMP-002",
+    nom: "Rasoa",
+    prenom: "Lala",
+    appelation: "RH",
+    sexe: 2,
+    email_pro: "lala@entreprise.com",
+    email_perso: "lala@gmail.com",
+    telephone: "0320000000",
+    type_profil: 2,
+    type_contrat: 1,
+    date_embauche: "2021-06-01",
+    experience_avant: 0,
+    postes: [],
+    etudes: [],
+    certifications: [],
+    hard_skills: [],
+    soft_skills: [],
+  },
+];
+
 const ListeUser: React.FC = () => {
   const [users] = useState(mockUsers);
   const [search, setSearch] = useState("");
   const [statut, setStatut] = useState("");
+  const [showFormUser, setShowFormUser] = useState(false);
 
   const columns = [
     { key: "id", label: "ID" },
@@ -40,7 +87,7 @@ const ListeUser: React.FC = () => {
       render: (row: any) => (
         <MenuListeUser
           onDetails={() => alert(`Détails de ${row.nom}`)}
-          onEdit={() => alert(`Modifier ${row.nom}`)}
+          onEdit={() => setShowFormUser(true)}
         />
       ),
     },
@@ -75,6 +122,7 @@ const ListeUser: React.FC = () => {
                 <Button
                   label="Nouvel utilisateur"
                   icon={<FaPlus />}
+                  onClick={() => setShowFormUser(true)}
                 />
               </div>
             </div>
@@ -129,6 +177,17 @@ const ListeUser: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Formulaire utilisateur */}
+      <FormUser
+        show={showFormUser}
+        onClose={() => setShowFormUser(false)}
+        collaborateurs={mockCollaborateurs}
+        onSubmit={(user) => {
+          console.log("Nouvel utilisateur créé :", user);
+          setShowFormUser(false);
+        }}
+      />
     </div>
   );
 };

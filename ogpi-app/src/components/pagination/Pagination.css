@@ -8,18 +8,28 @@
 
 /* Numéros */
 .page-btn {
-  border: 1px solid #ddd;
-  background: white;
+  all: unset; 
+  box-sizing: border-box;
+
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  width: 34px;
-  height: 34px;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  border: 1px solid #ddd;
+  background: #fff;
+
   font-size: 14px;
+  font-weight: 500;
+  line-height: 1; 
+
   color: #08143d;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
+
+  transition: background 0.2s ease, border 0.2s ease;
 }
 
 .page-btn:hover {
@@ -29,22 +39,32 @@
 
 .page-btn.active {
   background: #08143d;
-  color: white;
+  color: #fff;
   border-color: #08143d;
   font-weight: 600;
 }
 
 /* Flèches */
 .nav-btn {
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 6px;
+  all: unset;
+  box-sizing: border-box;
+
   width: 34px;
   height: 34px;
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #ddd;
+  background: #fff;
+
   font-size: 16px;
-  cursor: pointer;
   color: #08143d;
-  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+
+  transition: background 0.2s ease;
 }
 
 .nav-btn:hover {
@@ -55,3 +75,4 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
