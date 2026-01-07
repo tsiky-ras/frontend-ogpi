@@ -160,6 +160,7 @@
     var(--color-charcoal)
   );
 }
+
 .soft-skills-list {
   list-style-type: disc;
   padding-left: 20px;
@@ -172,4 +173,5 @@
 .soft-skills-list li {
   margin-bottom: 6px;
 }
+
 

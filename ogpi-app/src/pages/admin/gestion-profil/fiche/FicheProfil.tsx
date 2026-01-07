@@ -176,7 +176,6 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
                 <strong>Badge numérique :</strong>{' '}
                 {c.badge ? (
                   <a href={c.badge} target="_blank" rel="noreferrer" className="fiche-badge-link">
-                    <img src={c.badge} alt={c.label} style={{ height: 32, borderRadius: 6, marginRight: 8, verticalAlign: 'middle' }} />
                     <span>{c.label}</span>
                   </a>
                 ) : (
@@ -206,14 +205,17 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
         {/* ===== Soft Skills ===== */}
         <section className="fiche-section">
           <h4>5. Soft Skills</h4>
-          {profil.soft_skills.length === 0 ? (
-            <p>Aucune soft skill</p>
-          ) : (
+
+          {profil.soft_skills && profil.soft_skills.length > 0 ? (
             <ul className="soft-skills-list">
               {profil.soft_skills.map(s => (
-                <li key={s.domaine.id}>{s.domaine.label}</li>
+                <li key={s.id}>
+                  {s.domaine.label}
+                </li>
               ))}
             </ul>
+          ) : (
+            <p>Aucune soft skill</p>
           )}
         </section>
       </Modal.Body>

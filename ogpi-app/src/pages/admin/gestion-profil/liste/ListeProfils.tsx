@@ -272,9 +272,17 @@ const ListeProfils: React.FC = () => {
       key: "actions",
       label: "Actions",
       render: (row: Profil) => (
-        <MenuListeProfils
-          onView={() => setSelectedProfil(row)}
-          onEdit={() => handleEditProfil(row)}        />
+      <MenuListeProfils
+        onView={() => {
+          setSelectedProfil(row);
+          setMode("view");
+        }}
+        onEdit={() => {
+          setSelectedProfil(row);
+          setMode("edit");
+          setShowFormProfil(true);
+        }}
+      />
       ),
     },
   ];
@@ -283,7 +291,7 @@ const ListeProfils: React.FC = () => {
     setSelectedProfil(profil);   
     setShowFormProfil(true);    
   };
-
+  const [mode, setMode] = useState<"view" | "edit" | null>(null);
   return (
     <div className="listeprofils-layout">
       <Header />
@@ -342,23 +350,33 @@ const ListeProfils: React.FC = () => {
           </div>
         </main>
       </div>
-      <FicheProfil
-        profil={selectedProfil}
-        onClose={() => setSelectedProfil(null)}
-      />
-      <FicheProfil
-        profil={selectedProfil}
-        onClose={() => setSelectedProfil(null)}
-      />
-      <FormProfil
-        show={showFormProfil}
-        onClose={() => setShowFormProfil(false)}
-        profil={selectedProfil}   
-        onSubmit={(newProfil) => {
-          console.log("Nouveau collaborateur :", newProfil);
-          setShowFormProfil(false);
-        }}
-      />
+      {mode === "view" && (
+        <FicheProfil
+          profil={selectedProfil}
+          onClose={() => {
+            setSelectedProfil(null);
+            setMode(null);
+          }}
+        />
+      )}
+
+      {mode === "edit" && (
+        <FormProfil
+          show={showFormProfil}
+          profil={selectedProfil}
+          onClose={() => {
+            setShowFormProfil(false);
+            setSelectedProfil(null);
+            setMode(null);
+          }}
+          onSubmit={(updatedProfil) => {
+            console.log("Profil modifié :", updatedProfil);
+            setShowFormProfil(false);
+            setSelectedProfil(null);
+            setMode(null);
+          }}
+        />
+      )}
     </div>
     
   );
