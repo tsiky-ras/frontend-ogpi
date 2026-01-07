@@ -1,0 +1,19 @@
+.generic-form-card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  max-width: 480px;
+}
+
+.generic-form-card h4 {
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: #223a46;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
