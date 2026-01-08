@@ -10,8 +10,20 @@ import { Modal } from "react-bootstrap";
 import { FaPlus } from "react-icons/fa";
 import "./ConfigPage.css";
 
-/* =========================
-   TYPES
+type ConfigEntityPageProps<T> = {
+  service: any; // ton service TSX (PosteService, CertificationService…)
+  entityName: string;
+  entityLabel: keyof T;
+  title: string;
+};
+
+function ConfigEntityPage<T extends { id?: number | null }>({
+  service,
+  entityName,
+  entityLabel,
+  title,
+}: ConfigEntityPageProps<T>) {
+  const [entities, setEntities] = useState<T[]>([]);
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -20,7 +32,7 @@ import "./ConfigPage.css";
      LOAD DATA
   ========================= */
   useEffect(() => {
-    service.getAll().then(setEntities);
+    service.getAll().then(setEntities).catch(console.error);
   }, [service]);
 
   /* =========================
@@ -30,12 +42,10 @@ import "./ConfigPage.css";
     try {
       if (data.id) {
         const updated = await service.update(data);
-        setEntities(prev =>
-          prev.map(e => (e.id === updated.id ? updated : e))
-        );
+        setEntities((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
       } else {
         const created = await service.create(data);
-        setEntities(prev => [...prev, created]);
+        setEntities((prev) => [...prev, created]);
       }
 
       setSelectedEntity(null);
@@ -50,10 +60,9 @@ import "./ConfigPage.css";
   ========================= */
   const handleDelete = async (id: number | null) => {
     if (!id) return;
-
     try {
       await service.delete(id);
-      setEntities(prev => prev.filter(e => e.id !== id));
+      setEntities((prev) => prev.filter((e) => e.id !== id));
     } catch (error) {
       console.error("Erreur suppression :", error);
     }
@@ -62,7 +71,7 @@ import "./ConfigPage.css";
   /* =========================
      FILTER
   ========================= */
-  const filteredEntities = entities.filter(e =>
+  const filteredEntities = entities.filter((e) =>
     String(e[entityLabel])
       .toLowerCase()
       .includes(search.toLowerCase())
@@ -102,7 +111,6 @@ import "./ConfigPage.css";
 
         <main className="config-main">
           <div className="container-fluid">
-
             {/* Title + bouton */}
             <div className="d-flex justify-content-between align-items-center mb-4">
               <Title
@@ -126,7 +134,7 @@ import "./ConfigPage.css";
                 className="form-control"
                 placeholder={`Rechercher un ${entityName.toLowerCase()}...`}
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
@@ -134,7 +142,6 @@ import "./ConfigPage.css";
             <div className="table-responsive">
               <Table columns={columns} data={filteredEntities} />
             </div>
-
           </div>
         </main>
       </div>
@@ -148,9 +155,7 @@ import "./ConfigPage.css";
       >
         <Modal.Header closeButton>
           <Modal.Title>
-            {selectedEntity
-              ? `Modifier ${entityName}`
-              : `Ajouter un ${entityName}`}
+            {selectedEntity ? `Modifier ${entityName}` : `Ajouter un ${entityName}`}
           </Modal.Title>
         </Modal.Header>
 
@@ -167,6 +172,6 @@ import "./ConfigPage.css";
       </Modal>
     </div>
   );
-};
+}
 
 export default ConfigEntityPage;
