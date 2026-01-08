@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Header from "../../../../components/header/Header.tsx";
 import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
 import GenericForm from "../../../../components/form/GenericForm.tsx";
@@ -10,49 +10,67 @@ import { Modal } from "react-bootstrap";
 import { FaPlus } from "react-icons/fa";
 import "./ConfigPage.css";
 
-interface ConfigEntityPageProps<T extends { id: number | null; [key: string]: any }> {
-  title: string;               // Titre de la page
-  entityLabel: keyof T;         // Champ à afficher et modifier (ex: "label" ou "name")
-  initialData?: T[];            // Valeurs initiales
-  entityName: string;           // Nom de l'entité pour les boutons / modals (ex: "Diplôme")
-}
-
-const ConfigEntityPage = <T extends { id: number | null }>({
-  title,
-  entityLabel,
-  initialData = [],
-  entityName,
-}: ConfigEntityPageProps<T>) => {
-  const [entities, setEntities] = useState<T[]>(initialData);
+/* =========================
+   TYPES
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
 
-  /* CREATE / UPDATE */
-  const handleSave = (data: T) => {
-    if (data.id) {
-      setEntities(prev =>
-        prev.map(e => (e.id === data.id ? data : e))
-      );
-    } else {
-      setEntities(prev => [...prev, { ...data, id: Date.now() }]);
+  /* =========================
+     LOAD DATA
+  ========================= */
+  useEffect(() => {
+    service.getAll().then(setEntities);
+  }, [service]);
+
+  /* =========================
+     CREATE / UPDATE
+  ========================= */
+  const handleSave = async (data: T) => {
+    try {
+      if (data.id) {
+        const updated = await service.update(data);
+        setEntities(prev =>
+          prev.map(e => (e.id === updated.id ? updated : e))
+        );
+      } else {
+        const created = await service.create(data);
+        setEntities(prev => [...prev, created]);
+      }
+
+      setSelectedEntity(null);
+      setShowModal(false);
+    } catch (error) {
+      console.error("Erreur sauvegarde :", error);
     }
-    setSelectedEntity(null);
-    setShowModal(false);
   };
 
-  /* DELETE */
-  const handleDelete = (id: number | null) => {
+  /* =========================
+     DELETE
+  ========================= */
+  const handleDelete = async (id: number | null) => {
     if (!id) return;
-    setEntities(prev => prev.filter(e => e.id !== id));
+
+    try {
+      await service.delete(id);
+      setEntities(prev => prev.filter(e => e.id !== id));
+    } catch (error) {
+      console.error("Erreur suppression :", error);
+    }
   };
 
-  /* FILTER */
+  /* =========================
+     FILTER
+  ========================= */
   const filteredEntities = entities.filter(e =>
-    String(e[entityLabel]).toLowerCase().includes(search.toLowerCase())
+    String(e[entityLabel])
+      .toLowerCase()
+      .includes(search.toLowerCase())
   );
 
-  /* TABLE COLUMNS */
+  /* =========================
+     TABLE COLUMNS
+  ========================= */
   const columns = [
     { key: entityLabel as string, label: entityName },
     {
@@ -70,13 +88,18 @@ const ConfigEntityPage = <T extends { id: number | null }>({
     },
   ];
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <div className="config-layout">
       <Header />
+
       <div className="config-wrapper">
         <aside className="config-sidebar">
           <Sidebar />
         </aside>
+
         <main className="config-main">
           <div className="container-fluid">
 
@@ -86,16 +109,14 @@ const ConfigEntityPage = <T extends { id: number | null }>({
                 title={title}
                 subtitle={`Créer, modifier et supprimer des ${entityName.toLowerCase()}s`}
               />
-              <div className="col-md-4 text-end">
-                <Button
-                  label={`Nouvelle ${entityName}`}
-                  icon={<FaPlus />}
-                  onClick={() => {
-                    setSelectedEntity(null);
-                    setShowModal(true);
-                  }}
-                />
-              </div>
+              <Button
+                label={`Nouvelle ${entityName}`}
+                icon={<FaPlus />}
+                onClick={() => {
+                  setSelectedEntity(null);
+                  setShowModal(true);
+                }}
+              />
             </div>
 
             {/* Search */}
@@ -113,12 +134,18 @@ const ConfigEntityPage = <T extends { id: number | null }>({
             <div className="table-responsive">
               <Table columns={columns} data={filteredEntities} />
             </div>
+
           </div>
         </main>
       </div>
 
       {/* Modal */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered className="config-entity-modal">
+      <Modal
+        show={showModal}
+        onHide={() => setShowModal(false)}
+        centered
+        className="config-entity-modal"
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedEntity
@@ -126,6 +153,7 @@ const ConfigEntityPage = <T extends { id: number | null }>({
               : `Ajouter un ${entityName}`}
           </Modal.Title>
         </Modal.Header>
+
         <Modal.Body>
           <GenericForm<T>
             valueKey={entityLabel as "label" | "name"}
@@ -133,7 +161,7 @@ const ConfigEntityPage = <T extends { id: number | null }>({
             onSubmit={handleSave}
             onCancel={() => setShowModal(false)}
             submitLabel={selectedEntity ? "Mettre à jour" : "Créer"}
-            title="" // titre déjà présent dans modal
+            title=""
           />
         </Modal.Body>
       </Modal>

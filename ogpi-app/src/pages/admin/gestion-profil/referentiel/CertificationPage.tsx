@@ -1,16 +1,20 @@
 import React from "react";
 import ConfigEntityPage from "./ConfigEntityPage.tsx";
-import { Diplome } from "../../../../types/profil/etude/Diplome.tsx";
+import { useAuth } from "../../../../context/AuthContext.tsx";
+import { CertificationService } from "../../../../services/profil/certifications/CertificationService.tsx";
+import { Certification } from "../../../../types/profil/certification/Certification.tsx";
 
-const DiplomePage: React.FC = () => {
+const CertificationPage: React.FC = () => {
+  const { api } = useAuth();
+  const certificationService = new CertificationService(api);
   return (
-    <ConfigEntityPage<Diplome>
-      title="Gestion des Diplômes"
+    <ConfigEntityPage<Certification>
+      title="Gestion des Certifications"
       entityLabel="label"
-      entityName="Diplôme"
-      initialData={[]} 
+      entityName="Certification"
+      service={certificationService}
     />
   );
 };
 
-export default DiplomePage;
+export default CertificationPage;

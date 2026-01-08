@@ -1,13 +1,20 @@
 import React from "react";
 import ConfigEntityPage from "./ConfigEntityPage.tsx";
 import { Diplome } from "../../../../types/profil/etude/Diplome.tsx";
+import { useAuth } from "../../../../context/AuthContext.tsx";
+import { DiplomeService } from "../../../../services/profil/etude/DiplomeService.tsx";
+
 const DiplomePage: React.FC = () => {
+  
+  const { api } = useAuth();
+  const diplomeService= new DiplomeService(api);
+  
   return (
     <ConfigEntityPage<Diplome>
       title="Gestion des Diplômes"
       entityLabel="label"
       entityName="Diplôme"
-      initialData={[]} 
+      service={diplomeService}
     />
   );
 };
