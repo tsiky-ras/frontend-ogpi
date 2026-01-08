@@ -12,31 +12,6 @@ import "./ConfigPage.css";
 
 /* =========================
    TYPES
-========================= */
-interface CrudService<T> {
-  getAll: () => Promise<T[]>;
-  create: (data: T) => Promise<T>;
-  update: (data: T) => Promise<T>;
-  delete: (id: number) => Promise<void>;
-}
-
-interface ConfigEntityPageProps<T extends { id: number | null }> {
-  title: string;
-  entityLabel: keyof T;
-  entityName: string;
-  service: CrudService<T>;
-}
-
-/* =========================
-   COMPONENT
-========================= */
-const ConfigEntityPage = <T extends { id: number | null }>({
-  title,
-  entityLabel,
-  entityName,
-  service,
-}: ConfigEntityPageProps<T>) => {
-  const [entities, setEntities] = useState<T[]>([]);
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);

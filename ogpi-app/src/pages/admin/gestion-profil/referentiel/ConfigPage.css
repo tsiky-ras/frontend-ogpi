@@ -1,0 +1,48 @@
+/* Layout global */
+.config-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding-top : 60px;
+}
+
+.config-wrapper {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.config-sidebar {
+  flex: 0 0 220px;
+  overflow-y: auto;
+}
+
+.config-main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* Liste */
+.config-list {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.config-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 6px;
+  border-bottom: 1px solid #eee;
+}
+
+.config-list-item:last-child {
+  border-bottom: none;
+}
+
+.config-list-item span {
+  font-weight: 500;
+}
