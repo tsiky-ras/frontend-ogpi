@@ -56,7 +56,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
   const [organismes, setOrganismes] = useState<{ id: number; label: string }[]>([]);
   const [certificationsList, setCertificationsList] = useState<{ id: number; label: string }[]>([]);
   const [BU, setBU] = useState<{ id: number; name: string }[]>([]);
-  const [hardSkillsList, setHardSkillsList] = useState<{ id: number; label: string }[]>([]);
+  const [hardSkillsList, setHardSkillsList] = useState<{ id: number; name: string }[]>([]);
   const [softSkillsList, setSoftSkillsList] = useState<{ id: number; label: string }[]>([]);
 
 
@@ -98,7 +98,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
         setOrganismes(organismeData.map(o => ({ id: o.id || 0, label: o.label })));
         setBU(buData.map(b => ({ id: b.id || 0, name: b.name })));
         setCertificationsList(certificationData.map(c => ({ id: c.id || 0, label: c.label })));
-        setHardSkillsList(hardSkillData.map(hs => ({ id: hs.id || 0, label: hs.label })));
+        setHardSkillsList(hardSkillData.map(hs => ({ id: hs.id || 0, name: hs.name || "" })));
         setSoftSkillsList(softSkillData.map(ss => ({ id: ss.id || 0, label: ss.label })));
       } catch (err) {
         console.error("Erreur chargement listes", err);
@@ -120,7 +120,7 @@ useEffect(() => {
       hard_skills: profil.hard_skills?.map((hs: any) => ({
         id: hs.id || 0,
         niveau: hs.niveau || "",
-        domaine: hs.hardSkills ? { id: hs.hardSkills.id, label: hs.hardSkills.label } : { id: 0, label: "" },
+        domaine: hs.hardSkills ? { id: hs.hardSkills.id, label: hs.hardSkills.name } : { id: 0, label: "" },
       })) || [],
       soft_skills: profil.soft_skills?.map((ss: any) => ({
         id: ss.id || 0,
@@ -176,7 +176,7 @@ useEffect(() => {
     else updated[i][key] = value;
     setForm({ ...form, hard_skills: updated });
   };
-  
+
   const removeHardSkill = (i: number) => setForm({ ...form, hard_skills: form.hard_skills.filter((_: any, index: number) => index !== i) });
 
   const addSoftSkill = () => setForm({ ...form, soft_skills: [...form.soft_skills, { id: 0, domaine: { id: 0, label: "" } }] });
@@ -224,7 +224,7 @@ useEffect(() => {
     profilCertifications: form.certifications?.map((c: any) => ({
       certification: { id: c.certification?.id || 0 },
       organisme: { id: c.organisme?.id || 0 },
-      obtention: c.obtention || "",   // obligatoire
+      obtention: c.obtention || "",   
       badge: c.badge || null,
       validUntil: c.validUntil || null,
       score: Number(c.score) || 0,
@@ -396,63 +396,71 @@ useEffect(() => {
             <h4>5. Certifications</h4>
 
             {form.certifications.map((c: any, i: number) => (
-              <Row className="g-3 mb-2 align-items-end" key={i}>
-                <Col md={3}>
-                  <Form.Label>Certification</Form.Label>
-                  <Form.Select
-                    value={c.certification?.id || ""}
-                    onChange={e => {
-                      const selected = certificationsList.find(cert => cert.id === Number(e.target.value));
-                      updateCertification(i, "certification", selected || null);
-                    }}
-                  >
-                    <option value="">Sélectionner une certification</option>
-                    {certificationsList.map(cert => (
-                      <option key={cert.id} value={cert.id}>{cert.label}</option>
-                    ))}
-                  </Form.Select>
-                </Col>
+          <Row className="g-3 mb-2 align-items-end" key={i}>
+              <Col md={3}>
+                <Form.Label>Certification</Form.Label>
+                <Form.Select
+                  value={c.certification?.id || ""}
+                  onChange={e => {
+                    const selected = certificationsList.find(cert => cert.id === Number(e.target.value));
+                    updateCertification(i, "certification", selected || null);
+                  }}
+                >
+                  <option value="">Sélectionner une certification</option>
+                  {certificationsList.map(cert => (
+                    <option key={cert.id} value={cert.id}>{cert.label}</option>
+                  ))}
+                </Form.Select>
+              </Col>
 
-                <Col md={3}>
-                  <Form.Label>Organisme</Form.Label>
-                  <Form.Select
-                    value={c.organisme?.id || ""}
-                    onChange={e => {
-                      const selected = organismes.find(o => o.id === Number(e.target.value));
-                      updateCertification(i, "organisme", selected || null);
-                    }}
-                  >
-                    <option value="">Sélectionner un organisme</option>
-                    {organismes.map(o => (
-                      <option key={o.id} value={o.id}>{o.label}</option>
-                    ))}
-                  </Form.Select>
-                </Col>
+              <Col md={3}>
+                <Form.Label>Organisme</Form.Label>
+                <Form.Select
+                  value={c.organisme?.id || ""}
+                  onChange={e => {
+                    const selected = organismes.find(o => o.id === Number(e.target.value));
+                    updateCertification(i, "organisme", selected || null);
+                  }}
+                >
+                  <option value="">Sélectionner un organisme</option>
+                  {organismes.map(o => (
+                    <option key={o.id} value={o.id}>{o.label}</option>
+                  ))}
+                </Form.Select>
+              </Col>
 
-                <Col md={2}>
-                  <Form.Label>Obtention</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={c.obtention || ""}
-                    onChange={e => updateCertification(i, "obtention", e.target.value)}
-                  />
-                </Col>
+              <Col md={2}>
+                <Form.Label>Obtention</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={c.obtention || ""}
+                  onChange={e => updateCertification(i, "obtention", e.target.value)}
+                />
+              </Col>
 
-                <Col md={2}>
-                  <Form.Label>Score</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={c.score || 0}
-                    onChange={e => updateCertification(i, "score", e.target.value)}
-                  />
-                </Col>
+              <Col md={2}>
+                <Form.Label>Score</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={c.score || 0}
+                  onChange={e => updateCertification(i, "score", e.target.value)}
+                />
+              </Col>
 
-                <Col md={1}>
-                  <Button variant="outline-danger" onClick={() => removeCertification(i)}>
-                    -
-                  </Button>
-                </Col>
-              </Row>
+              <Col md={2}>
+                <Form.Label>Badge</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={c.badge || ""}
+                  onChange={e => updateCertification(i, "badge", e.target.value)}
+                  placeholder="URL du badge"
+                />
+              </Col>
+
+              <Col md={1}>
+                <Button variant="outline-danger" onClick={() => removeCertification(i)}>-</Button>
+              </Col>
+            </Row>
             ))}
 
             <Button size="sm" variant="outline-primary" onClick={addCertification}>
@@ -476,7 +484,7 @@ useEffect(() => {
                   >
                     <option value="">Sélectionner un domaine</option>
                     {hardSkillsList.map(h => (
-                      <option key={h.id} value={h.id}>{h.label}</option>
+                      <option key={h.id} value={h.id}>{h.name}</option>
                     ))}
                   </Form.Select>
                 </Col>
