@@ -25,12 +25,12 @@ const App: React.FC = () => {
 
         {/* Admin sécurisé */}
         <Route
-          // path="/admin"
-          // element={
-          //   <AuthGuard>
-          //     <AdminLayout />
-          //   </AuthGuard>
-          // } 
+          path="/admin"
+          element={
+            <AuthGuard>
+              <AdminLayout />
+            </AuthGuard>
+          } 
         >
           <Route path="/admin/gestion-user" element={<ListeUser />} />
           <Route path="/admin/collaborateurs" element={<ListeProfils />} />
