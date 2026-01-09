@@ -6,7 +6,7 @@
 
 .spinner {
   border: 3px solid rgba(0, 0, 0, 0.12);
-  border-top-color: #000428;
+  border-top-color: #E8E5D7;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   box-sizing: border-box;
@@ -14,7 +14,7 @@
 
 .loader-text {
   font-size: 14px;
-  color: #101010;
+  color: #E8E5D7;
 }
 
 @keyframes spin {
