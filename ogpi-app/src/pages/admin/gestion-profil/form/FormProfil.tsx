@@ -188,60 +188,61 @@ useEffect(() => {
   const removeSoftSkill = (i: number) => setForm({ ...form, soft_skills: form.soft_skills.filter((_: any, index: number) => index !== i) });
 
   /* ===== Formatage pour le backend ===== */
-  const formatFormForBackend = (form: any, existingProfilId?: number) => ({
-    type: Number(form.type_profil) || 1,
-    contrat: Number(form.type_contrat) || 1,
-    matricule: form.matricule || "",
-    nom: form.nom || "",
-    prenom: form.prenom || "",
-    appellation: form.appelation || "",
-    sexe: Number(form.sexe) || 1,
-    emailPro: form.email_pro || "",       
-    emailPerso: form.email_perso || "",
-    telephone: form.telephone || "",
+const formatFormForBackend = (form: any, existingProfilId?: number) => ({
+  type: Number(form.type_profil) || 1,
+  contrat: Number(form.type_contrat) || 1,
+  matricule: form.matricule || "",
+  nom: form.nom || "",
+  prenom: form.prenom || "",
+  appellation: form.appelation || "",
+  sexe: Number(form.sexe) || 1,
+  emailPro: form.email_pro || "",       
+  emailPerso: form.email_perso || "",
+  telephone: form.telephone || "",
   experienceAvant: Number(form.experience_avant) || 0,
-    dateNaissance: form.date_naissance || undefined,
-    dateEmbauche: form.date_embauche || undefined,
-    dateIntegr: form.date_integration || undefined,
-    dateDebauche: form.date_debauche || null,
-    profilPostes: form.postes?.length
-      ? form.postes.map((p: any) => ({
-          poste: { id: p.poste?.id || 0 },
-          businessUnit: { id: p.businessUnit?.id || 0 },
-          startDate: p.startDate || "",
-          endDate: p.endDate || null,
-        }))
-      : [],
-    etudes: form.etudes?.length
-      ? form.etudes.map((e: any) => ({
-          diplome: { id: e.diplome?.id || 0 },
-          etablissement: { id: e.etablissement?.id || 0 },
-          filiere: { id: e.filiere?.id || 0 },
-          link: e.link || null,
-          obtention: e.obtention || "",
-        }))
-      : [],
-    profilCertifications: form.certifications?.map((c: any) => ({
-      certification: { id: c.certification?.id || 0 },
-      organisme: { id: c.organisme?.id || 0 },
-      obtention: c.obtention || "",   
-      badge: c.badge || null,
-      validUntil: c.validUntil || null,
-      score: Number(c.score) || 0,
-    })) || [],
-    hardSkillsNotes: form.hard_skills?.length
-      ? form.hard_skills.map((hs: any) => ({
-          note: Number(hs.niveau) || 0,
-          hardSkills: { id: hs.domaine?.id || 0 },
-        }))
-      : [],
-    profilSoftSkills: form.soft_skills?.length
-      ? form.soft_skills.map((ss: any) => ({
-          softSkills: { id: ss.domaine?.id || 0 },
-        }))
-      : [],
-    user: form.user || null,
-  });
+  dateNaissance: form.date_naissance || undefined,
+  dateEmbauche: form.date_embauche || undefined,
+  dateIntegr: form.date_integration || undefined,
+  dateDebauche: form.date_debauche || null,
+  profilPostes: form.postes?.length
+    ? form.postes.map((p: any) => ({
+        poste: { id: p.poste?.id || 0 },
+        businessUnit: { id: p.businessUnit?.id || 0 },
+        startDate: p.startDate || "",
+        endDate: p.endDate || null,
+      }))
+    : [],
+  etudes: form.etudes?.length
+    ? form.etudes.map((e: any) => ({
+        diplome: { id: e.diplome?.id || 0 },
+        etablissement: { id: e.etablissement?.id || 0 },
+        filiere: { id: e.filiere?.id || 0 },
+        link: e.file?.name || e.link || null, 
+        obtention: e.obtention || "",
+      }))
+    : [],
+  profilCertifications: form.certifications?.map((c: any) => ({
+    certification: { id: c.certification?.id || 0 },
+    organisme: { id: c.organisme?.id || 0 },
+    obtention: c.obtention || "",   
+    badge: c.badge || null,
+    validUntil: c.validUntil || null,
+    score: Number(c.score) || 0,
+  })) || [],
+  hardSkillsNotes: form.hard_skills?.length
+    ? form.hard_skills.map((hs: any) => ({
+        note: Number(hs.niveau) || 0,
+        hardSkills: { id: hs.domaine?.id || 0 },
+      }))
+    : [],
+  profilSoftSkills: form.soft_skills?.length
+    ? form.soft_skills.map((ss: any) => ({
+        softSkills: { id: ss.domaine?.id || 0 },
+      }))
+    : [],
+  user: form.user || null,
+});
+
 
   /* ===== Soumission du formulaire ===== */
   const handleSubmit = async () => {
@@ -333,7 +334,7 @@ useEffect(() => {
           </Row>
         </section>
 
-        {/* ===== Diplômes avec select dynamique ===== */}
+        {/* ===== Diplômes avec select dynamique et upload PDF ===== */}
         <section className="fiche-section">
           <h4>4. Diplômes</h4>
           {form.etudes.map((d: any, i: number) => (
@@ -351,6 +352,7 @@ useEffect(() => {
                   {diplomes.map(dip => <option key={dip.id} value={dip.id}>{dip.label}</option>)}
                 </Form.Select>
               </Col>
+
               <Col md={3}>
                 <Form.Label>Établissement</Form.Label>
                 <Form.Select
@@ -364,6 +366,7 @@ useEffect(() => {
                   {etablissements.map(etab => <option key={etab.id} value={etab.id}>{etab.label}</option>)}
                 </Form.Select>
               </Col>
+
               <Col md={3}>
                 <Form.Label>Filière</Form.Label>
                 <Form.Select
@@ -377,97 +380,39 @@ useEffect(() => {
                   {filieres.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
                 </Form.Select>
               </Col>
-              <Col md={2}>
-                <Form.Label>Obtention</Form.Label>
-                <Form.Control type="date" value={d.obtention || ""} onChange={e => updateDiplome(i, "obtention", e.target.value)} />
-              </Col>
-              <Col md={1}>
-                <Button variant="outline-danger" onClick={() => removeDiplome(i)}>-</Button>
-              </Col>
-            </Row>
-          ))}
-          <Button type="button" size="sm" variant="outline-primary" onClick={addDiplome}>
-            + Ajouter un diplôme
-          </Button>
-        </section>
-
-        {/* ===== Certifications avec select dynamique ===== */}
-          <section className="fiche-section">
-            <h4>5. Certifications</h4>
-
-            {form.certifications.map((c: any, i: number) => (
-          <Row className="g-3 mb-2 align-items-end" key={i}>
-              <Col md={3}>
-                <Form.Label>Certification</Form.Label>
-                <Form.Select
-                  value={c.certification?.id || ""}
-                  onChange={e => {
-                    const selected = certificationsList.find(cert => cert.id === Number(e.target.value));
-                    updateCertification(i, "certification", selected || null);
-                  }}
-                >
-                  <option value="">Sélectionner une certification</option>
-                  {certificationsList.map(cert => (
-                    <option key={cert.id} value={cert.id}>{cert.label}</option>
-                  ))}
-                </Form.Select>
-              </Col>
-
-              <Col md={3}>
-                <Form.Label>Organisme</Form.Label>
-                <Form.Select
-                  value={c.organisme?.id || ""}
-                  onChange={e => {
-                    const selected = organismes.find(o => o.id === Number(e.target.value));
-                    updateCertification(i, "organisme", selected || null);
-                  }}
-                >
-                  <option value="">Sélectionner un organisme</option>
-                  {organismes.map(o => (
-                    <option key={o.id} value={o.id}>{o.label}</option>
-                  ))}
-                </Form.Select>
-              </Col>
 
               <Col md={2}>
                 <Form.Label>Obtention</Form.Label>
                 <Form.Control
                   type="date"
-                  value={c.obtention || ""}
-                  onChange={e => updateCertification(i, "obtention", e.target.value)}
+                  value={d.obtention || ""}
+                  onChange={e => updateDiplome(i, "obtention", e.target.value)}
                 />
               </Col>
 
-              <Col md={2}>
-                <Form.Label>Score</Form.Label>
+              <Col md={4}>
+                <Form.Label>PDF du diplôme</Form.Label>
                 <Form.Control
-                  type="number"
-                  value={c.score || 0}
-                  onChange={e => updateCertification(i, "score", e.target.value)}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={e => {
+                    const file = e.target.files?.[0] || null;
+                    updateDiplome(i, "file", file);   // stocke le fichier
+                  }}
                 />
-              </Col>
-
-              <Col md={2}>
-                <Form.Label>Badge</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={c.badge || ""}
-                  onChange={e => updateCertification(i, "badge", e.target.value)}
-                  placeholder="URL du badge"
-                />
+                {d.file && <small className="text-muted">{d.file.name}</small>}
               </Col>
 
               <Col md={1}>
-                <Button variant="outline-danger" onClick={() => removeCertification(i)}>-</Button>
+                <Button variant="outline-danger" onClick={() => removeDiplome(i)}>-</Button>
               </Col>
             </Row>
-            ))}
+          ))}
 
-            <Button size="sm" variant="outline-primary" onClick={addCertification}>
-              + Ajouter une certification
-            </Button>
-          </section>
-
+          <Button type="button" size="sm" variant="outline-primary" onClick={addDiplome}>
+            + Ajouter un diplôme
+          </Button>
+        </section>
         {/* ===== Hard Skills ===== */}
         <section className="fiche-section">
           <h4>6. Hard Skills</h4>
