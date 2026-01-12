@@ -14,6 +14,7 @@ import { BusinessUnitService } from "../../../../services/profil/poste/BusinessU
 import { CertificationService } from "../../../../services/profil/certifications/CertificationService.tsx";
 import { HardSkillsService } from "../../../../services/profil/hardskills/HardSkillsService.tsx";
 import { SoftSkillsService } from "../../../../services/profil/softskills/SoftSkillsService.tsx";
+import { PosteService } from "../../../../services/profil/poste/PosteService.tsx";
 
 type FormProfilProps = {
   show: boolean;
@@ -38,7 +39,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
     email_perso: "",
     telephone: "",
     experience_avant: "",
-    poste: "",
+     postes: [] as ProfilPoste[], 
     bu: "",
     date_embauche: "",
     date_integration: "",
@@ -58,6 +59,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
   const [BU, setBU] = useState<{ id: number; name: string }[]>([]);
   const [hardSkillsList, setHardSkillsList] = useState<{ id: number; name: string }[]>([]);
   const [softSkillsList, setSoftSkillsList] = useState<{ id: number; label: string }[]>([]);
+  const [postesList, setPostesList] = useState<{ id: number; label: string }[]>([]);
 
 
   useEffect(() => {
@@ -71,6 +73,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
         const certificationService = new CertificationService(api);
         const hardSkillService = new HardSkillsService(api);
         const softSkillService = new SoftSkillsService(api);
+        const posteService = new PosteService(api);
 
         const [
           diplomeData,
@@ -80,7 +83,8 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
           buData,
           certificationData,
           hardSkillData,
-          softSkillData
+          softSkillData,
+          postesData,
         ] = await Promise.all([
           diplomeService.getAll(),
           etablissementService.getAll(),
@@ -89,7 +93,8 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
           buService.getAll(),
           certificationService.getAll(),
           hardSkillService.getAll(),
-          softSkillService.getAll()
+          softSkillService.getAll(),
+          posteService.getAll(),
         ]);
 
         setDiplomes(diplomeData.map(d => ({ id: d.id || 0, label: d.label })));
@@ -100,6 +105,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
         setCertificationsList(certificationData.map(c => ({ id: c.id || 0, label: c.label })));
         setHardSkillsList(hardSkillData.map(hs => ({ id: hs.id || 0, name: hs.name || "" })));
         setSoftSkillsList(softSkillData.map(ss => ({ id: ss.id || 0, label: ss.label })));
+        setPostesList(postesData.map(p => ({ id: p.id || 0, label: p.label })));
       } catch (err) {
         console.error("Erreur chargement listes", err);
       }
@@ -110,26 +116,26 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
 
 
   /* ===== MODE ÉDITION ===== */
-useEffect(() => {
-  if (profil) {
-    setForm({
-      ...form,
-      ...profil,
-      poste: profil.postes?.[0]?.poste?.label ?? "",
-      bu: profil.postes?.[0]?.bu?.name ?? "",
-      hard_skills: profil.hard_skills?.map((hs: any) => ({
-        id: hs.id || 0,
-        niveau: hs.niveau || "",
-        domaine: hs.hardSkills ? { id: hs.hardSkills.id, label: hs.hardSkills.name } : { id: 0, label: "" },
-      })) || [],
-      soft_skills: profil.soft_skills?.map((ss: any) => ({
-        id: ss.id || 0,
-        domaine: ss.softSkills ? { id: ss.softSkills.id, label: ss.softSkills.label } : { id: 0, label: "" },
-      })) || [],
-    });
-  }
-  // eslint-disable-next-line
-}, [profil]);
+  useEffect(() => {
+    if (profil) {
+      setForm({
+        ...form,
+        ...profil,
+        poste: profil.postes?.[0]?.poste?.label ?? "",
+        bu: profil.postes?.[0]?.bu?.name ?? "",
+        hard_skills: profil.hard_skills?.map((hs: any) => ({
+          id: hs.id || 0,
+          niveau: hs.niveau || "",
+          domaine: hs.hardSkills ? { id: hs.hardSkills.id, label: hs.hardSkills.name } : { id: 0, label: "" },
+        })) || [],
+        soft_skills: profil.soft_skills?.map((ss: any) => ({
+          id: ss.id || 0,
+          domaine: ss.softSkills ? { id: ss.softSkills.id, label: ss.softSkills.label } : { id: 0, label: "" },
+        })) || [],
+      });
+    }
+    // eslint-disable-next-line
+  }, [profil]);
 
 
   const handleChange = (e: React.ChangeEvent<any>) => {
@@ -206,8 +212,9 @@ const formatFormForBackend = (form: any, existingProfilId?: number) => ({
   dateDebauche: form.date_debauche || null,
   profilPostes: form.postes?.length
     ? form.postes.map((p: any) => ({
-        poste: { id: p.poste?.id || 0 },
-        businessUnit: { id: p.businessUnit?.id || 0 },
+        profilPosteId: p.profilPosteId || 0,
+        poste: { id: p.poste?.posteId || 0 },
+        businessUnit: { id: p.bu?.buId || 0 },
         startDate: p.startDate || "",
         endDate: p.endDate || null,
       }))
@@ -295,7 +302,6 @@ const formatFormForBackend = (form: any, existingProfilId?: number) => ({
         <section className="fiche-section">
           <h4>2. Organisation</h4>
           <Row className="g-3">
-            <Col md={4}><Form.Label>Poste actuel</Form.Label><Form.Control name="poste" value={form.poste} onChange={handleChange} /></Col>
             <Col md={4}>
               <Form.Label>Type de collaborateur</Form.Label>
               <Form.Select name="type_profil" value={form.type_profil} onChange={handleChange}>
@@ -303,16 +309,103 @@ const formatFormForBackend = (form: any, existingProfilId?: number) => ({
                 <option value={2}>Collaborateur externe</option>
               </Form.Select>
             </Col>
-            <Col md={4}>
-              <Form.Label>Business Unit</Form.Label>
-              <Form.Select name="bu" value={form.bu?.id || ""} onChange={e => {
-                const selected = BU.find(b => b.id === Number(e.target.value));
-                setForm({ ...form, bu: selected || null });
-              }}>
-                <option value="">Business Unit</option>
-                {BU.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </Form.Select>
-            </Col>
+            {/* ===== Poste actuel ===== */}
+              <Col md={3}>
+                <Form.Label>Poste actuel</Form.Label>
+                <Form.Select
+                  value={form.postes[0]?.poste?.posteId || ""}
+                  onChange={e => {
+                    const selectedPoste = postesList.find(p => p.id === Number(e.target.value)) || { id: 0, label: "" };
+                    const currentBU = form.postes[0]?.bu || { buId: 0, name: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        poste: { posteId: selectedPoste.id, label: selectedPoste.label },
+                        bu: currentBU,
+                        startDate: form.postes[0]?.startDate || "",
+                        endDate: form.postes[0]?.endDate || null,
+                        profilPosteId: form.postes[0]?.profilPosteId || 0,
+                      }]
+                    });
+                  }}
+                >
+                  <option value="">Sélectionner un poste</option>
+                  {postesList.map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </Form.Select>
+              </Col>
+
+              {/* ===== Business Unit ===== */}
+              <Col md={3}>
+                <Form.Label>Business Unit</Form.Label>
+                <Form.Select
+                  value={form.postes[0]?.bu?.buId || ""}
+                  onChange={e => {
+                    const selectedBU = BU.find(b => b.id === Number(e.target.value)) || { id: 0, name: "" };
+                    const currentPoste = form.postes[0]?.poste || { posteId: 0, label: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        poste: currentPoste,
+                        bu: { buId: selectedBU.id, name: selectedBU.name },
+                        startDate: form.postes[0]?.startDate || "",
+                        endDate: form.postes[0]?.endDate || null,
+                        profilPosteId: form.postes[0]?.profilPosteId || 0,
+                      }]
+                    });
+                  }}
+                >
+                  <option value="">Sélectionner une BU</option>
+                  {BU.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </Form.Select>
+              </Col>
+
+              {/* ===== Date de début ===== */}
+              <Col md={3}>
+                <Form.Label>Date de début</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={form.postes[0]?.startDate || ""}
+                  onChange={e => {
+                    const currentPoste = form.postes[0]?.poste || { posteId: 0, label: "" };
+                    const currentBU = form.postes[0]?.bu || { buId: 0, name: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        ...form.postes[0],
+                        poste: currentPoste,
+                        bu: currentBU,
+                        startDate: e.target.value,
+                      }]
+                    });
+                  }}
+                />
+              </Col>
+
+              {/* ===== Date de fin ===== */}
+              <Col md={3}>
+                <Form.Label>Date de fin</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={form.postes[0]?.endDate || ""}
+                  onChange={e => {
+                    const currentPoste = form.postes[0]?.poste || { posteId: 0, label: "" };
+                    const currentBU = form.postes[0]?.bu || { buId: 0, name: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        ...form.postes[0],
+                        poste: currentPoste,
+                        bu: currentBU,
+                        endDate: e.target.value,
+                      }]
+                    });
+                  }}
+                />
+              </Col>
           </Row>
         </section>
 
@@ -413,6 +506,84 @@ const formatFormForBackend = (form: any, existingProfilId?: number) => ({
             + Ajouter un diplôme
           </Button>
         </section>
+        
+          {/* ===== Certifications avec select dynamique ===== */}
+          <section className="fiche-section">
+            <h4>5. Certifications</h4>
+            {form.certifications.map((c: any, i: number) => (
+              <Row className="g-3 mb-2 align-items-end" key={i}>
+                <Col md={4}>
+                  <Form.Label>Certification</Form.Label>
+                  <Form.Select
+                    value={c.certification?.id || ""}
+                    onChange={e => {
+                      const selected = certificationsList.find(cert => cert.id === Number(e.target.value));
+                      updateCertification(i, "certification", selected || null);
+                    }}
+                  >
+                    <option value="">Sélectionner une certification</option>
+                    {certificationsList.map(cert => (
+                      <option key={cert.id} value={cert.id}>{cert.label}</option>
+                    ))}
+                  </Form.Select>
+                </Col>
+
+                <Col md={4}>
+                  <Form.Label>Organisme</Form.Label>
+                  <Form.Select
+                    value={c.organisme?.id || ""}
+                    onChange={e => {
+                      const selected = organismes.find(o => o.id === Number(e.target.value));
+                      updateCertification(i, "organisme", selected || null);
+                    }}
+                  >
+                    <option value="">Sélectionner un organisme</option>
+                    {organismes.map(o => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </Form.Select>
+                </Col>
+
+              <Col md={4}>
+                <Form.Label>Badge</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={c.badge || ""}
+                  onChange={e => updateCertification(i, "badge", e.target.value)}
+                  placeholder="URL du badge"
+                />
+              </Col>
+
+              <Col md={2}>
+                <Form.Label>Obtention</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={c.obtention || ""}
+                  onChange={e => updateCertification(i, "obtention", e.target.value)}
+                />
+              </Col>
+
+                <Col md={1}>
+                  <Form.Label>Score</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={c.score || 0}
+                    onChange={e => updateCertification(i, "score", e.target.value)}
+                  />
+                </Col>
+
+                <Col md={1}>
+                  <Button variant="outline-danger" onClick={() => removeCertification(i)}>
+                    -
+                  </Button>
+                </Col>
+              </Row>
+            ))}
+
+            <Button size="sm" variant="outline-primary" onClick={addCertification}>
+              + Ajouter une certification
+            </Button>
+        </section>
         {/* ===== Hard Skills ===== */}
         <section className="fiche-section">
           <h4>6. Hard Skills</h4>
@@ -434,7 +605,7 @@ const formatFormForBackend = (form: any, existingProfilId?: number) => ({
                   </Form.Select>
                 </Col>
                 <Col md={4}>
-                  <Form.Label>Niveau</Form.Label>
+                  <Form.Label>Niveau /20</Form.Label>
                   <Form.Control value={hs.niveau || ""} onChange={e => updateHardSkill(i, "niveau", e.target.value)} />
                 </Col>
                 <Col md={2}>

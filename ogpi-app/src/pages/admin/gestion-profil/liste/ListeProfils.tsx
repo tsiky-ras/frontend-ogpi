@@ -20,6 +20,13 @@ import "./ListeProfils.css";
 const getPosteActuel = (profil: Profil) =>
   profil.profilPostes?.find(p => !p.endDate);
 
+const getBusinessUnitName = (profil: Profil) =>
+  getPosteActuel(profil)?.businessUnit?.name ?? "—";
+
+// Pour récupérer le nom du poste
+const getPosteLabel = (profil: Profil) =>
+  getPosteActuel(profil)?.poste?.label ?? "—";
+
 /* Helpers */
 const getContractLabel = (c?: number) => {
   switch (c) {
@@ -47,19 +54,19 @@ const ListeProfils: React.FC = () => {
   const [mode, setMode] = useState<"view" | "edit" | null>(null);
 
   /* ===== Chargement des collaborateurs ===== */
-  useEffect(() => {
     const fetchProfils = async () => {
-      try {
-        const data = await getAll();
-        console.log("Profils chargés :", data);
-        setProfils(data);
-      } catch (err) {
-        console.error("Erreur chargement profils", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    try {
+      const data = await getAll();
+      console.log("Profils chargés :", data);
+      setProfils(data);
+    } catch (err) {
+      console.error("Erreur chargement profils", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProfils();
   }, []);
 
@@ -117,28 +124,15 @@ const ListeProfils: React.FC = () => {
     {
       key: "poste",
       label: "Poste",
-      render: (row: Profil) =>
-        getPosteActuel(row)?.poste?.label ?? "—",
+      render: (row: Profil) => getPosteLabel(row),
     },
     {
-      key: "bu",
+      key: "businessUnit",
       label: "Business Unit",
-      render: (row: Profil) =>
-        getPosteActuel(row)?.bu?.name ?? "—",
+      render: (row: Profil) => getBusinessUnitName(row),
     },
     { key: "emailPro", label: "Email professionnel" },
-    {
-      key: "badge",
-      label: "Badge numérique",
-      render: (row: Profil) => {
-        const certWithBadge = (row as any).certifications?.find((c: any) => c.badge);
-        return certWithBadge ? (
-          <a href={certWithBadge.badge} target="_blank" rel="noreferrer">
-            <img src={certWithBadge.badge} alt="badge" style={{ height: 26 }} />
-          </a>
-        ) : "—";
-      },
-    },
+    { key: "telephone", label: "Téléphone" },
     {
       key: "actions",
       label: "Actions",
@@ -249,6 +243,7 @@ const ListeProfils: React.FC = () => {
             setMode(null);
           }}
           onSubmit={() => {
+            fetchProfils();
             setShowFormProfil(false);
             setSelectedProfil(null);
             setMode(null);
