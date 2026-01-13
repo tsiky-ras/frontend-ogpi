@@ -57,6 +57,9 @@ const ListeProfils: React.FC = () => {
   const [showFormProfil, setShowFormProfil] = useState(false);
   const [selectedProfilId, setSelectedProfilId] = useState<number | null>(null);
 
+  const [contrat, setContrat] = useState(""); // nouvel état pour le filtre contrat
+
+
   const selectedProfil =
     selectedProfilId !== null
       ? profils.find(p => p.id === selectedProfilId) ?? null
@@ -100,6 +103,13 @@ const ListeProfils: React.FC = () => {
     })),
   ];
 
+  const contratOptions = [
+  { value: "", label: "Tous les contrats" },
+  { value: "1", label: getContractLabel(1) },
+  { value: "2", label: getContractLabel(2) },
+  { value: "3", label: getContractLabel(3) },
+];
+
   /* ===== Filtrage ===== */
   const filteredProfils = profils.filter(p => {
     const searchLower = search.toLowerCase();
@@ -112,14 +122,17 @@ const ListeProfils: React.FC = () => {
     const currentBuId = getPosteActuel(p)?.businessUnit?.id;
     const matchBu = bu ? String(currentBuId) === bu : true;
 
-    return matchSearch && matchBu;
+    const matchContrat = contrat ? String(p.contrat) === contrat : true;
+
+    return matchSearch && matchBu && matchContrat;
   });
+
 
   /* ===== Colonnes tableau ===== */
   const columns = [
     { key: "matricule", label: "Matricule" },
     { key: "nom", label: "Nom" },
-    { key: "prenom", label: "Prénom" },
+    { key: "prenom", label: "Prénom(s)" },
     {
       key: "contrat",
       label: "Contrat",
@@ -223,6 +236,7 @@ const ListeProfils: React.FC = () => {
                 />
               </div>
             </div>
+
             <FilterBar
               filters={[
                 {
@@ -235,6 +249,12 @@ const ListeProfils: React.FC = () => {
                   options: buOptions,
                   value: bu,
                   onChange: setBu,
+                },
+                {
+                  type: "select",
+                  options: contratOptions,
+                  value: contrat,
+                  onChange: setContrat,
                 },
               ]}
             />
