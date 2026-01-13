@@ -25,6 +25,11 @@ export interface Profil {
   date_debauche?: string;
   experience_avant?: number;
 
+  seniorityDays?: number;
+  seniorityWeeks?: number;
+  seniorityMonths?: number;
+  seniorityYears?: number;
+
   profilPostes: ProfilPoste[];
   etudes: ProfilEtude[];
   certifications: ProfilCertification[];

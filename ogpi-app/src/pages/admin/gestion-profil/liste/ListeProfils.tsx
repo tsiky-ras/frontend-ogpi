@@ -127,16 +127,10 @@ const ListeProfils: React.FC = () => {
         getContractLabel((row as any).type_contrat ?? (row as any).contrat),
     },
     {
-      key: "date_integration",
-      label: "Date intégration",
+      key: "dateEmbauche",
+      label: "Date d'embauche",
       render: (row: Profil) =>
-        fmt((row as any).date_integration ?? (row as any).dateIntegr),
-    },
-    {
-      key: "date_debauche",
-      label: "Date débauche",
-      render: (row: Profil) =>
-        fmt((row as any).date_debauche ?? (row as any).dateDebauche),
+        fmt((row as any).dateEmbauche ?? (row as any).dateEmbauche),
     },
     {
       key: "poste",
@@ -214,8 +208,21 @@ const ListeProfils: React.FC = () => {
                   variant={["tomato", "charcoal"]}
                 />
               </div>
+              <div className="col-md-4">
+                <StatCard
+                  title="Collaborateurs internes"
+                  value={profils.filter(p => p.type === 1).length}
+                  variant={["dim", "linen"]}
+                />
+              </div>
+              <div className="col-md-4">
+                <StatCard
+                  title="Collaborateurs externes"
+                  value={profils.filter(p => p.type === 2).length}
+                  variant={["tuscan", "linen"]}
+                />
+              </div>
             </div>
-
             <FilterBar
               filters={[
                 {

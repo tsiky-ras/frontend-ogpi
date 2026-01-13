@@ -28,6 +28,8 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
     }
   };
 
+  
+
   const getSexLabel = (s?: number) => {
     if (s === 1) return "Masculin";
     if (s === 2) return "Féminin";
@@ -99,8 +101,9 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
               {posteActuel?.businessUnit?.name ?? "—"}
             </div>
             <div>
-              <strong>Seniorité (années) :</strong>{" "}
-              {profil.expAvant ?? 0}
+              <strong>Séniorité :</strong>{" "}
+              {profil.seniorityDays} jours / {profil.seniorityWeeks} semaines /{" "}
+              {profil.seniorityMonths} mois / {profil.seniorityYears} ans
             </div>
             <div>
               <strong>Email pro :</strong> {profil.emailPro ?? "—"}

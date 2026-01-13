@@ -22,10 +22,7 @@ export const useProfilService = () => {
   };
 
   const update = async (profil: Profil): Promise<Profil> => {
-    const res = await api.put(
-      `${base}/update/${profil.profil_id}`,
-      profil
-    );
+    const res = await api.put(`/profils/update/${profil.id}`, profil);
     return res.data;
   };
 
