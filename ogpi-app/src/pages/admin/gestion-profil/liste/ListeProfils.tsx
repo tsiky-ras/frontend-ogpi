@@ -25,8 +25,6 @@ const getPosteActuel = (profil: Profil) =>
 const getBusinessUnitName = (profil: Profil) =>
   getPosteActuel(profil)?.businessUnit?.name ?? "—";
 
-
-// Pour récupérer le nom du poste
 const getPosteLabel = (profil: Profil) =>
   getPosteActuel(profil)?.poste?.label ?? "—";
 
@@ -46,34 +44,40 @@ const fmt = (d?: string | null) =>
 /* ================= COMPONENT ================= */
 const ListeProfils: React.FC = () => {
   const { getAll } = useProfilService();
+  const { api } = useAuth();
 
   const [profils, setProfils] = useState<Profil[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [bu, setBu] = useState("");
-  const [selectedProfil, setSelectedProfil] = useState<Profil | null>(null);
-  const [showFormProfil, setShowFormProfil] = useState(false);
-  const [mode, setMode] = useState<"view" | "edit" | null>(null);
-  const { api } = useAuth();
   const [bus, setBus] = useState<{ id: number; name: string }[]>([]);
 
+  const [mode, setMode] = useState<"view" | "edit" | null>(null);
+  const [showFormProfil, setShowFormProfil] = useState(false);
+  const [selectedProfilId, setSelectedProfilId] = useState<number | null>(null);
+
+  const selectedProfil =
+    selectedProfilId !== null
+      ? profils.find(p => p.id === selectedProfilId) ?? null
+      : null;
+
+  /* ===== Chargement BU ===== */
   const fetchBU = async () => {
-  try {
-    const buService = new BusinessUnitService(api);
-    const data = await buService.getAll();
-    setBus(data.map(b => ({ id: b.id, name: b.name })));
-  } catch (err) {
-    console.error("Erreur chargement BU", err);
-  }
-};
+    try {
+      const buService = new BusinessUnitService(api);
+      const data = await buService.getAll();
+      setBus(data.map(b => ({ id: b.id, name: b.name })));
+    } catch (err) {
+      console.error("Erreur chargement BU", err);
+    }
+  };
 
-
-  /* ===== Chargement des collaborateurs ===== */
-    const fetchProfils = async () => {
+  /* ===== Chargement profils ===== */
+  const fetchProfils = async () => {
     try {
       const data = await getAll();
-      console.log("Profils chargés :", data);
+      console.log("Data profils fetched:", data);
       setProfils(data);
     } catch (err) {
       console.error("Erreur chargement profils", err);
@@ -95,7 +99,6 @@ const ListeProfils: React.FC = () => {
       label: b.name,
     })),
   ];
-
 
   /* ===== Filtrage ===== */
   const filteredProfils = profils.filter(p => {
@@ -153,11 +156,11 @@ const ListeProfils: React.FC = () => {
       render: (row: Profil) => (
         <MenuListeProfils
           onView={() => {
-            setSelectedProfil(row);
+            setSelectedProfilId(row.id);
             setMode("view");
           }}
           onEdit={() => {
-            setSelectedProfil(row);
+            setSelectedProfilId(row.id);
             setMode("edit");
             setShowFormProfil(true);
           }}
@@ -195,7 +198,7 @@ const ListeProfils: React.FC = () => {
                   label="Nouveau collaborateur"
                   icon={<FaPlus />}
                   onClick={() => {
-                    setSelectedProfil(null);
+                    setSelectedProfilId(null);
                     setMode("edit");
                     setShowFormProfil(true);
                   }}
@@ -241,7 +244,7 @@ const ListeProfils: React.FC = () => {
         <FicheProfil
           profil={selectedProfil}
           onClose={() => {
-            setSelectedProfil(null);
+            setSelectedProfilId(null);
             setMode(null);
           }}
         />
@@ -253,13 +256,13 @@ const ListeProfils: React.FC = () => {
           profil={selectedProfil}
           onClose={() => {
             setShowFormProfil(false);
-            setSelectedProfil(null);
+            setSelectedProfilId(null);
             setMode(null);
           }}
           onSubmit={() => {
             fetchProfils();
             setShowFormProfil(false);
-            setSelectedProfil(null);
+            setSelectedProfilId(null);
             setMode(null);
           }}
         />

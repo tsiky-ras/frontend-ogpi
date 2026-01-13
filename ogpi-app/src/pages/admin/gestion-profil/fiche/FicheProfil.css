@@ -173,5 +173,22 @@
 .soft-skills-list li {
   margin-bottom: 6px;
 }
+.cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-item {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 220px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.card-item strong {
+  color: #333;
+}
 
 

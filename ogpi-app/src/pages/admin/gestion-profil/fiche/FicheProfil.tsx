@@ -11,33 +11,11 @@ type FicheProfilProps = {
 const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
   if (!profil) return null;
 
-  const getPosteActuel = () => profil.postes?.find((p: any) => !p.endDate) || null;
-  const getYear = (dateStr?: string) => (dateStr ? new Date(dateStr).getFullYear() : "—");
+  /* ===== Helpers ===== */
+  const getPosteActuel = () =>
+    profil.profilPostes?.find((p) => !p.endDate) ?? null;
 
-  // Map properties from possible back-end shapes to the schema provided
-  const profilType = (profil as any).profil_type ?? (profil as any).type_profil ?? null;
-  const profilContrat = (profil as any).profil_contrat ?? (profil as any).type_contrat ?? (profil as any).typeContrat ?? null;
-  const profilSexe = (profil as any).profil_sexe ?? (profil as any).sexe ?? null;
-  const profilMatricule = (profil as any).profil_matricule ?? profil.matricule ?? "—";
-  const profilAppelation = (profil as any).profil_appelation ?? (profil as any).appelation ?? (profil as any).appelationLabel ?? "—";
-  const profilPoste = (profil as any).profil_poste ?? getPosteActuel()?.poste?.label ?? (profil as any).poste ?? "—";
-  const profilEmailPro = (profil as any).profil_email_pro ?? (profil as any).email_pro ?? (profil as any).email ?? "—";
-  const profilEmailPerso = (profil as any).profil_email_perso ?? (profil as any).email_perso ?? "—";
-  const profilTelephone = (profil as any).profil_telephone ?? profil.telephone ?? profil.phone ?? "—";
-
-  const dateEmbauche = (profil as any).profil_date_embauche ?? (profil as any).date_embauche ?? (profil as any).dateEmbauche ?? undefined;
-  const dateIntegration = (profil as any).profil_date_integr ?? (profil as any).date_integration ?? undefined;
-  const dateDebauche = (profil as any).profil_date_debauche ?? (profil as any).date_debauche ?? undefined;
-  const dateNaissance = (profil as any).profil_date_naissance ?? (profil as any).date_naissance ?? (profil as any).dateNaissance ?? undefined;
-
-  const expAvant = (profil as any).profil_exp_avant ?? profil.experience_avant ?? 0;
-  const getSexLabel = (s?: number | null) => {
-    if (s === 1) return "Masculin";
-    if (s === 2) return "Féminin";
-    return "—";
-  };
-
-    const getContractLabel = (c?: number) => {
+  const getContractLabel = (c?: number) => {
     switch (c) {
       case 1:
         return "CDI";
@@ -49,17 +27,43 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
         return "—";
     }
   };
+
+  const getSexLabel = (s?: number) => {
+    if (s === 1) return "Masculin";
+    if (s === 2) return "Féminin";
+    return "—";
+  };
+
+  const fmtDate = (d?: string | null) =>
+    d ? new Date(d).toLocaleDateString() : "—";
+
+  const posteActuel = getPosteActuel();
+
   return (
-    <Modal show={!!profil} onHide={onClose} size="lg" centered className="fiche-profil-modal">
+    <Modal
+      show={!!profil}
+      onHide={onClose}
+      size="lg"
+      centered
+      className="fiche-profil-modal"
+    >
       <Modal.Header closeButton>
-        <Modal.Title>Fiche de : {profil.prenom} {profil.nom}</Modal.Title>
+        <Modal.Title>
+          Fiche de : {profil.prenom} {profil.nom}
+        </Modal.Title>
       </Modal.Header>
 
       <Modal.Body className="fiche-profil-body">
-        {/* Sticker Type de collaborateur */}
+        {/* Badge type de collaborateur */}
         <div className="type-collab-badge-wrapper">
-          <span className={`type-collab-badge ${profil.type_profil === 1 ? "interne" : "externe"}`}>
-            {profil.type_profil === 1 ? "Collaborateur interne" : "Collaborateur externe"}
+          <span
+            className={`type-collab-badge ${
+              profil.type === 1 ? "interne" : "externe"
+            }`}
+          >
+            {profil.type === 1
+              ? "Collaborateur interne"
+              : "Collaborateur externe"}
           </span>
         </div>
 
@@ -68,40 +72,44 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
           <h4>1. Identité professionnelle</h4>
           <div className="fiche-grid">
             <div>
-              <strong>Matricule :</strong> {profilMatricule}
+              <strong>Matricule :</strong> {profil.matricule ?? "—"}
             </div>
             <div>
-              <strong>Nom :</strong> {profil.nom ?? profil.nom}
+              <strong>Nom :</strong> {profil.nom ?? "—"}
             </div>
             <div>
-              <strong>Prénom :</strong> {profil.prenom ?? profil.prenom}
+              <strong>Prénom :</strong> {profil.prenom ?? "—"}
             </div>
             <div>
-              <strong>Date de naissance :</strong> {dateNaissance ? new Date(dateNaissance).toLocaleDateString() : '—'}
+              <strong>Date de naissance :</strong>{" "}
+              {fmtDate(profil.dateNaissance)}
             </div>
             <div>
-              <strong>Appellation :</strong> {profilAppelation}
+              <strong>Appellation :</strong> {profil.appellation ?? "—"}
             </div>
             <div>
-              <strong>Sexe :</strong> {getSexLabel(profilSexe)}
+              <strong>Sexe :</strong> {getSexLabel(profil.sexe)}
             </div>
             <div>
-              <strong>Poste actuel / Rôle :</strong> {profilPoste}
+              <strong>Poste actuel / Rôle :</strong>{" "}
+              {posteActuel?.poste?.label ?? "—"}
             </div>
             <div>
-              <strong>BU d’appartenance :</strong> {getPosteActuel()?.bu?.name ?? "—"}
+              <strong>BU d’appartenance :</strong>{" "}
+              {posteActuel?.businessUnit?.name ?? "—"}
             </div>
             <div>
-              <strong>Seniorité (années) :</strong> {expAvant}
+              <strong>Seniorité (années) :</strong>{" "}
+              {profil.expAvant ?? 0}
             </div>
             <div>
-              <strong>Email pro :</strong> {profilEmailPro}
+              <strong>Email pro :</strong> {profil.emailPro ?? "—"}
             </div>
             <div>
-              <strong>Email perso :</strong> {profilEmailPerso}
+              <strong>Email perso :</strong> {profil.emailPerso ?? "—"}
             </div>
             <div>
-              <strong>Téléphone :</strong> {profilTelephone}
+              <strong>Téléphone :</strong> {profil.telephone ?? "—"}
             </div>
           </div>
         </section>
@@ -111,111 +119,103 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
           <h4>2. Contrat & Dates</h4>
           <div className="fiche-grid">
             <div>
-              <strong>Type de profil :</strong>{' '}
-              {profil.type_profil === 1 ? "Collaborateur interne" : "Collaborateur externe"}
+              <strong>Type de contrat :</strong>{" "}
+              {getContractLabel(profil.contrat)}
             </div>
             <div>
-              <strong>Type de contrat :</strong> {getContractLabel(profil.type_contrat)}
+              <strong>Date d'embauche :</strong> {fmtDate(profil.dateEmbauche)}
             </div>
             <div>
-              <strong>Date d'embauche :</strong> {dateEmbauche ? new Date(dateEmbauche).toLocaleDateString() : '—'}
+              <strong>Date d'intégration :</strong>{" "}
+              {fmtDate(profil.dateIntegr)}
             </div>
             <div>
-              <strong>Date d'intégration :</strong> {dateIntegration ? new Date(dateIntegration).toLocaleDateString() : '—'}
-            </div>
-            <div>
-              <strong>Date de fin / débauche :</strong> {dateDebauche ? new Date(dateDebauche).toLocaleDateString() : '—'}
+              <strong>Date de fin / débauche :</strong>{" "}
+              {fmtDate(profil.dateDebauche)}
             </div>
           </div>
         </section>
 
         {/* ===== Diplômes ===== */}
         <section className="fiche-section">
-          <h4>2. Diplômes</h4>
-          {profil.etudes.length === 0 && <p>Aucun diplôme renseigné</p>}
-          {profil.etudes.map(e => (
-            <div className="fiche-grid" key={e.profilEtudeId}>
-              <div>
-                <strong>Niveau d’étude :</strong> {e.diplome.label}
-              </div>
-              <div>
-                <strong>Université / Établissement :</strong> {e.etablissement.label}
-              </div>
-              <div>
-                <div>
-                <strong>Année d’obtention :</strong> {getYear(e.obtention)}
+          <h4>3. Diplômes</h4>
+          {(!profil.etudes || profil.etudes.length === 0) ? (
+            <p>Aucun diplôme renseigné</p>
+          ) : (
+            <div className="cards-container">
+              {profil.etudes.map((e) => (
+                <div className="card-item" key={e.id}>
+                  <div><strong>Niveau :</strong> {e.diplome?.label ?? "—"}</div>
+                  <div><strong>Filière :</strong> {e.filiere?.label ?? "—"}</div>
+                  <div><strong>Université :</strong> {e.etablissement?.label ?? "—"}</div>
+                  <div><strong>Année :</strong> {e.obtention ? new Date(e.obtention).getFullYear() : "—"}</div>
+                  {e.link && (
+                    <div>
+                      <strong>Pièce jointe :</strong>{" "}
+                      <a href={e.link} target="_blank" rel="noreferrer">Télécharger</a>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div>
-                <strong>Pièce jointe :</strong> 
-                <a href="#" className="fiche-link"> Télécharger PDF</a>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </section>
 
         {/* ===== Certifications ===== */}
         <section className="fiche-section">
-          <h4>3. Certifications</h4>
-          {profil.certifications.length === 0 && <p>Aucune certification</p>}
-          {profil.certifications.map(c => (
-            <div className="fiche-grid" key={c.id}>
-              <div>
-                <strong>Nom :</strong> {c.label}
-              </div>
-              <div>
-                <strong>Organisme :</strong> {c.organisme.label}
-              </div>
-              <div>
-                <strong>Date d’obtention :</strong> {c.obtention}
-              </div>
-              <div>
-                <strong>Niveau / Score :</strong> {c.score ?? "—"}
-              </div>
-              <div>
-                <strong>Badge numérique :</strong>{' '}
-                {c.badge ? (
-                  <a href={c.badge} target="_blank" rel="noreferrer" className="fiche-badge-link">
-                    <span>{c.label}</span>
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </div>
+          <h4>4. Certifications</h4>
+          {(!profil.profilCertifications || profil.profilCertifications.length === 0) ? (
+            <p>Aucune certification</p>
+          ) : (
+            <div className="cards-container">
+              {profil.profilCertifications.map((c) => (
+                <div className="card-item" key={c.id}>
+                  <div><strong>Nom :</strong> {c.certification?.label ?? "—"}</div>
+                  <div><strong>Organisme :</strong> {c.organisme?.label ?? "—"}</div>
+                  <div><strong>Date :</strong> {fmtDate(c.obtention)}</div>
+                  <div><strong>Score :</strong> {c.score ?? "—"}</div>
+                  <div>
+                    <strong>Badge :</strong>{" "}
+                    {c.badge ? (
+                      <a href={c.badge} target="_blank" rel="noreferrer">Voir Badge</a>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </section>
 
         {/* ===== Hard Skills ===== */}
         <section className="fiche-section">
-          <h4>4. Hard Skills</h4>
-          {profil.hard_skills.length === 0 && <p>Aucune compétence technique</p>}
-          {profil.hard_skills.map(h => (
-            <div className="fiche-grid" key={h.id}>
-              <div>
-                <strong>Compétence :</strong> {h.domaine.label}
-              </div>
-              <div>
-                <strong>Niveau :</strong> {h.niveau}
-              </div>
-            </div>
-          ))}
+          <h4>5. Hard Skills</h4>
+          {(!profil.hardSkillsNotes || profil.hardSkillsNotes.length === 0) ? (
+            <p>Aucune compétence technique</p>
+          ) : (
+            <ul className="profil-list">
+              {profil.hardSkillsNotes.map((h) => (
+                <li key={h.id}>
+                  <strong>Compétence :</strong> {h.hardSkills?.name ?? "—"} |{" "}
+                  <strong>Note :</strong> {h.note ?? "—"}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {/* ===== Soft Skills ===== */}
         <section className="fiche-section">
-          <h4>5. Soft Skills</h4>
-
-          {profil.soft_skills && profil.soft_skills.length > 0 ? (
+          <h4>6. Soft Skills</h4>
+          {(!profil.profilSoftSkills || profil.profilSoftSkills.length === 0) ? (
+            <p>Aucune soft skill</p>
+          ) : (
             <ul className="soft-skills-list">
-              {profil.soft_skills.map(s => (
-                <li key={s.id}>
-                  {s.domaine.label}
-                </li>
+              {profil.profilSoftSkills.map((s) => (
+                <li key={s.id}>{s.softSkills?.label ?? "—"}</li>
               ))}
             </ul>
-          ) : (
-            <p>Aucune soft skill</p>
           )}
         </section>
       </Modal.Body>
