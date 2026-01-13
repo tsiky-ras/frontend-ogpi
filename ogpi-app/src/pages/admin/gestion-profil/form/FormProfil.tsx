@@ -117,26 +117,88 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
 
   /* ===== MODE ÉDITION ===== */
   useEffect(() => {
-    if (profil) {
-      setForm({
-        ...form,
-        ...profil,
-        poste: profil.postes?.[0]?.poste?.label ?? "",
-        bu: profil.postes?.[0]?.bu?.name ?? "",
-        hard_skills: profil.hard_skills?.map((hs: any) => ({
-          id: hs.id || 0,
-          niveau: hs.niveau || "",
-          domaine: hs.hardSkills ? { id: hs.hardSkills.id, label: hs.hardSkills.name } : { id: 0, label: "" },
-        })) || [],
-        soft_skills: profil.soft_skills?.map((ss: any) => ({
-          id: ss.id || 0,
-          domaine: ss.softSkills ? { id: ss.softSkills.id, label: ss.softSkills.label } : { id: 0, label: "" },
-        })) || [],
-      });
-    }
-    // eslint-disable-next-line
-  }, [profil]);
+    if (!profil) return;
 
+    // ✅ DÉFINITION DU POSTE ACTUEL
+    const posteActuel = profil.profilPostes?.find(
+      p => p.endDate === null || p.endDate === undefined
+    );
+
+    setForm(prev => ({
+      ...prev,
+      ...profil,
+
+      // ===== Identité =====
+      appelation: profil.appellation || "",
+      email_pro: profil.emailPro || "",
+      email_perso: profil.emailPerso || "",
+      date_naissance: profil.dateNaissance || "",
+
+      // ===== Dates =====
+      date_embauche: profil.dateEmbauche || "",
+      date_integration: profil.dateIntegr || "",
+
+      // ===== Poste actuel =====
+      postes: posteActuel
+        ? [{
+            profilPosteId: posteActuel.id, // ✅ id
+            poste: {
+              posteId: posteActuel.poste?.id || 0,   // ✅ id (PAS posteId)
+              label: posteActuel.poste?.label || "",
+            },
+            bu: {
+              buId: posteActuel.businessUnit?.id || 0,
+              name: posteActuel.businessUnit?.name || "",
+            },
+            startDate: posteActuel.startDate || "",
+            endDate: posteActuel.endDate || null,
+          }]
+        : [],
+
+      // ===== Diplômes =====
+      etudes: profil.etudes?.map(e => ({
+        diplome: e.diplome ? { id: e.diplome.id, label: e.diplome.label } : null,
+        etablissement: e.etablissement ? { id: e.etablissement.id, label: e.etablissement.label } : null,
+        filiere: e.filiere ? { id: e.filiere.id, label: e.filiere.label } : null,
+        obtention: e.obtention || "",
+        link: e.link || "",
+        file: null,
+      })) || [],
+
+      // ===== Certifications =====
+      certifications: profil.profilCertifications?.map(c => ({
+        certification: c.certification
+          ? { id: c.certification.id, label: c.certification.label }
+          : null,
+        organisme: c.organisme
+          ? { id: c.organisme.id, label: c.organisme.label }
+          : null,
+        obtention: c.obtention || "",
+        badge: c.badge || "",
+        score: c.score || 0,
+        validUntil: c.validUntil || "",
+      })) || [],
+
+      // ===== Hard skills =====
+      hard_skills: profil.hardSkillsNotes?.map(hs => ({
+        id: hs.id || 0,
+        niveau: hs.note || 0,
+        domaine: hs.hardSkills
+          ? { id: hs.hardSkills.id, label: hs.hardSkills.name }
+          : { id: 0, label: "" },
+      })) || [],
+
+      // ===== Soft skills =====
+      soft_skills: profil.profilSoftSkills?.map(ss => ({
+        id: ss.id || 0,
+        domaine: ss.softSkills
+          ? { id: ss.softSkills.id, label: ss.softSkills.label }
+          : { id: 0, label: "" },
+      })) || [],
+    }));
+
+    console.log("Profil chargé :", profil);
+  }, [profil]);
 
   const handleChange = (e: React.ChangeEvent<any>) => {
     const { name, value } = e.target;
@@ -194,69 +256,72 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
   const removeSoftSkill = (i: number) => setForm({ ...form, soft_skills: form.soft_skills.filter((_: any, index: number) => index !== i) });
 
   /* ===== Formatage pour le backend ===== */
-const formatFormForBackend = (form: any, existingProfilId?: number) => ({
-  type: Number(form.type_profil) || 1,
-  contrat: Number(form.type_contrat) || 1,
-  matricule: form.matricule || "",
-  nom: form.nom || "",
-  prenom: form.prenom || "",
-  appellation: form.appelation || "",
-  sexe: Number(form.sexe) || 1,
-  emailPro: form.email_pro || "",       
-  emailPerso: form.email_perso || "",
-  telephone: form.telephone || "",
-  experienceAvant: Number(form.experience_avant) || 0,
-  dateNaissance: form.date_naissance || undefined,
-  dateEmbauche: form.date_embauche || undefined,
-  dateIntegr: form.date_integration || undefined,
-  dateDebauche: form.date_debauche || null,
-  profilPostes: form.postes?.length
-    ? form.postes.map((p: any) => ({
-        profilPosteId: p.profilPosteId || 0,
-        poste: { id: p.poste?.posteId || 0 },
-        businessUnit: { id: p.bu?.buId || 0 },
-        startDate: p.startDate || "",
-        endDate: p.endDate || null,
-      }))
-    : [],
-  etudes: form.etudes?.length
-    ? form.etudes.map((e: any) => ({
-        diplome: { id: e.diplome?.id || 0 },
-        etablissement: { id: e.etablissement?.id || 0 },
-        filiere: { id: e.filiere?.id || 0 },
-        link: e.file?.name || e.link || null, 
-        obtention: e.obtention || "",
-      }))
-    : [],
-  profilCertifications: form.certifications?.map((c: any) => ({
-    certification: { id: c.certification?.id || 0 },
-    organisme: { id: c.organisme?.id || 0 },
-    obtention: c.obtention || "",   
-    badge: c.badge || null,
-    validUntil: c.validUntil || null,
-    score: Number(c.score) || 0,
-  })) || [],
-  hardSkillsNotes: form.hard_skills?.length
-    ? form.hard_skills.map((hs: any) => ({
-        note: Number(hs.niveau) || 0,
-        hardSkills: { id: hs.domaine?.id || 0 },
-      }))
-    : [],
-  profilSoftSkills: form.soft_skills?.length
-    ? form.soft_skills.map((ss: any) => ({
-        softSkills: { id: ss.domaine?.id || 0 },
-      }))
-    : [],
-  user: form.user || null,
-});
+  const formatFormForBackend = (form: any, existingProfilId?: number) => ({
+    id: existingProfilId,
+    type: Number(form.type_profil) || 1,
+    contrat: Number(form.type_contrat) || 1,
+    matricule: form.matricule || "",
+    nom: form.nom || "",
+    prenom: form.prenom || "",
+    appellation: form.appelation || "",
+    sexe: Number(form.sexe) || 1,
+    emailPro: form.email_pro || "",       
+    emailPerso: form.email_perso || "",
+    telephone: form.telephone || "",
+    experienceAvant: Number(form.experience_avant) || 0,
+    dateNaissance: form.date_naissance || undefined,
+    dateEmbauche: form.date_embauche || undefined,
+    dateIntegr: form.date_integration || undefined,
+    dateDebauche: form.date_debauche || null,
+    profilPostes: form.postes?.length
+      ? form.postes.map((p: any) => ({
+          id: p.profilPosteId || null,
+          poste: { id: p.poste?.posteId || 0 },
+          businessUnit: { id: p.bu?.buId || 0 },
+          startDate: p.startDate || "",
+          endDate: p.endDate || null,
+        }))
+      : [],
+    etudes: form.etudes?.length
+      ? form.etudes.map((e: any) => ({
+          diplome: { id: e.diplome?.id || 0 },
+          etablissement: { id: e.etablissement?.id || 0 },
+          filiere: { id: e.filiere?.id || 0 },
+          link: e.file?.name || e.link || null, 
+          obtention: e.obtention || "",
+        }))
+      : [],
+    profilCertifications: form.certifications?.map((c: any) => ({
+      certification: { id: c.certification?.id || 0 },
+      organisme: { id: c.organisme?.id || 0 },
+      obtention: c.obtention || "",   
+      badge: c.badge || null,
+      validUntil: c.validUntil || null,
+      score: Number(c.score) || 0,
+    })) || [],
+    hardSkillsNotes: form.hard_skills?.length
+      ? form.hard_skills.map((hs: any) => ({
+          id: hs.id || null, 
+          note: Number(hs.niveau) || 0,
+          hardSkills: { id: hs.domaine?.id || 0 },
+        }))
+      : [],
+    profilSoftSkills: form.soft_skills?.length
+      ? form.soft_skills.map((ss: any) => ({
+          id: ss.id || null,
+          softSkills: { id: ss.domaine?.id || 0 },
+        }))
+      : [],
+    user: form.user || null,
+  });
 
 
   /* ===== Soumission du formulaire ===== */
   const handleSubmit = async () => {
     try {
-      const payload = formatFormForBackend(form, profil?.profil_id);
+      const payload = formatFormForBackend(form, profil?.id);
       console.log("Payload à envoyer :", payload);
-      if (profil && profil.profil_id) {
+      if (profil && profil.id) {
         await update(payload);
       } else {
         await create(payload);

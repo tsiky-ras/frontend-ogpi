@@ -12,6 +12,8 @@ import { Profil } from "../../../../types/profil/Profil.tsx";
 import FicheProfil from "../../gestion-profil/fiche/FicheProfil.tsx";
 import FormProfil from "../../gestion-profil/form/FormProfil.tsx";
 import { useProfilService } from "../../../../services/profil/ProfilService.tsx";
+import { BusinessUnitService } from "../../../../services/profil/poste/BusinessUnitService.tsx";
+import { useAuth } from "../../../../context/AuthContext.tsx";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeProfils.css";
@@ -23,7 +25,6 @@ const getPosteActuel = (profil: Profil) =>
 const getBusinessUnitName = (profil: Profil) =>
   getPosteActuel(profil)?.businessUnit?.name ?? "—";
 
-// Pour récupérer le nom du poste
 const getPosteLabel = (profil: Profil) =>
   getPosteActuel(profil)?.poste?.label ?? "—";
 
@@ -43,21 +44,43 @@ const fmt = (d?: string | null) =>
 /* ================= COMPONENT ================= */
 const ListeProfils: React.FC = () => {
   const { getAll } = useProfilService();
+  const { api } = useAuth();
 
   const [profils, setProfils] = useState<Profil[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [bu, setBu] = useState("");
-  const [selectedProfil, setSelectedProfil] = useState<Profil | null>(null);
-  const [showFormProfil, setShowFormProfil] = useState(false);
-  const [mode, setMode] = useState<"view" | "edit" | null>(null);
+  const [bus, setBus] = useState<{ id: number; name: string }[]>([]);
 
-  /* ===== Chargement des collaborateurs ===== */
-    const fetchProfils = async () => {
+  const [mode, setMode] = useState<"view" | "edit" | null>(null);
+  const [showFormProfil, setShowFormProfil] = useState(false);
+  const [selectedProfilId, setSelectedProfilId] = useState<number | null>(null);
+
+  const [contrat, setContrat] = useState(""); // nouvel état pour le filtre contrat
+
+
+  const selectedProfil =
+    selectedProfilId !== null
+      ? profils.find(p => p.id === selectedProfilId) ?? null
+      : null;
+
+  /* ===== Chargement BU ===== */
+  const fetchBU = async () => {
+    try {
+      const buService = new BusinessUnitService(api);
+      const data = await buService.getAll();
+      setBus(data.map(b => ({ id: b.id, name: b.name })));
+    } catch (err) {
+      console.error("Erreur chargement BU", err);
+    }
+  };
+
+  /* ===== Chargement profils ===== */
+  const fetchProfils = async () => {
     try {
       const data = await getAll();
-      console.log("Profils chargés :", data);
+      console.log("Data profils fetched:", data);
       setProfils(data);
     } catch (err) {
       console.error("Erreur chargement profils", err);
@@ -68,41 +91,48 @@ const ListeProfils: React.FC = () => {
 
   useEffect(() => {
     fetchProfils();
+    fetchBU();
   }, []);
 
   /* ===== Options BU ===== */
   const buOptions = [
     { value: "", label: "Toutes les BU" },
-    ...Array.from(
-      new Set(
-        profils
-          .map(p => getPosteActuel(p)?.bu?.name)
-          .filter(Boolean)
-      )
-    ).map(name => ({
-      value: name as string,
-      label: name as string,
+    ...bus.map(b => ({
+      value: String(b.id),
+      label: b.name,
     })),
   ];
 
+  const contratOptions = [
+  { value: "", label: "Tous les contrats" },
+  { value: "1", label: getContractLabel(1) },
+  { value: "2", label: getContractLabel(2) },
+  { value: "3", label: getContractLabel(3) },
+];
+
   /* ===== Filtrage ===== */
   const filteredProfils = profils.filter(p => {
+    const searchLower = search.toLowerCase();
+
     const matchSearch =
-      p.nom?.toLowerCase().includes(search.toLowerCase()) ||
-      p.prenom?.toLowerCase().includes(search.toLowerCase()) ||
-      p.matricule?.toLowerCase().includes(search.toLowerCase());
+      p.nom?.toLowerCase().includes(searchLower) ||
+      p.prenom?.toLowerCase().includes(searchLower) ||
+      p.matricule?.toLowerCase().includes(searchLower);
 
-    const currentBu = getPosteActuel(p)?.bu?.name;
-    const matchBu = bu ? currentBu === bu : true;
+    const currentBuId = getPosteActuel(p)?.businessUnit?.id;
+    const matchBu = bu ? String(currentBuId) === bu : true;
 
-    return matchSearch && matchBu;
+    const matchContrat = contrat ? String(p.contrat) === contrat : true;
+
+    return matchSearch && matchBu && matchContrat;
   });
+
 
   /* ===== Colonnes tableau ===== */
   const columns = [
     { key: "matricule", label: "Matricule" },
     { key: "nom", label: "Nom" },
-    { key: "prenom", label: "Prénom" },
+    { key: "prenom", label: "Prénom(s)" },
     {
       key: "contrat",
       label: "Contrat",
@@ -110,16 +140,10 @@ const ListeProfils: React.FC = () => {
         getContractLabel((row as any).type_contrat ?? (row as any).contrat),
     },
     {
-      key: "date_integration",
-      label: "Date intégration",
+      key: "dateEmbauche",
+      label: "Date d'embauche",
       render: (row: Profil) =>
-        fmt((row as any).date_integration ?? (row as any).dateIntegr),
-    },
-    {
-      key: "date_debauche",
-      label: "Date débauche",
-      render: (row: Profil) =>
-        fmt((row as any).date_debauche ?? (row as any).dateDebauche),
+        fmt((row as any).dateEmbauche ?? (row as any).dateEmbauche),
     },
     {
       key: "poste",
@@ -139,11 +163,11 @@ const ListeProfils: React.FC = () => {
       render: (row: Profil) => (
         <MenuListeProfils
           onView={() => {
-            setSelectedProfil(row);
+            setSelectedProfilId(row.id);
             setMode("view");
           }}
           onEdit={() => {
-            setSelectedProfil(row);
+            setSelectedProfilId(row.id);
             setMode("edit");
             setShowFormProfil(true);
           }}
@@ -181,7 +205,7 @@ const ListeProfils: React.FC = () => {
                   label="Nouveau collaborateur"
                   icon={<FaPlus />}
                   onClick={() => {
-                    setSelectedProfil(null);
+                    setSelectedProfilId(null);
                     setMode("edit");
                     setShowFormProfil(true);
                   }}
@@ -195,6 +219,20 @@ const ListeProfils: React.FC = () => {
                   title="Total collaborateurs"
                   value={profils.length}
                   variant={["tomato", "charcoal"]}
+                />
+              </div>
+              <div className="col-md-4">
+                <StatCard
+                  title="Collaborateurs internes"
+                  value={profils.filter(p => p.type === 1).length}
+                  variant={["dim", "linen"]}
+                />
+              </div>
+              <div className="col-md-4">
+                <StatCard
+                  title="Collaborateurs externes"
+                  value={profils.filter(p => p.type === 2).length}
+                  variant={["tuscan", "linen"]}
                 />
               </div>
             </div>
@@ -212,6 +250,12 @@ const ListeProfils: React.FC = () => {
                   value: bu,
                   onChange: setBu,
                 },
+                {
+                  type: "select",
+                  options: contratOptions,
+                  value: contrat,
+                  onChange: setContrat,
+                },
               ]}
             />
 
@@ -227,7 +271,7 @@ const ListeProfils: React.FC = () => {
         <FicheProfil
           profil={selectedProfil}
           onClose={() => {
-            setSelectedProfil(null);
+            setSelectedProfilId(null);
             setMode(null);
           }}
         />
@@ -239,13 +283,13 @@ const ListeProfils: React.FC = () => {
           profil={selectedProfil}
           onClose={() => {
             setShowFormProfil(false);
-            setSelectedProfil(null);
+            setSelectedProfilId(null);
             setMode(null);
           }}
           onSubmit={() => {
             fetchProfils();
             setShowFormProfil(false);
-            setSelectedProfil(null);
+            setSelectedProfilId(null);
             setMode(null);
           }}
         />

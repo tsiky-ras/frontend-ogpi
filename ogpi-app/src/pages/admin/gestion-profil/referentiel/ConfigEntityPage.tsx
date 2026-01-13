@@ -118,7 +118,7 @@ function ConfigEntityPage<T extends { id?: number | null }>({
                 subtitle={`Créer, modifier et supprimer des ${entityName.toLowerCase()}s`}
               />
               <Button
-                label={`Nouvelle ${entityName}`}
+                label={`Ajouter un(e) ${entityName}`}
                 icon={<FaPlus />}
                 onClick={() => {
                   setSelectedEntity(null);
