@@ -12,6 +12,8 @@ import { Profil } from "../../../../types/profil/Profil.tsx";
 import FicheProfil from "../../gestion-profil/fiche/FicheProfil.tsx";
 import FormProfil from "../../gestion-profil/form/FormProfil.tsx";
 import { useProfilService } from "../../../../services/profil/ProfilService.tsx";
+import { BusinessUnitService } from "../../../../services/profil/poste/BusinessUnitService.tsx";
+import { useAuth } from "../../../../context/AuthContext.tsx";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeProfils.css";
@@ -22,6 +24,7 @@ const getPosteActuel = (profil: Profil) =>
 
 const getBusinessUnitName = (profil: Profil) =>
   getPosteActuel(profil)?.businessUnit?.name ?? "—";
+
 
 // Pour récupérer le nom du poste
 const getPosteLabel = (profil: Profil) =>
@@ -52,6 +55,19 @@ const ListeProfils: React.FC = () => {
   const [selectedProfil, setSelectedProfil] = useState<Profil | null>(null);
   const [showFormProfil, setShowFormProfil] = useState(false);
   const [mode, setMode] = useState<"view" | "edit" | null>(null);
+  const { api } = useAuth();
+  const [bus, setBus] = useState<{ id: number; name: string }[]>([]);
+
+  const fetchBU = async () => {
+  try {
+    const buService = new BusinessUnitService(api);
+    const data = await buService.getAll();
+    setBus(data.map(b => ({ id: b.id, name: b.name })));
+  } catch (err) {
+    console.error("Erreur chargement BU", err);
+  }
+};
+
 
   /* ===== Chargement des collaborateurs ===== */
     const fetchProfils = async () => {
@@ -68,32 +84,30 @@ const ListeProfils: React.FC = () => {
 
   useEffect(() => {
     fetchProfils();
+    fetchBU();
   }, []);
 
   /* ===== Options BU ===== */
   const buOptions = [
     { value: "", label: "Toutes les BU" },
-    ...Array.from(
-      new Set(
-        profils
-          .map(p => getPosteActuel(p)?.bu?.name)
-          .filter(Boolean)
-      )
-    ).map(name => ({
-      value: name as string,
-      label: name as string,
+    ...bus.map(b => ({
+      value: String(b.id),
+      label: b.name,
     })),
   ];
 
+
   /* ===== Filtrage ===== */
   const filteredProfils = profils.filter(p => {
-    const matchSearch =
-      p.nom?.toLowerCase().includes(search.toLowerCase()) ||
-      p.prenom?.toLowerCase().includes(search.toLowerCase()) ||
-      p.matricule?.toLowerCase().includes(search.toLowerCase());
+    const searchLower = search.toLowerCase();
 
-    const currentBu = getPosteActuel(p)?.bu?.name;
-    const matchBu = bu ? currentBu === bu : true;
+    const matchSearch =
+      p.nom?.toLowerCase().includes(searchLower) ||
+      p.prenom?.toLowerCase().includes(searchLower) ||
+      p.matricule?.toLowerCase().includes(searchLower);
+
+    const currentBuId = getPosteActuel(p)?.businessUnit?.id;
+    const matchBu = bu ? String(currentBuId) === bu : true;
 
     return matchSearch && matchBu;
   });
