@@ -141,9 +141,9 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
       // ===== Poste actuel =====
       postes: posteActuel
         ? [{
-            profilPosteId: posteActuel.id, // ✅ id
+            profilPosteId: posteActuel.id,
             poste: {
-              posteId: posteActuel.poste?.id || 0,   // ✅ id (PAS posteId)
+              posteId: posteActuel.poste?.id || 0,   
               label: posteActuel.poste?.label || "",
             },
             bu: {
