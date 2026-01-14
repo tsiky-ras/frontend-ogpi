@@ -312,28 +312,25 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
     user: form.user || null,
   });
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     try {
-      let payloadProfil: any;
+      const profilPayload = formatFormForBackend(form, form.profilId ?? null);
 
-      if (mode === "existing" && form.profilId) {
-        // Utilisateur à partir d'un profil existant
-        const userPayload = {
-          username: form.username,
-          email: form.email,
-          password: form.password,
-          profilId: form.profilId,
-          role: { roleId: form.roleId },
-        };
-        const userId = await createUser(userPayload);
-        payloadProfil = formatFormForBackend(form, form.profilId);
-        payloadProfil.user = { userId };
+      const userPayload = {
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        role: { roleId: form.roleId },
+        profil: profilPayload   
+      };
 
-      }
+      const userId = await createUser(userPayload);
+      onSubmit({ userId });
       onClose();
+
     } catch (err: any) {
-      console.error("Erreur création ou mise à jour du profil", err.response?.data || err);
-      alert(err.response?.data?.message || "Erreur lors de la sauvegarde du profil");
+      console.error("Erreur création utilisateur", err.response?.data || err);
+      alert(err.response?.data?.message || "Erreur lors de la création de l'utilisateur");
     }
   };
 
@@ -372,7 +369,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
             variant={mode === "manual" ? "primary" : "outline-primary"}
             onClick={() => setMode("manual")}
           >
-            Saisie manuelle
+            Nouveau collaborateur   
           </Button>
         </div>
 
@@ -450,7 +447,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
             <Col md={4}><Form.Label>Matricule</Form.Label><Form.Control name="matricule" value={form.matricule} onChange={handleChange} /></Col>
             <Col md={4}><Form.Label>Nom</Form.Label><Form.Control name="nom" value={form.nom} onChange={handleChange} /></Col>
             <Col md={4}><Form.Label>Prénom</Form.Label><Form.Control name="prenom" value={form.prenom} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Appellation</Form.Label><Form.Control name="appelation" value={form.appelation} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Appellation</Form.Label><Form.Control name="appellation" value={form.appellation} onChange={handleChange} /></Col>
             <Col md={4}>
               <Form.Label>Genre</Form.Label>
               <Form.Select name="sexe" value={form.sexe} onChange={handleChange}>

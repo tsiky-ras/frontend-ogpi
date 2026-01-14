@@ -31,9 +31,15 @@ export const useUserService = () => {
   };
 
   // ---------------- CREATE USER ----------------
-  const createUser = async (user: User): Promise<number> => {
-    const res = await api.post(`${base}/create`, user);
-    return res.data; 
+  const createUser = async (userPayload: {
+    username: string;
+    email: string;
+    password: string;
+    profilId: number;
+    role: { roleId: number };
+  }): Promise<number> => {
+    const res = await api.post("/users/create", userPayload);
+    return res.data;
   };
 
   // ---------------- UPDATE USER ----------------
