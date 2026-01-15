@@ -1,34 +1,58 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Profil } from "../../../../types/profil/Profil";
 import { Modal, Button, Form, Row, Col } from "react-bootstrap";
+import { useUserService } from "../../../../services/user/UserService.tsx";
 import "./FicheUser.css";
 
 interface FicheUserProps {
-  user: any;
-  profil?: Profil;
+  userId: number; // utiliser l'id pour fetch le user complet
   onClose: () => void;
-  onSave: (updatedUser: any) => void;
+  onSave: () => void;
   isEditMode?: boolean;
   modalTitle?: string;
 }
 
 const FicheUser: React.FC<FicheUserProps> = ({
-  user,
-  profil,
+  userId,
   onClose,
   onSave,
   isEditMode = false,
   modalTitle,
 }) => {
-  const [editData, setEditData] = useState({ ...user });
+  const { getById, update } = useUserService();
+  const [user, setUser] = useState<any>(null);
+  const [editData, setEditData] = useState<any>(null);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
-  const handleSave = () => {
-    if (showResetPassword && newPassword) {
-      editData.password = newPassword;
+  // ----------- Fetch user complet ----------- 
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const data = await getById(userId);
+        setUser(data);
+        setEditData({ ...data });
+      } catch (err) {
+        console.error("Erreur récupération utilisateur :", err);
+      }
+    };
+    fetchUser();
+  }, [userId]);
+
+  if (!user) return null; // loader peut être ajouté ici
+
+  const handleSave = async () => {
+    try {
+      if (showResetPassword && newPassword) {
+        editData.password = newPassword;
+      }
+      const updated = await update(editData);
+      setUser(updated);
+      onSave(updated);
+      onClose();
+    } catch (err) {
+      console.error("Erreur mise à jour utilisateur :", err);
     }
-    onSave(editData);
   };
 
   return (
@@ -36,20 +60,18 @@ const FicheUser: React.FC<FicheUserProps> = ({
       <Modal.Header closeButton>
         <Modal.Title>
           {modalTitle ?? (isEditMode
-            ? `Modifier l'utilisateur ${editData.nom} ${editData.prenom}`
-            : `${editData.nom} ${editData.prenom}`)}
+            ? `Modifier l'utilisateur ${user.profil?.nom} ${user.profil?.prenom}`
+            : `${user.profil?.nom} ${user.profil?.prenom}`)}
         </Modal.Title>
       </Modal.Header>
 
       <Modal.Body className="fiche-profil-body">
-        {/* Sticker type collaborateur */}
         <div className="type-collab-badge-wrapper mb-3">
-          <span className={`type-collab-badge ${user.role_label === "Collaborateur" ? "interne" : "externe"}`}>
-            {user.role_label}
+          <span className={`type-collab-badge ${user.role?.roleLabel === "COLLABORATEUR" ? "interne" : "externe"}`}>
+            {user.role?.roleLabel}
           </span>
         </div>
 
-        {/* Informations utilisateur */}
         <section className="fiche-section mb-4">
           <h4>Informations utilisateur</h4>
           <Row className="g-3">
@@ -61,7 +83,7 @@ const FicheUser: React.FC<FicheUserProps> = ({
                   onChange={e => setEditData({ ...editData, username: e.target.value })}
                 />
               ) : (
-                <div className="p-2 bg-light rounded">{editData.username}</div>
+                <div className="p-2 bg-light rounded">{user.username}</div>
               )}
             </Col>
             <Col md={6}>
@@ -73,15 +95,17 @@ const FicheUser: React.FC<FicheUserProps> = ({
                   onChange={e => setEditData({ ...editData, email: e.target.value })}
                 />
               ) : (
-                <div className="p-2 bg-light rounded">{editData.email}</div>
+                <div className="p-2 bg-light rounded">{user.email}</div>
               )}
             </Col>
             <Col md={6}>
               <Form.Label>Rôle</Form.Label>
               {isEditMode ? (
                 <Form.Select
-                  value={editData.role_id || ""}
-                  onChange={e => setEditData({ ...editData, role_id: Number(e.target.value) })}
+                  value={editData.role?.roleId || ""}
+                  onChange={e =>
+                    setEditData({ ...editData, role: { ...editData.role, roleId: Number(e.target.value) } })
+                  }
                 >
                   <option value="">-- Sélectionner --</option>
                   <option value="1">Admin</option>
@@ -94,7 +118,7 @@ const FicheUser: React.FC<FicheUserProps> = ({
                   <option value="8">DB</option>
                 </Form.Select>
               ) : (
-                <div className="p-2 bg-light rounded">{editData.role_label}</div>
+                <div className="p-2 bg-light rounded">{user.role?.roleLabel}</div>
               )}
             </Col>
             <Col md={6}>
@@ -103,13 +127,13 @@ const FicheUser: React.FC<FicheUserProps> = ({
                 <Form.Check
                   type="checkbox"
                   label="Utilisateur actif"
-                  checked={editData.is_active}
-                  onChange={e => setEditData({ ...editData, is_active: e.target.checked })}
+                  checked={editData.isActive}
+                  onChange={e => setEditData({ ...editData, isActive: e.target.checked })}
                 />
               ) : (
                 <div className="p-2 bg-light rounded">
-                  <span className={`badge ${editData.is_active ? "bg-success" : "bg-danger"}`}>
-                    {editData.is_active ? "Actif" : "Inactif"}
+                  <span className={`badge ${user.isActive ? "bg-success" : "bg-danger"}`}>
+                    {user.isActive ? "Actif" : "Inactif"}
                   </span>
                 </div>
               )}
@@ -117,24 +141,22 @@ const FicheUser: React.FC<FicheUserProps> = ({
           </Row>
         </section>
 
-        {/* Profil collaborateur */}
-        {profil && (
+        {user.profil && (
           <section className="fiche-section">
             <h4>Profil collaborateur</h4>
             <div className="fiche-grid">
-              <div><strong>Matricule :</strong> {profil.matricule}</div>
-              <div><strong>Appellation :</strong> {profil.appelation}</div>
-              <div><strong>Téléphone :</strong> {profil.telephone}</div>
-              <div><strong>Email pro :</strong> {profil.email_pro}</div>
-              <div><strong>Email perso :</strong> {profil.email_perso}</div>
-              <div><strong>Date embauche :</strong> {profil.date_embauche}</div>
-              <div><strong>Type de contrat :</strong> {profil.type_contrat}</div>
-              <div><strong>Expérience avant :</strong> {profil.experience_avant} ans</div>
+              <div><strong>Nom :</strong> {user.profil.nom}</div>
+              <div><strong>Prénom :</strong> {user.profil.prenom}</div>
+              <div><strong>Genre :</strong> {user.profil.sexe === 1 ? "Homme" : "Femme"}</div>
+              <div><strong>Matricule :</strong> {user.profil.matricule}</div>
+              <div><strong>Appellation :</strong> {user.profil.appellation}</div>
+              <div><strong>Téléphone :</strong> {user.profil.telephone}</div>
+              <div><strong>Email pro :</strong> {user.profil.emailPro}</div>
+              <div><strong>Email perso :</strong> {user.profil.emailPerso}</div>
             </div>
           </section>
         )}
 
-        {/* Réinitialisation mot de passe */}
         {isEditMode && (
           <>
             <hr className="my-4" />

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Header from "../../../../components/header/Header.tsx";
 import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
 import Table from "../../../../components/table/Table.tsx";
@@ -10,47 +10,84 @@ import Button from "../../../../components/button/Button.tsx";
 import MenuListeUser from "../menu/MenuListeUser.tsx";
 import FicheUser from "../fiche/FicheUser.tsx";
 import { Profil } from "../../../../types/profil/Profil";
+import { useUserService } from "../../../../services/user/UserService.tsx";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeUser.css";
 import FormUser from "../form/FormUser.tsx";
-
-/* ================= MOCK DATA ================= */
-const mockUsers = [
-  { id: 1, username: "mamy.rakoto", nom: "Rakoto", prenom: "Mamy", email: "mamy@example.com", role_id: 1, role_label: "Admin", is_active: true },
-  { id: 2, username: "lala.rasoa", nom: "Rasoa", prenom: "Lala", email: "lala@example.com", role_id: 5, role_label: "Collaborateur", is_active: true },
-  { id: 3, username: "tiana.andry", nom: "Andry", prenom: "Tiana", email: "tiana@example.com", role_id: 5, role_label: "Collaborateur", is_active: false },
-];
+import { User } from "../../../../types/user/User";
 
 /* ================= COMPONENT ================= */
 const ListeUser: React.FC = () => {
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [mode, setMode] = useState<"view" | "edit" | null>(null);
   const [showFormUser, setShowFormUser] = useState(false);
+  const { getAll } = useUserService();
+
+  const fetchUsers = async () => {
+    try {
+      const data = await getAll();
+      setUsers(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement des utilisateurs :", error);
+    }
+  };
+
+
+    // ----------- Fetch utilisateurs ----------- 
+    useEffect(() => {
+      fetchUsers();
+    }, []);
 
   const openUser = (user: any, mode: "view" | "edit") => {
-    setSelectedUser(user);
+    setSelectedUser(user.userId); 
     setMode(mode);
   };
 
-  const saveUser = (updatedUser: any) => {
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+  const saveUser = async () => {
+    await fetchUsers();   
     setSelectedUser(null);
     setMode(null);
   };
 
   const columns = [
-    { key: "username", label: "Utilisateur" },
-    { key: "nom", label: "Nom" },
-    { key: "prenom", label: "Prénom" },
-    { key: "email", label: "Email" },
-    { key: "role_label", label: "Rôle" },
     {
-      key: "is_active",
+      key: "username",
+      label: "Utilisateur",
+    },
+    {
+      key: "nom",
+      label: "Nom",
+      render: (row: any) => row.profil?.nom || "",
+    },
+    {
+      key: "prenom",
+      label: "Prénom",
+      render: (row: any) => row.profil?.prenom || "",
+    },
+    {
+      key: "sexe",
+      label: "Genre",
+      render: (row: any) => {
+        if (!row.profil) return "";
+        return row.profil.sexe === 1 ? "Homme" : row.profil.sexe === 2 ? "Femme" : "-";
+      },
+    },
+    {
+      key: "role_label",
+      label: "Rôle",
+      render: (row: any) => row.role?.roleLabel || "",
+    },
+    {
+      key: "isActive",
       label: "Statut",
-      render: (row: any) => <span className={`badge ${row.is_active ? "bg-success" : "bg-danger"}`}>{row.is_active ? "Actif" : "Inactif"}</span>,
+      render: (row: any) => (
+        <span className={`badge ${row.isActive ? "bg-success" : "bg-danger"}`}>
+          {row.isActive ? "Actif" : "Inactif"}
+        </span>
+      ),
     },
     {
       key: "actions",
@@ -64,10 +101,11 @@ const ListeUser: React.FC = () => {
     },
   ];
 
+
   const filteredUsers = users.filter(u =>
-    u.nom.toLowerCase().includes(search.toLowerCase()) ||
-    u.prenom.toLowerCase().includes(search.toLowerCase()) ||
-    u.username.toLowerCase().includes(search.toLowerCase())
+    u.username.toLowerCase().includes(search.toLowerCase()) ||
+    (u.profil?.nom?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+    (u.profil?.prenom?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
 
   return (
@@ -88,8 +126,7 @@ const ListeUser: React.FC = () => {
 
             <div className="row mb-4">
               <div className="col-md-4">
-                <StatCard title="Total utilisateurs" value={users.length} variant={["tomato","charcoal"]} />
-              </div>
+                <StatCard title="Total utilisateurs" value={users.length} variant={["tomato","charcoal"]} />              </div>
             </div>
 
             <FilterBar
@@ -99,7 +136,7 @@ const ListeUser: React.FC = () => {
             />
 
             <div className="table-responsive mt-3">
-              <Table columns={columns} data={filteredUsers} />
+              <Table columns={columns} data={filteredUsers} />            
             </div>
           </div>
         </main>
@@ -108,12 +145,11 @@ const ListeUser: React.FC = () => {
       {/* Fiche User */}
       {selectedUser && (
         <FicheUser
-          user={selectedUser}
-          profil={undefined} // ou associer profil si dispo
+          userId={selectedUser}
           onClose={() => setSelectedUser(null)}
           onSave={saveUser}
           isEditMode={mode === "edit"}
-          modalTitle={mode === "edit" ? `Modifier ${selectedUser.nom} ${selectedUser.prenom}` : `Fiche de ${selectedUser.nom} ${selectedUser.prenom}`}
+          modalTitle={mode === "edit" ? `Modifier l'utilisateur` : `Fiche utilisateur`}
         />
       )}
 
