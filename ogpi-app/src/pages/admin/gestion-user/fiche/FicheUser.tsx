@@ -5,7 +5,7 @@ import { useUserService } from "../../../../services/user/UserService.tsx";
 import "./FicheUser.css";
 
 interface FicheUserProps {
-  userId: number; // utiliser l'id pour fetch le user complet
+  userId: number; 
   onClose: () => void;
   onSave: () => void;
   isEditMode?: boolean;
@@ -24,12 +24,14 @@ const FicheUser: React.FC<FicheUserProps> = ({
   const [editData, setEditData] = useState<any>(null);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const { resetPassword } = useUserService();
 
   // ----------- Fetch user complet ----------- 
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const data = await getById(userId);
+        console.log("Utilisateur récupéré :", data); 
         setUser(data);
         setEditData({ ...data });
       } catch (err) {
@@ -39,13 +41,14 @@ const FicheUser: React.FC<FicheUserProps> = ({
     fetchUser();
   }, [userId]);
 
-  if (!user) return null; // loader peut être ajouté ici
+  if (!user) return null; 
 
   const handleSave = async () => {
     try {
       if (showResetPassword && newPassword) {
-        editData.password = newPassword;
+        await resetPassword(user.userId, newPassword);
       }
+      delete editData.password;
       const updated = await update(editData);
       setUser(updated);
       onSave(updated);

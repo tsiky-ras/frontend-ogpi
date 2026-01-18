@@ -44,8 +44,23 @@ export const useUserService = () => {
 
   // ---------------- UPDATE USER ----------------
   const update = async (user: User): Promise<User> => {
-    const res = await api.put(`${base}/update/${user.userId}`, user);
+    const payload = {
+      userId: user.userId,
+      username: user.username,
+      email: user.email,
+      isActive: user.isActive,
+      role: user.role ? { roleId: user.role.roleId } : undefined,
+    };
+
+    const res = await api.put(`${base}/update/${user.userId}`, payload);
     return res.data;
+  };
+
+// ---------------- RESET PASSWORD ----------------
+  const resetPassword = async (userId: number, newPassword: string): Promise<void> => {
+  await api.put(`${base}/${userId}/reset-password`, {
+    newPassword
+  });
   };
 
   // ---------------- DELETE USER ----------------
@@ -61,5 +76,6 @@ export const useUserService = () => {
     createUser,
     update,
     remove,
+    resetPassword,
   };
 };
