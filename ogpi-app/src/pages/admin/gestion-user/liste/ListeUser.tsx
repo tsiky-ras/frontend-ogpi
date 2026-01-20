@@ -104,11 +104,20 @@ const ListeUser: React.FC = () => {
   ];
 
 
-  const filteredUsers = users.filter(u =>
-    u.username.toLowerCase().includes(search.toLowerCase()) ||
-    (u.profil?.nom?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
-    (u.profil?.prenom?.toLowerCase().includes(search.toLowerCase()) ?? false)
-  );
+  const filteredUsers = users.filter(u => {
+    // Filtre par recherche textuelle
+    const matchesSearch = u.username.toLowerCase().includes(search.toLowerCase()) ||
+      (u.profil?.nom?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+      (u.profil?.prenom?.toLowerCase().includes(search.toLowerCase()) ?? false);
+
+    // Filtre par statut
+    const matchesStatus = 
+      statusFilter === "all" ||
+      (statusFilter === "active" && u.isActive) ||
+      (statusFilter === "inactive" && !u.isActive);
+
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="listeuser-layout">
@@ -151,6 +160,16 @@ const ListeUser: React.FC = () => {
             <FilterBar
               filters={[
                 { type: "text", placeholder: "Rechercher...", onChange: setSearch },
+                { 
+                  type: "select", 
+                  placeholder: "Filtrer par statut...",
+                  options: [
+                    { value: "all", label: "Tous les statuts" },
+                    { value: "active", label: "Actif" },
+                    { value: "inactive", label: "Inactif" }
+                  ],
+                  onChange: (value: any) => setStatusFilter(value as "all" | "active" | "inactive")
+                },
               ]}
             />
 
