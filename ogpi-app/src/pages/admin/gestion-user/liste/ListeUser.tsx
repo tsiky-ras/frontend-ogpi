@@ -29,6 +29,7 @@ const ListeUser: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const data = await getAll();
+      console.log("Utilisateurs chargés :", data);
       setUsers(data);
     } catch (error) {
       console.error("Erreur lors du chargement des utilisateurs :", error);
@@ -158,7 +159,10 @@ const ListeUser: React.FC = () => {
         show={showFormUser}
         onClose={() => setShowFormUser(false)}
         collaborateurs={[]} // mock si nécessaire
-        onSubmit={(user) => setShowFormUser(false)}
+        onSubmit={() => {
+          fetchUsers();
+          setShowFormUser(false);
+        }}
       />
     </div>
   );
