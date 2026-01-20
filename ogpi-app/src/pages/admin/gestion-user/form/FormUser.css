@@ -20,6 +20,12 @@
   color: #555;
 }
 
+/* ===== Required asterisk ===== */
+.required-asterisk {
+  color: #dc3545;
+  font-weight: 700;
+}
+
 /* ===== Inputs ===== */
 .form-control,
 .form-select {

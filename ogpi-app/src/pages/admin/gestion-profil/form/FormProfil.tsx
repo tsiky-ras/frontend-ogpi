@@ -345,21 +345,21 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
         <section className="fiche-section">
           <h4>1. Identité professionnelle</h4>
           <Row className="g-3">
-            <Col md={4}><Form.Label>Matricule</Form.Label><Form.Control name="matricule" value={form.matricule} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Nom</Form.Label><Form.Control name="nom" value={form.nom} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Prénom</Form.Label><Form.Control name="prenom" value={form.prenom} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Appellation</Form.Label><Form.Control name="appelation" value={form.appelation} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Matricule <span className="required-asterisk">*</span></Form.Label><Form.Control name="matricule" value={form.matricule} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Nom <span className="required-asterisk">*</span></Form.Label><Form.Control name="nom" value={form.nom} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Prénom <span className="required-asterisk">*</span></Form.Label><Form.Control name="prenom" value={form.prenom} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Appellation <span className="required-asterisk">*</span></Form.Label><Form.Control name="appelation" value={form.appelation} onChange={handleChange} /></Col>
             <Col md={4}>
-              <Form.Label>Genre</Form.Label>
+              <Form.Label>Genre <span className="required-asterisk">*</span></Form.Label>
               <Form.Select name="sexe" value={form.sexe} onChange={handleChange}>
                 <option value="1">Masculin</option>
                 <option value="2">Féminin</option>
               </Form.Select>
             </Col>
-            <Col md={4}><Form.Label>Date de naissance</Form.Label><Form.Control type="date" name="date_naissance" value={form.date_naissance} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Email professionnel</Form.Label><Form.Control type="email" name="email_pro" value={form.email_pro} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Email personnel</Form.Label><Form.Control type="email" name="email_perso" value={form.email_perso} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Téléphone</Form.Label><Form.Control type="tel" name="telephone" value={form.telephone} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Date de naissance <span className="required-asterisk">*</span></Form.Label><Form.Control type="date" name="date_naissance" value={form.date_naissance} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Email professionnel <span className="required-asterisk">*</span></Form.Label><Form.Control type="email" name="email_pro" value={form.email_pro} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Email personnel <span className="required-asterisk">*</span></Form.Label><Form.Control type="email" name="email_perso" value={form.email_perso} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Téléphone <span className="required-asterisk">*</span></Form.Label><Form.Control type="tel" name="telephone" value={form.telephone} onChange={handleChange} /></Col>
           </Row>
         </section>
 
@@ -368,7 +368,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
           <h4>2. Organisation</h4>
           <Row className="g-3">
             <Col md={4}>
-              <Form.Label>Type de collaborateur</Form.Label>
+              <Form.Label>Type de collaborateur <span className="required-asterisk">*</span></Form.Label>
               <Form.Select name="type_profil" value={form.type_profil} onChange={handleChange}>
                 <option value={1}>Collaborateur interne</option>
                 <option value={2}>Collaborateur externe</option>
@@ -376,7 +376,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
             </Col>
             {/* ===== Poste actuel ===== */}
               <Col md={3}>
-                <Form.Label>Poste actuel</Form.Label>
+                <Form.Label>Poste actuel <span className="required-asterisk">*</span></Form.Label>
                 <Form.Select
                   value={form.postes[0]?.poste?.posteId || ""}
                   onChange={e => {
@@ -403,7 +403,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
 
               {/* ===== Business Unit ===== */}
               <Col md={3}>
-                <Form.Label>Business Unit</Form.Label>
+                <Form.Label>Business Unit <span className="required-asterisk">*</span></Form.Label>
                 <Form.Select
                   value={form.postes[0]?.bu?.buId || ""}
                   onChange={e => {
@@ -430,7 +430,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
 
               {/* ===== Date de début ===== */}
               <Col md={3}>
-                <Form.Label>Date de début</Form.Label>
+                <Form.Label>Date de début <span className="required-asterisk">*</span></Form.Label>
                 <Form.Control
                   type="date"
                   value={form.postes[0]?.startDate || ""}
@@ -479,15 +479,15 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
           <h4>3. Contrat & Dates</h4>
           <Row className="g-3">
             <Col md={4}>
-              <Form.Label>Type de contrat</Form.Label>
+              <Form.Label>Type de contrat <span className="required-asterisk">*</span></Form.Label>
               <Form.Select name="type_contrat" value={form.type_contrat} onChange={handleChange}>
                 <option value={1}>CDI</option>
                 <option value={2}>CDD</option>
                 <option value={3}>Stage</option>
               </Form.Select>
             </Col>
-            <Col md={4}><Form.Label>Date embauche</Form.Label><Form.Control type="date" name="date_embauche" value={form.date_embauche} onChange={handleChange} /></Col>
-            <Col md={4}><Form.Label>Date intégration</Form.Label><Form.Control type="date" name="date_integration" value={form.date_integration} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Date embauche <span className="required-asterisk">*</span></Form.Label><Form.Control type="date" name="date_embauche" value={form.date_embauche} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Date intégration <span className="required-asterisk">*</span></Form.Label><Form.Control type="date" name="date_integration" value={form.date_integration} onChange={handleChange} /></Col>
             <Col md={4}><Form.Label>Date de départ</Form.Label><Form.Control type="date" name="date_debauche" value={form.date_debauche} onChange={handleChange} /></Col>
           </Row>
         </section>
