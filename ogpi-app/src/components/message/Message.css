@@ -13,7 +13,7 @@
 }
 
 .message-close {
-  background: transparent;
+  background: blanchedalmond;
   border: none;
   font-size: 18px;
   line-height: 1;
@@ -27,7 +27,7 @@
 }
 
 .message.success {
-  background-color: #e6ffed;
+  background-color: #ffffff;
   color: #1b7f3a;
   border: 1px solid #c7f0d1;
 }
@@ -37,3 +37,4 @@
   color: #0b5fa5;
   border: 1px solid #cfe8ff;
 }
+

@@ -6,9 +6,13 @@ import Table from "../../../../components/table/Table.tsx";
 import Title from "../../../../components/title/Title.tsx";
 import DropdownActions from "../../../../components/dropdown/DropdownActions.tsx";
 import Button from "../../../../components/button/Button.tsx";
+import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
+import CollecteErrorMessage from "../../../../components/message/CollecteErrorMessage.tsx";
+import CollecteLoadingMessage from "../../../../components/message/CollecteLoadingMessage.tsx";
 import { Modal } from "react-bootstrap";
 import { FaPlus } from "react-icons/fa";
 import "./ConfigPage.css";
+import "../../../../components/message/CollecteMessages.css";
 
 type ConfigEntityPageProps<T> = {
   service: any; // ton service TSX (PosteService, CertificationService…)
@@ -28,6 +32,13 @@ function ConfigEntityPage<T extends { id?: number | null }>({
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
 
+  // ===== Message modals state =====
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showErrorMessage, setShowErrorMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showLoadingMessage, setShowLoadingMessage] = useState(false);
+
   /* =========================
      LOAD DATA
   ========================= */
@@ -40,17 +51,32 @@ function ConfigEntityPage<T extends { id?: number | null }>({
   ========================= */
   const handleSave = async (data: T) => {
     try {
+      setShowLoadingMessage(true);
       if (data.id) {
         const updated = await service.update(data);
         setEntities((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+        setShowLoadingMessage(false);
+        setSuccessMessage("Entité mise à jour avec succès !");
       } else {
         const created = await service.create(data);
         setEntities((prev) => [...prev, created]);
+        setShowLoadingMessage(false);
+        setSuccessMessage("Entité créée avec succès !");
       }
+      setShowSuccessMessage(true);
 
-      setSelectedEntity(null);
-      setShowModal(false);
-    } catch (error) {
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+        setSelectedEntity(null);
+        setShowModal(false);
+      }, 2000);
+    } catch (error: any) {
+      setShowLoadingMessage(false);
+      const errorMsg =
+        error.response?.data?.message ||
+        "Erreur lors de la sauvegarde";
+      setErrorMessage(errorMsg);
+      setShowErrorMessage(true);
       console.error("Erreur sauvegarde :", error);
     }
   };
@@ -61,9 +87,23 @@ function ConfigEntityPage<T extends { id?: number | null }>({
   const handleDelete = async (id: number | null) => {
     if (!id) return;
     try {
+      setShowLoadingMessage(true);
       await service.delete(id);
       setEntities((prev) => prev.filter((e) => e.id !== id));
-    } catch (error) {
+      setShowLoadingMessage(false);
+      setSuccessMessage("Entité supprimée avec succès !");
+      setShowSuccessMessage(true);
+
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 2000);
+    } catch (error: any) {
+      setShowLoadingMessage(false);
+      const errorMsg =
+        error.response?.data?.message ||
+        "Erreur lors de la suppression";
+      setErrorMessage(errorMsg);
+      setShowErrorMessage(true);
       console.error("Erreur suppression :", error);
     }
   };
@@ -170,6 +210,22 @@ function ConfigEntityPage<T extends { id?: number | null }>({
           />
         </Modal.Body>
       </Modal>
+
+      {/* Message modals */}
+      <CollecteLoadingMessage
+        visible={showLoadingMessage}
+        message="Traitement en cours..."
+      />
+      <CollecteSuccessMessage
+        visible={showSuccessMessage}
+        message={successMessage}
+        onClose={() => setShowSuccessMessage(false)}
+      />
+      <CollecteErrorMessage
+        visible={showErrorMessage}
+        message={errorMessage}
+        onClose={() => setShowErrorMessage(false)}
+      />
     </div>
   );
 }
