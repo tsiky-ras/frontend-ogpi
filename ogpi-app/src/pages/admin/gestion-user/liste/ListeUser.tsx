@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Header from "../../../../components/header/Header.tsx";
 import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
 import Table from "../../../../components/table/Table.tsx";
@@ -21,6 +21,7 @@ import { User } from "../../../../types/user/User";
 const ListeUser: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [mode, setMode] = useState<"view" | "edit" | null>(null);
   const [showFormUser, setShowFormUser] = useState(false);
@@ -124,12 +125,29 @@ const ListeUser: React.FC = () => {
                 <Button label="Nouvel utilisateur" icon={<FaPlus />} onClick={() => setShowFormUser(true)} />
               </div>
             </div>
-
             <div className="row mb-4">
               <div className="col-md-4">
-                <StatCard title="Total utilisateurs" value={users.length} variant={["tomato","charcoal"]} />              </div>
+                <StatCard
+                  title="Tous les utilisateurs"
+                  value={users.length}
+                  variant={["tomato", "charcoal"]}
+                />
+              </div>
+              <div className="col-md-4">
+                <StatCard
+                  title="Utilisateurs actifs"
+                  value={users.filter(u => u.isActive).length}
+                  variant={["dim", "linen"]}
+                />
+              </div>
+              <div className="col-md-4">
+                <StatCard
+                  title="Utilisateurs inactifs"
+                  value={users.filter(u => !u.isActive).length}
+                  variant={["tuscan", "linen"]}
+                />
+              </div>
             </div>
-
             <FilterBar
               filters={[
                 { type: "text", placeholder: "Rechercher...", onChange: setSearch },

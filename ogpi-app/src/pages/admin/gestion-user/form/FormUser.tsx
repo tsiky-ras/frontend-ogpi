@@ -16,8 +16,12 @@ import { HardSkillsService } from "../../../../services/profil/hardskills/HardSk
 import { SoftSkillsService } from "../../../../services/profil/softskills/SoftSkillsService.tsx";
 import { PosteService } from "../../../../services/profil/poste/PosteService.tsx";
 import { useRoleService } from "../../../../services/user/RoleService.tsx";
+import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
+import CollecteErrorMessage from "../../../../components/message/CollecteErrorMessage.tsx";
+import CollecteLoadingMessage from "../../../../components/message/CollecteLoadingMessage.tsx";
 
 import "./FormUser.css";
+import "../../../../components/message/CollecteMessages.css";
 import { useUserService } from "../../../../services/user/UserService.tsx";
 
 type FormUserProps = {
@@ -77,6 +81,13 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
   const [allProfils, setAllProfils] = useState<Profil[]>([]); 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Profil[]>([]);
+
+  // ===== Message modals state =====
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showErrorMessage, setShowErrorMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showLoadingMessage, setShowLoadingMessage] = useState(false);
 
   // ===== Chargement des listes =====
   useEffect(() => {
@@ -314,6 +325,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
 
     const handleSubmit = async () => {
     try {
+      setShowLoadingMessage(true);
       const profilPayload = formatFormForBackend(form, form.profilId ?? null);
 
       const userPayload = {
@@ -325,17 +337,29 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
       };
 
       const userId = await createUser(userPayload);
-      onSubmit({ userId });
-      onClose();
+      setShowLoadingMessage(false);
+      setSuccessMessage("Utilisateur créé avec succès !");
+      setShowSuccessMessage(true);
+
+      // Fermer le modal après 2 secondes et réinitialiser
+      setTimeout(() => {
+        onSubmit({ userId });
+        setShowSuccessMessage(false);
+        onClose();
+      }, 2000);
 
     } catch (err: any) {
+      setShowLoadingMessage(false);
+      const errorMsg = err.response?.data?.message || "Erreur lors de la création de l'utilisateur";
+      setErrorMessage(errorMsg);
+      setShowErrorMessage(true);
       console.error("Erreur création utilisateur", err.response?.data || err);
-      alert(err.response?.data?.message || "Erreur lors de la création de l'utilisateur");
     }
   };
 
   return (
-    <Modal show={show} onHide={onClose} size="lg" centered scrollable>
+    <>
+      <Modal show={show} onHide={onClose} size="lg" centered scrollable>
       <Modal.Header closeButton>
         <Modal.Title>
           {selectedProfil ? `Modifier ${selectedProfil.prenom} ${selectedProfil.nom}` : "Créer un utilisateur"}
@@ -860,7 +884,21 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
         <Button variant="secondary" onClick={onClose}>Annuler</Button>
         <Button variant="primary" onClick={handleSubmit}>Créer</Button>
       </Modal.Footer>
-    </Modal>
+      </Modal>
+
+      {/* Message modals - Outside Modal */}
+      <CollecteLoadingMessage visible={showLoadingMessage} message="Création en cours..." />
+      <CollecteSuccessMessage
+        visible={showSuccessMessage}
+        message={successMessage}
+        onClose={() => setShowSuccessMessage(false)}
+      />
+      <CollecteErrorMessage
+        visible={showErrorMessage}
+        message={errorMessage}
+        onClose={() => setShowErrorMessage(false)}
+      />
+    </>
   );
 };
 
