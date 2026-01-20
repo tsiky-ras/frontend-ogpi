@@ -96,6 +96,12 @@
   box-shadow: 0 0 0 0.2rem rgba(201, 60, 41, 0.25);
 }
 
+/* ===== Required asterisk ===== */
+.required-asterisk {
+  color: #dc3545;
+  font-weight: 700;
+}
+
 
 
 /* ================================

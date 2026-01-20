@@ -357,6 +357,218 @@
         console.error("Erreur création ou mise à jour du profil", err.response?.data || err);
       }
     };
+      onSubmit(payload);
+      onClose();
+    } catch (err: any) {
+      console.error("Erreur création ou mise à jour du profil", err.response?.data || err);
+      alert(err.response?.data?.message || "Erreur lors de la sauvegarde du profil");
+    }
+  };
+
+  return (
+    <Modal show={show} onHide={onClose} size="xl" centered scrollable className="fiche-profil-modal">
+      <Modal.Header closeButton>
+        <Modal.Title>{profil ? `Modifier : ${profil.prenom} ${profil.nom}` : "Ajouter collaborateur"}</Modal.Title>
+      </Modal.Header>
+
+      <Modal.Body className="fiche-profil-body">
+        {/* ===== Identité ===== */}
+        <section className="fiche-section">
+          <h4>1. Identité professionnelle</h4>
+          <Row className="g-3">
+            <Col md={4}><Form.Label>Matricule <span className="required-asterisk">*</span></Form.Label><Form.Control name="matricule" value={form.matricule} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Nom <span className="required-asterisk">*</span></Form.Label><Form.Control name="nom" value={form.nom} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Prénom <span className="required-asterisk">*</span></Form.Label><Form.Control name="prenom" value={form.prenom} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Appellation <span className="required-asterisk">*</span></Form.Label><Form.Control name="appelation" value={form.appelation} onChange={handleChange} /></Col>
+            <Col md={4}>
+              <Form.Label>Genre <span className="required-asterisk">*</span></Form.Label>
+              <Form.Select name="sexe" value={form.sexe} onChange={handleChange}>
+                <option value="1">Masculin</option>
+                <option value="2">Féminin</option>
+              </Form.Select>
+            </Col>
+            <Col md={4}><Form.Label>Date de naissance <span className="required-asterisk">*</span></Form.Label><Form.Control type="date" name="date_naissance" value={form.date_naissance} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Email professionnel <span className="required-asterisk">*</span></Form.Label><Form.Control type="email" name="email_pro" value={form.email_pro} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Email personnel <span className="required-asterisk">*</span></Form.Label><Form.Control type="email" name="email_perso" value={form.email_perso} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Téléphone <span className="required-asterisk">*</span></Form.Label><Form.Control type="tel" name="telephone" value={form.telephone} onChange={handleChange} /></Col>
+          </Row>
+        </section>
+
+        {/* ===== Organisation ===== */}
+        <section className="fiche-section">
+          <h4>2. Organisation</h4>
+          <Row className="g-3">
+            <Col md={4}>
+              <Form.Label>Type de collaborateur <span className="required-asterisk">*</span></Form.Label>
+              <Form.Select name="type_profil" value={form.type_profil} onChange={handleChange}>
+                <option value={1}>Collaborateur interne</option>
+                <option value={2}>Collaborateur externe</option>
+              </Form.Select>
+            </Col>
+            {/* ===== Poste actuel ===== */}
+              <Col md={3}>
+                <Form.Label>Poste actuel <span className="required-asterisk">*</span></Form.Label>
+                <Form.Select
+                  value={form.postes[0]?.poste?.posteId || ""}
+                  onChange={e => {
+                    const selectedPoste = postesList.find(p => p.id === Number(e.target.value)) || { id: 0, label: "" };
+                    const currentBU = form.postes[0]?.bu || { buId: 0, name: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        poste: { posteId: selectedPoste.id, label: selectedPoste.label },
+                        bu: currentBU,
+                        startDate: form.postes[0]?.startDate || "",
+                        endDate: form.postes[0]?.endDate || null,
+                        profilPosteId: form.postes[0]?.profilPosteId || 0,
+                      }]
+                    });
+                  }}
+                >
+                  <option value="">Sélectionner un poste</option>
+                  {postesList.map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </Form.Select>
+              </Col>
+
+              {/* ===== Business Unit ===== */}
+              <Col md={3}>
+                <Form.Label>Business Unit <span className="required-asterisk">*</span></Form.Label>
+                <Form.Select
+                  value={form.postes[0]?.bu?.buId || ""}
+                  onChange={e => {
+                    const selectedBU = BU.find(b => b.id === Number(e.target.value)) || { id: 0, name: "" };
+                    const currentPoste = form.postes[0]?.poste || { posteId: 0, label: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        poste: currentPoste,
+                        bu: { buId: selectedBU.id, name: selectedBU.name },
+                        startDate: form.postes[0]?.startDate || "",
+                        endDate: form.postes[0]?.endDate || null,
+                        profilPosteId: form.postes[0]?.profilPosteId || 0,
+                      }]
+                    });
+                  }}
+                >
+                  <option value="">Sélectionner une BU</option>
+                  {BU.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </Form.Select>
+              </Col>
+
+              {/* ===== Date de début ===== */}
+              <Col md={3}>
+                <Form.Label>Date de début <span className="required-asterisk">*</span></Form.Label>
+                <Form.Control
+                  type="date"
+                  value={form.postes[0]?.startDate || ""}
+                  onChange={e => {
+                    const currentPoste = form.postes[0]?.poste || { posteId: 0, label: "" };
+                    const currentBU = form.postes[0]?.bu || { buId: 0, name: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        ...form.postes[0],
+                        poste: currentPoste,
+                        bu: currentBU,
+                        startDate: e.target.value,
+                      }]
+                    });
+                  }}
+                />
+              </Col>
+
+              {/* ===== Date de fin ===== */}
+              <Col md={3}>
+                <Form.Label>Date de fin</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={form.postes[0]?.endDate || ""}
+                  onChange={e => {
+                    const currentPoste = form.postes[0]?.poste || { posteId: 0, label: "" };
+                    const currentBU = form.postes[0]?.bu || { buId: 0, name: "" };
+                    setForm({
+                      ...form,
+                      postes: [{
+                        ...form.postes[0],
+                        poste: currentPoste,
+                        bu: currentBU,
+                        endDate: e.target.value,
+                      }]
+                    });
+                  }}
+                />
+              </Col>
+          </Row>
+        </section>
+
+        {/* ===== Contrat & Dates ===== */}
+        <section className="fiche-section">
+          <h4>3. Contrat & Dates</h4>
+          <Row className="g-3">
+            <Col md={4}>
+              <Form.Label>Type de contrat <span className="required-asterisk">*</span></Form.Label>
+              <Form.Select name="type_contrat" value={form.type_contrat} onChange={handleChange}>
+                <option value={1}>CDI</option>
+                <option value={2}>CDD</option>
+                <option value={3}>Stage</option>
+              </Form.Select>
+            </Col>
+            <Col md={4}><Form.Label>Date embauche <span className="required-asterisk">*</span></Form.Label><Form.Control type="date" name="date_embauche" value={form.date_embauche} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Date intégration <span className="required-asterisk">*</span></Form.Label><Form.Control type="date" name="date_integration" value={form.date_integration} onChange={handleChange} /></Col>
+            <Col md={4}><Form.Label>Date de départ</Form.Label><Form.Control type="date" name="date_debauche" value={form.date_debauche} onChange={handleChange} /></Col>
+          </Row>
+        </section>
+
+        {/* ===== Diplômes avec select dynamique et upload PDF ===== */}
+        <section className="fiche-section">
+          <h4>4. Diplômes</h4>
+          {form.etudes.map((d: any, i: number) => (
+            <Row className="g-3 mb-2 align-items-end" key={i}>
+              <Col md={3}>
+                <Form.Label>Diplôme</Form.Label>
+                <Form.Select
+                  value={d.diplome?.id || ""}
+                  onChange={e => {
+                    const selected = diplomes.find(dip => dip.id === Number(e.target.value));
+                    updateDiplome(i, "diplome", selected || null);
+                  }}
+                >
+                  <option value="">Sélectionner un diplôme</option>
+                  {diplomes.map(dip => <option key={dip.id} value={dip.id}>{dip.label}</option>)}
+                </Form.Select>
+              </Col>
+
+              <Col md={3}>
+                <Form.Label>Établissement</Form.Label>
+                <Form.Select
+                  value={d.etablissement?.id || ""}
+                  onChange={e => {
+                    const selected = etablissements.find(etab => etab.id === Number(e.target.value));
+                    updateDiplome(i, "etablissement", selected || null);
+                  }}
+                >
+                  <option value="">Sélectionner un établissement</option>
+                  {etablissements.map(etab => <option key={etab.id} value={etab.id}>{etab.label}</option>)}
+                </Form.Select>
+              </Col>
+
+              <Col md={3}>
+                <Form.Label>Filière</Form.Label>
+                <Form.Select
+                  value={d.filiere?.id || ""}
+                  onChange={e => {
+                    const selected = filieres.find(f => f.id === Number(e.target.value));
+                    updateDiplome(i, "filiere", selected || null);
+                  }}
+                >
+                  <option value="">Sélectionner une filière</option>
+                  {filieres.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </Form.Select>
+              </Col>
 
     return (
       <>
