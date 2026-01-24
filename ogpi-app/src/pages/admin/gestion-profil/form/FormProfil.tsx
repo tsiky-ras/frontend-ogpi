@@ -361,7 +361,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
 
   return (
     <>
-      <Modal show={show} onHide={onClose} size="xl" centered scrollable className="fiche-profil-modal">
+      <Modal show={show} onHide={onClose} fullscreen centered scrollable className="fiche-profil-modal">
       <Modal.Header closeButton>
         <Modal.Title>{profil ? `Modifier : ${profil.prenom} ${profil.nom}` : "Ajouter collaborateur"}</Modal.Title>
       </Modal.Header>
