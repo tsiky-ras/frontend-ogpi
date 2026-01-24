@@ -1,0 +1,106 @@
+@import '../../../styles/shared-lists.css';
+
+/* ================= Page layout for ListeLead ================= */
+
+.liste-lead-layout {
+  min-height: 100vh;
+  background: #f7f9fc; /* fond clair de la palette */
+  padding-top: 60px; /* hauteur du Header */
+}
+
+.liste-lead-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+/* Sidebar */
+.liste-lead-sidebar {
+  width: 200px;
+  min-width: 200px;
+  color: #E8E5D7;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Main content */
+.liste-lead-main {
+  flex: 1;
+  padding: 24px;
+  overflow-x: auto;
+}
+
+/* Table wrapper */
+.table-responsive {
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive tweaks */
+@media (max-width: 1200px) {
+  .col-lg-3 {
+    min-width: calc(50% - 8px);
+  }
+}
+
+@media (max-width: 768px) {
+  .liste-lead-wrapper {
+    flex-direction: column;
+  }
+
+  .liste-lead-sidebar {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .liste-lead-main {
+    padding: 16px;
+  }
+
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .col-md-8,
+  .col-md-6 {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .col-lg-3 {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
+  .text-end {
+    text-align: left !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .liste-lead-layout {
+    padding-top: 50px;
+  }
+
+  .liste-lead-main {
+    padding: 12px;
+  }
+
+  .table-responsive {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .row {
+    margin-left: -6px;
+    margin-right: -6px;
+  }
+
+  .row > div {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}

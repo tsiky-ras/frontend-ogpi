@@ -5,7 +5,7 @@ interface StatCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  variant?: string | string[]; // e.g. 'tomato' or ['tomato','tuscan'] or hex values
+  variant?: string | string[]; 
 }
 
 const PALETTE: Record<string, string> = {

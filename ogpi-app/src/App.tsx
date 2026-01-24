@@ -14,6 +14,7 @@ import SoftSkillPage from "./pages/admin/gestion-profil/referentiel/SoftSkillPag
 import PostePage from "./pages/admin/gestion-profil/referentiel/PostePage.tsx";
 import CertificationPage from "./pages/admin/gestion-profil/referentiel/CertificationPage.tsx";
 import OrganismePage from "./pages/admin/gestion-profil/referentiel/OrganismePage.tsx";
+import ListeLead from "./pages/gestion-lead/liste/ListeLead.tsx";
 
 const App: React.FC = () => {
   return (
@@ -42,7 +43,8 @@ const App: React.FC = () => {
           <Route path="/admin/config/soft-skills" element={<SoftSkillPage />} />
           <Route path="/admin/config/postes" element={<PostePage />} />
           <Route path="/admin/config/certifications" element={<CertificationPage />} />
-          <Route path="/admin/config/organismes" element={<OrganismePage />} />          
+          <Route path="/admin/config/organismes" element={<OrganismePage />} />   
+          <Route path="/admin/gestion-opportunites" element={<ListeLead />} />       
         </Route>
 
         {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}

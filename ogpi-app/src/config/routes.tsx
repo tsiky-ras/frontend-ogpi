@@ -22,6 +22,11 @@ export const routes = [
     icon: <FaUserTie />,
   },
   {
+    path: "/admin/gestion-opportunites",
+    label: "Opportunités",
+    icon : <FaBriefcase />,
+  },
+  {
     label: "Référentiels",
     icon: <FaCogs />,
     children: [
