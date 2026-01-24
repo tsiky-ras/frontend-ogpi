@@ -191,4 +191,31 @@
   color: #333;
 }
 
+/* ===== Fullscreen Modal ===== */
+.fiche-profil-modal.modal.fullscreen {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-radius: 0;
+}
+
+.fiche-profil-modal.modal.fullscreen .modal-content {
+  height: 100vh;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fiche-profil-modal.modal.fullscreen .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none;
+}
+
+.fiche-profil-modal .btn-close {
+  filter: brightness(0) invert(1);
+}
+
 

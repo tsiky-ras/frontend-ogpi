@@ -83,7 +83,7 @@ const FicheUser: React.FC<FicheUserProps> = ({
 
   return (
     <>
-      <Modal show={true} onHide={onClose} size="lg" centered scrollable className="fiche-user-modal">
+      <Modal show={true} onHide={onClose} fullscreen centered scrollable className="fiche-user-modal">
         <Modal.Header closeButton>
           <Modal.Title>
             {modalTitle ?? (isEditMode

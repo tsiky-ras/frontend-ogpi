@@ -45,7 +45,7 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
     <Modal
       show={!!profil}
       onHide={onClose}
-      size="lg"
+      fullscreen
       centered
       className="fiche-profil-modal"
     >

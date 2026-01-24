@@ -359,7 +359,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
 
   return (
     <>
-      <Modal show={show} onHide={onClose} size="lg" centered scrollable>
+      <Modal show={show} onHide={onClose} fullscreen centered scrollable>
       <Modal.Header closeButton>
         <Modal.Title>
           {selectedProfil ? `Modifier ${selectedProfil.prenom} ${selectedProfil.nom}` : "Créer un utilisateur"}
