@@ -223,11 +223,6 @@ const FicheProfil: React.FC<FicheProfilProps> = ({ profil, onClose }) => {
         </section>
       </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onClose}>
-          Fermer
-        </Button>
-      </Modal.Footer>
     </Modal>
   );
 };

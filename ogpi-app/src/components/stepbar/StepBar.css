@@ -1,0 +1,102 @@
+/* StepBar Styling */
+.stepbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  width: 100%;
+  margin: 2rem 0;
+  padding: 1.5rem 1rem 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #e84c3d;
+
+  --line-top: 34px; /* centre des cercles */
+}
+
+/* Ligne de fond */
+.stepbar::before {
+  content: "";
+  position: absolute;
+  top: var(--line-top);
+  left: calc(2rem + 20px);
+  right: calc(2rem + 20px);
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  z-index: 0;
+}
+
+/* Ligne active */
+.stepbar::after {
+  content: "";
+  position: absolute;
+  top: var(--line-top);
+  left: calc(2rem + 20px);
+  height: 4px;
+  width: calc((var(--progress, 0) / 100) * (100% - 4rem - 40px));
+  background: #3a3a3a;
+  border-radius: 2px;
+  z-index: 0;
+  transition: width 0.4s ease;
+}
+
+/* Step item */
+.step-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+}
+
+/* Cercle */
+.step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #3a3a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #3a3a3a;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+/* Actif / complété */
+.step-item.active .step-circle {
+  background: #3a3a3a;
+  color: white;
+}
+
+.step-item.current .step-circle {
+  background: #e84c3d;
+  border-color: #e84c3d;
+  color: white;
+  box-shadow: 0 0 0 4px rgba(232, 76, 61, 0.2);
+}
+
+/* Label */
+.step-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #505050;
+  text-align: center;
+  max-width: 100px;
+}
+
+.step-item.active .step-label {
+  color: #3a3a3a;
+  font-weight: 700;
+}
+
+.step-item.current .step-label {
+  color: #e84c3d;
+  font-weight: 700;
+}

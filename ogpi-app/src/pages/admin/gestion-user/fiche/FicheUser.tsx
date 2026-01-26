@@ -211,7 +211,6 @@ const FicheUser: React.FC<FicheUserProps> = ({
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="secondary" onClick={onClose}>Fermer</Button>
           {isEditMode && <Button variant="primary" onClick={handleSave}>Sauvegarder</Button>}
         </Modal.Footer>
       </Modal>

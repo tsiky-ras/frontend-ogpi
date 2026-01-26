@@ -48,6 +48,26 @@
 }
 
 /* ===== Modal ===== */
+.form-user-modal .modal-header {
+  background: linear-gradient(
+    135deg,
+    #fffefe,
+    #505050
+  );
+  color: #fff;
+  border-bottom: 2px solid #e84c3d;
+  padding: 1.5rem 2rem;
+}
+
+.form-user-modal .modal-title {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.form-user-modal .btn-close {
+  filter: brightness(0) invert(1);
+}
+
 .modal-body {
   max-height: 70vh;
   overflow-y: auto;

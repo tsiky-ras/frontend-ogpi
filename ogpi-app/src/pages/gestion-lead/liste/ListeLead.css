@@ -38,6 +38,61 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
 }
 
+/* Expanded Row Styling */
+.expanded-row-content {
+  border-top: 2px solid #e84c3d;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.expanded-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.expanded-label {
+  font-weight: 600;
+  color: #505050;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.expanded-text {
+  color: #3a3a3a;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.expanded-text a {
+  color: #e84c3d;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.expanded-text a:hover {
+  color: #d4886c;
+  text-decoration: underline;
+}
+
+.expanded-deadline {
+  color: #e84c3d;
+  font-weight: 500;
+}
+
 /* Responsive tweaks */
 @media (max-width: 1200px) {
   .col-lg-3 {

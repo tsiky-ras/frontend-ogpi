@@ -29,11 +29,12 @@
 .fiche-user-modal .modal-header {
   background: linear-gradient(
     135deg,
-    var(--color-charcoal),
-    var(--color-dim)
+    #fffefe,
+    #505050
   );
   color: #fff;
-  border-bottom: none;
+  border-bottom: 2px solid #e84c3d;
+  padding: 1.5rem 2rem;
 }
 
 .fiche-profil-modal .modal-title {

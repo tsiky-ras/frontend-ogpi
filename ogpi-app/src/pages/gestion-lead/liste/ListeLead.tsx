@@ -7,6 +7,9 @@ import { FaPlus } from 'react-icons/fa';
 import FilterBar from '../../../components/filters/FilterBar.tsx';
 import Table from '../../../components/table/Table.tsx';
 import StatCard from '../../../components/stat/StatCard.tsx';
+import FormLead from '../form/FormLead.tsx';
+import DetailsLead from '../details/DetailsLead.tsx';
+import MenuListeLead from '../menu/MenuListeLead.tsx';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ListeLead.css';
@@ -17,6 +20,10 @@ const ListeLead: React.FC = () => {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [period, setPeriod] = useState<'week' | 'month' | 'semester' | 'year'>('month');
   const [currency, setCurrency] = useState<'AR' | 'Euro' | '$'>('Euro');
+  const [showFormLead, setShowFormLead] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [showDetailLead, setShowDetailLead] = useState(false);
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
 
   const [kpis, setKpis] = useState({
     activeOpportunitiesThisPeriod: 0,
@@ -25,7 +32,100 @@ const ListeLead: React.FC = () => {
     upcomingDeadlines: 0,
   });
 
-  /* ================= UTILS ================= */
+  /* ================= MOCK DATA ================= */
+  useEffect(() => {
+    const mockOpportunities = [
+      {
+        id: 1,
+        name: 'Plateforme E-commerce',
+        reference: 'OPP-2024-001',
+        company: 'Tech Solutions',
+        email: 'contact@techsolutions.com',
+        phone: '+261 34 12 345 67',
+        description: 'Développement plateforme e-commerce pour le retail',
+        amount: 45000,
+        currency: 'EUR',
+        status: 'active',
+        type: 'Fixe',
+        category: 'Digital',
+        sector: 'Retail',
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 2,
+        name: 'Migration Cloud AWS',
+        reference: 'OPP-2024-002',
+        company: 'DataFlow Inc',
+        email: 'projects@dataflow.com',
+        phone: '+261 32 98 765 43',
+        description: 'Migration infrastructure on-premise vers AWS',
+        amount: 75000,
+        currency: 'EUR',
+        status: 'submitted',
+        type: 'Variable',
+        category: 'Infrastructure',
+        sector: 'Finance',
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 3,
+        name: 'Application Mobile Banking',
+        reference: 'OPP-2024-003',
+        company: 'FinTech Corp',
+        email: 'dev@fintechcorp.com',
+        phone: '+261 33 45 678 90',
+        description: 'Développement application mobile pour services bancaires',
+        amount: 120000,
+        currency: 'USD',
+        status: 'won',
+        type: 'Fixe',
+        category: 'Digital',
+        sector: 'Finance',
+        createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+        deadline: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 4,
+        name: 'Audit Sécurité IT',
+        reference: 'OPP-2024-004',
+        company: 'SecureNet',
+        email: 'audit@securenet.com',
+        phone: '+261 34 56 789 01',
+        description: 'Audit complet infrastructure sécurité informatique',
+        amount: 25000,
+        currency: 'EUR',
+        status: 'active',
+        type: 'Fixe',
+        category: 'Consulting',
+        sector: 'Healthcare',
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 5,
+        name: 'Système de Gestion RH',
+        reference: 'OPP-2024-005',
+        company: 'HRFlow Solutions',
+        email: 'projects@hrflow.mg',
+        phone: '+261 32 12 345 67',
+        description: 'Implémentation système gestion ressources humaines',
+        amount: 55000,
+        currency: 'USD',
+        status: 'submitted',
+        type: 'Variable',
+        category: 'Digital',
+        sector: 'Services',
+        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        deadline: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+    setOpportunities(mockOpportunities);
+    calculateKPIs(mockOpportunities);
+  }, [period]);
+
+  /* ================= KPI LOGIC ================= */
   const getCurrencySymbol = () => {
     switch (currency) {
       case 'AR':
@@ -39,14 +139,6 @@ const ListeLead: React.FC = () => {
     }
   };
 
-  /* ================= EFFECT (MAQUETTE) ================= */
-  useEffect(() => {
-    // Maquette : données mockées
-    const mockOpportunities: any[] = [];
-    calculateKPIs(mockOpportunities);
-  }, [period]);
-
-  /* ================= KPI LOGIC ================= */
   const getPeriodDateRange = () => {
     const now = new Date();
     let startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -124,14 +216,13 @@ const ListeLead: React.FC = () => {
   /* ================= TABLE ================= */
   const columns = [
     { key: 'name', label: 'Nom' },
+    { key: 'reference', label: 'Référence' },
     { key: 'company', label: 'Entreprise' },
-    { key: 'email', label: 'Email' },
-    { key: 'phone', label: 'Téléphone' },
     {
       key: 'amount',
       label: 'Montant',
       render: (row: any) =>
-        row.amount ? `${row.amount.toLocaleString()} ${getCurrencySymbol()}` : '-',
+        row.amount ? `${row.amount.toLocaleString()} ${row.currency || getCurrencySymbol()}` : '-',
     },
     {
       key: 'status',
@@ -147,7 +238,82 @@ const ListeLead: React.FC = () => {
         return <span className={`badge ${cls}`}>{label}</span>;
       },
     },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (row: any) => (
+        <MenuListeLead
+          onDetails={() => {
+            setSelectedLead(row);
+            setShowDetailLead(true);
+          }}
+          onEdit={() => {
+            setSelectedLead(row);
+            setShowFormLead(true);
+          }}
+        />
+      ),
+    },
   ];
+
+  const renderExpandedRow = (row: any) => (
+    <div className="expanded-row-content p-4 bg-light">
+      <div className="row g-3">
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Description</label>
+            <p className="expanded-text">{row.description || '-'}</p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Email</label>
+            <p className="expanded-text">
+              {row.email ? <a href={`mailto:${row.email}`}>{row.email}</a> : '-'}
+            </p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Téléphone</label>
+            <p className="expanded-text">
+              {row.phone ? <a href={`tel:${row.phone}`}>{row.phone}</a> : '-'}
+            </p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Type</label>
+            <p className="expanded-text">{row.type || '-'}</p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Catégorie</label>
+            <p className="expanded-text">{row.category || '-'}</p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Secteur</label>
+            <p className="expanded-text">{row.sector || '-'}</p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Date création</label>
+            <p className="expanded-text">{new Date(row.createdAt).toLocaleDateString('fr-FR')}</p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Deadline</label>
+            <p className="expanded-text expanded-deadline">{new Date(row.deadline).toLocaleDateString('fr-FR')}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   /* ================= RENDER ================= */
   return (
@@ -197,7 +363,7 @@ const ListeLead: React.FC = () => {
                     <option value="$">Dollar $</option>
                   </select>
 
-                  <Button label="Créer une opportunité" icon={<FaPlus />} onClick={() => {}} />
+                  <Button label="Créer une opportunité" icon={<FaPlus />} onClick={() => setShowFormLead(true)} />
                 </div>
               </div>
             </div>
@@ -243,11 +409,36 @@ const ListeLead: React.FC = () => {
             />
 
             <div className="table-responsive mt-3">
-              <Table columns={columns} data={opportunities} />
+              <Table
+                columns={columns}
+                data={opportunities}
+                expandedRowId={expandedRowId}
+                expandedRow={renderExpandedRow}
+                onRowClick={(row) => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
+              />
             </div>
           </div>
         </main>
       </div>
+
+      {/* Formulaire Lead */}
+      <FormLead
+        show={showFormLead}
+        onClose={() => setShowFormLead(false)}
+        lead={selectedLead}
+        onSubmit={() => {
+          // Recharger les opportunités
+          setShowFormLead(false);
+          setSelectedLead(null);
+        }}
+      />
+
+      {/* Détails Lead */}
+      <DetailsLead
+        show={showDetailLead}
+        onClose={() => setShowDetailLead(false)}
+        lead={selectedLead}
+      />
     </div>
   );
 };
