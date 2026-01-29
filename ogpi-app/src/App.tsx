@@ -14,8 +14,14 @@ import SoftSkillPage from "./pages/admin/gestion-profil/referentiel/SoftSkillPag
 import PostePage from "./pages/admin/gestion-profil/referentiel/PostePage.tsx";
 import CertificationPage from "./pages/admin/gestion-profil/referentiel/CertificationPage.tsx";
 import OrganismePage from "./pages/admin/gestion-profil/referentiel/OrganismePage.tsx";
-import ListeLead from "./pages/gestion-lead/liste/ListeLead.tsx";
-
+import ListeLead from "./pages/admin/gestion-lead/liste/ListeLead.tsx";
+import ClientPage from "./pages/admin/gestion-lead/referentiel/ClientPage.tsx";
+import LeadCategoryPage from "./pages/admin/gestion-lead/referentiel/LeadCategoryPage.tsx";
+import LeadSecteurPage from "./pages/admin/gestion-lead/referentiel/LeadSecteurPage.tsx";
+import LeadStatusPage from "./pages/admin/gestion-lead/referentiel/LeadStatusPage.tsx";
+import LeadTypePage from "./pages/admin/gestion-lead/referentiel/LeadTypePage.tsx";
+import PartenairePage from "./pages/admin/gestion-lead/referentiel/PartenairePage.tsx";
+import TypeProjetFinancementPage from "./pages/admin/gestion-lead/referentiel/TypeProjetFinancementPage.tsx";
 const App: React.FC = () => {
   return (
     <Router>
@@ -44,7 +50,14 @@ const App: React.FC = () => {
           <Route path="/admin/config/postes" element={<PostePage />} />
           <Route path="/admin/config/certifications" element={<CertificationPage />} />
           <Route path="/admin/config/organismes" element={<OrganismePage />} />   
-          <Route path="/admin/gestion-opportunites" element={<ListeLead />} />       
+          <Route path="/admin/gestion-opportunites" element={<ListeLead />} /> 
+          <Route path="/admin/config/lead-clients" element={<ClientPage />} /> 
+          <Route path="/admin/config/lead-categories" element={<LeadCategoryPage />} />
+          <Route path="/admin/config/lead-secteur" element={<LeadSecteurPage />} />
+          <Route path="/admin/config/lead-statut" element={<LeadStatusPage />} />
+          <Route path="/admin/config/lead-types" element={<LeadTypePage />} />
+          <Route path="/admin/config/lead-partenaire" element={<PartenairePage />} />
+          <Route path="/admin/config/lead-financement" element={<TypeProjetFinancementPage />} />
         </Route>
 
         {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}

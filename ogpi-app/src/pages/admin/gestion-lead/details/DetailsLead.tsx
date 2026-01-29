@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Modal, Button, Row, Col, Nav, Tab, Form, Badge } from "react-bootstrap";
-import StepBar from "../../../components/stepbar/StepBar.tsx";
-import { OFFER_STEPS, getStepNames, canChangeStep } from "../../../services/lead/OfferStepService.tsx";
+import StepBar from "../../../../components/stepbar/StepBar.tsx";
+import { OFFER_STEPS, getStepNames, canChangeStep } from "../../../../services/lead/OfferStepService.tsx";
 import "./DetailsLead.css";
 
 type DetailsLeadProps = {

@@ -195,7 +195,7 @@ function ConfigEntityPage<T extends { id?: number | null }>({
       >
         <Modal.Header closeButton>
           <Modal.Title>
-            {selectedEntity ? `Modifier ${entityName}` : `Ajouter un ${entityName}`}
+            {selectedEntity ? `Modifier ${entityName}` : `Ajouter un(e) ${entityName}`}
           </Modal.Title>
         </Modal.Header>
 

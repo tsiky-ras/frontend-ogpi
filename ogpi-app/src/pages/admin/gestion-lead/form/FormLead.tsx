@@ -1,20 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Button, Form, Row, Col, Nav, Tab } from "react-bootstrap";
-import { useAuth } from "../../../context/AuthContext.tsx";
-import CollecteSuccessMessage from "../../../components/message/CollecteSuccessMessage.tsx";
-import CollecteErrorMessage from "../../../components/message/CollecteErrorMessage.tsx";
-import CollecteLoadingMessage from "../../../components/message/CollecteLoadingMessage.tsx";
+import { useAuth } from "../../../../context/AuthContext.tsx";
+import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
+import CollecteErrorMessage from "../../../../components/message/CollecteErrorMessage.tsx";
+import CollecteLoadingMessage from "../../../../components/message/CollecteLoadingMessage.tsx";
 import "./FormLead.css";
-import "../../../components/message/CollecteMessages.css";
-import { LeadTypeService } from "../../../services/lead/LeadTypeService.tsx";
-import { LeadCategoryService } from "../../../services/lead/LeadCategoryService.tsx";
-import { LeadSecteurService } from "../../../services/lead/LeadSecteurService.tsx";
-import { LeadStatusService } from "../../../services/lead/LeadStatusService.tsx";
-import { TypeFinancementService } from "../../../services/lead/TypeFinancementService.tsx";
-import { TypeFacturationService } from "../../../services/lead/TypeFacturationService.tsx";
-import { ClientService } from "../../../services/lead/ClientService.tsx";
-import { PartenaireService } from "../../../services/lead/PartenaireService.tsx";
-import { BusinessUnitService } from "../../../services/profil/poste/BusinessUnitService.tsx";
+import "../../../../components/message/CollecteMessages.css";
+import { LeadTypeService } from "../../../../services/lead/LeadTypeService.tsx";
+import { LeadCategoryService } from "../../../../services/lead/LeadCategoryService.tsx";
+import { LeadSecteurService } from "../../../../services/lead/LeadSecteurService.tsx";
+import { LeadStatusService } from "../../../../services/lead/LeadStatusService.tsx";
+import { TypeProjetFinancementService } from "../../../../services/lead/TypeProjetFinancementService.tsx";
+import { ClientService } from "../../../../services/lead/ClientService.tsx";
+import { PartenaireService } from "../../../../services/lead/PartenaireService.tsx";
+import { BusinessUnitService } from "../../../../services/profil/poste/BusinessUnitService.tsx";
 
 type FormLeadProps = {
   show: boolean;
@@ -95,8 +94,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         const leadCategoryService = new LeadCategoryService(api);
         const leadSecteurService = new LeadSecteurService(api);
         const leadStatusService = new LeadStatusService(api);
-        const typeFinancementService = new TypeFinancementService(api);
-        const typeFacturationService = new TypeFacturationService(api);
+        const typeFinancementService = new TypeProjetFinancementService(api);
         const clientService = new ClientService(api);
         const partenaireService = new PartenaireService(api);
 

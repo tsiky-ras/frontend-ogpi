@@ -1,30 +1,9 @@
-import { AxiosInstance } from 'axios';
+import { AxiosInstance } from "axios";
+import { LeadSecteur } from "../../types/lead/LeadSecteur.tsx";
+import { AbstractCrudService } from "../../services/profil/poste/util/AbstractCrudService.tsx";
 
-export class LeadSecteurService {
-  private api: AxiosInstance;
-
+export class LeadSecteurService extends AbstractCrudService<LeadSecteur> {
   constructor(api: AxiosInstance) {
-    this.api = api;
-  }
-
-  async getAll() {
-    try {
-      const response = await this.api.get('/lead-secteurs');
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des secteurs :', error);
-      throw error;
-    }
-  }
-
-  async getById(id: number) {
-    try {
-      const response = await this.api.get(`/lead-secteurs/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error(`Erreur lors de la récupération du secteur ${id} :`, error);
-      throw error;
-    }
+    super(api, "/lead-secteurs");
   }
 }
-
