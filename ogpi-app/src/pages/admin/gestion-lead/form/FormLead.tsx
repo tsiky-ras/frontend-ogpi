@@ -15,6 +15,7 @@ import { LeadStatusService } from "../../../../services/lead/LeadStatusService.t
 import { TypeProjetFinancementService } from "../../../../services/lead/TypeProjetFinancementService.tsx";
 import { ClientService } from "../../../../services/lead/ClientService.tsx";
 import { PartenaireService } from "../../../../services/lead/PartenaireService.tsx";
+import { LeadService } from "../../../../services/lead/LeadService.tsx";
 type FormLeadProps = {
   show: boolean;
   onClose: () => void;
@@ -100,6 +101,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
   const [showErrorMessage, setShowErrorMessage] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
+  const leadService = new LeadService(api);
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
@@ -156,28 +158,31 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
   const handleSubmit = async () => {
     setShowLoadingMessage(true);
     try {
-      // validation minimale
-      if (!form.nom || !form.reference || !form.typeOpportunite) {
+      // Validation minimale
+      if (!form.nom || !form.reference || !form.typeOpportunite || !form.categorie || !form.secteur || !form.businessUnit || !form.statut) {
         setErrorMessage("Veuillez remplir tous les champs obligatoires");
         setShowErrorMessage(true);
         setShowLoadingMessage(false);
         return;
       }
 
+      // Préparer le payload
       const payload = formatLeadPayload(form);
 
-      // Appel API
-      const response = await api.post('/leads/qualif', payload);
+      // Appel API via le service
+      const responseData = await leadService.createQualif(payload);
 
+      // Feedback utilisateur
       setSuccessMessage(lead ? "Lead modifié !" : "Lead créé !");
       setShowSuccessMessage(true);
       setShowLoadingMessage(false);
 
       setTimeout(() => {
         setShowSuccessMessage(false);
-        onSubmit(response.data); // retourne l'objet créé
+        onSubmit(responseData); // retourne l'objet créé
         onClose();
       }, 1500);
+
     } catch (err: any) {
       setShowLoadingMessage(false);
       setErrorMessage(err.response?.data?.message || err.message || "Erreur lors de l'enregistrement");
@@ -185,7 +190,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       console.error("Erreur création lead:", err);
     }
   };
-  return (
+    return (
     <>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable>
         <Modal.Header closeButton>
