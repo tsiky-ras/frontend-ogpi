@@ -173,16 +173,7 @@ const FormQualif: React.FC<Props> = ({
 
           {/* Deadlines */}
           <Col md={6}>
-            <Form.Label>Deadline Interne</Form.Label>
-            <Form.Control
-              type="datetime-local"
-              name="internalDeadline"
-              value={form.internalDeadline || ""}
-              onChange={handleChange}
-            />
-          </Col>
-          <Col md={6}>
-            <Form.Label>Deadline Réelle</Form.Label>
+            <Form.Label>Date et heure de soumission</Form.Label>
             <Form.Control
               type="datetime-local"
               name="realDeadline"

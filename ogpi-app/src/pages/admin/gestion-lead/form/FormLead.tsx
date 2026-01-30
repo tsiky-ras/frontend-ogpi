@@ -51,7 +51,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       leadDescription: form.description,
       leadName: form.nom,
       leadRef: form.reference,
-      leadInternalDeadLine: form.internalDeadline || null,
       leadRealDeadLine: form.realDeadline || null,
       projetDeFinancement: form.projetDeFinancement || "",
       leadCommentaire: form.commentaire || "",
