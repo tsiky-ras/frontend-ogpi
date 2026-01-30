@@ -34,11 +34,11 @@ export class LeadService {
   }
 
   /**
-   * Crée un nouveau lead
+   * Crée un nouveau lead etape qualification
    */
-  async create(data: any) {
+  async createQualif(data: any) {
     try {
-      const response = await this.api.post('/leads', data);
+      const response = await this.api.post('/leads/qualif', data);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la création du lead :', error);

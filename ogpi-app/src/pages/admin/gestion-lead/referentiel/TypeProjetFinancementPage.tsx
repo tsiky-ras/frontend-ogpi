@@ -11,7 +11,7 @@ const TypeProjetFinancementPage: React.FC = () => {
   return (
     <ConfigEntityPage<TypeProjetFinancement>
       title="Gestion des types de financement"
-      entityLabel="name"     
+      entityLabel="label"     
       entityName="Type de financement"
       service={typeProjetFinancementService}
     />
