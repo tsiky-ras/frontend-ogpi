@@ -38,6 +38,9 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     typeFinancement: "",
   });
 
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [showPartenaireModal, setShowPartenaireModal] = useState(false);
+
   const formatLeadPayload = (form: any) => {
     const nowIso = new Date().toISOString();
 
@@ -50,7 +53,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       leadName: form.nom,
       leadRef: form.reference,
       leadRealDeadLine: form.realDeadline || null,
-      projetDeFinancement: form.projetDeFinancement || "",
+  
       leadCommentaire: form.commentaire || "",
       leadZone: form.zone !== undefined ? Number(form.zone) : null,
       client: form.client ? { id: form.client.id } : null,
@@ -67,6 +70,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           leadStatus: form.statut ? { id: form.statut } : { id: 1 }
         }
       ],
+      typeProjetFinancement: form.typeFinancement ? { id: form.typeFinancement.id } : null,
       driveFolder: form.driveFolderName
         ? {
             name: form.driveFolderName,
@@ -225,6 +229,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       {showLoadingMessage && <CollecteLoadingMessage />}
       {showSuccessMessage && <CollecteSuccessMessage message={successMessage} />}
       {showErrorMessage && <CollecteErrorMessage message={errorMessage} />}
+
     </>
   );
 };

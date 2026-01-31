@@ -13,6 +13,12 @@ const DetailsQualif: React.FC<DetailsQualifProps> = ({ lead }) => {
   const periodeDate = lead.leadPeriode ? new Date(lead.leadPeriode).toLocaleDateString('fr-FR') : '-';
   const internalDeadline = lead.leadInternalDeadLine ? new Date(lead.leadInternalDeadLine).toLocaleDateString('fr-FR') : '-';
   const realDeadline = lead.leadRealDeadLine ? new Date(lead.leadRealDeadLine).toLocaleDateString('fr-FR') : '-';
+  const periodeLabel = lead.leadPeriode
+  ? new Date(lead.leadPeriode).toLocaleDateString('fr-FR', {
+      month: 'long',
+      year: 'numeric',
+    })
+  : '-';
 
   return (
     <div className="details-qualif">
@@ -20,8 +26,8 @@ const DetailsQualif: React.FC<DetailsQualifProps> = ({ lead }) => {
         <h5>Informations Générales</h5>
         <Row>
           <Col md={6}>
-            <label>Période</label>
-            <p>{periodeDate}</p>
+          <label>Période</label>
+          <p style={{ textTransform: 'capitalize' }}>{periodeLabel}</p>
           </Col>
           <Col md={6}>
             <label>Business Unit</label>
@@ -48,6 +54,10 @@ const DetailsQualif: React.FC<DetailsQualifProps> = ({ lead }) => {
           <Col md={6}>
             <label>Type</label>
             <p>{lead.leadType?.label || '-'}</p>
+          </Col>
+          <Col md={6}>
+            <label>Type de financement</label>
+            <p>{lead.typeProjetFinancement?.label || '-'}</p>
           </Col>
           <Col md={6}>
             <label>Catégorie</label>
@@ -83,15 +93,29 @@ const DetailsQualif: React.FC<DetailsQualifProps> = ({ lead }) => {
           </Col>
           <Col md={6}>
             <label>Client</label>
-            <p>{lead.client?.name || '-'}</p>
+            <p><strong>{lead.client.name}</strong></p>
+            <p className="contact-line">
+              Email : <span>{lead.client.email || '-'}</span>
+            </p>
+            <p className="contact-line">
+              Téléphone : <span>{lead.client.phone || '-'}</span>
+            </p>
           </Col>
+
           <Col md={6}>
             <label>Partenaires</label>
-            <p>
-              {lead.leadPartenaires?.length > 0
-                ? lead.leadPartenaires.map((p: any) => p.partenaire.name).join(', ')
-                : '-'}
-            </p>
+
+            {lead.leadPartenaires?.length > 0 ? (
+              lead.leadPartenaires.map((p: any, index: number) => (
+                <div key={index} className="mb-2">
+                    <strong>{p.partenaire.name}</strong>
+                    <div className="contact-line">Email : <span>{p.partenaire.email || '-'}</span></div>
+                    <div className="contact-line">Téléphone : <span>{p.partenaire.phone || '-'}</span></div>
+                </div>
+              ))
+            ) : (
+              <p>-</p>
+            )}
           </Col>
         </Row>
       </section>

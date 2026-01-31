@@ -11,11 +11,19 @@ const ClientPage: React.FC = () => {
   return (
     <ConfigEntityPage<Client>
       title="Gestion des clients"
-      entityLabel="name"     
+      entityLabel="name"
       entityName="Client"
       service={clientService}
+      extraInputs={[
+        { name: "email", label: "Email", type: "email" },
+        { name: "phone", label: "Téléphone", type: "tel" },
+      ]}
+      extraColumns={[
+        { key: "email", label: "Email" },
+        { key: "phone", label: "Téléphone" },
+      ]}
     />
-  );
+  );  
 };
 
 export default ClientPage;

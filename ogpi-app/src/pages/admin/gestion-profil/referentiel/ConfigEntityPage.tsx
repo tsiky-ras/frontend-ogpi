@@ -14,19 +14,25 @@ import { FaPlus } from "react-icons/fa";
 import "./ConfigPage.css";
 import "../../../../components/message/CollecteMessages.css";
 
-type ConfigEntityPageProps<T> = {
-  service: any; // ton service TSX (PosteService, CertificationService…)
-  entityName: string;
-  entityLabel: keyof T;
-  title: string;
-};
+  type ConfigEntityPageProps<T> = {
+    service: any;
+    entityName: string;
+    entityLabel: keyof T;
+    title: string;
+    extraColumns?: { key: string; label: string; render?: (row: T) => React.ReactNode }[];
+    extraInputs?: { name: keyof T; label: string; type?: string }[]; // <-- ici
+  };
 
-function ConfigEntityPage<T extends { id?: number | null }>({
-  service,
-  entityName,
-  entityLabel,
-  title,
-}: ConfigEntityPageProps<T>) {
+
+  function ConfigEntityPage<T extends { id?: number | null }>({
+    service,
+    entityName,
+    entityLabel,
+    title,
+    extraColumns = [],
+    extraInputs = [],
+  }: ConfigEntityPageProps<T>) {
+
   const [entities, setEntities] = useState<T[]>([]);
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [search, setSearch] = useState("");
@@ -120,22 +126,30 @@ function ConfigEntityPage<T extends { id?: number | null }>({
   /* =========================
      TABLE COLUMNS
   ========================= */
-  const columns = [
-    { key: entityLabel as string, label: entityName },
-    {
-      key: "actions",
-      label: "Actions",
-      render: (row: T) => (
-        <DropdownActions
-          onEdit={() => {
-            setSelectedEntity(row);
-            setShowModal(true);
-          }}
-          onDelete={() => handleDelete(row.id)}
-        />
-      ),
-    },
-  ];
+    const columns = [
+      {
+        key: entityLabel as string,
+        label: entityName,
+        render: (row: T) => String(row[entityLabel] ?? "")
+      },
+      ...extraColumns.map(col => ({
+        ...col,
+        render: col.render || ((row: T) => String(row[col.key as keyof T] ?? "")) 
+      })),
+      {
+        key: "actions",
+        label: "Actions",
+        render: (row: T) => (
+          <DropdownActions
+            onEdit={() => {
+              setSelectedEntity(row);
+              setShowModal(true);
+            }}
+            onDelete={() => handleDelete(row.id)}
+          />
+        ),
+      },
+    ];
 
   /* =========================
      RENDER
@@ -200,14 +214,15 @@ function ConfigEntityPage<T extends { id?: number | null }>({
         </Modal.Header>
 
         <Modal.Body>
-          <GenericForm<T>
-            valueKey={entityLabel as "label" | "name"}
-            initialData={selectedEntity}
-            onSubmit={handleSave}
-            onCancel={() => setShowModal(false)}
-            submitLabel={selectedEntity ? "Mettre à jour" : "Créer"}
-            title=""
-          />
+        <GenericForm<T>
+          valueKey={entityLabel as "label" | "name"}
+          initialData={selectedEntity}
+          onSubmit={handleSave}
+          onCancel={() => setShowModal(false)}
+          submitLabel={selectedEntity ? "Mettre à jour" : "Créer"}
+          title=""
+          extraInputs={extraInputs} // <-- important !
+        />
         </Modal.Body>
       </Modal>
 

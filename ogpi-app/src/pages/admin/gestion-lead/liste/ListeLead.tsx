@@ -16,7 +16,6 @@ import { LeadService } from '../../../../services/lead/LeadService.tsx';
 import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Lead } from '../../../../types/lead/Lead.tsx';
 
-
 /* ================= COMPONENT ================= */
 const ListeLead: React.FC = () => {
   const { api } = useAuth();
@@ -37,45 +36,45 @@ const ListeLead: React.FC = () => {
     upcomingDeadlines: 0,
   });
 
-  useEffect(() => {
-    const loadLeads = async () => {
-      try {
-        const data = await leadService.getAll();
+  const loadLeads = async () => {
+  try {
+    const data = await leadService.getAll();
 
-        const leadsData: Lead[] = data.map((lead: any) => ({
-          id: lead.leadId,
-          name: lead.leadName,
-          reference: lead.leadRef,
-          bu : lead.businessUnit,
-          typeFinancement: lead.typeProjetFinancement,
-          description: lead.leadDescription,
-          periode: lead.leadPeriode,
-          internalDeadline: lead.leadInternalDeadLine,
-          realDeadline: lead.leadRealDeadLine,
-          projetFinancement: lead.typeProjetFinancement,
-          commentaire: lead.leadCommentaire,
-          zone: lead.leadZone === 0 ? "Local" : "OffShore",
-          jiraProject: lead.leadGoProjetJira,
-          jiraTicket: lead.leadGoTicketJira,
-          driveFolder: lead.driveFolder || undefined,
-          driveFile: lead.mainDriveFile || undefined,
-          client: lead.client,
-          type: lead.leadType,
-          category: lead.category,
-          secteur: lead.leadSecteur,
-          status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'Brouillon', order: 0 },
-          partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
-        }));
-        console.log('Leads chargés :', leadsData);
-        setOpportunities(leadsData);
-        calculateKPIs(leadsData);
-      } catch (error) {
-        console.error("Erreur chargement leads", error);
-      }
-    };
+    const leadsData: Lead[] = data.map((lead: any) => ({
+      id: lead.leadId,
+      name: lead.leadName,
+      reference: lead.leadRef,
+      bu: lead.businessUnit,
+      typeFinancement: lead.typeProjetFinancement,
+      description: lead.leadDescription,
+      periode: lead.leadPeriode,
+      internalDeadline: lead.leadInternalDeadLine,
+      realDeadline: lead.leadRealDeadLine,
+      projetFinancement: lead.typeProjetFinancement,
+      commentaire: lead.leadCommentaire,
+      zone: lead.leadZone === 0 ? "Local" : "OffShore",
+      jiraProject: lead.leadGoProjetJira,
+      jiraTicket: lead.leadGoTicketJira,
+      driveFolder: lead.driveFolder || undefined,
+      driveFile: lead.mainDriveFile || undefined,
+      client: lead.client,
+      type: lead.leadType,
+      category: lead.category,
+      secteur: lead.leadSecteur,
+      status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'Brouillon', order: 0 },
+      partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
+    }));
 
-    loadLeads();
-  }, [period]);
+    setOpportunities(leadsData);
+    calculateKPIs(leadsData);
+  } catch (error) {
+    console.error("Erreur chargement leads", error);
+  }
+};
+
+useEffect(() => {
+  loadLeads();
+}, [period]);
 
   const getCurrencySymbol = () => {
     switch (currency) {
@@ -252,7 +251,13 @@ const ListeLead: React.FC = () => {
                 category: fullLead.category?.label ? { label: fullLead.category.label } : null,
                 secteur: fullLead.secteur?.label ? { label: fullLead.secteur.label } : null,
                 bu: fullLead.bu?.name ? { name: fullLead.bu.name } : null,
-                client: fullLead.client?.name ? { name: fullLead.client.name } : null,
+                client: fullLead.client? {
+                    id: fullLead.client.id,
+                    name: fullLead.client.name,
+                    email: fullLead.client.email,
+                    phone: fullLead.client.phone,
+                  }
+                : null,
                 partenaires: fullLead.partenaires?.map((p: any) => ({ name: p.name })) || [],
               };
 
@@ -439,8 +444,8 @@ const ListeLead: React.FC = () => {
         show={showFormLead}
         onClose={() => setShowFormLead(false)}
         lead={selectedLead}
-        onSubmit={() => {
-          // Recharger les opportunités
+        onSubmit={async () => {
+          await loadLeads();     
           setShowFormLead(false);
           setSelectedLead(null);
         }}

@@ -2,73 +2,84 @@ import React, { useEffect, useState } from "react";
 import { Form } from "react-bootstrap";
 import "./GenericForm.css";
 
-interface GenericFormProps<T extends { id?: number }> {
-  title: string;
-  valueKey: "label" | "name";
+type GenericFormProps<T> = {
+  valueKey: keyof T;
   initialData?: T | null;
   onSubmit: (data: T) => void;
-  onCancel?: () => void;
-  submitLabel?: string;
-}
+  onCancel: () => void;
+  submitLabel: string;
+  title?: string;
+  extraInputs?: { name: keyof T; label: string; type?: string }[];
+};
 
-const GenericForm = <T extends { id?: number }>({
-  title,
+function GenericForm<T>({
   valueKey,
   initialData,
   onSubmit,
   onCancel,
-  submitLabel = "Enregistrer",
-}: GenericFormProps<T>) => {
-  const [value, setValue] = useState("");
-
-  useEffect(() => {
-    if (initialData) {
-      setValue((initialData as any)[valueKey] || "");
-    }
-  }, [initialData, valueKey]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    onSubmit({
-      ...(initialData || {}),
-      [valueKey]: value,
+  submitLabel,
+  extraInputs = [],
+}: GenericFormProps<T>) {
+  // Initialisation avec tous les champs existants
+  const [formData, setFormData] = useState<T>(() => {
+    const baseData = initialData ? { ...initialData } : {} as T;
+    // Initialiser les extraInputs si non présents
+    extraInputs.forEach((input) => {
+      if (!(input.name in baseData)) {
+        (baseData as any)[input.name] = "";
+      }
     });
+    return baseData;
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value } as T));
   };
 
   return (
-    <div className="generic-form-card">
-      <h4>{title}</h4>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(formData);
+      }}
+    >
+      {/* Champ principal */}
+      <div className="mb-3">
+        <label>{String(valueKey)}</label>
+        <input
+          type="text"
+          className="form-control"
+          name={valueKey as string}
+          value={formData[valueKey] as any || ""}
+          onChange={handleChange}
+        />
+      </div>
 
-      <Form onSubmit={handleSubmit}>
-        <Form.Group className="mb-3">
-          <Form.Label>Libellé</Form.Label>
-          <Form.Control
-            type="text"
-            placeholder="Saisir le libellé"
-            value={value}
-            required
-            onChange={(e) => setValue(e.target.value)}
+      {/* Champs supplémentaires */}
+      {extraInputs.map((input) => (
+        <div key={String(input.name)} className="mb-3">
+          <label>{input.label}</label>
+          <input
+            type={input.type || "text"}
+            className="form-control"
+            name={input.name as string}
+            value={formData[input.name] as any || ""}
+            onChange={handleChange}
           />
-        </Form.Group>
-
-        <div className="form-actions">
-          {onCancel && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onCancel}
-            >
-              Annuler
-            </button>
-          )}
-          <button type="submit" className="btn btn-primary">
-            {submitLabel}
-          </button>
         </div>
-      </Form>
-    </div>
+      ))}
+
+      <div className="d-flex justify-content-end">
+        <button type="button" className="btn btn-secondary me-2" onClick={onCancel}>
+          Annuler
+        </button>
+        <button type="submit" className="btn btn-primary">
+          {submitLabel}
+        </button>
+      </div>
+    </form>
   );
-};
+}
 
 export default GenericForm;

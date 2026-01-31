@@ -37,6 +37,17 @@ const FormQualif: React.FC<Props> = ({
 }) => {
   const [showClientModal, setShowClientModal] = useState(false);
   const [showPartenaireModal, setShowPartenaireModal] = useState(false);
+  const [localClients, setLocalClients] = useState<any[]>([]);
+  const [localPartenaires, setLocalPartenaires] = useState<any[]>([]);
+
+  useEffect(() => {
+    setLocalClients(clients);
+  }, [clients]);
+
+  useEffect(() => {
+    setLocalPartenaires(partenaires);
+  }, [partenaires]);
+
 
   useEffect(() => {
     const now = new Date();
@@ -133,14 +144,14 @@ const FormQualif: React.FC<Props> = ({
             <InputGroup>
               <Form.Select
                 name="client"
-                value={form.client ? form.client.id : ""}
+                value={form.client?.id || ""}
                 onChange={e => {
-                  const selectedClient = clients.find(c => c.id === Number(e.target.value)) || null;
+                  const selectedClient = localClients.find(c => c.id === Number(e.target.value)) || null;
                   setForm(prev => ({ ...prev, client: selectedClient }));
                 }}
               >
                 <option value="">-- Sélectionner --</option>
-                {clients.map(c => (
+                {localClients.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </Form.Select>
@@ -152,19 +163,19 @@ const FormQualif: React.FC<Props> = ({
           <Col md={6}>
             <Form.Label>Partenaire eTech</Form.Label>
             <InputGroup>
-              <Form.Select
-                name="leadPartenaire"
-                value={form.leadPartenaire ? form.leadPartenaire.id : ""}
-                onChange={e => {
-                  const selectedPartenaire = partenaires.find(p => p.id === Number(e.target.value));
-                  setForm(prev => ({ ...prev, leadPartenaire: selectedPartenaire || null }));
-                }}
-              >
-                <option value="">-- Sélectionner --</option>
-                {partenaires.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </Form.Select>
+            <Form.Select
+              name="leadPartenaire"
+              value={form.leadPartenaire?.id || ""}
+              onChange={e => {
+                const selectedPartenaire = localPartenaires.find(p => p.id === Number(e.target.value)) || null;
+                setForm(prev => ({ ...prev, leadPartenaire: selectedPartenaire }));
+              }}
+            >
+              <option value="">-- Sélectionner --</option>
+              {localPartenaires.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Form.Select>
               <Button variant="outline-primary" onClick={() => setShowPartenaireModal(true)}>
                 <FaPlus />
               </Button>
@@ -184,19 +195,14 @@ const FormQualif: React.FC<Props> = ({
 
           {/* Projets / Type financement */}
           <Col md={6}>
-            <Form.Label>Projets de financement</Form.Label>
-            <Form.Control
-              name="projetDeFinancement"
-              value={form.projetDeFinancement || ""}
-              onChange={handleChange}
-            />
-          </Col>
-          <Col md={6}>
             <Form.Label>Type de financement</Form.Label>
             <Form.Select
               name="typeFinancement"
-              value={form.typeFinancement || ""}
-              onChange={handleChange}
+              value={form.typeFinancement?.id || ""}
+              onChange={e => {
+                const selected = typeFinancements.find(t => t.id === Number(e.target.value)) || null;
+                setForm(prev => ({ ...prev, typeFinancement: selected }));
+              }}
             >
               <option value="">-- Sélectionner --</option>
               {typeFinancements.map(t => (
@@ -204,7 +210,6 @@ const FormQualif: React.FC<Props> = ({
               ))}
             </Form.Select>
           </Col>
-
         {/* Drive avec nom et lien */}
         <Col md={6}>
           <Form.Label>Nom du Répertoire Drive</Form.Label>
@@ -337,19 +342,23 @@ const FormQualif: React.FC<Props> = ({
           </Col>
         </Row>
       </section>
-
-      {/* --- Modals --- */}
+      {/* --- Modal Client --- */}
       <Modal show={showClientModal} onHide={() => setShowClientModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Créer un Client</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <GenericForm
-            initialData={{ name: "" }}
+            valueKey="name"  // champ principal
+            initialData={{ name: "", email: "", phone: "" }}
+            extraInputs={[
+              { name: "email", label: "Email", type: "email" },
+              { name: "phone", label: "Téléphone", type: "tel" }
+            ]}
             onSubmit={async (data: any) => {
               const newClient = await clientService.create(data);
-              clients.push(newClient.name);
-              setForm(prev => ({ ...prev, client: { id: newClient.id, name: newClient.name } }));
+              setLocalClients(prev => [...prev, newClient]); 
+              setForm(prev => ({ ...prev, client: newClient })); 
               setShowClientModal(false);
             }}
             onCancel={() => setShowClientModal(false)}
@@ -359,16 +368,22 @@ const FormQualif: React.FC<Props> = ({
         </Modal.Body>
       </Modal>
 
+      {/* --- Modal Partenaire --- */}
       <Modal show={showPartenaireModal} onHide={() => setShowPartenaireModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Créer un Partenaire</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <GenericForm
-            initialData={{ name: "" }}
+            valueKey="name"
+            initialData={{ name: "", email: "", phone: "" }}
+            extraInputs={[
+              { name: "email", label: "Email", type: "email" },
+              { name: "phone", label: "Téléphone", type: "tel" }
+            ]}
             onSubmit={async (data: any) => {
               const newPartenaire = await partenaireService.create(data);
-              partenaires.push(newPartenaire.name);
+              setLocalPartenaires(prev => [...prev, newPartenaire]);
               setForm(prev => ({ ...prev, leadPartenaire: newPartenaire }));
               setShowPartenaireModal(false);
             }}
@@ -378,6 +393,7 @@ const FormQualif: React.FC<Props> = ({
           />
         </Modal.Body>
       </Modal>
+
     </>
   );
 };
