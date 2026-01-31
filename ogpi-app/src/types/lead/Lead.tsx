@@ -1,38 +1,43 @@
+import { TypeProjetFinancementService } from '../../services/lead/TypeProjetFinancementService.tsx';
 import { Client } from './Client.tsx';
 import { LeadCategory } from './LeadCategory.tsx';
 import { LeadSecteur } from './LeadSecteur';
 import { LeadStatus } from './LeadStatus';
 import { LeadType } from './LeadType';
 import { Partenaire } from './Partenaire.tsx';
-export interface Opportunity {
-  id: number;                // lead_id
-  name: string;              // lead_name
-  reference: string;         // lead_ref
-  description: string;       // lead_descri
+import { TypeProjetFinancement } from './TypeProjetFinancement.tsx';
+import { BusinessUnit } from '../profil/poste/BusinessUnit.tsx';
+import { DriveFile } from './DriveFile.tsx';
+import { DriveFolder } from './DriveFolder.tsx';
 
-  periode: string;           // lead_periode (ISO date)
-  internalDeadline: string;  // lead_internal_deadline
-  realDeadline: string;      // lead_real_deadline
+export interface Lead {
+  id: number;               
+  name: string;            
+  reference: string;        
+  description: string;       
 
-  projetFinancement: string; // projet_de_financement
-  commentaire: string;       // lead_commentaire
+  periode: string;           
+  internalDeadline: string;  
+  realDeadline: string;      
 
-  zone: number;              // lead_zone
-  jiraProject: string;       // lead_go_projet_jira_avv
-  jiraTicket: string;        // lead_go_ticket_jira
+  projetFinancement: string; 
+  commentaire: string;      
 
-  driveFolder: string;       // lien_drive_folder
-  driveFile: string;         // lien_drive_file
+  zone: number;             
+  jiraProject: string;     
+  jiraTicket: string;        
 
-  // Relations simplifiées
+  driveFolder?: DriveFolder; 
+  driveFile?: DriveFile;
+  
   client: Client;
   type: LeadType;
   category: LeadCategory;
   secteur: LeadSecteur;
   status: LeadStatus;
+  typeFinancement: TypeProjetFinancement;
+  businessUnit: BusinessUnit;
 
   partenaires: Partenaire[];
 
-  createdAt?: string;
-  updatedAt?: string;
 }

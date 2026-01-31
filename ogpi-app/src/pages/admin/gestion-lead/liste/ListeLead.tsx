@@ -10,12 +10,16 @@ import StatCard from '../../../../components/stat/StatCard.tsx';
 import FormLead from '../form/FormLead.tsx';
 import DetailsLead from '../details/DetailsLead.tsx';
 import MenuListeLead from '../menu/MenuListeLead.tsx';
-
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ListeLead.css';
+import { LeadService } from '../../../../services/lead/LeadService.tsx';
+import { useAuth } from '../../../../context/AuthContext.tsx';
+import { Lead } from '../../../../types/lead/Lead.tsx';
+
 
 /* ================= COMPONENT ================= */
 const ListeLead: React.FC = () => {
+  const { api } = useAuth();
   const [search, setSearch] = useState('');
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [period, setPeriod] = useState<'week' | 'month' | 'semester' | 'year'>('month');
@@ -24,7 +28,8 @@ const ListeLead: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [showDetailLead, setShowDetailLead] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
-
+  const leadService = new LeadService(api);
+  
   const [kpis, setKpis] = useState({
     activeOpportunitiesThisPeriod: 0,
     conversionRate: 0,
@@ -32,100 +37,46 @@ const ListeLead: React.FC = () => {
     upcomingDeadlines: 0,
   });
 
-  /* ================= MOCK DATA ================= */
   useEffect(() => {
-    const mockOpportunities = [
-      {
-        id: 1,
-        name: 'Plateforme E-commerce',
-        reference: 'OPP-2024-001',
-        company: 'Tech Solutions',
-        email: 'contact@techsolutions.com',
-        phone: '+261 34 12 345 67',
-        description: 'Développement plateforme e-commerce pour le retail',
-        amount: 45000,
-        currency: 'EUR',
-        status: 'active',
-        type: 'Fixe',
-        category: 'Digital',
-        sector: 'Retail',
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 2,
-        name: 'Migration Cloud AWS',
-        reference: 'OPP-2024-002',
-        company: 'DataFlow Inc',
-        email: 'projects@dataflow.com',
-        phone: '+261 32 98 765 43',
-        description: 'Migration infrastructure on-premise vers AWS',
-        amount: 75000,
-        currency: 'EUR',
-        status: 'submitted',
-        type: 'Variable',
-        category: 'Infrastructure',
-        sector: 'Finance',
-        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 3,
-        name: 'Application Mobile Banking',
-        reference: 'OPP-2024-003',
-        company: 'FinTech Corp',
-        email: 'dev@fintechcorp.com',
-        phone: '+261 33 45 678 90',
-        description: 'Développement application mobile pour services bancaires',
-        amount: 120000,
-        currency: 'USD',
-        status: 'won',
-        type: 'Fixe',
-        category: 'Digital',
-        sector: 'Finance',
-        createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-        deadline: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 4,
-        name: 'Audit Sécurité IT',
-        reference: 'OPP-2024-004',
-        company: 'SecureNet',
-        email: 'audit@securenet.com',
-        phone: '+261 34 56 789 01',
-        description: 'Audit complet infrastructure sécurité informatique',
-        amount: 25000,
-        currency: 'EUR',
-        status: 'active',
-        type: 'Fixe',
-        category: 'Consulting',
-        sector: 'Healthcare',
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 5,
-        name: 'Système de Gestion RH',
-        reference: 'OPP-2024-005',
-        company: 'HRFlow Solutions',
-        email: 'projects@hrflow.mg',
-        phone: '+261 32 12 345 67',
-        description: 'Implémentation système gestion ressources humaines',
-        amount: 55000,
-        currency: 'USD',
-        status: 'submitted',
-        type: 'Variable',
-        category: 'Digital',
-        sector: 'Services',
-        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-        deadline: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
-    setOpportunities(mockOpportunities);
-    calculateKPIs(mockOpportunities);
+    const loadLeads = async () => {
+      try {
+        const data = await leadService.getAll();
+
+        const leadsData: Lead[] = data.map((lead: any) => ({
+          id: lead.leadId,
+          name: lead.leadName,
+          reference: lead.leadRef,
+          bu : lead.businessUnit,
+          typeFinancement: lead.typeProjetFinancement,
+          description: lead.leadDescription,
+          periode: lead.leadPeriode,
+          internalDeadline: lead.leadInternalDeadLine,
+          realDeadline: lead.leadRealDeadLine,
+          projetFinancement: lead.typeProjetFinancement,
+          commentaire: lead.leadCommentaire,
+          zone: lead.leadZone === 0 ? "Local" : "OffShore",
+          jiraProject: lead.leadGoProjetJira,
+          jiraTicket: lead.leadGoTicketJira,
+          driveFolder: lead.driveFolder || undefined,
+          driveFile: lead.mainDriveFile || undefined,
+          client: lead.client,
+          type: lead.leadType,
+          category: lead.category,
+          secteur: lead.leadSecteur,
+          status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'Brouillon', order: 0 },
+          partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
+        }));
+        console.log('Leads chargés :', leadsData);
+        setOpportunities(leadsData);
+        calculateKPIs(leadsData);
+      } catch (error) {
+        console.error("Erreur chargement leads", error);
+      }
+    };
+
+    loadLeads();
   }, [period]);
 
-  /* ================= KPI LOGIC ================= */
   const getCurrencySymbol = () => {
     switch (currency) {
       case 'AR':
@@ -215,42 +166,81 @@ const ListeLead: React.FC = () => {
 
   /* ================= TABLE ================= */
   const columns = [
+    {
+      key: 'periode',
+      label: 'Période',
+      render: (row: Lead) => row.periode ? new Date(row.periode).toLocaleDateString('fr-FR') : '-',
+    },
+    {
+      key: 'businessUnit',
+      label: 'Business Unit',
+      render: (row: Lead) => row.bu?.name || '-',
+    },
     { key: 'name', label: 'Nom' },
     { key: 'reference', label: 'Référence' },
-    { key: 'company', label: 'Entreprise' },
+    { key: 'client', label: 'Entreprise', render: (row: Lead) => row.client?.name || '-' },
+    { key: 'type', label: 'Type', render: (row: Lead) => row.type?.label || '-' },
+    { key: 'category', label: 'Catégorie', render: (row: Lead) => row.category?.label || '-' },
+    { key: 'secteur', label: 'Secteur', render: (row: Lead) => row.secteur?.label || '-' },
     {
-      key: 'amount',
-      label: 'Montant',
-      render: (row: any) =>
-        row.amount ? `${row.amount.toLocaleString()} ${row.currency || getCurrencySymbol()}` : '-',
+      key: 'realDeadline',
+      label: 'Date de soumission',
+      render: (row: Lead) => row.realDeadline ? new Date(row.realDeadline).toLocaleDateString('fr-FR') : '-',
+    },
+    {
+      key: 'internalDeadline',
+      label: 'Deadline interne',
+      render: (row: Lead) => row.internalDeadline ? new Date(row.internalDeadline).toLocaleDateString('fr-FR') : '-',
+    },
+    { key: 'projetFinancement', label: 'Type de financement', render: (row: Lead) => row.typeFinancement?.label || '-' },
+    { key: 'commentaire', label: 'Commentaire', render: (row: Lead) => row.commentaire || '-' },
+    { key: 'zone', label: 'Zone', render: (row: Lead) => row.zone != null ? row.zone : '-' },
+    {
+      key: 'partenaires',
+      label: 'Partenaires',
+      render: (row: Lead) =>
+        row.partenaires?.length > 0 ? row.partenaires.map(p => p.name).join(', ') : '-',
+    },
+    {
+      key: 'Répértoire drive',
+      label: 'Répértoire',
+      render: (row: Lead) =>
+        row.driveFolder?.link
+          ? <a href={row.driveFolder.link} target="_blank" rel="noopener noreferrer">
+              Répértoire | {row.name}
+            </a>
+          : '-',
+    },
+    {
+      key: 'Fichier drive',
+      label: 'TDR',
+      render: (row: Lead) =>
+        row.driveFile?.link
+          ? <a href={row.driveFile.link} target="_blank" rel="noopener noreferrer">
+              TDR | {row.name}
+            </a>
+          : '-',
     },
     {
       key: 'status',
       label: 'Statut',
-      render: (row: any) => {
+      render: (row: Lead) => {
         const map: any = {
-          active: ['bg-success', 'Actif'],
-          submitted: ['bg-info', 'Soumis'],
-          won: ['bg-success', 'Gagné'],
-          lost: ['bg-danger', 'Perdu'],
+          'No Go': ['bg-danger', 'No Go'],
+          'Go': ['bg-success', 'Go'],
+          'Brouillon': ['bg-secondary', 'Brouillon'],
         };
-        const [cls, label] = map[row.status] || ['bg-secondary', 'Brouillon'];
+        const [cls, label] = map[row.status.label] || ['bg-secondary', 'Brouillon'];
         return <span className={`badge ${cls}`}>{label}</span>;
       },
     },
     {
       key: 'actions',
       label: 'Actions',
-      render: (row: any) => (
+      render: (row: Lead) => (
         <MenuListeLead
-          onDetails={() => {
-            setSelectedLead(row);
-            setShowDetailLead(true);
-          }}
-          onEdit={() => {
-            setSelectedLead(row);
-            setShowFormLead(true);
-          }}
+          onDetails={() => { setSelectedLead(row); setShowDetailLead(true); }}
+          onEdit={() => { setSelectedLead(row); setShowFormLead(true); }}
         />
       ),
     },

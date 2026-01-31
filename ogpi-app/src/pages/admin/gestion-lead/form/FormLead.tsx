@@ -25,9 +25,6 @@ type FormLeadProps = {
 
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
   const { api } = useAuth();
-
-
-
   const [form, setForm] = useState<any>({
     periode: "",
     businessUnit: "",

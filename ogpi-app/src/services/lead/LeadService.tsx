@@ -12,7 +12,7 @@ export class LeadService {
    */
   async getAll() {
     try {
-      const response = await this.api.get('/leads');
+      const response = await this.api.get('/leads/all');
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des leads :', error);
