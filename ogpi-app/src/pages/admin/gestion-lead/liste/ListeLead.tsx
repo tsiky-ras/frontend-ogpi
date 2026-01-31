@@ -239,7 +239,31 @@ const ListeLead: React.FC = () => {
       label: 'Actions',
       render: (row: Lead) => (
         <MenuListeLead
-          onDetails={() => { setSelectedLead(row); setShowDetailLead(true); }}
+          onDetails={async () => {
+            if (!row.id) return;
+
+            try {
+              const fullLead = await leadService.getById(row.id);
+              console.log('Lead complet récupéré :', fullLead);
+              const safeLead = {
+                ...fullLead,
+                status: fullLead.status?.label ? { label: fullLead.status.label } : { label: "Brouillon" },
+                type: fullLead.type?.label ? { label: fullLead.type.label } : null,
+                category: fullLead.category?.label ? { label: fullLead.category.label } : null,
+                secteur: fullLead.secteur?.label ? { label: fullLead.secteur.label } : null,
+                bu: fullLead.bu?.name ? { name: fullLead.bu.name } : null,
+                client: fullLead.client?.name ? { name: fullLead.client.name } : null,
+                partenaires: fullLead.partenaires?.map((p: any) => ({ name: p.name })) || [],
+              };
+
+              setSelectedLead(safeLead);
+              setShowDetailLead(true);
+
+              setShowDetailLead(true);
+            } catch (error) {
+              console.error('Erreur lors de la récupération du lead:', error);
+            }
+          }}
           onEdit={() => { setSelectedLead(row); setShowFormLead(true); }}
         />
       ),
@@ -404,7 +428,6 @@ const ListeLead: React.FC = () => {
                 data={opportunities}
                 expandedRowId={expandedRowId}
                 expandedRow={renderExpandedRow}
-                onRowClick={(row) => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
               />
             </div>
           </div>
