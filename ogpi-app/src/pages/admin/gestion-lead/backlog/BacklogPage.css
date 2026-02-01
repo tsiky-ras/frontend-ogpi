@@ -1,0 +1,54 @@
+.backlog-list {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+  }
+  
+  .backlog-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e7eb;
+    align-items: flex-start;
+  }
+  
+  .backlog-item:last-child {
+    border-bottom: none;
+  }
+  
+  .drag-handle {
+    cursor: grab;
+    font-size: 18px;
+    color: #9ca3af;
+    user-select: none;
+    padding-top: 4px;
+  }
+  
+  .backlog-content {
+    flex: 1;
+  }
+  
+  .backlog-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #223A46;
+  }
+  
+  .backlog-order {
+    margin-right: 6px;
+    color: #5F6F6E;
+    font-weight: 500;
+  }
+  
+  .backlog-desc {
+    margin-top: 6px;
+    font-size: 14px;
+    color: #5F6F6E;
+  }
+  
+  .backlog-actions {
+    display: flex;
+    gap: 8px;
+  }
+  
