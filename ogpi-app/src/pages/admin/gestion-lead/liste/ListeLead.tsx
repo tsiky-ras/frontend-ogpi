@@ -168,7 +168,10 @@ useEffect(() => {
     {
       key: 'periode',
       label: 'Période',
-      render: (row: Lead) => row.periode ? new Date(row.periode).toLocaleDateString('fr-FR') : '-',
+      render: (row: Lead) =>
+        row.periode
+          ? new Date(row.periode).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+          : '-',
     },
     {
       key: 'businessUnit',
@@ -392,7 +395,15 @@ useEffect(() => {
                     <option value="$">Dollar $</option>
                   </select>
 
-                  <Button label="Créer une opportunité" icon={<FaPlus />} onClick={() => setShowFormLead(true)} />
+                  {/* Bouton créer lead */}
+                  <Button
+                    label="Créer une opportunité"
+                    icon={<FaPlus />}
+                    onClick={() => {
+                      setSelectedLead(null); 
+                      setShowFormLead(true);
+                    }}
+                  />                
                 </div>
               </div>
             </div>
@@ -449,17 +460,20 @@ useEffect(() => {
         </main>
       </div>
 
-      {/* Formulaire Lead */}
-      <FormLead
-        show={showFormLead}
-        onClose={() => setShowFormLead(false)}
-        lead={selectedLead}
-        onSubmit={async () => {
-          await loadLeads();     
-          setShowFormLead(false);
-          setSelectedLead(null);
-        }}
-      />
+        {/* Formulaire Lead */}
+        <FormLead
+          show={showFormLead}
+          onClose={() => {
+            setShowFormLead(false);
+            setSelectedLead(null); 
+          }}
+          lead={selectedLead} 
+          onSubmit={async () => {
+            await loadLeads();
+            setShowFormLead(false);
+            setSelectedLead(null);
+          }}
+        />
 
       {/* Détails Lead */}
       <DetailsLead

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Button } from "react-bootstrap";
+import { Modal, Button, Nav, Tab } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
 import CollecteErrorMessage from "../../../../components/message/CollecteErrorMessage.tsx";
@@ -16,6 +16,7 @@ import { TypeProjetFinancementService } from "../../../../services/lead/TypeProj
 import { ClientService } from "../../../../services/lead/ClientService.tsx";
 import { PartenaireService } from "../../../../services/lead/PartenaireService.tsx";
 import { LeadService } from "../../../../services/lead/LeadService.tsx";
+
 type FormLeadProps = {
   show: boolean;
   onClose: () => void;
@@ -23,69 +24,23 @@ type FormLeadProps = {
   lead?: any | null;
 };
 
-  const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
-    const { api } = useAuth();
-    const [form, setForm] = useState<any>({
-      periode: "",
-      businessUnit: "",
-      description: "",
-      nom: "",
-      reference: "",
-      typeOpportunite: "",
-      categorie: "",
-      secteur: "",
-      statut: "1",
-      typeFinancement: "",
-    });
+const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
+  const { api } = useAuth();
+  const leadService = new LeadService(api);
 
-    const [showClientModal, setShowClientModal] = useState(false);
-    const [showPartenaireModal, setShowPartenaireModal] = useState(false);
-
-    const formatLeadPayload = (form: any) => {
-    const nowIso = new Date().toISOString();
-
-    // Transformer "YYYY-MM" en "YYYY-MM-01" pour java.sql.Date
-    const periodeDate = form.periode ? `${form.periode}-01` : null;
-
-    return {
-      leadPeriode: periodeDate, // "2026-01-01"
-      leadDescription: form.description,
-      leadName: form.nom,
-      leadRef: form.reference,
-      leadRealDeadLine: form.realDeadline || null,
-  
-      leadCommentaire: form.commentaire || "",
-      leadZone: form.zone !== undefined ? Number(form.zone) : null,
-      client: form.client ? { id: form.client.id } : null,
-      category: form.categorie ? { id: form.categorie } : null,
-      leadType: form.typeOpportunite ? { id: form.typeOpportunite } : null,
-      leadSecteur: form.secteur ? { id: form.secteur } : null,
-      businessUnit: form.businessUnit ? { id: form.businessUnit } : null,
-      leadPartenaires: form.leadPartenaire
-        ? [{ partenaire: { id: form.leadPartenaire.id } }]
-        : [],
-      leadStatusHistories: [
-        {
-          dateUpdated: nowIso,
-          leadStatus: form.statut ? { id: form.statut } : { id: 1 }
-        }
-      ],
-      typeProjetFinancement: form.typeFinancement ? { id: form.typeFinancement.id } : null,
-      driveFolder: form.driveFolderName
-        ? {
-            name: form.driveFolderName,
-            link: form.driveFolderLink || ""
-          }
-        : null,
-      mainDriveFile: form.mainDriveFileName
-        ? {
-            name: form.mainDriveFileName,
-            link: form.mainDriveFileLink || "",
-            description: form.mainDriveFileDescription || ""
-          }
-        : null
-    };
-  };
+  const [currentStep, setCurrentStep] = useState("qualification");
+  const [form, setForm] = useState<any>({
+    periode: "",
+    businessUnit: "",
+    description: "",
+    nom: "",
+    reference: "",
+    typeOpportunite: "",
+    categorie: "",
+    secteur: "",
+    statut: "1",
+    typeFinancement: "",
+  });
 
   const [businessUnits, setBusinessUnits] = useState<any[]>([]);
   const [typeOpportunites, setTypeOpportunites] = useState<any[]>([]);
@@ -102,28 +57,113 @@ type FormLeadProps = {
   const [showErrorMessage, setShowErrorMessage] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
-  const leadService = new LeadService(api);
+
+  const formatLeadPayload = (form: any) => {
+    const nowIso = new Date().toISOString();
+    const periodeDate = form.periode ? `${form.periode}-01` : null;
+
+    return {
+      leadPeriode: periodeDate,
+      leadDescription: form.description,
+      leadName: form.nom,
+      leadRef: form.reference,
+      leadRealDeadLine: form.realDeadline || null,
+      leadCommentaire: form.commentaire || "",
+      leadZone: form.zone !== undefined ? Number(form.zone) : null,
+      client: form.client ? { id: form.client.id } : null,
+      category: form.categorie ? { id: form.categorie } : null,
+      leadType: form.typeOpportunite ? { id: form.typeOpportunite } : null,
+      leadSecteur: form.secteur ? { id: form.secteur } : null,
+      businessUnit: form.businessUnit ? { id: form.businessUnit } : null,
+      leadPartenaires: form.leadPartenaire
+        ? [{ partenaire: { id: form.leadPartenaire.id } }]
+        : [],
+      leadStatusHistories: [
+        { dateUpdated: nowIso, leadStatus: form.statut ? { id: form.statut } : { id: 1 } }
+      ],
+      typeProjetFinancement: form.typeFinancement ? { id: form.typeFinancement.id } : null,
+      driveFolder: form.driveFolderName
+        ? { name: form.driveFolderName, link: form.driveFolderLink || "" }
+        : null,
+      mainDriveFile: form.mainDriveFileName
+        ? { name: form.mainDriveFileName, link: form.mainDriveFileLink || "", description: form.mainDriveFileDescription || "" }
+        : null
+    };
+  };
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
     setForm((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  // Fetch dropdown data
+  const mapLeadToForm = (lead: any) => ({
+    periode: lead.leadPeriode?.substring(0, 7) || "",
+    nom: lead.leadName || "",
+    reference: lead.leadRef || "",
+    description: lead.leadDescription || "",
+    commentaire: lead.leadCommentaire || "",
+    zone: lead.leadZone ?? "",
+    businessUnit: lead.businessUnit?.id || "",
+    typeOpportunite: lead.leadType?.id || "",
+    categorie: lead.category?.id || "",
+    secteur: lead.leadSecteur?.id || "",
+    statut: lead.currentLeadStatus?.leadStatus?.id || "1",
+    client: lead.client || null,
+    leadPartenaire: lead.leadPartenaires?.length ? lead.leadPartenaires[0].partenaire : null,
+    typeFinancement: lead.typeProjetFinancement || null,
+    realDeadline: lead.leadRealDeadLine ? lead.leadRealDeadLine.substring(0, 16) : "",
+    driveFolderName: lead.driveFolder?.name || "",
+    driveFolderLink: lead.driveFolder?.link || "",
+    mainDriveFileName: lead.mainDriveFile?.name || "",
+    mainDriveFileLink: lead.mainDriveFile?.link || "",
+    mainDriveFileDescription: lead.mainDriveFile?.description || "",
+  });
+
+  // Reset form ou map lead à l'ouverture
   useEffect(() => {
     if (!show) return;
 
+    if (lead) {
+      setForm(mapLeadToForm(lead));
+      if (lead.currentLeadStatus?.leadStatus?.label === "No Go") {
+        setCurrentStep("qualification");
+      }
+    } else {
+      // Nouveau lead → reset form
+      setForm({
+        periode: "",
+        businessUnit: "",
+        description: "",
+        nom: "",
+        reference: "",
+        typeOpportunite: "",
+        categorie: "",
+        secteur: "",
+        statut: "1",
+        typeFinancement: "",
+        client: null,
+        leadPartenaire: null,
+        realDeadline: "",
+        driveFolderName: "",
+        driveFolderLink: "",
+        mainDriveFileName: "",
+        mainDriveFileLink: "",
+        mainDriveFileDescription: "",
+        commentaire: "",
+        zone: "",
+      });
+      setCurrentStep("qualification");
+    }
+  }, [lead, show]);
+
+  // Fetch dropdowns
+  useEffect(() => {
+    if (!show) return;
     const fetchData = async () => {
       try {
         const [
-          buData,
-          typeData,
-          catData,
-          secteurData,
-          statutData,
-          typeFinData,
-          clientData,
-          partenaireData,
+          buData, typeData, catData, secteurData, statutData,
+          typeFinData, clientData, partenaireData
         ] = await Promise.all([
           new BusinessUnitService(api).getAll(),
           new LeadTypeService(api).getAll(),
@@ -134,7 +174,6 @@ type FormLeadProps = {
           new ClientService(api).getAll(),
           new PartenaireService(api).getAll(),
         ]);
-
         setBusinessUnits(buData);
         setTypeOpportunites(typeData);
         setCategories(catData);
@@ -147,126 +186,104 @@ type FormLeadProps = {
         console.error(err);
       }
     };
-
     fetchData();
   }, [show, api]);
-
-    const mapLeadToForm = (lead: any) => ({
-    periode: lead.leadPeriode?.substring(0, 7) || "",
-    nom: lead.leadName || "",
-    reference: lead.leadRef || "",
-    description: lead.leadDescription || "",
-    commentaire: lead.leadCommentaire || "",
-    zone: lead.leadZone ?? "",
-
-    businessUnit: lead.businessUnit?.id || "",
-    typeOpportunite: lead.leadType?.id || "",
-    categorie: lead.category?.id || "",
-    secteur: lead.leadSecteur?.id || "",
-    statut: lead.currentLeadStatus?.leadStatus?.id || "1",
-
-    client: lead.client || null,
-
-    leadPartenaire: lead.leadPartenaires?.length
-      ? lead.leadPartenaires[0].partenaire
-      : null,
-
-    typeFinancement: lead.typeProjetFinancement || null,
-
-    realDeadline: lead.leadRealDeadLine
-      ? lead.leadRealDeadLine.substring(0, 16)
-      : "",
-
-    driveFolderName: lead.driveFolder?.name || "",
-    driveFolderLink: lead.driveFolder?.link || "",
-
-    mainDriveFileName: lead.mainDriveFile?.name || "",
-    mainDriveFileLink: lead.mainDriveFile?.link || "",
-    mainDriveFileDescription: lead.mainDriveFile?.description || "",
-  });
-
-  useEffect(() => {
-    if (lead) {
-      setForm(mapLeadToForm(lead)); // mapping backend → form
-    }
-  }, [lead]);
 
   const handleSubmit = async () => {
     setShowLoadingMessage(true);
     try {
-      // Validation minimale
       if (!form.nom || !form.reference || !form.typeOpportunite || !form.categorie || !form.secteur || !form.businessUnit || !form.statut) {
         setErrorMessage("Veuillez remplir tous les champs obligatoires");
         setShowErrorMessage(true);
         setShowLoadingMessage(false);
         return;
       }
-
-      // Préparer le payload
       const payload = formatLeadPayload(form);
+      const responseData = lead
+        ? await leadService.updateQualif(lead.leadId, payload)
+        : await leadService.createQualif(payload);
 
-      // Appel API via le service
-    const responseData = lead
-      ? await leadService.updateQualif(lead.leadId, payload)
-      : await leadService.createQualif(payload);
-
-      // Feedback utilisateur
       setSuccessMessage(lead ? "Lead modifié !" : "Lead créé !");
       setShowSuccessMessage(true);
       setShowLoadingMessage(false);
 
       setTimeout(() => {
         setShowSuccessMessage(false);
-        onSubmit(responseData); // retourne l'objet créé
+        onSubmit(responseData);
         onClose();
       }, 1500);
-
     } catch (err: any) {
       setShowLoadingMessage(false);
       setErrorMessage(err.response?.data?.message || err.message || "Erreur lors de l'enregistrement");
       setShowErrorMessage(true);
-      console.error("Erreur création lead:", err);
+      console.error(err);
     }
   };
-    return (
+
+  const isNoGo = lead?.currentLeadStatus?.leadStatus?.label === "No Go";
+
+  return (
     <>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable>
         <Modal.Header closeButton>
-          <Modal.Title>{lead ? `Modification : ${lead.leadName} - ${lead.leadRef}` : "Créer un nouveau lead"}</Modal.Title>
+          <Modal.Title>
+            {lead ? `Modification : ${lead.leadName} - ${lead.leadRef}` : "Créer un nouveau lead"}
+          </Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
-        <FormQualif
-          form={form}
-          setForm={setForm}
-          handleChange={handleChange}
-          businessUnits={businessUnits}
-          typeOpportunites={typeOpportunites}
-          categories={categories}
-          secteurs={secteurs}
-          statuts={statuts}
-          typeFinancements={typeFinancements}
-          clients={clients}
-          clientService={new ClientService(api)}
-          partenaires={partenaires}
-          partenaireService={new PartenaireService(api)}
-        />
+          <Tab.Container
+            activeKey={currentStep}
+            onSelect={(k) => {
+              if (isNoGo && k !== "qualification") return;
+              setCurrentStep(k || "qualification");
+            }}
+          >
+            <Nav variant="pills" className="mb-4">
+              <Nav.Item><Nav.Link eventKey="qualification">Qualification</Nav.Link></Nav.Item>
+              <Nav.Item><Nav.Link eventKey="offre" disabled={isNoGo}>Offre technique & Financière</Nav.Link></Nav.Item>
+              <Nav.Item><Nav.Link eventKey="etapes" disabled={isNoGo}>Étapes & Validations</Nav.Link></Nav.Item>
+            </Nav>
+
+            <Tab.Content>
+              <Tab.Pane eventKey="qualification">
+                <FormQualif
+                  form={form}
+                  setForm={setForm}
+                  handleChange={handleChange}
+                  businessUnits={businessUnits}
+                  typeOpportunites={typeOpportunites}
+                  categories={categories}
+                  secteurs={secteurs}
+                  statuts={statuts}
+                  typeFinancements={typeFinancements}
+                  clients={clients}
+                  clientService={new ClientService(api)}
+                  partenaires={partenaires}
+                  partenaireService={new PartenaireService(api)}
+                />
+              </Tab.Pane>
+
+              <Tab.Pane eventKey="offre">
+                {isNoGo && <p className="text-danger">Impossible de modifier cet onglet pour un lead No Go.</p>}
+              </Tab.Pane>
+
+              <Tab.Pane eventKey="etapes">
+                {isNoGo && <p className="text-danger">Impossible de modifier cet onglet pour un lead No Go.</p>}
+              </Tab.Pane>
+            </Tab.Content>
+          </Tab.Container>
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="secondary" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button variant="primary" onClick={handleSubmit}>
-            {lead ? "Modifier" : "Créer"}
-          </Button>
+          <Button variant="secondary" onClick={onClose}>Annuler</Button>
+          <Button variant="primary" onClick={handleSubmit}>{lead ? "Modifier" : "Créer"}</Button>
         </Modal.Footer>
       </Modal>
 
       {showLoadingMessage && <CollecteLoadingMessage />}
       {showSuccessMessage && <CollecteSuccessMessage message={successMessage} />}
       {showErrorMessage && <CollecteErrorMessage message={errorMessage} />}
-
     </>
   );
 };
