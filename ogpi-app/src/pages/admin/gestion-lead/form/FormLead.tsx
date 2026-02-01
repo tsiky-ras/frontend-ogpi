@@ -23,25 +23,25 @@ type FormLeadProps = {
   lead?: any | null;
 };
 
-const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
-  const { api } = useAuth();
-  const [form, setForm] = useState<any>({
-    periode: "",
-    businessUnit: "",
-    description: "",
-    nom: "",
-    reference: "",
-    typeOpportunite: "",
-    categorie: "",
-    secteur: "",
-    statut: "1",
-    typeFinancement: "",
-  });
+  const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
+    const { api } = useAuth();
+    const [form, setForm] = useState<any>({
+      periode: "",
+      businessUnit: "",
+      description: "",
+      nom: "",
+      reference: "",
+      typeOpportunite: "",
+      categorie: "",
+      secteur: "",
+      statut: "1",
+      typeFinancement: "",
+    });
 
-  const [showClientModal, setShowClientModal] = useState(false);
-  const [showPartenaireModal, setShowPartenaireModal] = useState(false);
+    const [showClientModal, setShowClientModal] = useState(false);
+    const [showPartenaireModal, setShowPartenaireModal] = useState(false);
 
-  const formatLeadPayload = (form: any) => {
+    const formatLeadPayload = (form: any) => {
     const nowIso = new Date().toISOString();
 
     // Transformer "YYYY-MM" en "YYYY-MM-01" pour java.sql.Date
@@ -151,10 +151,45 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     fetchData();
   }, [show, api]);
 
-    // Pré-remplir formulaire si lead existant
-    useEffect(() => {
-      if (lead) setForm({ ...form, ...lead });
-    }, [lead]);
+    const mapLeadToForm = (lead: any) => ({
+    periode: lead.leadPeriode?.substring(0, 7) || "",
+    nom: lead.leadName || "",
+    reference: lead.leadRef || "",
+    description: lead.leadDescription || "",
+    commentaire: lead.leadCommentaire || "",
+    zone: lead.leadZone ?? "",
+
+    businessUnit: lead.businessUnit?.id || "",
+    typeOpportunite: lead.leadType?.id || "",
+    categorie: lead.category?.id || "",
+    secteur: lead.leadSecteur?.id || "",
+    statut: lead.currentLeadStatus?.leadStatus?.id || "1",
+
+    client: lead.client || null,
+
+    leadPartenaire: lead.leadPartenaires?.length
+      ? lead.leadPartenaires[0].partenaire
+      : null,
+
+    typeFinancement: lead.typeProjetFinancement || null,
+
+    realDeadline: lead.leadRealDeadLine
+      ? lead.leadRealDeadLine.substring(0, 16)
+      : "",
+
+    driveFolderName: lead.driveFolder?.name || "",
+    driveFolderLink: lead.driveFolder?.link || "",
+
+    mainDriveFileName: lead.mainDriveFile?.name || "",
+    mainDriveFileLink: lead.mainDriveFile?.link || "",
+    mainDriveFileDescription: lead.mainDriveFile?.description || "",
+  });
+
+  useEffect(() => {
+    if (lead) {
+      setForm(mapLeadToForm(lead)); // mapping backend → form
+    }
+  }, [lead]);
 
   const handleSubmit = async () => {
     setShowLoadingMessage(true);
@@ -171,7 +206,9 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       const payload = formatLeadPayload(form);
 
       // Appel API via le service
-      const responseData = await leadService.createQualif(payload);
+    const responseData = lead
+      ? await leadService.updateQualif(lead.leadId, payload)
+      : await leadService.createQualif(payload);
 
       // Feedback utilisateur
       setSuccessMessage(lead ? "Lead modifié !" : "Lead créé !");
@@ -195,7 +232,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     <>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable>
         <Modal.Header closeButton>
-          <Modal.Title>{lead ? `Modifier ${lead.nom}` : "Créer un nouveau lead"}</Modal.Title>
+          <Modal.Title>{lead ? `Modification : ${lead.leadName} - ${lead.leadRef}` : "Créer un nouveau lead"}</Modal.Title>
         </Modal.Header>
 
         <Modal.Body>

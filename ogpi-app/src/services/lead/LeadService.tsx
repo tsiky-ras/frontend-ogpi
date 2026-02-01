@@ -49,9 +49,9 @@ export class LeadService {
   /**
    * Met à jour un lead existant
    */
-  async update(data: any) {
+    async updateQualif(id: number, data: any) {
     try {
-      const response = await this.api.put(`/leads/${data.id}`, data);
+      const response = await this.api.put(`/leads/${id}/qualif`, data);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la mise à jour du lead :', error);

@@ -269,7 +269,17 @@ useEffect(() => {
               console.error('Erreur lors de la récupération du lead:', error);
             }
           }}
-          onEdit={() => { setSelectedLead(row); setShowFormLead(true); }}
+          onEdit={async () => {
+            if (!row.id) return;
+
+            try {
+              const fullLead = await leadService.getById(row.id);
+              setSelectedLead(fullLead);  
+              setShowFormLead(true);
+            } catch (error) {
+              console.error("Erreur chargement lead pour édition", error);
+            }
+          }}
         />
       ),
     },
