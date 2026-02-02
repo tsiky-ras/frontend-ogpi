@@ -81,3 +81,107 @@
 .phase-name {
   color: #212529;
 }
+
+
+/* Styles existants... */
+
+/* Styles pour les phases */
+.phases-section {
+  padding-left: 20px;
+  border-left: 3px solid #e9ecef;
+  margin-top: 15px;
+}
+
+.phases-header {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.phases-list-sortable {
+  margin-top: 10px;
+}
+
+.phase-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  transition: all 0.2s ease;
+}
+
+.phase-item:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.phase-drag-handle {
+  cursor: grab;
+  color: #adb5bd;
+  font-size: 14px;
+  padding: 0 5px;
+  user-select: none;
+}
+
+.phase-drag-handle:active {
+  cursor: grabbing;
+}
+
+.phase-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.phase-order {
+  font-weight: 600;
+  color: #495057;
+  margin-right: 5px;
+  min-width: 25px;
+}
+
+.phase-name {
+  color: #212529;
+  font-size: 0.9rem;
+}
+
+.phase-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background-color: #dee2e6;
+  color: #495057;
+}
+
+.btn-icon:active {
+  transform: scale(0.95);
+}
+
+/* Sortable styles */
+.sortable-ghost {
+  opacity: 0.4;
+  background-color: #e3f2fd;
+}
+
+.sortable-chosen {
+  opacity: 0.8;
+}
+
+.sortable-drag {
+  opacity: 0;
+}

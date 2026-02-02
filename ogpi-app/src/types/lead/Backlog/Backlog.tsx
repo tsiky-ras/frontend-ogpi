@@ -3,7 +3,7 @@ export type BacklogPhase = {
   name: string;
   order: number;
   lotId: number;
-  lines: any[] | null;
+  lines?: any[] | null;
 };
 
 export type BacklogLot = {
@@ -16,6 +16,11 @@ export type BacklogLot = {
 };
 
 export interface BacklogLotOrderUpdate {
+  id: number;
+  order: number;
+}
+
+export interface BacklogPhaseOrderUpdate {
   id: number;
   order: number;
 }
