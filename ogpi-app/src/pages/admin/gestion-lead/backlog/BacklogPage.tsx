@@ -6,51 +6,72 @@ import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
 import Title from "../../../../components/title/Title.tsx";
 import Button from "../../../../components/button/Button.tsx";
 import { FaPlus, FaSpinner, FaEdit, FaTrash } from "react-icons/fa";
-import { Modal, Form, Alert } from "react-bootstrap";
+import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
 import "./BacklogPage.css";
+import { BacklogService } from "../../../../services/lead/backlog/BacklogService.tsx";
 import { BacklogLotService } from "../../../../services/lead/backlog/BacklogLotService.tsx";
 import { BacklogPhaseService } from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
+import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogProfilService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
-import { BacklogLot, BacklogPhase } from "../../../../types/lead/Backlog/Backlog.tsx";
+import { Backlog, BacklogLot, BacklogPhase, BacklogProfil } from "../../../../types/lead/Backlog/Backlog.tsx";
 
 const BacklogPage: React.FC = () => {
   const { api } = useAuth();
   const idBacklog = 1;
+  const backlogService = new BacklogService(api);
   const backlogLotService = new BacklogLotService(api);
   const backlogPhaseService = new BacklogPhaseService(api);
+  const backlogProfilService = new BacklogProfilService(api);
 
+  const [backlog, setBacklog] = useState<Backlog | null>(null);
   const [lots, setLots] = useState<BacklogLot[]>([]);
+  const [profils, setProfils] = useState<BacklogProfil[]>([]);
+  
   const [showLotModal, setShowLotModal] = useState(false);
   const [showPhaseModal, setShowPhaseModal] = useState(false);
+  const [showProfilModal, setShowProfilModal] = useState(false);
+  
   const [editingLot, setEditingLot] = useState<BacklogLot | null>(null);
   const [editingPhase, setEditingPhase] = useState<BacklogPhase | null>(null);
+  const [editingProfil, setEditingProfil] = useState<BacklogProfil | null>(null);
+  
   const [currentLotId, setCurrentLotId] = useState<number | null>(null);
   const [newLot, setNewLot] = useState({ name: "", desc: "" });
   const [newPhase, setNewPhase] = useState({ name: "" });
+  const [newProfil, setNewProfil] = useState({ name: "", desc: "", tjm: 0 });
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("lots");
 
   const listRef = useRef<HTMLDivElement | null>(null);
+  const profilListRef = useRef<HTMLDivElement | null>(null);
   const sortableInstance = useRef<Sortable | null>(null);
+  const profilSortableInstance = useRef<Sortable | null>(null);
   const phaseSortableInstances = useRef<Map<number, Sortable>>(new Map());
 
-  /* ================= FETCH LOTS ================= */
+  /* ================= FETCH BACKLOG COMPLET ================= */
   useEffect(() => {
-    fetchLots();
+    fetchBacklog();
   }, [idBacklog]);
 
-  const fetchLots = async () => {
+  const fetchBacklog = async () => {
     try {
       setLoading(true);
       setError(null);
-      const fetchedLots = await backlogLotService.getByBacklogId(idBacklog);
-      const sortedLots = [...fetchedLots].sort((a, b) => a.order - b.order);
+      const fetchedBacklog = await backlogService.getCompleteById(idBacklog);
+      setBacklog(fetchedBacklog);
+      
+      const sortedLots = [...(fetchedBacklog.lots || [])].sort((a, b) => a.order - b.order);
       setLots(sortedLots);
+      
+      const sortedProfils = [...(fetchedBacklog.profils || [])].sort((a, b) => a.order - b.order);
+      setProfils(sortedProfils);
     } catch (err) {
-      console.error("Erreur lors du chargement des lots:", err);
-      setError("Impossible de charger les lots. Veuillez réessayer.");
+      console.error("Erreur lors du chargement du backlog:", err);
+      setError("Impossible de charger le backlog. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +109,7 @@ const BacklogPage: React.FC = () => {
           await backlogLotService.updateOrder(orderUpdates);
         } catch (err) {
           console.error("Erreur lors de la mise à jour de l'ordre:", err);
-          fetchLots();
+          fetchBacklog();
         }
       },
     });
@@ -101,13 +122,56 @@ const BacklogPage: React.FC = () => {
     };
   }, [lots, loading]);
 
+  /* ================= SORTABLE PROFILS ================= */
+  useEffect(() => {
+    if (!profilListRef.current || profilSortableInstance.current || profils.length === 0) return;
+
+    profilSortableInstance.current = Sortable.create(profilListRef.current, {
+      animation: 150,
+      handle: ".drag-handle-profil",
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      dragClass: "sortable-drag",
+      onEnd: async (evt) => {
+        if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
+
+        const newProfils = [...profils];
+        const [movedItem] = newProfils.splice(evt.oldIndex, 1);
+        newProfils.splice(evt.newIndex, 0, movedItem);
+
+        const reorderedProfils = newProfils.map((profil, index) => ({
+          ...profil,
+          order: index + 1,
+        }));
+
+        setProfils(reorderedProfils);
+
+        try {
+          const orderUpdates = reorderedProfils.map((profil) => ({
+            id: profil.id,
+            order: profil.order,
+          }));
+          await backlogProfilService.updateOrder(orderUpdates);
+        } catch (err) {
+          console.error("Erreur lors de la mise à jour de l'ordre des profils:", err);
+          fetchBacklog();
+        }
+      },
+    });
+
+    return () => {
+      if (profilSortableInstance.current) {
+        profilSortableInstance.current.destroy();
+        profilSortableInstance.current = null;
+      }
+    };
+  }, [profils, loading]);
+
   /* ================= SORTABLE PHASES ================= */
   useEffect(() => {
-    // Nettoyer les anciennes instances
     phaseSortableInstances.current.forEach((instance) => instance.destroy());
     phaseSortableInstances.current.clear();
 
-    // Créer une instance Sortable pour chaque lot qui a des phases
     lots.forEach((lot) => {
       if (!lot.phases || lot.phases.length === 0) return;
 
@@ -138,14 +202,12 @@ const BacklogPage: React.FC = () => {
             order: index + 1,
           }));
 
-          // Mettre à jour l'état local
           setLots(
             lots.map((l) =>
               l.id === lot.id ? { ...l, phases: reorderedPhases } : l
             )
           );
 
-          // Mettre à jour sur le serveur
           try {
             const orderUpdates = reorderedPhases.map((phase) => ({
               id: phase.id,
@@ -154,7 +216,7 @@ const BacklogPage: React.FC = () => {
             await backlogPhaseService.updateOrder(orderUpdates);
           } catch (err) {
             console.error("Erreur lors de la mise à jour de l'ordre des phases:", err);
-            fetchLots();
+            fetchBacklog();
           }
         },
       });
@@ -270,7 +332,6 @@ const BacklogPage: React.FC = () => {
     setSaving(true);
     try {
       if (editingPhase) {
-        // Mise à jour
         const updatedPhase = await backlogPhaseService.update(editingPhase.id, {
           name: newPhase.name,
         });
@@ -288,7 +349,6 @@ const BacklogPage: React.FC = () => {
           )
         );
       } else {
-        // Création
         const currentLot = lots.find((l) => l.id === currentLotId);
         const nextOrder =
           Math.max(...(currentLot?.phases?.map((p) => p.order) || [0]), 0) + 1;
@@ -333,7 +393,6 @@ const BacklogPage: React.FC = () => {
     try {
       await backlogPhaseService.delete(phaseId);
 
-      // Mettre à jour l'état local
       setLots(
         lots.map((lot) => {
           if (lot.id !== lotId) return lot;
@@ -346,7 +405,6 @@ const BacklogPage: React.FC = () => {
         })
       );
 
-      // Mettre à jour l'ordre sur le serveur
       const currentLot = lots.find((l) => l.id === lotId);
       if (currentLot?.phases) {
         const orderUpdates = currentLot.phases
@@ -360,6 +418,89 @@ const BacklogPage: React.FC = () => {
     } catch (err) {
       console.error("Erreur lors de la suppression de la phase:", err);
       alert("Impossible de supprimer la phase.");
+    }
+  };
+
+  /* ================= PROFIL ACTIONS ================= */
+  const openAddProfil = () => {
+    setEditingProfil(null);
+    setNewProfil({ name: "", desc: "", tjm: 0 });
+    setShowProfilModal(true);
+  };
+
+  const openEditProfil = (profil: BacklogProfil) => {
+    setEditingProfil(profil);
+    setNewProfil({ name: profil.name, desc: profil.desc || "", tjm: profil.tjm });
+    setShowProfilModal(true);
+  };
+
+  const saveProfil = async () => {
+    if (!newProfil.name.trim()) {
+      alert("Le nom du profil est requis");
+      return;
+    }
+
+    if (newProfil.tjm < 0) {
+      alert("Le TJM doit être positif");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingProfil) {
+        const updatedProfil = await backlogProfilService.update(editingProfil.id, {
+          name: newProfil.name,
+          desc: newProfil.desc,
+          tjm: newProfil.tjm,
+        });
+
+        setProfils(profils.map((p) => (p.id === editingProfil.id ? updatedProfil : p)));
+      } else {
+        const nextOrder = Math.max(...profils.map((p) => p.order), 0) + 1;
+        const newProfilData = {
+          name: newProfil.name,
+          desc: newProfil.desc,
+          tjm: newProfil.tjm,
+          order: nextOrder,
+          backlogId: idBacklog,
+        };
+
+        const createdProfil = await backlogProfilService.create(newProfilData);
+        setProfils([...profils, createdProfil]);
+      }
+
+      setShowProfilModal(false);
+      setEditingProfil(null);
+      setNewProfil({ name: "", desc: "", tjm: 0 });
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde du profil:", err);
+      alert("Une erreur est survenue lors de la sauvegarde.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteProfil = async (id: number) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce profil ?")) {
+      return;
+    }
+
+    try {
+      await backlogProfilService.delete(id);
+      const updated = profils
+        .filter((p) => p.id !== id)
+        .map((p, i) => ({ ...p, order: i + 1 }));
+
+      setProfils(updated);
+
+      const orderUpdates = updated.map((profil) => ({
+        id: profil.id,
+        order: profil.order,
+      }));
+      await backlogProfilService.updateOrder(orderUpdates);
+    } catch (err) {
+      console.error("Erreur lors de la suppression:", err);
+      alert("Impossible de supprimer le profil.");
     }
   };
 
@@ -378,7 +519,7 @@ const BacklogPage: React.FC = () => {
               style={{ height: "50vh" }}
             >
               <FaSpinner className="fa-spin me-2" />
-              <span>Chargement des lots...</span>
+              <span>Chargement du backlog...</span>
             </div>
           </main>
         </div>
@@ -401,15 +542,8 @@ const BacklogPage: React.FC = () => {
             <div className="row align-items-center mb-4">
               <div className="col-md-8">
                 <Title
-                  title="Backlog"
-                  subtitle="Organisez les lots et phases par glisser-déposer"
-                />
-              </div>
-              <div className="col-md-4 text-end">
-                <Button
-                  label="Ajouter un lot"
-                  icon={<FaPlus />}
-                  onClick={openAddLot}
+                  title={backlog?.name || "Backlog"}
+                  subtitle={backlog?.desc || "Organisez les lots, phases et profils par glisser-déposer"}
                 />
               </div>
             </div>
@@ -421,96 +555,163 @@ const BacklogPage: React.FC = () => {
               </Alert>
             )}
 
-            {/* LISTE DRAGGABLE */}
-            <div className="backlog-list" ref={listRef}>
-              {lots.length === 0 ? (
-                <div className="text-muted py-3 text-center">
-                  Aucun lot pour le moment. Cliquez sur "Ajouter un lot" pour
-                  commencer.
+            {/* TABS */}
+            <Tabs
+              activeKey={activeTab}
+              onSelect={(k) => setActiveTab(k || "lots")}
+              className="mb-4"
+            >
+              {/* TAB LOTS */}
+              <Tab eventKey="lots" title="Lots et Phases">
+                <div className="d-flex justify-content-end mb-3">
+                  <Button
+                    label="Ajouter un lot"
+                    icon={<FaPlus />}
+                    onClick={openAddLot}
+                  />
                 </div>
-              ) : (
-                lots.map((lot) => (
-                  <div key={lot.id} className="backlog-item" data-lot-id={lot.id}>
-                    <div className="drag-handle">⋮⋮</div>
 
-                    <div className="backlog-content">
-                      <div className="backlog-title">
-                        <span className="backlog-order">{lot.order}. </span>
-                        {lot.name}
-                      </div>
-                      <div className="backlog-desc">{lot.desc || "—"}</div>
+                <div className="backlog-list" ref={listRef}>
+                  {lots.length === 0 ? (
+                    <div className="text-muted py-3 text-center">
+                      Aucun lot pour le moment. Cliquez sur "Ajouter un lot" pour
+                      commencer.
+                    </div>
+                  ) : (
+                    lots.map((lot) => (
+                      <div key={lot.id} className="backlog-item" data-lot-id={lot.id}>
+                        <div className="drag-handle">⋮⋮</div>
 
-                      {/* PHASES */}
-                      <div className="phases-section mt-3">
-                        <div className="phases-header d-flex justify-content-between align-items-center mb-2">
-                          <strong>Phases :</strong>
-                          <Button
-                            label="Ajouter une phase"
-                            variant="secondary"
-                            icon={<FaPlus />}
-                            onClick={() => openAddPhase(lot.id)}
-                          />
+                        <div className="backlog-content">
+                          <div className="backlog-title">
+                            <span className="backlog-order">{lot.order}. </span>
+                            {lot.name}
+                          </div>
+                          <div className="backlog-desc">{lot.desc || "—"}</div>
+
+                          {/* PHASES */}
+                          <div className="phases-section mt-3">
+                            <div className="phases-header d-flex justify-content-between align-items-center mb-2">
+                              <strong>Phases :</strong>
+                              <Button
+                                label="Ajouter une phase"
+                                variant="secondary"
+                                icon={<FaPlus />}
+                                onClick={() => openAddPhase(lot.id)}
+                              />
+                            </div>
+
+                            {lot.phases && lot.phases.length > 0 ? (
+                              <div className="phases-list-sortable">
+                                {lot.phases
+                                  .sort((a, b) => a.order - b.order)
+                                  .map((phase) => (
+                                    <div key={phase.id} className="phase-item">
+                                      <div className="phase-drag-handle">⋮⋮</div>
+                                      <div className="phase-content">
+                                        <span className="phase-order">
+                                          {phase.order}.{" "}
+                                        </span>
+                                        <span className="phase-name">
+                                          {phase.name}
+                                        </span>
+                                      </div>
+                                      <div className="phase-actions">
+                                        <button
+                                          className="btn-icon"
+                                          onClick={() => openEditPhase(phase, lot.id)}
+                                          title="Modifier"
+                                        >
+                                          <FaEdit />
+                                        </button>
+                                        <button
+                                          className="btn-icon"
+                                          onClick={() => deletePhase(phase.id, lot.id)}
+                                          title="Supprimer"
+                                        >
+                                          <FaTrash />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            ) : (
+                              <div className="text-muted small">
+                                Aucune phase. Cliquez sur "Ajouter une phase" pour
+                                commencer.
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {lot.phases && lot.phases.length > 0 ? (
-                          <div className="phases-list-sortable">
-                            {lot.phases
-                              .sort((a, b) => a.order - b.order)
-                              .map((phase) => (
-                                <div key={phase.id} className="phase-item">
-                                  <div className="phase-drag-handle">⋮⋮</div>
-                                  <div className="phase-content">
-                                    <span className="phase-order">
-                                      {phase.order}.{" "}
-                                    </span>
-                                    <span className="phase-name">
-                                      {phase.name}
-                                    </span>
-                                  </div>
-                                  <div className="phase-actions">
-                                    <button
-                                      className="btn-icon"
-                                      onClick={() => openEditPhase(phase, lot.id)}
-                                      title="Modifier"
-                                    >
-                                      <FaEdit />
-                                    </button>
-                                    <button
-                                      className="btn-icon"
-                                      onClick={() => deletePhase(phase.id, lot.id)}
-                                      title="Supprimer"
-                                    >
-                                      <FaTrash />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        ) : (
-                          <div className="text-muted small">
-                            Aucune phase. Cliquez sur "Ajouter une phase" pour
-                            commencer.
-                          </div>
-                        )}
+                        <div className="backlog-actions">
+                          <Button
+                            label="Modifier"
+                            variant="secondary"
+                            onClick={() => openEditLot(lot)}
+                          />
+                          <Button
+                            label="Supprimer"
+                            variant="outline"
+                            onClick={() => deleteLot(lot.id)}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    ))
+                  )}
+                </div>
+              </Tab>
 
-                    <div className="backlog-actions">
-                      <Button
-                        label="Modifier"
-                        variant="secondary"
-                        onClick={() => openEditLot(lot)}
-                      />
-                      <Button
-                        label="Supprimer"
-                        variant="outline"
-                        onClick={() => deleteLot(lot.id)}
-                      />
+              {/* TAB PROFILS */}
+              <Tab eventKey="profils" title="Profils">
+                <div className="d-flex justify-content-end mb-3">
+                  <Button
+                    label="Ajouter un profil"
+                    icon={<FaPlus />}
+                    onClick={openAddProfil}
+                  />
+                </div>
+
+                <div className="profil-list" ref={profilListRef}>
+                  {profils.length === 0 ? (
+                    <div className="text-muted py-3 text-center">
+                      Aucun profil pour le moment. Cliquez sur "Ajouter un profil" pour
+                      commencer.
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ) : (
+                    profils.map((profil) => (
+                      <div key={profil.id} className="backlog-item">
+                        <div className="drag-handle-profil">⋮⋮</div>
+
+                        <div className="backlog-content">
+                          <div className="backlog-title">
+                            <span className="backlog-order">{profil.order}. </span>
+                            {profil.name}
+                          </div>
+                          <div className="backlog-desc">{profil.desc || "—"}</div>
+                          <div className="profil-tjm mt-2">
+                            <strong>TJM:</strong> {profil.tjm.toFixed(2)} €
+                          </div>
+                        </div>
+
+                        <div className="backlog-actions">
+                          <Button
+                            label="Modifier"
+                            variant="secondary"
+                            onClick={() => openEditProfil(profil)}
+                          />
+                          <Button
+                            label="Supprimer"
+                            variant="outline"
+                            onClick={() => deleteProfil(profil.id)}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Tab>
+            </Tabs>
           </div>
         </main>
       </div>
@@ -617,6 +818,78 @@ const BacklogPage: React.FC = () => {
                 : "Ajouter"
             }
             onClick={savePhase}
+          />
+        </Modal.Footer>
+      </Modal>
+
+      {/* MODAL PROFIL */}
+      <Modal
+        show={showProfilModal}
+        onHide={() => !saving && setShowProfilModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {editingProfil ? "Modifier le profil" : "Ajouter un profil"}
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Nom *</Form.Label>
+              <Form.Control
+                value={newProfil.name}
+                onChange={(e) => setNewProfil({ ...newProfil, name: e.target.value })}
+                placeholder="Entrez le nom du profil"
+                disabled={saving}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={newProfil.desc}
+                onChange={(e) => setNewProfil({ ...newProfil, desc: e.target.value })}
+                placeholder="Entrez la description du profil"
+                disabled={saving}
+              />
+            </Form.Group>
+
+            <Form.Group>
+              <Form.Label>TJM (€) *</Form.Label>
+              <Form.Control
+                type="number"
+                step="0.01"
+                min="0"
+                value={newProfil.tjm}
+                onChange={(e) => setNewProfil({ ...newProfil, tjm: parseFloat(e.target.value) || 0 })}
+                placeholder="Entrez le tarif journalier moyen"
+                disabled={saving}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            label="Annuler"
+            variant="outline"
+            onClick={() => setShowProfilModal(false)}
+          />
+          <Button
+            label={
+              editingProfil
+                ? saving
+                  ? "Enregistrement..."
+                  : "Enregistrer"
+                : saving
+                ? "Ajout..."
+                : "Ajouter"
+            }
+            onClick={saveProfil}
           />
         </Modal.Footer>
       </Modal>
