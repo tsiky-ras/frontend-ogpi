@@ -52,3 +52,32 @@
     gap: 8px;
   }
   
+
+  /* Styles pour les phases */
+.phases-list {
+  padding-left: 20px;
+  border-left: 3px solid #e9ecef;
+}
+
+.phases-header {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.phase-item {
+  padding: 6px 10px;
+  margin-bottom: 5px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.phase-order {
+  font-weight: 600;
+  color: #495057;
+  margin-right: 5px;
+}
+
+.phase-name {
+  color: #212529;
+}

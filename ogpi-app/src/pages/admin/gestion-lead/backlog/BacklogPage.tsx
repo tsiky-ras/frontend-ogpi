@@ -1,4 +1,4 @@
-// BacklogPage.tsx (version modifiée)
+// BacklogPage.tsx (version modifiée avec affichage des phases)
 import React, { useEffect, useRef, useState } from "react";
 import Sortable from "sortablejs";
 
@@ -9,15 +9,14 @@ import Button from "../../../../components/button/Button.tsx";
 import { FaPlus, FaSpinner } from "react-icons/fa";
 import { Modal, Form, Alert } from "react-bootstrap";
 
-
 import "./BacklogPage.css";
-import { BacklogLot } from "./lot/BacklogLot.tsx";
 import { BacklogLotService } from "../../../../services/lead/backlog/BacklogLotService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
+import { BacklogLot } from "../../../../types/lead/Backlog/BacklogLot.tsx";
 
 const BacklogPage: React.FC = () => {
-    const { api } = useAuth();
-  const idBacklog = 1; // ID du backlog (pourrait venir des props ou d'un contexte)
+  const { api } = useAuth();
+  const idBacklog = 1;
   const backlogLotService = new BacklogLotService(api);
 
   const [lots, setLots] = useState<BacklogLot[]>([]);
@@ -41,7 +40,6 @@ const BacklogPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const fetchedLots = await backlogLotService.getByBacklogId(idBacklog);
-      // S'assurer que les lots sont triés par ordre
       const sortedLots = [...fetchedLots].sort((a, b) => a.order - b.order);
       setLots(sortedLots);
     } catch (err) {
@@ -65,21 +63,17 @@ const BacklogPage: React.FC = () => {
       onEnd: async (evt) => {
         if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
 
-        // Créer une nouvelle copie du tableau
         const newLots = [...lots];
         const [movedItem] = newLots.splice(evt.oldIndex, 1);
         newLots.splice(evt.newIndex, 0, movedItem);
 
-        // Mettre à jour les ordres
         const reorderedLots = newLots.map((lot, index) => ({
           ...lot,
           order: index + 1,
         }));
 
-        // Mettre à jour l'état local immédiatement
         setLots(reorderedLots);
 
-        // Envoyer la mise à jour au serveur
         try {
           const orderUpdates = reorderedLots.map((lot) => ({
             id: lot.id,
@@ -88,7 +82,6 @@ const BacklogPage: React.FC = () => {
           await backlogLotService.updateOrder(orderUpdates);
         } catch (err) {
           console.error("Erreur lors de la mise à jour de l'ordre:", err);
-          // Recharger les données depuis le serveur en cas d'erreur
           fetchLots();
         }
       },
@@ -124,7 +117,6 @@ const BacklogPage: React.FC = () => {
     setSaving(true);
     try {
       if (editingLot) {
-        // Mettre à jour le lot existant
         const updatedLot = await backlogLotService.update(editingLot.id, {
           name: newLot.name,
           desc: newLot.desc,
@@ -132,7 +124,6 @@ const BacklogPage: React.FC = () => {
         
         setLots(lots.map((l) => (l.id === editingLot.id ? updatedLot : l)));
       } else {
-        // Créer un nouveau lot
         const nextOrder = Math.max(...lots.map(l => l.order), 0) + 1;
         const newLotData = {
           name: newLot.name,
@@ -163,14 +154,12 @@ const BacklogPage: React.FC = () => {
 
     try {
       await backlogLotService.delete(id);
-      // Supprimer localement
       const updated = lots
         .filter((l) => l.id !== id)
         .map((l, i) => ({ ...l, order: i + 1 }));
       
       setLots(updated);
       
-      // Mettre à jour l'ordre sur le serveur
       const orderUpdates = updated.map((lot) => ({
         id: lot.id,
         order: lot.order,
@@ -254,6 +243,23 @@ const BacklogPage: React.FC = () => {
                         {lot.name}
                       </div>
                       <div className="backlog-desc">{lot.desc || "—"}</div>
+                      
+                      {/* AFFICHAGE DES PHASES */}
+                      {lot.phases && lot.phases.length > 0 && (
+                        <div className="phases-list mt-3">
+                          <div className="phases-header mb-2">
+                            <strong>Phases :</strong>
+                          </div>
+                          {lot.phases
+                            .sort((a, b) => a.order - b.order)
+                            .map((phase) => (
+                              <div key={phase.id} className="phase-item">
+                                <span className="phase-order">{phase.order}. </span>
+                                <span className="phase-name">{phase.name}</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="backlog-actions">

@@ -1,6 +1,6 @@
 // src/services/backlog/BacklogLotService.ts
 import { AxiosInstance } from 'axios';
-import { BacklogLot, BacklogLotOrderUpdate } from '../../../pages/admin/gestion-lead/backlog/lot/BacklogLot';
+import { BacklogLot, BacklogLotOrderUpdate } from '../../../types/lead/Backlog/BacklogLot';
 
 export class BacklogLotService {
   private api: AxiosInstance;
