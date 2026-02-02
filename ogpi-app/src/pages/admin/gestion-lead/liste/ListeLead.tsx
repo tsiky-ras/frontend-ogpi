@@ -180,7 +180,7 @@ useEffect(() => {
     },
     { key: 'name', label: 'Nom' },
     { key: 'reference', label: 'Référence' },
-    { key: 'client', label: 'Entreprise', render: (row: Lead) => row.client?.name || '-' },
+    { key: 'client', label: 'Client', render: (row: Lead) => row.client?.name || '-' },
     { key: 'type', label: 'Type', render: (row: Lead) => row.type?.label || '-' },
     { key: 'category', label: 'Catégorie', render: (row: Lead) => row.category?.label || '-' },
     { key: 'secteur', label: 'Secteur', render: (row: Lead) => row.secteur?.label || '-' },

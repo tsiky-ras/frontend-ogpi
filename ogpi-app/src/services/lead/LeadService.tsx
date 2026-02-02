@@ -21,6 +21,20 @@ export class LeadService {
   }
 
   /**
+   * Récupère tous les leads à partir de leur statut
+   */
+  async getAllByStatut(id: number) {
+    try {
+      const response = await this.api.get(`/leads/status/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des leads par statut :", error);
+      throw error;
+    }
+  }
+
+
+  /**
    * Récupère un lead par ID
    */
   async getById(id: number) {

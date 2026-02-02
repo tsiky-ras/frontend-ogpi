@@ -6,6 +6,7 @@ interface StatCardProps {
   value: string | number;
   subtitle?: string;
   variant?: string | string[]; 
+  icon?: React.ReactNode;
 }
 
 const PALETTE: Record<string, string> = {
@@ -37,7 +38,7 @@ function rgba(hex: string, a: number) {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, variant }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, variant, icon }) => {
   // determine styles based on variant
   let className = 'stat-card';
   const style: React.CSSProperties & Record<string,string> = {} as any;
@@ -45,9 +46,10 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, variant }) 
 
   if (Array.isArray(variant) && variant.length >= 1) {
     const primary = normalizeHex(variant[0]) || PALETTE.tomato;
-    style.background = rgba(primary, 0.08);
+    style.background = rgba(primary, 0.06);
     style['--accent-color'] = primary;
-    style['--accent-light'] = rgba(primary, 0.1);
+    style['--accent-light'] = rgba(primary, 0.12);
+    style['--accent-dark'] = rgba(primary, 0.2);
     statValueStyle.color = primary;
   } else if (typeof variant === 'string') {
     const normalized = normalizeHex(variant);
@@ -56,9 +58,10 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, variant }) 
       if (PALETTE[key]) {
         className += ` stat-card--${key}`;
       } else {
-        style.background = rgba(normalized, 0.08);
+        style.background = rgba(normalized, 0.06);
         style['--accent-color'] = normalized;
-        style['--accent-light'] = rgba(normalized, 0.1);
+        style['--accent-light'] = rgba(normalized, 0.12);
+        style['--accent-dark'] = rgba(normalized, 0.2);
         statValueStyle.color = normalized;
       }
     }
@@ -66,9 +69,13 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, variant }) 
 
   return (
     <div className={className} style={style}>
-      <h4 className="stat-title">{title}</h4>
+      <div className="stat-card-header">
+        {icon && <div className="stat-icon">{icon}</div>}
+        <h4 className="stat-title">{title}</h4>
+      </div>
       <p className="stat-value" style={statValueStyle}>{value}</p>
       {subtitle && <span className="stat-subtitle">{subtitle}</span>}
+      <div className="stat-card-decoration"></div>
     </div>
   );
 };

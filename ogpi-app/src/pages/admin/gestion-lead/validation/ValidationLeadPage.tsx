@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import ValidationForm, { LeadValidation } from "./ValidationFormPage.tsx";
+import ValidationFormPage from "./ValidationFormPage.tsx";
 import FilterBar from "../../../../components/filters/FilterBar.tsx";
 import { LeadService } from "../../../../services/lead/LeadService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
-
-/* ================= COMPONENT ================= */
 
 const ValidationLeadPage: React.FC = () => {
   const { api } = useAuth();
@@ -14,24 +12,19 @@ const ValidationLeadPage: React.FC = () => {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  /* ================= EFFECT ================= */
-
-  useEffect(() => {
-    loadLeadsToValidate();
-  }, []);
-
-  /* ================= DATA ================= */
-
+  /* ================= LOAD LEADS ================= */
   const loadLeadsToValidate = async () => {
     setLoading(true);
     try {
       const data = await leadService.getAll();
+      console.log("Leads fetched for validation:", data);
 
-      const noGoLeads = data.filter(
-        (l: any) => l.currentLeadStatus?.label === "No Go"
+      // Filtrer uniquement les leads avec statut id = 1 (No Go)
+      const leadsToValidate = data.filter(
+        (l: any) => l.currentLeadStatus?.leadStatus?.id === 1
       );
 
-      setLeads(noGoLeads);
+      setLeads(leadsToValidate);
     } catch (error) {
       console.error("Erreur chargement leads No Go", error);
     } finally {
@@ -39,11 +32,13 @@ const ValidationLeadPage: React.FC = () => {
     }
   };
 
-  /* ================= FILTER ================= */
+  useEffect(() => {
+    loadLeadsToValidate();
+  }, []);
 
+  /* ================= FILTER ================= */
   const filteredLeads = useMemo(() => {
     const value = search.toLowerCase().trim();
-
     if (!value) return leads;
 
     return leads.filter(
@@ -55,9 +50,8 @@ const ValidationLeadPage: React.FC = () => {
   }, [search, leads]);
 
   /* ================= RENDER ================= */
-
   return (
-    <>
+    <div className="validation-form-container">
       <FilterBar
         filters={[
           {
@@ -69,51 +63,42 @@ const ValidationLeadPage: React.FC = () => {
       />
 
       {loading && <p className="mt-3">Chargement...</p>}
-
-      {!loading && filteredLeads.length === 0 && (
-        <p className="mt-3">Aucun lead à valider.</p>
-      )}
+      {!loading && filteredLeads.length === 0 && <p className="mt-3">Aucun lead à valider.</p>}
 
       {!loading &&
-        filteredLeads.map((lead: any) => {
-          const leadForValidation: LeadValidation = {
-            name: lead.leadName,
-            reference: lead.leadRef,
-            client: lead.client?.name,
-            type: lead.type?.label,
-            category: lead.category?.label,
-            secteur: lead.secteur?.label,
-            description: lead.leadDescription,
-            internalDeadline: lead.leadInternalDeadLine,
-            realDeadline: lead.leadRealDeadLine,
-            driveLink: lead.mainDriveFile?.link,
-          };
-
-          return (
-            <div key={lead.leadId} className="validation-card">
-              <ValidationForm
-                lead={leadForValidation}
-                onValidate={async (comment: string) => {
-                  //await leadService.updateStatus(
-                    // lead.leadId,
-                    // "Go",
-                    // comment
-                  //);
-                  loadLeadsToValidate();
-                }}
-                onReject={async (comment: string) => {
-                  //await leadService.updateStatus(
-                    // lead.leadId,
-                    // "No Go",
-                    // comment
-                  //);
-                  loadLeadsToValidate();
-                }}
-              />
-            </div>
-          );
-        })}
-    </>
+        filteredLeads.map((lead: any) => (
+          <div key={lead.leadId} className="mb-4">
+            <ValidationFormPage
+              lead={{
+                id: lead.leadId,
+                businessUnit: lead.businessUnit,
+                name: lead.leadName,
+                reference: lead.leadRef,
+                client: lead.client,
+                type: lead.leadType,
+                category: lead.category,
+                secteur: lead.leadSecteur,
+                zone: lead.leadZone,
+                description: lead.leadDescription,
+                internalDeadline: lead.leadInternalDeadLine,
+                realDeadline: lead.leadRealDeadLine,
+                driveFolder: lead.driveFolder,
+                driveFile: lead.mainDriveFile,
+                partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
+                status: lead.currentLeadStatus?.leadStatus,
+              }}
+              // onValidate={async (comment: string) => {
+              //   await leadService.updateStatus(lead.leadId, "Go", comment);
+              //   loadLeadsToValidate();
+              // }}
+              // onReject={async (comment: string) => {
+              //   await leadService.updateStatus(lead.leadId, "No Go", comment);
+              //   loadLeadsToValidate();
+              // }}
+            />
+          </div>
+        ))}
+    </div>
   );
 };
 
