@@ -227,7 +227,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable>
         <Modal.Header closeButton>
           <Modal.Title>
-            {lead ? `Modification : ${lead.leadName} - ${lead.leadRef}` : "Créer un nouveau lead"}
+            {lead ? `Modification : ${lead.leadName} - ${lead.leadRef}` : "Créer une nouvelle opportunité"}
           </Modal.Title>
         </Modal.Header>
 

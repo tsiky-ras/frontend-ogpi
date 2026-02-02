@@ -22,6 +22,7 @@ import LeadStatusPage from "./pages/admin/gestion-lead/referentiel/LeadStatusPag
 import LeadTypePage from "./pages/admin/gestion-lead/referentiel/LeadTypePage.tsx";
 import PartenairePage from "./pages/admin/gestion-lead/referentiel/PartenairePage.tsx";
 import TypeProjetFinancementPage from "./pages/admin/gestion-lead/referentiel/TypeProjetFinancementPage.tsx";
+import LeadPage from "./pages/admin/gestion-lead/LeadPage.tsx";
 const App: React.FC = () => {
   return (
     <Router>
@@ -50,7 +51,7 @@ const App: React.FC = () => {
           <Route path="/admin/config/postes" element={<PostePage />} />
           <Route path="/admin/config/certifications" element={<CertificationPage />} />
           <Route path="/admin/config/organismes" element={<OrganismePage />} />   
-          <Route path="/admin/gestion-opportunites" element={<ListeLead />} /> 
+          <Route path="/admin/gestion-opportunites" element={<LeadPage />} /> 
           <Route path="/admin/config/lead-clients" element={<ClientPage />} /> 
           <Route path="/admin/config/lead-categories" element={<LeadCategoryPage />} />
           <Route path="/admin/config/lead-secteur" element={<LeadSecteurPage />} />
