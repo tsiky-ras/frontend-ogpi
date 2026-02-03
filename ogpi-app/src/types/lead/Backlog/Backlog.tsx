@@ -44,7 +44,7 @@ export interface BacklogLine {
   name: string;
   desc?: string;
   charge: number;
-  phaseId?: number | null;
+  phaseId: number | null;
   lotId?: number | null;
   backlogId?: number | null;
   profilId?: number | null;
@@ -102,4 +102,70 @@ export interface CreateBacklogPhaseRequest {
 
 export interface UpdateBacklogPhaseRequest {
   name: string;
+}
+export interface BacklogLineProfil {
+  id: number;
+  volume: number;
+  lineId: number;
+  profil: BacklogProfil;
+}
+
+
+export interface BacklogLine {
+  id: number;
+  order: number;
+  epic?: string;
+  userStory?: string;
+  description?: string;
+  resultat?: string;
+  phaseId: number | null;
+  profils?: BacklogLineProfil[];
+}
+
+export interface BacklogLineProfil {
+  id: number;
+  volume: number;
+  lineId: number;
+  profil: BacklogProfil;
+}
+
+export interface CreateBacklogLineRequest {
+  epic: string;
+  userStory: string;
+  description: string;
+  resultat: string;
+  order: number;
+  phaseId: number;
+}
+
+export interface UpdateBacklogLineRequest {
+  epic: string;
+  userStory: string;
+  description: string;
+  resultat: string;
+  phaseId: number;
+}
+
+export interface CreateBacklogLineProfilRequest {
+  volume: number;
+  lineId: number;
+  profilId: number;
+}
+
+export interface UpdateBacklogLineProfilRequest {
+  volume: number;
+  lineId: number;
+  profilId: number;
+}
+
+// Mise à jour de l'interface Backlog pour inclure les lignes
+export interface Backlog {
+  id: number;
+  name: string;
+  desc?: string;
+  leadId: number;
+  profils?: BacklogProfil[];
+  lots?: BacklogLot[];
+  lines?: BacklogLine[];
+  phases?: BacklogPhase[];
 }

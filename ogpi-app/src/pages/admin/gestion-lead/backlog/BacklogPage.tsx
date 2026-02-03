@@ -13,8 +13,17 @@ import { BacklogService } from "../../../../services/lead/backlog/BacklogService
 import { BacklogLotService } from "../../../../services/lead/backlog/BacklogLotService.tsx";
 import { BacklogPhaseService } from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
 import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogProfilService.tsx";
+import { BacklogLineService } from "../../../../services/lead/backlog/BacklogLineService.tsx";
+import { BacklogLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
-import { Backlog, BacklogLot, BacklogPhase, BacklogProfil } from "../../../../types/lead/Backlog/Backlog.tsx";
+import { 
+  Backlog, 
+  BacklogLot, 
+  BacklogPhase, 
+  BacklogProfil,
+  BacklogLine,
+  BacklogLineProfil 
+} from "../../../../types/lead/Backlog/Backlog.tsx";
 
 const BacklogPage: React.FC = () => {
   const { api } = useAuth();
@@ -23,28 +32,47 @@ const BacklogPage: React.FC = () => {
   const backlogLotService = new BacklogLotService(api);
   const backlogPhaseService = new BacklogPhaseService(api);
   const backlogProfilService = new BacklogProfilService(api);
+  const backlogLineService = new BacklogLineService(api);
+  const backlogLineProfilService = new BacklogLineProfilService(api);
 
   const [backlog, setBacklog] = useState<Backlog | null>(null);
   const [lots, setLots] = useState<BacklogLot[]>([]);
   const [profils, setProfils] = useState<BacklogProfil[]>([]);
+  const [lines, setLines] = useState<BacklogLine[]>([]);
+  const [lineProfils, setLineProfils] = useState<BacklogLineProfil[]>([]);
   
   const [showLotModal, setShowLotModal] = useState(false);
   const [showPhaseModal, setShowPhaseModal] = useState(false);
   const [showProfilModal, setShowProfilModal] = useState(false);
+  const [showLineModal, setShowLineModal] = useState(false);
+  const [showLineProfilModal, setShowLineProfilModal] = useState(false);
   
   const [editingLot, setEditingLot] = useState<BacklogLot | null>(null);
   const [editingPhase, setEditingPhase] = useState<BacklogPhase | null>(null);
   const [editingProfil, setEditingProfil] = useState<BacklogProfil | null>(null);
+  const [editingLine, setEditingLine] = useState<BacklogLine | null>(null);
+  const [editingLineProfil, setEditingLineProfil] = useState<BacklogLineProfil | null>(null);
   
   const [currentLotId, setCurrentLotId] = useState<number | null>(null);
+  const [currentLineId, setCurrentLineId] = useState<number | null>(null);
+  const [currentProfilId, setCurrentProfilId] = useState<number | null>(null);
+  
   const [newLot, setNewLot] = useState({ name: "", desc: "" });
   const [newPhase, setNewPhase] = useState({ name: "" });
   const [newProfil, setNewProfil] = useState({ name: "", desc: "", tjm: 0 });
+  const [newLine, setNewLine] = useState({ 
+    epic: "", 
+    userStory: "", 
+    description: "", 
+    resultat: "", 
+    phaseId: null as number | null 
+  });
+  const [newLineProfil, setNewLineProfil] = useState({ volume: 0 });
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("lots");
+  const [activeTab, setActiveTab] = useState<string>("backlog");
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const profilListRef = useRef<HTMLDivElement | null>(null);
@@ -69,6 +97,13 @@ const BacklogPage: React.FC = () => {
       
       const sortedProfils = [...(fetchedBacklog.profils || [])].sort((a, b) => a.order - b.order);
       setProfils(sortedProfils);
+      
+      const sortedLines = [...(fetchedBacklog.lines || [])].sort((a, b) => a.order - b.order);
+      setLines(sortedLines);
+      
+      // Fetch line profils
+      // Assuming there's a method to fetch all line profils for a backlog
+      // setLineProfils(fetchedBacklog.lineProfils || []);
     } catch (err) {
       console.error("Erreur lors du chargement du backlog:", err);
       setError("Impossible de charger le backlog. Veuillez réessayer.");
@@ -504,6 +539,198 @@ const BacklogPage: React.FC = () => {
     }
   };
 
+  /* ================= LINE ACTIONS ================= */
+  const getAllPhases = (): BacklogPhase[] => {
+    const allPhases: BacklogPhase[] = [];
+    lots.forEach(lot => {
+      if (lot.phases) {
+        allPhases.push(...lot.phases);
+      }
+    });
+    return allPhases;
+  };
+
+  const openAddLine = () => {
+    setEditingLine(null);
+    setNewLine({ epic: "", userStory: "", description: "", resultat: "", phaseId: null });
+    setShowLineModal(true);
+  };
+
+  const openEditLine = (line: BacklogLine) => {
+    setEditingLine(line);
+    setNewLine({ 
+      epic: line.epic || "", 
+      userStory: line.userStory || "", 
+      description: line.description || "", 
+      resultat: line.resultat || "", 
+      phaseId: line.phaseId 
+    });
+    setShowLineModal(true);
+  };
+
+  const saveLine = async () => {
+    if (!newLine.phaseId) {
+      alert("La phase est requise");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingLine) {
+        const updatedLine = await backlogLineService.update(editingLine.id, {
+          epic: newLine.epic,
+          userStory: newLine.userStory,
+          description: newLine.description,
+          resultat: newLine.resultat,
+          phaseId: newLine.phaseId,
+          order:editingLine.order
+        });
+
+        setLines(lines.map((l) => (l.id === editingLine.id ? updatedLine : l)));
+      } else {
+        const nextOrder = Math.max(...lines.map((l) => l.order), 0) + 1;
+        const newLineData = {
+          epic: newLine.epic,
+          userStory: newLine.userStory,
+          description: newLine.description,
+          resultat: newLine.resultat,
+          order: nextOrder,
+          phaseId: newLine.phaseId,
+        };
+
+        const createdLine = await backlogLineService.create(newLineData);
+        setLines([...lines, createdLine]);
+      }
+
+      setShowLineModal(false);
+      setEditingLine(null);
+      setNewLine({ epic: "", userStory: "", description: "", resultat: "", phaseId: null });
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde de la ligne:", err);
+      alert("Une erreur est survenue lors de la sauvegarde.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteLine = async (id: number) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette ligne ?")) {
+      return;
+    }
+
+    try {
+      await backlogLineService.delete(id);
+      const updated = lines
+        .filter((l) => l.id !== id)
+        .map((l, i) => ({ ...l, order: i + 1 }));
+
+      setLines(updated);
+
+      const orderUpdates = updated.map((line) => ({
+        id: line.id,
+        order: line.order,
+      }));
+      await backlogLineService.updateOrder(orderUpdates);
+    } catch (err) {
+      console.error("Erreur lors de la suppression:", err);
+      alert("Impossible de supprimer la ligne.");
+    }
+  };
+
+  /* ================= LINE PROFIL ACTIONS ================= */
+  const getLineProfilVolume = (lineId: number, profilId: number): number => {
+    const lineProfil = lineProfils.find(
+      lp => lp.lineId === lineId && lp.profil.id === profilId
+    );
+    return lineProfil?.volume || 0;
+  };
+
+  const openLineProfilModal = (lineId: number, profilId: number) => {
+    setCurrentLineId(lineId);
+    setCurrentProfilId(profilId);
+    
+    const existing = lineProfils.find(
+      lp => lp.lineId === lineId && lp.profil.id === profilId
+    );
+    
+    if (existing) {
+      setEditingLineProfil(existing);
+      setNewLineProfil({ volume: existing.volume });
+    } else {
+      setEditingLineProfil(null);
+      setNewLineProfil({ volume: 0 });
+    }
+    
+    setShowLineProfilModal(true);
+  };
+
+  const saveLineProfil = async () => {
+    if (currentLineId === null || currentProfilId === null) return;
+
+    setSaving(true);
+    try {
+      if (editingLineProfil) {
+        const updatedLineProfil = await backlogLineProfilService.update(editingLineProfil.id, {
+          volume: newLineProfil.volume,
+          lineId: currentLineId,
+          profilId: currentProfilId,
+        });
+
+        setLineProfils(lineProfils.map((lp) => 
+          lp.id === editingLineProfil.id ? updatedLineProfil : lp
+        ));
+      } else {
+        const newLineProfilData = {
+          volume: newLineProfil.volume,
+          lineId: currentLineId,
+          profilId: currentProfilId,
+        };
+
+        const createdLineProfil = await backlogLineProfilService.create(newLineProfilData);
+        setLineProfils([...lineProfils, createdLineProfil]);
+      }
+
+      setShowLineProfilModal(false);
+      setEditingLineProfil(null);
+      setNewLineProfil({ volume: 0 });
+      setCurrentLineId(null);
+      setCurrentProfilId(null);
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde du volume:", err);
+      alert("Une erreur est survenue lors de la sauvegarde.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteLineProfil = async () => {
+    if (!editingLineProfil) return;
+
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce volume ?")) {
+      return;
+    }
+
+    try {
+      await backlogLineProfilService.delete(editingLineProfil.id);
+      setLineProfils(lineProfils.filter(lp => lp.id !== editingLineProfil.id));
+      setShowLineProfilModal(false);
+      setEditingLineProfil(null);
+      setNewLineProfil({ volume: 0 });
+      setCurrentLineId(null);
+      setCurrentProfilId(null);
+    } catch (err) {
+      console.error("Erreur lors de la suppression:", err);
+      alert("Impossible de supprimer le volume.");
+    }
+  };
+
+  const getPhaseNameById = (phaseId: number | null): string => {
+    if (!phaseId) return "—";
+    const allPhases = getAllPhases();
+    const phase = allPhases.find(p => p.id === phaseId);
+    return phase?.name || "—";
+  };
+
   /* ================= RENDER ================= */
   if (loading) {
     return (
@@ -543,7 +770,7 @@ const BacklogPage: React.FC = () => {
               <div className="col-md-8">
                 <Title
                   title={backlog?.name || "Backlog"}
-                  subtitle={backlog?.desc || "Organisez les lots, phases et profils par glisser-déposer"}
+                  subtitle={backlog?.desc || "Gérez votre backlog"}
                 />
               </div>
             </div>
@@ -558,9 +785,90 @@ const BacklogPage: React.FC = () => {
             {/* TABS */}
             <Tabs
               activeKey={activeTab}
-              onSelect={(k) => setActiveTab(k || "lots")}
+              onSelect={(k) => setActiveTab(k || "backlog")}
               className="mb-4"
             >
+              {/* TAB BACKLOG */}
+              <Tab eventKey="backlog" title="Backlog">
+                <div className="d-flex justify-content-end mb-3">
+                  <Button
+                    label="Ajouter une ligne"
+                    icon={<FaPlus />}
+                    onClick={openAddLine}
+                  />
+                </div>
+
+                <div className="table-responsive">
+                  <table className="table table-bordered backlog-table">
+                    <thead>
+                      <tr>
+                        <th style={{width: '50px'}}>Ordre</th>
+                        <th style={{width: '100px'}}>Phase</th>
+                        <th style={{width: '150px'}}>Epic</th>
+                        <th style={{width: '150px'}}>User Story</th>
+                        <th style={{width: '200px'}}>Description</th>
+                        <th style={{width: '200px'}}>Résultat</th>
+                        {profils.map(profil => (
+                          <th key={profil.id} style={{width: '100px'}}>
+                            {profil.name}
+                          </th>
+                        ))}
+                        <th style={{width: '120px'}}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lines.length === 0 ? (
+                        <tr>
+                          <td colSpan={7 + profils.length} className="text-center text-muted">
+                            Aucune ligne pour le moment. Cliquez sur "Ajouter une ligne" pour commencer.
+                          </td>
+                        </tr>
+                      ) : (
+                        lines.map((line) => (
+                          <tr key={line.id}>
+                            <td className="text-center">{line.order}</td>
+                            <td>{getPhaseNameById(line.phaseId)}</td>
+                            <td>{line.epic || "—"}</td>
+                            <td>{line.userStory || "—"}</td>
+                            <td>{line.description || "—"}</td>
+                            <td>{line.resultat || "—"}</td>
+                            {profils.map(profil => (
+                              <td 
+                                key={profil.id} 
+                                className="text-center backlog-profil-cell"
+                                onClick={() => openLineProfilModal(line.id, profil.id)}
+                                style={{cursor: 'pointer'}}
+                                title="Cliquez pour modifier le volume"
+                              >
+                                {getLineProfilVolume(line.id, profil.id) || "—"}
+                              </td>
+                            ))}
+                            <td>
+                              <div className="d-flex gap-1 justify-content-center">
+                                <button
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={() => openEditLine(line)}
+                                  title="Modifier"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  onClick={() => deleteLine(line.id)}
+                                  title="Supprimer"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Tab>
+
               {/* TAB LOTS */}
               <Tab eventKey="lots" title="Lots et Phases">
                 <div className="d-flex justify-content-end mb-3">
@@ -890,6 +1198,161 @@ const BacklogPage: React.FC = () => {
                 : "Ajouter"
             }
             onClick={saveProfil}
+          />
+        </Modal.Footer>
+      </Modal>
+
+      {/* MODAL LINE */}
+      <Modal
+        show={showLineModal}
+        onHide={() => !saving && setShowLineModal(false)}
+        centered
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {editingLine ? "Modifier la ligne" : "Ajouter une ligne"}
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Phase *</Form.Label>
+              <Form.Select
+                value={newLine.phaseId || ""}
+                onChange={(e) => setNewLine({ ...newLine, phaseId: e.target.value ? parseInt(e.target.value) : null })}
+                disabled={saving}
+              >
+                <option value="">Sélectionnez une phase</option>
+                {getAllPhases().map(phase => (
+                  <option key={phase.id} value={phase.id}>
+                    {phase.name}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Epic</Form.Label>
+              <Form.Control
+                value={newLine.epic}
+                onChange={(e) => setNewLine({ ...newLine, epic: e.target.value })}
+                placeholder="Entrez l'epic"
+                disabled={saving}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>User Story</Form.Label>
+              <Form.Control
+                value={newLine.userStory}
+                onChange={(e) => setNewLine({ ...newLine, userStory: e.target.value })}
+                placeholder="Entrez la user story"
+                disabled={saving}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                value={newLine.description}
+                onChange={(e) => setNewLine({ ...newLine, description: e.target.value })}
+                placeholder="Entrez la description"
+                disabled={saving}
+              />
+            </Form.Group>
+
+            <Form.Group>
+              <Form.Label>Résultat</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                value={newLine.resultat}
+                onChange={(e) => setNewLine({ ...newLine, resultat: e.target.value })}
+                placeholder="Entrez le résultat attendu"
+                disabled={saving}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            label="Annuler"
+            variant="outline"
+            onClick={() => setShowLineModal(false)}
+          />
+          <Button
+            label={
+              editingLine
+                ? saving
+                  ? "Enregistrement..."
+                  : "Enregistrer"
+                : saving
+                ? "Ajout..."
+                : "Ajouter"
+            }
+            onClick={saveLine}
+          />
+        </Modal.Footer>
+      </Modal>
+
+      {/* MODAL LINE PROFIL */}
+      <Modal
+        show={showLineProfilModal}
+        onHide={() => !saving && setShowLineProfilModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {editingLineProfil ? "Modifier le volume" : "Ajouter un volume"}
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label>Volume (jours-homme) *</Form.Label>
+              <Form.Control
+                type="number"
+                step="0.5"
+                min="0"
+                value={newLineProfil.volume}
+                onChange={(e) => setNewLineProfil({ volume: parseFloat(e.target.value) || 0 })}
+                placeholder="Entrez le volume en jours-homme"
+                disabled={saving}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          {editingLineProfil && (
+            <Button
+              label="Supprimer"
+              variant="outline"
+              onClick={deleteLineProfil}
+            />
+          )}
+          <Button
+            label="Annuler"
+            variant="outline"
+            onClick={() => setShowLineProfilModal(false)}
+          />
+          <Button
+            label={
+              editingLineProfil
+                ? saving
+                  ? "Enregistrement..."
+                  : "Enregistrer"
+                : saving
+                ? "Ajout..."
+                : "Ajouter"
+            }
+            onClick={saveLineProfil}
           />
         </Modal.Footer>
       </Modal>
