@@ -74,11 +74,16 @@ const BacklogPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("backlog");
 
+  // Refs pour les sortables existants (lots, profils, phases)
   const listRef = useRef<HTMLDivElement | null>(null);
   const profilListRef = useRef<HTMLDivElement | null>(null);
   const sortableInstance = useRef<Sortable | null>(null);
   const profilSortableInstance = useRef<Sortable | null>(null);
   const phaseSortableInstances = useRef<Map<number, Sortable>>(new Map());
+
+  // Ref pour le sortable des lignes du tableau
+  const lineTableBodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const lineSortableInstance = useRef<Sortable | null>(null);
 
   /* ================= FETCH BACKLOG COMPLET ================= */
   useEffect(() => {
@@ -101,9 +106,7 @@ const BacklogPage: React.FC = () => {
       const sortedLines = [...(fetchedBacklog.lines || [])].sort((a, b) => a.order - b.order);
       setLines(sortedLines);
 
-      // ✅ CORRECTION : le backend retourne les lineProfils imbriqués dans chaque ligne
-      // lines: [{ id:1, profils: [{ id:12, volume:12, lineId:1, profil:{...} }] }, ...]
-      // On les extrait ici pour peupler l'état lineProfils
+      // Extraire les lineProfils depuis lines[].profils[]
       const allLineProfils: BacklogLineProfil[] = [];
       sortedLines.forEach((line) => {
         if (line.profils && line.profils.length > 0) {
@@ -119,6 +122,60 @@ const BacklogPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  /* ================= SORTABLE LINES (tableau) ================= */
+  useEffect(() => {
+    // Détruire l'instance précédente avant de recréer
+    if (lineSortableInstance.current) {
+      lineSortableInstance.current.destroy();
+      lineSortableInstance.current = null;
+    }
+
+    if (!lineTableBodyRef.current || lines.length === 0) return;
+
+    lineSortableInstance.current = Sortable.create(lineTableBodyRef.current, {
+      animation: 150,
+      handle: ".line-drag-handle",
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      dragClass: "sortable-drag",
+      // Nécessaire pour que Sortable fonctionne correctement sur les <tr>
+      filter: ".sortable-empty-row",
+      onEnd: async (evt) => {
+        if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
+        if (evt.oldIndex === evt.newIndex) return;
+
+        const newLines = [...lines];
+        const [movedItem] = newLines.splice(evt.oldIndex, 1);
+        newLines.splice(evt.newIndex, 0, movedItem);
+
+        const reorderedLines = newLines.map((line, index) => ({
+          ...line,
+          order: index + 1,
+        }));
+
+        setLines(reorderedLines);
+
+        try {
+          const orderUpdates = reorderedLines.map((line) => ({
+            id: line.id,
+            order: line.order,
+          }));
+          await backlogLineService.updateOrder(orderUpdates);
+        } catch (err) {
+          console.error("Erreur lors de la mise à jour de l'ordre des lignes:", err);
+          fetchBacklog();
+        }
+      },
+    });
+
+    return () => {
+      if (lineSortableInstance.current) {
+        lineSortableInstance.current.destroy();
+        lineSortableInstance.current = null;
+      }
+    };
+  }, [lines, loading]);
 
   /* ================= SORTABLE LOTS ================= */
   useEffect(() => {
@@ -634,7 +691,7 @@ const BacklogPage: React.FC = () => {
 
       setLines(updated);
 
-      // ✅ Nettoyer aussi les lineProfils de cette ligne localement
+      // Nettoyer aussi les lineProfils de cette ligne localement
       setLineProfils(prev => prev.filter(lp => lp.lineId !== id));
 
       const orderUpdates = updated.map((line) => ({
@@ -813,6 +870,8 @@ const BacklogPage: React.FC = () => {
                   <table className="table table-bordered backlog-table">
                     <thead>
                       <tr>
+                        {/* Colonne drag handle */}
+                        <th style={{width: '30px'}}></th>
                         <th style={{width: '50px'}}>Ordre</th>
                         <th style={{width: '100px'}}>Phase</th>
                         <th style={{width: '150px'}}>Epic</th>
@@ -827,16 +886,20 @@ const BacklogPage: React.FC = () => {
                         <th style={{width: '120px'}}>Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody ref={lineTableBodyRef}>
                       {lines.length === 0 ? (
-                        <tr>
-                          <td colSpan={7 + profils.length} className="text-center text-muted">
+                        <tr className="sortable-empty-row">
+                          <td colSpan={8 + profils.length} className="text-center text-muted">
                             Aucune ligne pour le moment. Cliquez sur "Ajouter une ligne" pour commencer.
                           </td>
                         </tr>
                       ) : (
                         lines.map((line) => (
                           <tr key={line.id}>
+                            {/* Cellule drag handle */}
+                            <td className="line-drag-handle" style={{cursor: 'grab', userSelect: 'none', textAlign: 'center', color: '#aaa'}}>
+                              ⋮⋮
+                            </td>
                             <td className="text-center">{line.order}</td>
                             <td>{getPhaseNameById(line.phaseId)}</td>
                             <td>{line.epic || "—"}</td>
