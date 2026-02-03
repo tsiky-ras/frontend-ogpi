@@ -75,14 +75,44 @@
   font-size: 0.85rem;
 }
 
+/* ===== BASE COMMUNE ===== */
 .validation-status-badge {
-  background: #EABF5B;
-  color: #223A46;
   padding: 0.6rem 1.5rem;
   border-radius: 50px;
   font-weight: 600;
   font-size: 0.9rem;
-  box-shadow: 0 2px 8px rgba(234, 191, 91, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== EN ATTENTE ===== */
+.validation-status-badge.status-pending {
+  background: #EABF5B;
+  color: #223A46;
+  box-shadow: 0 2px 8px rgba(234, 191, 91, 0.35);
+}
+
+/* ===== GO ===== */
+.validation-status-badge.status-go {
+  background: #2ECC71;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(46, 204, 113, 0.35);
+}
+
+/* ===== NO GO ===== */
+.validation-status-badge.status-nogo {
+  background: #E74C3C;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.35);
+}
+
+/* ===== FALLBACK ===== */
+.validation-status-badge.status-unknown {
+  background: #95A5A6;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(149, 165, 166, 0.35);
 }
 
 /* ===== BOUTON EXPAND/COLLAPSE ===== */

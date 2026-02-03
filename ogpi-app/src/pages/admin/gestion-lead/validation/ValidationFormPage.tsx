@@ -22,6 +22,22 @@ interface ValidationFormProps {
   readonly?: boolean;
 }
 
+  type StatusBadgeConfig = {
+    className: string;
+  };
+
+  const STATUS_BADGE_BY_LABEL: Record<string, StatusBadgeConfig> = {
+    "En attente de validation": { className: "bg-warning text-dark" },
+    "Go": { className: "bg-success" },
+    "No Go": { className: "bg-danger" },
+  };
+
+  const STATUS_CLASS_BY_LABEL: Record<string, string> = {
+  "En attente de validation": "status-pending",
+  "Go": "status-go",
+  "No Go": "status-nogo",
+};
+
 const ValidationFormPage: React.FC<ValidationFormProps> = ({
   lead,
   onValidate,
@@ -30,7 +46,7 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
 }) => {
   const [comment, setComment] = useState<string>("");
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-
+  
   if (!lead) return null;
 
   return (
@@ -48,8 +64,12 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
                 <FaHashtag className="ref-icon" />
                 <span>{lead.reference}</span>
               </div>
-              <div className="validation-status-badge">
-                En attente de validation
+              <div
+                className={`validation-status-badge ${
+                  STATUS_CLASS_BY_LABEL[lead.status?.label ?? ""] || "status-unknown"
+                }`}
+              >
+                {lead.status?.label || "Statut inconnu"}
               </div>
             </div>
           </div>

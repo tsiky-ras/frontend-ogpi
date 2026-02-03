@@ -46,7 +46,7 @@ const DetailsLead: React.FC<DetailsLeadProps> = ({ show, onClose, lead }) => {
 
         {/* Badge avec vraie valeur */}
         <span className={`badge ${getBadgeClass(lead.currentLeadStatus?.leadStatus?.label)}`}>
-          {lead.currentLeadStatus?.leadStatus?.label || "Brouillon"}
+          {lead.currentLeadStatus?.leadStatus?.label || "En attente de validation"}
         </span>
       </div>
     </Modal.Header>
