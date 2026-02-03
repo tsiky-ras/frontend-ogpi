@@ -100,10 +100,18 @@ const BacklogPage: React.FC = () => {
       
       const sortedLines = [...(fetchedBacklog.lines || [])].sort((a, b) => a.order - b.order);
       setLines(sortedLines);
-      
-      // Fetch line profils
-      // Assuming there's a method to fetch all line profils for a backlog
-      // setLineProfils(fetchedBacklog.lineProfils || []);
+
+      // ✅ CORRECTION : le backend retourne les lineProfils imbriqués dans chaque ligne
+      // lines: [{ id:1, profils: [{ id:12, volume:12, lineId:1, profil:{...} }] }, ...]
+      // On les extrait ici pour peupler l'état lineProfils
+      const allLineProfils: BacklogLineProfil[] = [];
+      sortedLines.forEach((line) => {
+        if (line.profils && line.profils.length > 0) {
+          allLineProfils.push(...line.profils);
+        }
+      });
+      setLineProfils(allLineProfils);
+
     } catch (err) {
       console.error("Erreur lors du chargement du backlog:", err);
       setError("Impossible de charger le backlog. Veuillez réessayer.");
@@ -583,7 +591,7 @@ const BacklogPage: React.FC = () => {
           description: newLine.description,
           resultat: newLine.resultat,
           phaseId: newLine.phaseId,
-          order:editingLine.order
+          order: editingLine.order
         });
 
         setLines(lines.map((l) => (l.id === editingLine.id ? updatedLine : l)));
@@ -625,6 +633,9 @@ const BacklogPage: React.FC = () => {
         .map((l, i) => ({ ...l, order: i + 1 }));
 
       setLines(updated);
+
+      // ✅ Nettoyer aussi les lineProfils de cette ligne localement
+      setLineProfils(prev => prev.filter(lp => lp.lineId !== id));
 
       const orderUpdates = updated.map((line) => ({
         id: line.id,
