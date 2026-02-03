@@ -799,6 +799,66 @@ const BacklogPage: React.FC = () => {
     return phase?.name || "—";
   };
 
+  /* ================= CALCULS DES TOTAUX ================= */
+  
+  // Calcul des totaux par profil
+  const getProfilTotals = () => {
+    return profils.map(profil => {
+      const totalVolume = lineProfils
+        .filter(lp => lp.profil.id === profil.id)
+        .reduce((sum, lp) => sum + lp.volume, 0);
+      
+      const totalAmount = totalVolume * profil.tjm;
+      
+      return {
+        profil,
+        totalVolume,
+        totalAmount
+      };
+    });
+  };
+
+  // Calcul des totaux par lot (avec phases)
+  const getLotTotals = () => {
+    return lots.map(lot => {
+      const lotPhases = lot.phases || [];
+      
+      // Calcul par phase
+      const phaseTotals = lotPhases.map(phase => {
+        const phaseLines = lines.filter(line => line.phaseId === phase.id);
+        const phaseLineIds = phaseLines.map(l => l.id);
+        
+        const phaseLineProfils = lineProfils.filter(lp => 
+          phaseLineIds.includes(lp.lineId)
+        );
+        
+        const totalVolume = phaseLineProfils.reduce((sum, lp) => sum + lp.volume, 0);
+        
+        const totalAmount = phaseLineProfils.reduce((sum, lp) => {
+          const profil = profils.find(p => p.id === lp.profil.id);
+          return sum + (lp.volume * (profil?.tjm || 0));
+        }, 0);
+        
+        return {
+          phase,
+          totalVolume,
+          totalAmount
+        };
+      });
+      
+      // Totaux du lot (somme des phases)
+      const lotTotalVolume = phaseTotals.reduce((sum, pt) => sum + pt.totalVolume, 0);
+      const lotTotalAmount = phaseTotals.reduce((sum, pt) => sum + pt.totalAmount, 0);
+      
+      return {
+        lot,
+        phaseTotals,
+        lotTotalVolume,
+        lotTotalAmount
+      };
+    });
+  };
+
   /* ================= RENDER ================= */
   if (loading) {
     return (
@@ -821,6 +881,9 @@ const BacklogPage: React.FC = () => {
       </div>
     );
   }
+
+  const profilTotals = getProfilTotals();
+  const lotTotals = getLotTotals();
 
   return (
     <div className="listeuser-layout">
@@ -858,6 +921,94 @@ const BacklogPage: React.FC = () => {
             >
               {/* TAB BACKLOG */}
               <Tab eventKey="backlog" title="Backlog">
+                {/* TOTAUX PAR PROFIL */}
+                <div className="card mb-4">
+                  <div className="card-header">
+                    <h5 className="mb-0">Totaux par profil</h5>
+                  </div>
+                  <div className="card-body">
+                    <div className="table-responsive">
+                      <table className="table table-sm table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Profil</th>
+                            <th className="text-end">Volume total (JH)</th>
+                            <th className="text-end">TJM (€)</th>
+                            <th className="text-end">Montant total (€)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {profilTotals.map(({ profil, totalVolume, totalAmount }) => (
+                            <tr key={profil.id}>
+                              <td><strong>{profil.name}</strong></td>
+                              <td className="text-end">{totalVolume.toFixed(2)}</td>
+                              <td className="text-end">{profil.tjm.toFixed(2)}</td>
+                              <td className="text-end"><strong>{totalAmount.toFixed(2)}</strong></td>
+                            </tr>
+                          ))}
+                          <tr className="table-active">
+                            <td><strong>TOTAL GÉNÉRAL</strong></td>
+                            <td className="text-end">
+                              <strong>
+                                {profilTotals.reduce((sum, pt) => sum + pt.totalVolume, 0).toFixed(2)}
+                              </strong>
+                            </td>
+                            <td></td>
+                            <td className="text-end">
+                              <strong>
+                                {profilTotals.reduce((sum, pt) => sum + pt.totalAmount, 0).toFixed(2)}
+                              </strong>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* TOTAUX PAR LOT ET PHASE */}
+                <div className="card mb-4">
+                  <div className="card-header">
+                    <h5 className="mb-0">Totaux par lot et phase</h5>
+                  </div>
+                  <div className="card-body">
+                    {lotTotals.map(({ lot, phaseTotals, lotTotalVolume, lotTotalAmount }) => (
+                      <div key={lot.id} className="mb-4">
+                        <h6 className="text-primary">
+                          {lot.name} - Volume: {lotTotalVolume.toFixed(2)} JH - Montant: {lotTotalAmount.toFixed(2)} €
+                        </h6>
+                        <div className="table-responsive">
+                          <table className="table table-sm table-bordered">
+                            <thead>
+                              <tr>
+                                <th>Phase</th>
+                                <th className="text-end">Volume (JH)</th>
+                                <th className="text-end">Montant (€)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {phaseTotals.map(({ phase, totalVolume, totalAmount }) => (
+                                <tr key={phase.id}>
+                                  <td>{phase.name}</td>
+                                  <td className="text-end">{totalVolume.toFixed(2)}</td>
+                                  <td className="text-end">{totalAmount.toFixed(2)}</td>
+                                </tr>
+                              ))}
+                              {phaseTotals.length > 0 && (
+                                <tr className="table-secondary">
+                                  <td><strong>TOTAL {lot.name}</strong></td>
+                                  <td className="text-end"><strong>{lotTotalVolume.toFixed(2)}</strong></td>
+                                  <td className="text-end"><strong>{lotTotalAmount.toFixed(2)}</strong></td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="d-flex justify-content-end mb-3">
                   <Button
                     label="Ajouter une ligne"

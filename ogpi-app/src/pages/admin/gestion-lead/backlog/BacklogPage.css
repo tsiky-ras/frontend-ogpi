@@ -185,3 +185,12 @@
 .sortable-drag {
   opacity: 0;
 }
+
+.line-drag-handle {
+  cursor: grab;
+  user-select: none;
+  color: #aaa;
+}
+.line-drag-handle:active {
+  cursor: grabbing;
+}
