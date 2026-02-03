@@ -16,14 +16,14 @@ import React, {
     email: string;
     firstName: string;
     lastName: string;
-    address: string;
-    phoneNumber: string;
-    role: string;
+    role: string;       
+    roleId: number;    
     perms: [];
     exp?: number;
     iat?: number;
     [key: string]: any;
   }
+
 
   interface AuthContextType {
     user: User | null;
@@ -55,19 +55,21 @@ import React, {
     
     function setUserFromToken(token:string){
       const decoded: JwtPayload = jwtDecode(token);
-      const object:User={
-        id: decoded.userId,
+      const object: User = {
+        userId: decoded.userId,     
+        username: decoded.sub,
         email: decoded.email,
         nom: decoded.lastName,
         prenom: decoded.firstName,
         telephone: decoded.phoneNumber,
-        role: decoded.role,
-        roleRank: decoded.roleRank,
-        landingPage: decoded.landingPage,
-        statut: "actif",
-        username: decoded.sub,
+        role: {
+          roleId: decoded.roleId,     
+          roleLabel: decoded.role     
+        },
+        isActive: true,
         password: "",
-      }
+      };
+
       setUser(object);
     }
     
@@ -175,7 +177,6 @@ import React, {
           email,
           password,
         });
-        
         const { accessToken, refreshToken } = response.data;
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', refreshToken);
