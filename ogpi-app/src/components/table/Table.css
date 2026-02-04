@@ -98,10 +98,11 @@
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible; 
   max-width: 100%;
   padding-bottom: 8px;
 }
+
 
 .custom-table {
   width: 100%;
