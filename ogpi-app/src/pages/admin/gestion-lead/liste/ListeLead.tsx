@@ -352,61 +352,53 @@ useEffect(() => {
     <div className="liste-lead-layout">
       <Header />
       <div className="liste-lead-wrapper">
-        <aside className="liste-lead-sidebar">
-          <Sidebar />
-        </aside>
-
         <main className="liste-lead-main">
           <div className="container-fluid">
-            {/* HEADER */}
-            <div className="row align-items-center mb-4">
-              <div className="col-lg-6 col-md-12 mb-3 mb-lg-0">
-                <Title
-                  title="Gestion des opportunités"
-                  subtitle="Gérez vos opportunités commerciales"
-                />
-              </div>
+          {/* Ligne 2 : Filtres période & devise + bouton créer */}
+          <div className="row align-items-center mb-4">
+            {/* Filtres période & devise */}
+            <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
+              <div className="d-flex flex-wrap gap-2">
+                <select
+                  value={period}
+                  onChange={(e) =>
+                    setPeriod(e.target.value as 'week' | 'month' | 'semester' | 'year')
+                  }
+                  className="form-select form-select-sm"
+                  style={{ width: 140 }}
+                >
+                  <option value="week">Semaine</option>
+                  <option value="month">Mois</option>
+                  <option value="semester">Semestre</option>
+                  <option value="year">Année</option>
+                </select>
 
-              <div className="col-lg-6 col-md-12">
-                <div className="d-flex flex-wrap align-items-center justify-content-lg-end gap-2 bg-light p-2 rounded">
-                  <select
-                    value={period}
-                    onChange={(e) =>
-                      setPeriod(e.target.value as 'week' | 'month' | 'semester' | 'year')
-                    }
-                    className="form-select form-select-sm"
-                    style={{ width: '120px' }}
-                  >
-                    <option value="week">Semaine</option>
-                    <option value="month">Mois</option>
-                    <option value="semester">Semestre</option>
-                    <option value="year">Année</option>
-                  </select>
-
-                  <select
-                    value={currency}
-                    onChange={(e) =>
-                      setCurrency(e.target.value as 'AR' | 'Euro' | '$')
-                    }
-                    className="form-select form-select-sm"
-                    style={{ width: '120px' }}
-                  >
-                    <option value="Euro">Euro €</option>
-                    <option value="$">Dollar $</option>
-                  </select>
-
-                  {/* Bouton créer lead */}
-                  <Button
-                    label="Créer une opportunité"
-                    icon={<FaPlus />}
-                    onClick={() => {
-                      setSelectedLead(null); 
-                      setShowFormLead(true);
-                    }}
-                  />                
-                </div>
+                <select
+                  value={currency}
+                  onChange={(e) =>
+                    setCurrency(e.target.value as 'AR' | 'Euro' | '$')
+                  }
+                  className="form-select form-select-sm"
+                  style={{ width: 120 }}
+                >
+                  <option value="Euro">Euro €</option>
+                  <option value="$">Dollar $</option>
+                </select>
               </div>
             </div>
+
+            {/* Bouton créer */}
+            <div className="col-lg-4 col-md-12 text-lg-end">
+              <Button
+                label="Créer une opportunité"
+                icon={<FaPlus />}
+                onClick={() => {
+                  setSelectedLead(null);
+                  setShowFormLead(true);
+                }}
+              />
+            </div>
+          </div>
 
             {/* KPI */}
             <div className="row mb-4">

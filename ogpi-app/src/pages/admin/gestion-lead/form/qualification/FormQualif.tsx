@@ -349,7 +349,7 @@ const FormQualif: React.FC<Props> = ({
         </Modal.Header>
         <Modal.Body>
           <GenericForm
-            valueKey="name"  // champ principal
+            valueKey="name"  
             initialData={{ name: "", email: "", phone: "" }}
             extraInputs={[
               { name: "email", label: "Email", type: "email" },
