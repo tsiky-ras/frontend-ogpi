@@ -1,3 +1,4 @@
+import React from "react";
 import {
   FaUsers,
   FaUserTie,
@@ -28,6 +29,12 @@ export const routes = [
     label: "Collaborateurs",
     icon: <FaUserTie />,
   },
+  {
+    path: "/admin/backlogs",
+    label: "backlogs",
+    icon: <FaUserTie />,
+  },
+  
   {
     path: "/admin/gestion-opportunites",
     label: "Opportunités",

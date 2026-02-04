@@ -22,6 +22,7 @@ import LeadStatusPage from "./pages/admin/gestion-lead/referentiel/LeadStatusPag
 import LeadTypePage from "./pages/admin/gestion-lead/referentiel/LeadTypePage.tsx";
 import PartenairePage from "./pages/admin/gestion-lead/referentiel/PartenairePage.tsx";
 import TypeProjetFinancementPage from "./pages/admin/gestion-lead/referentiel/TypeProjetFinancementPage.tsx";
+import BacklogPage from "./pages/admin/gestion-lead/backlog/BacklogPage.tsx";
 import LeadPage from "./pages/admin/gestion-lead/LeadPage.tsx";
 const App: React.FC = () => {
   return (
@@ -42,6 +43,7 @@ const App: React.FC = () => {
         >
           <Route path="/admin/gestion-user" element={<ListeUser />} />
           <Route path="/admin/collaborateurs" element={<ListeProfils />} />
+          <Route path="/admin/backlogs" element={<BacklogPage />} />
           <Route path="/admin/config/business-units" element={<BusinessUnitPage />} />
           <Route path="/admin/config/diplomes" element={<DiplomePage />} />
           <Route path="/admin/config/etablissements" element={<EtablissementPage />} />
