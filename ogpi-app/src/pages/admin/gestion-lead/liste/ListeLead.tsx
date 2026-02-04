@@ -61,7 +61,7 @@ const ListeLead: React.FC = () => {
       type: lead.leadType,
       category: lead.category,
       secteur: lead.leadSecteur,
-      status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'Brouillon', order: 0 },
+      status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'En attente', order: 0 },
       partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
     }));
 
@@ -180,7 +180,7 @@ useEffect(() => {
     },
     { key: 'name', label: 'Nom' },
     { key: 'reference', label: 'Référence' },
-    { key: 'client', label: 'Entreprise', render: (row: Lead) => row.client?.name || '-' },
+    { key: 'client', label: 'Client', render: (row: Lead) => row.client?.name || '-' },
     { key: 'type', label: 'Type', render: (row: Lead) => row.type?.label || '-' },
     { key: 'category', label: 'Catégorie', render: (row: Lead) => row.category?.label || '-' },
     { key: 'secteur', label: 'Secteur', render: (row: Lead) => row.secteur?.label || '-' },
@@ -230,9 +230,9 @@ useEffect(() => {
         const map: any = {
           'No Go': ['bg-danger', 'No Go'],
           'Go': ['bg-success', 'Go'],
-          'Brouillon': ['bg-secondary', 'Brouillon'],
+          'En attente de validation': ['bg-secondary', 'En attente de validation'],
         };
-        const [cls, label] = map[row.status.label] || ['bg-secondary', 'Brouillon'];
+        const [cls, label] = map[row.status.label] || ['bg-secondary', 'En attente de validation'];
         return <span className={`badge ${cls}`}>{label}</span>;
       },
     },
@@ -249,7 +249,7 @@ useEffect(() => {
               console.log('Lead complet récupéré :', fullLead);
               const safeLead = {
                 ...fullLead,
-                status: fullLead.status?.label ? { label: fullLead.status.label } : { label: "Brouillon" },
+                status: fullLead.status?.label ? { label: fullLead.status.label } : { label: "En attente de validation" },
                 type: fullLead.type?.label ? { label: fullLead.type.label } : null,
                 category: fullLead.category?.label ? { label: fullLead.category.label } : null,
                 secteur: fullLead.secteur?.label ? { label: fullLead.secteur.label } : null,

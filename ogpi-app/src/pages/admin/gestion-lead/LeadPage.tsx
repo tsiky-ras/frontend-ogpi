@@ -36,6 +36,8 @@ const LeadPage: React.FC = () => {
               activeKey={activeTab}
               onSelect={(k) => k && setActiveTab(k)}
               className="mb-4"
+              mountOnEnter     
+              unmountOnExit    
             >
               <Tab eventKey="liste" title="Liste">
                 <ListeLead />

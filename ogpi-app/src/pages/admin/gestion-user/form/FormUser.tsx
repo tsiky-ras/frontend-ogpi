@@ -37,31 +37,6 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
   const{createUser} = useUserService();
   const api = useAuth().api;
 
-  const [form, setForm] = useState<any>({
-    type_profil: 1,
-    type_contrat: 1,
-    matricule: "",
-    nom: "",
-    prenom: "",
-    appellation: "",
-    sexe: "",
-    date_naissance: "",
-    email_pro: "",
-    email_perso: "",
-    telephone: "",
-    experience_avant: "",
-    postes: [],
-    bu: "",
-    date_embauche: "",
-    date_integration: "",
-    date_debauche: "",
-    etudes: [],
-    certifications: [],
-    hard_skills: [] as ProfilHardSkill[],
-    soft_skills: [] as ProfilSoftSkill[],
-    user: null,
-  });
-
   const [diplomes, setDiplomes] = useState<{ id: number; label: string }[]>([]);
   const [etablissements, setEtablissements] = useState<{ id: number; label: string }[]>([]);
   const [filieres, setFilieres] = useState<{ id: number; label: string }[]>([]);
@@ -89,6 +64,48 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
   const [errorMessage, setErrorMessage] = useState("");
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
 
+    const initialFormState = {
+    type_profil: 1,
+    type_contrat: 1,
+    matricule: "",
+    nom: "",
+    prenom: "",
+    appellation: "",
+    sexe: "",
+    date_naissance: "",
+    email_pro: "",
+    email_perso: "",
+    telephone: "",
+    experience_avant: "",
+    postes: [],
+    bu: "",
+    date_embauche: "",
+    date_integration: "",
+    date_debauche: "",
+    etudes: [],
+    certifications: [],
+    hard_skills: [],
+    soft_skills: [],
+    user: null,
+
+    // Auth
+    username: "",
+    email: "",
+    password: "",
+    roleId: "",
+    is_active: true,
+
+    // existing mode
+    profilId: null,
+  };
+
+  const [form, setForm] = useState<any>(initialFormState);
+  const resetForm = () => {
+  setForm(initialFormState);
+  setMode("manual");
+  setSearchQuery("");
+  setSearchResults([]);
+};
   // ===== Chargement des listes =====
   useEffect(() => {
     const fetchData = async () => {
@@ -345,6 +362,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
       setTimeout(() => {
         onSubmit({ userId });
         setShowSuccessMessage(false);
+        resetForm();
         onClose();
       }, 2000);
 
@@ -863,7 +881,7 @@ const FormUser: React.FC<FormUserProps> = ({ show, onClose, onSubmit, collaborat
             <Col md={6}>
               <Form.Label>Rôle *</Form.Label>
               <Form.Select
-                value={form.roleId || ""} // roleId correspond à la classe Java
+                value={form.roleId || ""} 
                 onChange={e => setForm(prev => ({ ...prev, roleId: Number(e.target.value) }))}
               >
                 <option value="">-- Sélectionner --</option>
