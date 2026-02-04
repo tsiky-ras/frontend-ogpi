@@ -169,3 +169,9 @@ export interface Backlog {
   lines?: BacklogLine[];
   phases?: BacklogPhase[];
 }
+
+export interface CreateBacklogRequest {
+  name: string;
+  leadId: number;
+  desc?: string; 
+}

@@ -13,6 +13,8 @@ import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogP
 import { BacklogLineService } from "../../../../services/lead/backlog/BacklogLineService.tsx";
 import { BacklogLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
+import BacklogForm, { CreateBacklogRequest } from "./BacklogForm.tsx";
+
 import { 
   Backlog, 
   BacklogLot, 
@@ -65,7 +67,9 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [currentLotId, setCurrentLotId] = useState<number | null>(null);
   const [currentLineId, setCurrentLineId] = useState<number | null>(null);
   const [currentProfilId, setCurrentProfilId] = useState<number | null>(null);
-  
+  const [showBacklogFormModal, setShowBacklogFormModal] = useState(false);
+  const [creatingBacklog, setCreatingBacklog] = useState(false);
+
   const [newLot, setNewLot] = useState({ name: "", desc: "" });
   const [newPhase, setNewPhase] = useState({ name: "" });
   const [newProfil, setNewProfil] = useState({ name: "", desc: "", tjm: 0 });
@@ -91,6 +95,27 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const phaseSortableInstances = useRef<Map<number, Sortable>>(new Map());
   const lineTableBodyRef = useRef<HTMLTableSectionElement | null>(null);
   const lineSortableInstance = useRef<Sortable | null>(null);
+
+    const handleCreateBacklog = async (item: CreateBacklogRequest) => {
+    if (!leadId) return;
+
+    try {
+        const created = await backlogService.createBacklog({
+        name: item.name,
+        desc: item.desc,   
+        leadId: item.leadId,
+        });
+
+        // Mettre à jour la liste locale
+        setBacklogs(prev => [...prev, created]);
+        setSelectedBacklogId(created.id); 
+        setShowBacklogFormModal(false);
+    } catch (err) {
+        console.error("Erreur lors de la création du backlog:", err);
+        alert("Impossible de créer le backlog.");
+    }
+    };
+
 
   /* ================= FETCH LISTE DES BACKLOGS ================= */
   useEffect(() => {
@@ -965,6 +990,20 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                 {!selectedBacklogId ? (
                   // LISTE DES BACKLOGS
                   <div>
+                {/* MODAL CREATION BACKLOG */}
+                    <BacklogForm
+                    show={showBacklogFormModal}
+                    onClose={() => setShowBacklogFormModal(false)}
+                    onSubmit={handleCreateBacklog}
+                    leadId={leadId} 
+                    />
+                      <Button
+                        label="Créer un backlog"
+                        icon={<FaPlus />}
+                        onClick={() => setShowBacklogFormModal(true)}
+                        variant="primary"
+                        className="mb-3"
+                    />
                     {backlogs.length === 0 ? (
                       <div className="text-center text-muted py-5">
                         <p>Aucun backlog trouvé pour ce lead.</p>

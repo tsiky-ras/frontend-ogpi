@@ -5,6 +5,7 @@ import {
   UpdateBacklogProfilRequest,
   OrderUpdate,
   Backlog,
+  CreateBacklogRequest
 } from "../../../types/lead/Backlog/Backlog";
 
 export class BacklogService {
@@ -12,6 +13,11 @@ export class BacklogService {
 
   constructor(api: AxiosInstance) {
     this.api = api;
+  }
+
+  async createBacklog(data: CreateBacklogRequest): Promise<Backlog> {
+    const response = await this.api.post("/backlogs", data);
+    return response.data;
   }
 
   /**
