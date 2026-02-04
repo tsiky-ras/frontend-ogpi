@@ -10,11 +10,13 @@ import StatCard from '../../../../components/stat/StatCard.tsx';
 import FormLead from '../form/FormLead.tsx';
 import DetailsLead from '../details/DetailsLead.tsx';
 import MenuListeLead from '../menu/MenuListeLead.tsx';
+import BacklogModal from '../backlog/BacklogModal.tsx';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ListeLead.css';
 import { LeadService } from '../../../../services/lead/LeadService.tsx';
 import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Lead } from '../../../../types/lead/Lead.tsx';
+import { BacklogService } from "../../../../services/lead/backlog/BacklogService.tsx";
 
 /* ================= COMPONENT ================= */
 const ListeLead: React.FC = () => {
@@ -28,6 +30,13 @@ const ListeLead: React.FC = () => {
   const [showDetailLead, setShowDetailLead] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const leadService = new LeadService(api);
+  
+  // States pour le backlog
+  const [showBacklogModal, setShowBacklogModal] = useState(false);
+  const [selectedLeadName, setSelectedLeadName] = useState<string>('');
+  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
+  const backlogService = new BacklogService(api);
+
   
   const [kpis, setKpis] = useState({
     activeOpportunitiesThisPeriod: 0,
@@ -283,6 +292,12 @@ useEffect(() => {
               console.error("Erreur chargement lead pour édition", error);
             }
           }}
+          onViewBacklog={() => {
+            if (!row.id) return;
+            setSelectedLeadId(row.id);
+            setSelectedLeadName(row.name);
+            setShowBacklogModal(true);
+          }}
         />
       ),
     },
@@ -472,7 +487,20 @@ useEffect(() => {
         show={showDetailLead}
         onClose={() => setShowDetailLead(false)}
         lead={selectedLead}
+    />
+
+    {selectedLeadId && (
+      <BacklogModal
+        show={showBacklogModal}
+        onClose={() => {
+          setShowBacklogModal(false);
+          setSelectedLeadId(null);
+          setSelectedLeadName('');
+        }}
+        leadId={selectedLeadId}
+        leadName={selectedLeadName}
       />
+    )}    
     </div>
   );
 };

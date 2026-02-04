@@ -1,22 +1,26 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FaEllipsisV, FaInfoCircle, FaEdit } from "react-icons/fa";
+import { FaEllipsisV, FaInfoCircle, FaEdit,FaFolderOpen  } from "react-icons/fa";
 import "./MenuListeLead.css";
 
 interface MenuListeLeadProps {
   onDetails?: () => void;
   onEdit?: () => void;
+  onViewBacklog?: () => void;
 }
 
-const MenuListeLead: React.FC<MenuListeLeadProps> = ({ onDetails, onEdit }) => {
+const MenuListeLead: React.FC<MenuListeLeadProps> = ({
+  onDetails,
+  onEdit,
+  onViewBacklog,
+}) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const toggleMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setOpen((prev) => !prev);
+    setOpen(prev => !prev);
   };
 
-  // Ferme le menu si clic extérieur
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -43,9 +47,14 @@ const MenuListeLead: React.FC<MenuListeLeadProps> = ({ onDetails, onEdit }) => {
           <button className="menu-item" onClick={() => handleClick(onDetails)}>
             <FaInfoCircle className="menu-icon" /> Détails
           </button>
-
           <button className="menu-item" onClick={() => handleClick(onEdit)}>
             <FaEdit className="menu-icon" /> Modifier
+          </button>
+          <button
+              className="menu-item"
+              onClick={() => handleClick(onViewBacklog)}
+            >
+              <FaFolderOpen className="menu-icon" /> Voir le backlog
           </button>
         </div>
       )}
