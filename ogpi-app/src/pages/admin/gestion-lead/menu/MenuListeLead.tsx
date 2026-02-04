@@ -54,7 +54,7 @@ const MenuListeLead: React.FC<MenuListeLeadProps> = ({
               className="menu-item"
               onClick={() => handleClick(onViewBacklog)}
             >
-              <FaFolderOpen className="menu-icon" /> Voir le backlog
+              <FaFolderOpen className="menu-icon" /> Backlog(s)
           </button>
         </div>
       )}

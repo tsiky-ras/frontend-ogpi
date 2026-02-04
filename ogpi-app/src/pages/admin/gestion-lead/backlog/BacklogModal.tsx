@@ -5,7 +5,7 @@ import Button from "../../../../components/button/Button.tsx";
 import { FaPlus, FaSpinner, FaEdit, FaTrash, FaEye, FaArrowLeft } from "react-icons/fa";
 import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
-import "./BacklogPage.css";
+import "./BacklogModal.css";
 import { BacklogService } from "../../../../services/lead/backlog/BacklogService.tsx";
 import { BacklogLotService } from "../../../../services/lead/backlog/BacklogLotService.tsx";
 import { BacklogPhaseService } from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
