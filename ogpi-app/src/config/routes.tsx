@@ -30,12 +30,6 @@ export const routes = [
     icon: <FaUserTie />,
   },
   {
-    path: "/admin/backlogs",
-    label: "backlogs",
-    icon: <FaUserTie />,
-  },
-  
-  {
     path: "/admin/gestion-opportunites",
     label: "Opportunités",
     icon: <FaBriefcase />,

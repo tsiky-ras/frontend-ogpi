@@ -1,0 +1,502 @@
+/* ===========================
+   PALETTE DE COULEURS
+   =========================== */
+:root {
+  --tomato-jam: #C93C29;
+  --soft-linen: #E8E5D7;
+  --tuscan-sun: #EABF5B;
+  --dim-grey: #5F6F6E;
+  --charcoal-blue: #223A46;
+  --white: #ffffff;
+  --light-grey: #f8f9fa;
+  --border-grey: #e5e7eb;
+}
+
+/* ===========================
+   BACKLOG TABLE
+   =========================== */
+.backlog-table {
+  font-size: 0.9rem;
+  border-color: var(--border-grey);
+}
+
+.backlog-table thead th {
+  background-color: var(--charcoal-blue);
+  color: var(--white);
+  font-weight: 600;
+  border-color: var(--charcoal-blue);
+  padding: 12px 8px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.backlog-table tbody td {
+  padding: 10px 8px;
+  vertical-align: middle;
+  border-color: var(--border-grey);
+  color: var(--charcoal-blue);
+}
+
+.backlog-profil-cell {
+  background-color: var(--soft-linen);
+  font-weight: 600;
+  color: var(--dim-grey);
+  transition: all 0.2s ease;
+}
+
+.backlog-profil-cell:hover {
+  background-color: var(--tuscan-sun);
+  color: var(--charcoal-blue);
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(201, 60, 41, 0.1);
+}
+
+/* ===========================
+   DRAG HANDLE POUR LIGNES
+   =========================== */
+.line-drag-handle {
+  cursor: grab;
+  user-select: none;
+  color: var(--dim-grey);
+  font-size: 16px;
+  transition: color 0.2s ease;
+}
+
+.line-drag-handle:hover {
+  color: var(--tomato-jam);
+}
+
+.line-drag-handle:active {
+  cursor: grabbing;
+  color: var(--tuscan-sun);
+}
+
+/* ===========================
+   BACKLOG LIST (LOTS/PROFILS)
+   =========================== */
+.backlog-list,
+.profil-list {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(34, 58, 70, 0.08);
+  border: 1px solid var(--border-grey);
+}
+
+.backlog-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 2px solid var(--soft-linen);
+  align-items: flex-start;
+  transition: all 0.3s ease;
+}
+
+.backlog-item:last-child {
+  border-bottom: none;
+}
+
+.backlog-item:hover {
+  background-color: rgba(232, 229, 215, 0.3);
+  border-radius: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* ===========================
+   DRAG HANDLES (LOTS/PROFILS)
+   =========================== */
+.drag-handle,
+.drag-handle-profil {
+  cursor: grab;
+  font-size: 20px;
+  color: var(--dim-grey);
+  user-select: none;
+  padding-top: 4px;
+  transition: all 0.2s ease;
+  min-width: 24px;
+  text-align: center;
+}
+
+.drag-handle:hover,
+.drag-handle-profil:hover {
+  color: var(--tomato-jam);
+  transform: scale(1.2);
+}
+
+.drag-handle:active,
+.drag-handle-profil:active {
+  cursor: grabbing;
+  color: var(--tuscan-sun);
+}
+
+/* ===========================
+   BACKLOG CONTENT
+   =========================== */
+.backlog-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.backlog-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--charcoal-blue);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.backlog-order {
+  margin-right: 8px;
+  color: var(--tomato-jam);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.backlog-desc {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--dim-grey);
+  line-height: 1.6;
+}
+
+.profil-tjm {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: var(--soft-linen);
+  border-radius: 6px;
+  display: inline-block;
+  font-size: 14px;
+  color: var(--charcoal-blue);
+  border-left: 3px solid var(--tuscan-sun);
+}
+
+.profil-tjm strong {
+  color: var(--tomato-jam);
+  margin-right: 4px;
+}
+
+/* ===========================
+   BACKLOG ACTIONS
+   =========================== */
+.backlog-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===========================
+   PHASES SECTION
+   =========================== */
+.phases-section {
+  padding-left: 24px;
+  border-left: 3px solid var(--tuscan-sun);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.phases-header {
+  font-size: 0.95rem;
+  color: var(--dim-grey);
+  font-weight: 600;
+}
+
+.phases-list-sortable {
+  margin-top: 12px;
+}
+
+.phase-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  background-color: var(--soft-linen);
+  border-radius: 8px;
+  border: 1px solid var(--border-grey);
+  transition: all 0.25s ease;
+}
+
+.phase-item:hover {
+  background-color: rgba(234, 191, 91, 0.2);
+  border-color: var(--tuscan-sun);
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(34, 58, 70, 0.1);
+}
+
+.phase-drag-handle {
+  cursor: grab;
+  color: var(--dim-grey);
+  font-size: 16px;
+  padding: 0 4px;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.phase-drag-handle:hover {
+  color: var(--tomato-jam);
+  transform: scale(1.2);
+}
+
+.phase-drag-handle:active {
+  cursor: grabbing;
+  color: var(--tuscan-sun);
+}
+
+.phase-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.phase-order {
+  font-weight: 600;
+  color: var(--tomato-jam);
+  margin-right: 6px;
+  min-width: 28px;
+  font-size: 15px;
+}
+
+.phase-name {
+  color: var(--charcoal-blue);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.phase-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ===========================
+   BUTTONS (ICON & GENERAL)
+   =========================== */
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--dim-grey);
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover {
+  background-color: var(--soft-linen);
+  color: var(--charcoal-blue);
+  transform: translateY(-1px);
+}
+
+.btn-icon:active {
+  transform: scale(0.95);
+}
+
+/* ===========================
+   SORTABLE STYLES
+   =========================== */
+.sortable-ghost {
+  opacity: 0.5;
+  background-color: rgba(234, 191, 91, 0.3);
+  border: 2px dashed var(--tuscan-sun);
+}
+
+.sortable-chosen {
+  opacity: 0.9;
+  background-color: var(--soft-linen);
+  box-shadow: 0 4px 12px rgba(34, 58, 70, 0.15);
+}
+
+.sortable-drag {
+  opacity: 0.8;
+  box-shadow: 0 6px 20px rgba(34, 58, 70, 0.2);
+  transform: rotate(2deg);
+}
+
+.sortable-empty-row {
+  background-color: rgba(232, 229, 215, 0.3);
+}
+
+/* ===========================
+   CARDS (TOTAUX)
+   =========================== */
+.card {
+  border: 1px solid var(--border-grey);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(34, 58, 70, 0.05);
+  overflow: hidden;
+}
+
+.card-header {
+  background-color: var(--charcoal-blue);
+  border-bottom: 2px solid var(--tuscan-sun);
+  padding: 14px 20px;
+}
+
+.card-header h5 {
+  color: var(--white);
+  font-weight: 600;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.card-body {
+  padding: 20px;
+  background-color: var(--white);
+}
+
+/* ===========================
+   TABLES (TOTAUX)
+   =========================== */
+.table {
+  margin-bottom: 0;
+}
+
+.table thead th {
+  background-color: var(--soft-linen);
+  color: var(--charcoal-blue);
+  font-weight: 600;
+  border-bottom: 2px solid var(--tuscan-sun);
+  padding: 12px;
+  font-size: 0.9rem;
+}
+
+.table tbody tr:hover {
+  background-color: rgba(234, 191, 91, 0.1);
+}
+
+.table-active {
+  background-color: var(--soft-linen);
+  font-weight: 600;
+}
+
+.table-active td {
+  color: var(--charcoal-blue);
+  border-top: 2px solid var(--tuscan-sun);
+}
+
+.table-secondary {
+  background-color: rgba(232, 229, 215, 0.5);
+  font-weight: 600;
+}
+
+.table-secondary td {
+  color: var(--charcoal-blue);
+}
+
+.text-primary {
+  color: var(--tomato-jam) !important;
+}
+
+/* ===========================
+   RESPONSIVE
+   =========================== */
+@media (max-width: 768px) {
+  .backlog-item {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .backlog-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .phase-item {
+    flex-wrap: wrap;
+  }
+  
+  .phases-section {
+    padding-left: 12px;
+  }
+}
+
+/* ===========================
+   ANIMATIONS
+   =========================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.backlog-item,
+.phase-item {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ===========================
+   UTILITIES
+   =========================== */
+.text-end {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--dim-grey) !important;
+}
+
+.mb-0 {
+  margin-bottom: 0 !important;
+}
+
+.mt-2 {
+  margin-top: 0.5rem !important;
+}
+
+.mt-3 {
+  margin-top: 1rem !important;
+}
+
+.mb-3 {
+  margin-bottom: 1rem !important;
+}
+
+.mb-4 {
+  margin-bottom: 1.5rem !important;
+}
+
+.py-3 {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+.py-5 {
+  padding-top: 3rem !important;
+  padding-bottom: 3rem !important;
+}
+
+/* ===========================
+   SCROLLBAR PERSONNALISÉE
+   =========================== */
+.table-responsive::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: var(--soft-linen);
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: var(--dim-grey);
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: var(--charcoal-blue);
+}

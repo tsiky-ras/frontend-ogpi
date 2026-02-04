@@ -43,7 +43,6 @@ const App: React.FC = () => {
         >
           <Route path="/admin/gestion-user" element={<ListeUser />} />
           <Route path="/admin/collaborateurs" element={<ListeProfils />} />
-          <Route path="/admin/backlogs" element={<BacklogPage />} />
           <Route path="/admin/config/business-units" element={<BusinessUnitPage />} />
           <Route path="/admin/config/diplomes" element={<DiplomePage />} />
           <Route path="/admin/config/etablissements" element={<EtablissementPage />} />

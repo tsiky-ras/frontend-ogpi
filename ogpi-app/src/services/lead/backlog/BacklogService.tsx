@@ -66,4 +66,12 @@ export class BacklogService {
   async updateOrder(orderUpdates: OrderUpdate[]): Promise<void> {
     await this.api.put("/backlog-profils/update-order", orderUpdates);
   }
+  /**
+ * Récupérer tous les backlogs d’un lead
+ */
+  async getByLeadId(leadId: number): Promise<Backlog[]> {
+    const response = await this.api.get(`/backlogs/lead/${leadId}`);
+    return response.data;
+  }
+
 }
