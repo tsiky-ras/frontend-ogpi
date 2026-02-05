@@ -13,7 +13,7 @@ import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogP
 import { BacklogLineService } from "../../../../services/lead/backlog/BacklogLineService.tsx";
 import { BacklogLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
-import BacklogForm, { CreateBacklogRequest } from "./BacklogForm.tsx";
+import BacklogForm from "./BacklogForm.tsx";
 
 import { 
   Backlog, 
@@ -21,7 +21,8 @@ import {
   BacklogPhase, 
   BacklogProfil,
   BacklogLine,
-  BacklogLineProfil 
+  BacklogLineProfil,
+  CreateBacklogRequest
 } from "../../../../types/lead/Backlog/Backlog.tsx";
 
 interface BacklogModalProps {
