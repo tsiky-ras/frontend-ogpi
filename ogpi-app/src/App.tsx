@@ -24,6 +24,7 @@ import PartenairePage from "./pages/admin/gestion-lead/referentiel/PartenairePag
 import TypeProjetFinancementPage from "./pages/admin/gestion-lead/referentiel/TypeProjetFinancementPage.tsx";
 import BacklogPage from "./pages/admin/gestion-lead/backlog/BacklogPage.tsx";
 import LeadPage from "./pages/admin/gestion-lead/LeadPage.tsx";
+import TachePage from "./pages/all/gestion-tache/TachePage.tsx";
 const App: React.FC = () => {
   return (
     <Router>
@@ -31,7 +32,9 @@ const App: React.FC = () => {
         {/* Public */}
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
-
+        <Route path="/gestion-taches" element={<TachePage />} />
+        <Route path="/gestion-opportunites" element={<LeadPage />} /> 
+        
         {/* Admin sécurisé */}
         <Route
           path="/admin"
@@ -52,7 +55,6 @@ const App: React.FC = () => {
           <Route path="/admin/config/postes" element={<PostePage />} />
           <Route path="/admin/config/certifications" element={<CertificationPage />} />
           <Route path="/admin/config/organismes" element={<OrganismePage />} />   
-          <Route path="/admin/gestion-opportunites" element={<LeadPage />} /> 
           <Route path="/admin/config/lead-clients" element={<ClientPage />} /> 
           <Route path="/admin/config/lead-categories" element={<LeadCategoryPage />} />
           <Route path="/admin/config/lead-secteur" element={<LeadSecteurPage />} />

@@ -30,15 +30,19 @@ export const routes = [
     icon: <FaUserTie />,
   },
   {
-    path: "/admin/gestion-opportunites",
+    path: "/gestion-opportunites",
     label: "Opportunités",
     icon: <FaBriefcase />,
+  },
+  {
+    path: "/gestion-taches",
+    label: "Tâches",
+    icon: <FaThList />, 
   },
   {
     label: "Référentiels",
     icon: <FaCogs />,
     children: [
-      // 🔹 2e niveau : Utilisateur
       {
         label: "Utilisateur",
         icon: <FaUsers />,
@@ -90,8 +94,6 @@ export const routes = [
           },
         ],
       },
-
-      // 🔹 2e niveau : Opportunités
       {
         label: "Opportunités",
         icon: <FaBriefcase />,
