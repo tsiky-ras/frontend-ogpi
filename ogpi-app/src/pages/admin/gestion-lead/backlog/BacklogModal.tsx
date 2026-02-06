@@ -767,6 +767,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
 
       setLines(updated);
 
+      // Nettoyer aussi les lineProfils de cette ligne localement
       setLineProfils(prev => prev.filter(lp => lp.lineId !== id));
 
       const orderUpdates = updated.map((line) => ({

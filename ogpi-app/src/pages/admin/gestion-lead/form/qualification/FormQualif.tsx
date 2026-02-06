@@ -328,12 +328,19 @@ const FormQualif: React.FC<Props> = ({
               ))}
             </Form.Select>
           </Col>
+
           <Col md={6}>
             <Form.Label>Zone</Form.Label>
             <Form.Select
               name="zone"
-              value={form.zone || ""}
-              onChange={handleChange}
+              value={form.zone !== undefined && form.zone !== null ? String(form.zone) : ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setForm(prev => ({
+                  ...prev,
+                  zone: value !== "" ? Number(value) : null, 
+                }));
+              }}
             >
               <option value="">-- Sélectionner --</option>
               <option value="0">Local</option>
@@ -342,6 +349,7 @@ const FormQualif: React.FC<Props> = ({
           </Col>
         </Row>
       </section>
+      
       {/* --- Modal Client --- */}
       <Modal show={showClientModal} onHide={() => setShowClientModal(false)} centered>
         <Modal.Header closeButton>

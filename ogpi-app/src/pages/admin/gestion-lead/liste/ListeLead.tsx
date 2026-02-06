@@ -17,6 +17,7 @@ import { LeadService } from '../../../../services/lead/LeadService.tsx';
 import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Lead } from '../../../../types/lead/Lead.tsx';
 import { BacklogService } from "../../../../services/lead/backlog/BacklogService.tsx";
+import { useLeadTechFinDetailsService } from '../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx';
 
 /* ================= COMPONENT ================= */
 const ListeLead: React.FC = () => {
@@ -30,7 +31,8 @@ const ListeLead: React.FC = () => {
   const [showDetailLead, setShowDetailLead] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const leadService = new LeadService(api);
-  
+  const leadTechFinService = useLeadTechFinDetailsService();
+
   // States pour le backlog
   const [showBacklogModal, setShowBacklogModal] = useState(false);
   const [selectedLeadName, setSelectedLeadName] = useState<string>('');
@@ -254,44 +256,93 @@ useEffect(() => {
             if (!row.id) return;
 
             try {
+              // 1️⃣ Récupérer le lead complet
               const fullLead = await leadService.getById(row.id);
-              console.log('Lead complet récupéré :', fullLead);
+              console.log("Lead récupéré :", fullLead);
+
+              // 2️⃣ Récupérer les détails Tech & Fin
+              const techFinDetails = await leadTechFinService.getByLeadId(row.id);
+              console.log("Tech & Fin récupérés :", techFinDetails);
+
+              // 3️⃣ Sécuriser les données pour l'affichage
               const safeLead = {
                 ...fullLead,
-                status: fullLead.status?.label ? { label: fullLead.status.label } : { label: "En attente de validation" },
-                type: fullLead.type?.label ? { label: fullLead.type.label } : null,
-                category: fullLead.category?.label ? { label: fullLead.category.label } : null,
-                secteur: fullLead.secteur?.label ? { label: fullLead.secteur.label } : null,
+                id: fullLead.leadId || fullLead.id,
+                leadId: fullLead.leadId || fullLead.id,
+
+                // Normalisation affichage
+                name: fullLead.leadName || fullLead.name,
                 bu: fullLead.bu?.name ? { name: fullLead.bu.name } : null,
-                client: fullLead.client? {
-                    id: fullLead.client.id,
-                    name: fullLead.client.name,
-                    email: fullLead.client.email,
-                    phone: fullLead.client.phone,
-                  }
-                : null,
-                partenaires: fullLead.partenaires?.map((p: any) => ({ name: p.name })) || [],
+                client: fullLead.client
+                  ? {
+                      id: fullLead.client.id,
+                      name: fullLead.client.name,
+                      email: fullLead.client.email,
+                      phone: fullLead.client.phone,
+                    }
+                  : null,
+
+                // 🔥 Tech & Fin (SOURCE UNIQUE)
+                techFinDetails: {
+                  ...techFinDetails,
+                  technos: techFinDetails?.technos || [],
+                  devise: techFinDetails?.devise || null,
+                  typeFacturation: techFinDetails?.typeFacturation || null,
+                  volumeJHVendu: techFinDetails?.volumeJHVendu ?? 0,
+                  tauxDeChange: techFinDetails?.tauxDeChange ?? 1,
+                  impots: techFinDetails?.impots ?? 0,
+                  montantOffre: techFinDetails?.montantOffre ?? 0,
+                  budget: techFinDetails?.montantOffre ?? 0,
+                  dateAttribution: techFinDetails?.dateAttribution || null,
+                },
               };
 
+              console.log("SafeLead pour détails :", safeLead);
+
+              // 4️⃣ Afficher le modal détails
               setSelectedLead(safeLead);
               setShowDetailLead(true);
-
-              setShowDetailLead(true);
             } catch (error) {
-              console.error('Erreur lors de la récupération du lead:', error);
+              console.error("Erreur chargement détails offre tech & fin", error);
             }
           }}
           onEdit={async () => {
             if (!row.id) return;
 
             try {
+              // 1. ✅ Récupérer le lead complet
               const fullLead = await leadService.getById(row.id);
-              setSelectedLead(fullLead);  
+              console.log("Full lead récupéré:", fullLead);
+              
+              // 2. ✅ Récupérer les détails tech & fin
+              const techFinDetails = await leadTechFinService.getByLeadId(row.id);
+              console.log("Tech & Fin récupérés:", techFinDetails);
+              
+              // 3. ✅ Fusionner les données
+              const safeLead = {
+                ...fullLead,
+                id: fullLead.leadId || fullLead.id,
+                leadId: fullLead.leadId || fullLead.id,
+                // ✅ Ajouter les données tech & fin au lead
+                technos: techFinDetails.technos || [],
+                volumeJHVendu: techFinDetails.volumeJHVendu || 0,
+                devise: techFinDetails.devise || null,
+                tauxDeChange: techFinDetails.tauxDeChange || 1,
+                typeFacturation: techFinDetails.typeFacturation || null,
+                impots: techFinDetails.impots || 0,
+                dateAttribution: techFinDetails.dateAttribution || "",
+                montantOffre: techFinDetails.montantOffre || 0,
+                budget: techFinDetails.montantOffre || 0, // ✅ Alias pour compatibilité
+              };
+              
+              console.log("SafeLead complet avec tech&fin:", safeLead);
+              setSelectedLead(safeLead);  
               setShowFormLead(true);
             } catch (error) {
               console.error("Erreur chargement lead pour édition", error);
             }
           }}
+
           onViewBacklog={() => {
             if (!row.id) return;
             setSelectedLeadId(row.id);
