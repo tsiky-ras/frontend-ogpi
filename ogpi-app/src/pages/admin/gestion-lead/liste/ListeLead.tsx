@@ -256,31 +256,54 @@ useEffect(() => {
             if (!row.id) return;
 
             try {
+              // 1️⃣ Récupérer le lead complet
               const fullLead = await leadService.getById(row.id);
-              console.log('Lead complet récupéré :', fullLead);
+              console.log("Lead récupéré :", fullLead);
+
+              // 2️⃣ Récupérer les détails Tech & Fin
+              const techFinDetails = await leadTechFinService.getByLeadId(row.id);
+              console.log("Tech & Fin récupérés :", techFinDetails);
+
+              // 3️⃣ Sécuriser les données pour l'affichage
               const safeLead = {
                 ...fullLead,
-                status: fullLead.status?.label ? { label: fullLead.status.label } : { label: "En attente de validation" },
-                type: fullLead.type?.label ? { label: fullLead.type.label } : null,
-                category: fullLead.category?.label ? { label: fullLead.category.label } : null,
-                secteur: fullLead.secteur?.label ? { label: fullLead.secteur.label } : null,
+                id: fullLead.leadId || fullLead.id,
+                leadId: fullLead.leadId || fullLead.id,
+
+                // Normalisation affichage
+                name: fullLead.leadName || fullLead.name,
                 bu: fullLead.bu?.name ? { name: fullLead.bu.name } : null,
-                client: fullLead.client? {
-                    id: fullLead.client.id,
-                    name: fullLead.client.name,
-                    email: fullLead.client.email,
-                    phone: fullLead.client.phone,
-                  }
-                : null,
-                partenaires: fullLead.partenaires?.map((p: any) => ({ name: p.name })) || [],
+                client: fullLead.client
+                  ? {
+                      id: fullLead.client.id,
+                      name: fullLead.client.name,
+                      email: fullLead.client.email,
+                      phone: fullLead.client.phone,
+                    }
+                  : null,
+
+                // 🔥 Tech & Fin (SOURCE UNIQUE)
+                techFinDetails: {
+                  ...techFinDetails,
+                  technos: techFinDetails?.technos || [],
+                  devise: techFinDetails?.devise || null,
+                  typeFacturation: techFinDetails?.typeFacturation || null,
+                  volumeJHVendu: techFinDetails?.volumeJHVendu ?? 0,
+                  tauxDeChange: techFinDetails?.tauxDeChange ?? 1,
+                  impots: techFinDetails?.impots ?? 0,
+                  montantOffre: techFinDetails?.montantOffre ?? 0,
+                  budget: techFinDetails?.montantOffre ?? 0,
+                  dateAttribution: techFinDetails?.dateAttribution || null,
+                },
               };
 
+              console.log("SafeLead pour détails :", safeLead);
+
+              // 4️⃣ Afficher le modal détails
               setSelectedLead(safeLead);
               setShowDetailLead(true);
-
-              setShowDetailLead(true);
             } catch (error) {
-              console.error('Erreur lors de la récupération du lead:', error);
+              console.error("Erreur chargement détails offre tech & fin", error);
             }
           }}
           onEdit={async () => {

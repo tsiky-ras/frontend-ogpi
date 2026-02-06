@@ -1,102 +1,132 @@
 import React from "react";
-import { Modal, Row, Col } from "react-bootstrap";
-import "./DetailsLead.css";
+import { Row, Col } from "react-bootstrap";
 
 type DetailsOffreTechProps = {
-  show: boolean;
-  onClose: () => void;
   lead?: any | null;
 };
 
-const DetailsOffreTech: React.FC<DetailsOffreTechProps> = ({ show, onClose, lead }) => {
-  if (!lead) return null;
+const DetailsOffreTech: React.FC<DetailsOffreTechProps> = ({ lead }) => {
+  if (!lead?.techFinDetails) {
+    return <p className="text-muted">Aucune offre technique & financière</p>;
+  }
+
+  const techFin = lead.techFinDetails;
 
   return (
-    <Modal show={show} onHide={onClose} fullscreen className="details-lead-modal">
-      <Modal.Header closeButton>
-        <Modal.Title>{lead.name} - Offre technique & Financière</Modal.Title>
-      </Modal.Header>
+    <div className="details-lead-body">
+      {/* ================= Offre Technique ================= */}
+      <section className="details-section">
+        <h5>Offre technique</h5>
+        <Row className="g-3">
+          <Col md={12}>
+            <div className="detail-item">
+              <label>Technologies</label>
+              <p>
+                {techFin.technos?.length > 0
+                  ? techFin.technos
+                      .map(
+                        (t: any) =>
+                          t.nomTechno || t.techno?.nomTechno
+                      )
+                      .join(", ")
+                  : "-"}
+              </p>
+            </div>
+          </Col>
 
-      <Modal.Body className="details-lead-body">
-        <section className="details-section">
-          <h5>Offre Technique</h5>
-          <Row className="g-3">
-            <Col md={12}>
-              <div className="detail-item">
-                <label>Technologie</label>
-                <p>{lead.techno || "-"}</p>
-              </div>
-            </Col>
-            <Col md={6}>
-              <div className="detail-item">
-                <label>Jour-Homme vendus (JH)</label>
-                <p>{lead.jhVendu || "-"}</p>
-              </div>
-            </Col>
-          </Row>
-        </section>
+          <Col md={6}>
+            <div className="detail-item">
+              <label>Volume JH vendus</label>
+              <p>{techFin.volumeJHVendu ?? "-"}</p>
+            </div>
+          </Col>
+        </Row>
+      </section>
 
-        <section className="details-section">
-          <h5>Offre Financière</h5>
-          <Row className="g-3">
-            <Col md={6}>
-              <div className="detail-item">
-                <label>Devise</label>
-                <p>{lead.currency || "EUR"}</p>
-              </div>
-            </Col>
-            <Col md={6}>
-              <div className="detail-item">
-                <label>Montant de l'offre</label>
-                <p>{lead.amount?.toLocaleString()} {lead.currency || "EUR"}</p>
-              </div>
-            </Col>
-            <Col md={6}>
-              <div className="detail-item">
-                <label>TJM (Tarif Jour-Homme)</label>
-                <p>{lead.tjm || "-"}</p>
-              </div>
-            </Col>
-          </Row>
-        </section>
+      {/* ================= Offre Financière ================= */}
+      <section className="details-section">
+        <h5>Offre financière</h5>
+        <Row className="g-3">
+          <Col md={4}>
+            <div className="detail-item">
+              <label>Devise</label>
+              <p>{techFin.devise?.abrDevise || "-"}</p>
+            </div>
+          </Col>
 
-        <section className="details-section">
-          <h5>Conversions & Taxes</h5>
-          <Row className="g-3">
-            <Col md={6}>
-              <div className="detail-item">
-                <label>Taux de change</label>
-                <p>{lead.tauxChange || "-"}</p>
-              </div>
-            </Col>
-            <Col md={6}>
-              <div className="detail-item">
-                <label>Impôt/Taxe</label>
-                <p>{lead.impot || "-"}</p>
-              </div>
-            </Col>
-          </Row>
-        </section>
+          <Col md={4}>
+            <div className="detail-item">
+              <label>Montant de l’offre</label>
+              <p>
+                {techFin.montantOffre != null
+                  ? techFin.montantOffre.toLocaleString()
+                  : "-"}{" "}
+                {techFin.devise?.abrDevise || ""}
+              </p>
+            </div>
+          </Col>
 
-        <section className="details-section">
-          <h5>Facturation & Attribution</h5>
-          <Row className="g-3">
-            <Col md={6}>
-              <div className="detail-item">
-                <label>Type de facturation</label>
-                <p>{lead.typeFacturation || "-"}</p>
-              </div>
-            </Col>
-            <Col md={6}>
-              <div className="detail-item">
-                <label>Date d'attribution</label>
-                <p>{lead.dateAttribution || "-"}</p>
-              </div>
-            </Col>
-          </Row>
-        </section>
-      </Modal.Body>
-    </Modal>
+          <Col md={4}>
+            <div className="detail-item">
+              <label>Budget nécessaire</label>
+              <p>
+                {techFin.budget != null
+                  ? techFin.budget.toLocaleString()
+                  : "-"}
+              </p>
+            </div>
+          </Col>
+        </Row>
+      </section>
+
+      {/* ================= Conversions & Taxes ================= */}
+      <section className="details-section">
+        <h5>Conversions & taxes</h5>
+        <Row className="g-3">
+          <Col md={6}>
+            <div className="detail-item">
+              <label>Taux de change</label>
+              <p>{techFin.tauxDeChange ?? "-"}</p>
+            </div>
+          </Col>
+
+          <Col md={6}>
+            <div className="detail-item">
+              <label>Impôts (%)</label>
+              <p>{techFin.impots ?? "-"}</p>
+            </div>
+          </Col>
+        </Row>
+      </section>
+
+      {/* ================= Facturation ================= */}
+      <section className="details-section">
+        <h5>Facturation & attribution</h5>
+        <Row className="g-3">
+          <Col md={6}>
+            <div className="detail-item">
+              <label>Type de facturation</label>
+              <p>
+                {techFin.typeFacturation?.nomTypeFacturation || "-"}
+              </p>
+            </div>
+          </Col>
+
+          <Col md={6}>
+            <div className="detail-item">
+              <label>Date d’attribution</label>
+              <p>
+                {techFin.dateAttribution
+                  ? new Date(
+                      techFin.dateAttribution
+                    ).toLocaleDateString("fr-FR")
+                  : "-"}
+              </p>
+            </div>
+          </Col>
+        </Row>
+      </section>
+    </div>
   );
 };
 
