@@ -22,19 +22,22 @@ function GenericForm<T>({
 }: GenericFormProps<T>) {
   // Initialisation avec tous les champs existants
   const [formData, setFormData] = useState<T>(() => {
-    const baseData = initialData ? { ...initialData } : {} as T;
+    const baseData = initialData ? { ...initialData } : ({} as T);
     // Initialiser les extraInputs si non présents
     extraInputs.forEach((input) => {
       if (!(input.name in baseData)) {
-        (baseData as any)[input.name] = "";
+        (baseData as any)[input.name] = input.type === "checkbox" ? false : "";
       }
     });
     return baseData;
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value } as T));
+    const { name, type, value, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    } as T));
   };
 
   return (
@@ -58,15 +61,33 @@ function GenericForm<T>({
 
       {/* Champs supplémentaires */}
       {extraInputs.map((input) => (
-        <div key={String(input.name)} className="mb-3">
-          <label>{input.label}</label>
-          <input
-            type={input.type || "text"}
-            className="form-control"
-            name={input.name as string}
-            value={formData[input.name] as any || ""}
-            onChange={handleChange}
-          />
+        <div key={String(input.name)} className="mb-3 form-check">
+          {input.type === "checkbox" ? (
+            <>
+              <input
+                type="checkbox"
+                className="form-check-input"
+                name={input.name as string}
+                checked={formData[input.name] as any || false}
+                onChange={handleChange}
+                id={String(input.name)}
+              />
+              <label className="form-check-label" htmlFor={String(input.name)}>
+                {input.label}
+              </label>
+            </>
+          ) : (
+            <>
+              <label>{input.label}</label>
+              <input
+                type={input.type || "text"}
+                className="form-control"
+                name={input.name as string}
+                value={formData[input.name] as any || ""}
+                onChange={handleChange}
+              />
+            </>
+          )}
         </div>
       ))}
 
