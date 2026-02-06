@@ -383,85 +383,97 @@ const formatLeadPayload = (form: any) => {
     };
   };
 
-/* ================= Save ================= */
-const handleSave = async () => {
-  console.log("=== DÉBUT handleSave ===");
-  setShowLoadingMessage(true);
+  /* ================= Save ================= */
+  const handleSave = async () => {
+    console.log("=== DÉBUT handleSave ===", currentStep);
+    setShowLoadingMessage(true);
 
-  try {
-    let savedLead;
-    
-    const currentLeadId = lead?.leadId || lead?.id;
-    const qualifData = formatLeadPayload(form);
+    try {
+      let savedLead = lead;
+      if (currentStep === "qualification") {
+        const qualifData = formatLeadPayload(form);
+        const currentLeadId = lead?.leadId || lead?.id;
 
-    if (lead && currentLeadId) {
-      savedLead = await leadService.updateQualif(currentLeadId, qualifData);
-    } else {
-      savedLead = await leadService.createQualif(qualifData);
+        if (lead && currentLeadId) {
+          savedLead = await leadService.updateQualif(currentLeadId, qualifData);
+        } else {
+          savedLead = await leadService.createQualif(qualifData);
+        }
+
+        setShowLoadingMessage(false);
+        setSuccessMessage("Qualification sauvegardée avec succès !");
+        setShowSuccessMessage(true);
+
+        onSubmit(savedLead);
+
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+          setCurrentStep("offre"); 
+        }, 1500);
+
+        return; 
+      }
+
+      if (currentStep === "offre") {
+        const leadId = lead?.leadId || lead?.id;
+
+        if (!leadId) {
+          throw new Error("Veuillez d'abord sauvegarder la qualification.");
+        }
+
+        if (!formTechFin.deviseId || !formTechFin.typeFacturationId) {
+          throw new Error("Veuillez compléter la devise et le type de facturation.");
+        }
+
+        const existingTechFin = await leadTechFinService.getByLeadId(leadId);
+        const techFinId =
+          existingTechFin?.idLeadTechFinDetails || existingTechFin?.id;
+
+        const technosFormatted = (formTechFin.technos || []).map(
+          (technoId: number) => ({
+            techno: { idTechno: technoId },
+          })
+        );
+
+        const techFinData = {
+          idLeadTechFinDetails: techFinId,
+          volumeJHVendu: formTechFin.volumeJHVendu || 0,
+          tauxDeChange: formTechFin.tauxDeChange || 1,
+          impots: formTechFin.impots || 0,
+          dateAttribution: formTechFin.dateAttribution || null,
+          montantOffre: formTechFin.budget || 0,
+          technos: technosFormatted,
+          lead: { leadId },
+          devise: { idDevise: Number(formTechFin.deviseId) },
+          typeFacturation: {
+            idTypeFacturation: Number(formTechFin.typeFacturationId),
+          },
+        };
+
+        await leadTechFinService.update(techFinData);
+
+        setShowLoadingMessage(false);
+        setSuccessMessage("Offre technique & financière sauvegardée avec succès !");
+        setShowSuccessMessage(true);
+
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+          onClose();
+        }, 2000);
+
+        return;
+      }
+    } catch (err) {
+      console.error("=== ERREUR handleSave ===", err);
+
+      setShowLoadingMessage(false);
+      setErrorMessage(
+        err instanceof Error ? err.message : "Erreur inconnue"
+      );
+      setShowErrorMessage(true);
     }
-
-    const leadId = savedLead.leadId || savedLead.id;
-    
-    if (!leadId) {
-      throw new Error("ID du lead non trouvé après sauvegarde");
-    }
-    const existingTechFin = await leadTechFinService.getByLeadId(leadId);
-
-    const techFinId = existingTechFin?.idLeadTechFinDetails || existingTechFin?.id;
-
-    if (!techFinId) {
-      throw new Error("ID des détails tech&fin non trouvé après getByLeadId");
-    }
-
-    const dateAttribution = formTechFin.dateAttribution 
-      ? formTechFin.dateAttribution 
-      : null;
-
-    const technosFormatted = (formTechFin.technos || []).map((technoId: number) => ({
-    techno: { idTechno: technoId }
-  }));
-    const techFinData = {
-      idLeadTechFinDetails: techFinId,
-      volumeJHVendu: formTechFin.volumeJHVendu || 0,
-      tauxDeChange: formTechFin.tauxDeChange || 1,
-      impots: formTechFin.impots || 0,
-      dateAttribution: dateAttribution,
-      montantOffre: formTechFin.budget || 0,
-      technos: technosFormatted,
-      lead: { leadId: leadId },
-      devise:
-        formTechFin.deviseId && formTechFin.deviseId !== ""
-          ? { idDevise: Number(formTechFin.deviseId) }
-          : null,
-      typeFacturation:
-        formTechFin.typeFacturationId && formTechFin.typeFacturationId !== ""
-          ? { idTypeFacturation: Number(formTechFin.typeFacturationId) }
-          : null,
-    };
-    await leadTechFinService.update(techFinData);
-
-    setShowLoadingMessage(false);
-    setSuccessMessage("Lead et Offre Tech & Fin sauvegardés avec succès !");
-    setShowSuccessMessage(true);
-
-    setTimeout(() => {
-    setShowSuccessMessage(false);
-    onClose(); 
-  }, 2000)
-
-    onSubmit(savedLead);
-    onClose();
-  } catch (err) {
-    console.error("=== ERREUR dans handleSave ===");
-    console.error("Type d'erreur:", err);
-    console.error("Message:", err instanceof Error ? err.message : "Erreur inconnue");
-    console.error("Stack:", err instanceof Error ? err.stack : "Pas de stack");
-    
-    setShowLoadingMessage(false);
-    setErrorMessage(`Erreur: ${err instanceof Error ? err.message : "Erreur inconnue"}`);
-    setShowErrorMessage(true);
-  }
-};
+  };
+  
 /* ================= Render ================= */
   return (
     <>
@@ -508,23 +520,25 @@ const handleSave = async () => {
               </Tab.Pane>
 
               <Tab.Pane eventKey="offre">
-                {isNoGo ? (
+                {!lead ? (
+                  <p className="text-warning">
+                    Vous devez d'abord créer la qualification avant de remplir l'offre technique & financière.
+                  </p>
+                ) : isNoGo ? (
                   <p className="text-danger">
                     Impossible de modifier cet onglet pour un lead No Go.
                   </p>
                 ) : (
-                <FormTechFin
-                  form={formTechFin}
-                  setForm={setFormTechFin}
-                  devises={devises}                     
-                  typeFacturations={typeFacturations}   
-                  technos={technos}
-                  technoService={technoService}
-                  deviseService={deviseService}
-                  typeFacturationService={typeFacturationService} 
-                />
-
-
+                  <FormTechFin
+                    form={formTechFin}
+                    setForm={setFormTechFin}
+                    devises={devises}                     
+                    typeFacturations={typeFacturations}   
+                    technos={technos}
+                    technoService={technoService}
+                    deviseService={deviseService}
+                    typeFacturationService={typeFacturationService} 
+                  />
                 )}
               </Tab.Pane>
 
