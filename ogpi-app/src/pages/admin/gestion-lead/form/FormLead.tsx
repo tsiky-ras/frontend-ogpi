@@ -496,8 +496,12 @@ const formatLeadPayload = (form: any) => {
           >
             <Nav variant="pills" className="mb-4">
               <Nav.Item><Nav.Link eventKey="qualification">Qualification</Nav.Link></Nav.Item>
-              <Nav.Item><Nav.Link eventKey="offre" disabled={isNoGo}>Offre technique & financière</Nav.Link></Nav.Item>
-              <Nav.Item><Nav.Link eventKey="etapes" disabled={isNoGo}>Étapes & validations</Nav.Link></Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="offre" disabled={!lead}>
+                  Offre technique & financière
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item><Nav.Link eventKey="etapes" disabled={!lead}>Étapes & validations</Nav.Link></Nav.Item>
             </Nav>
 
             <Tab.Content>
