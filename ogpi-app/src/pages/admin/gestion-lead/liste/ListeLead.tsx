@@ -187,7 +187,7 @@ useEffect(() => {
     {
       key: 'businessUnit',
       label: 'Business Unit',
-      render: (row: Lead) => row.bu?.name || '-',
+      render: (row: Lead) => row.businessUnit?.name || '-',
     },
     { key: 'name', label: 'Nom' },
     { key: 'reference', label: 'Référence' },

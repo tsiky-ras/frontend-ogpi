@@ -66,6 +66,7 @@ const ValidationLeadPage: React.FC = () => {
           userId: user.userId,
           username: user.username,
           email: user.email,
+          is_active:true,
         },
         role: {
           roleId: user.role.roleId,
@@ -110,6 +111,7 @@ const ValidationLeadPage: React.FC = () => {
           userId: user.userId,
           username: user.username,
           email: user.email,
+          is_active:true
         },
         role: {
           roleId: user.role.roleId,
@@ -242,6 +244,12 @@ const ValidationLeadPage: React.FC = () => {
                 driveFile: lead.mainDriveFile,
                 partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
                 status: lead.currentLeadStatus?.leadStatus,
+                periode: lead.leadPeriode,
+                projetFinancement: lead.typeProjetFinancement,
+                commentaire: lead.leadCommentaire,
+                jiraProject: lead.leadGoProjetJira,
+                jiraTicket: lead.leadGoTicketJira,
+                typeFinancement: lead.typeProjetFinancement,
               }}
               onValidate={(comment) => handleValidate(lead.leadId, comment)}
               onReject={(comment) => handleReject(lead.leadId, comment)}

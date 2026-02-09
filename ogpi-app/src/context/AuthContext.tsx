@@ -59,17 +59,13 @@ import React, {
         userId: decoded.userId,     
         username: decoded.sub,
         email: decoded.email,
-        nom: decoded.lastName,
-        prenom: decoded.firstName,
-        telephone: decoded.phoneNumber,
         role: {
           roleId: decoded.roleId,     
           roleLabel: decoded.role     
         },
-        isActive: true,
+        is_active: true,
         password: "",
       };
-
       setUser(object);
     }
     

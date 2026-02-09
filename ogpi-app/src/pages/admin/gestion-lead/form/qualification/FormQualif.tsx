@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Form, Row, Col, InputGroup, Button, Modal } from "react-bootstrap";
-import { FaPlus, FaLink } from "react-icons/fa";
+import { Form, Row, Col, InputGroup, Button, Modal, ListGroup, Badge } from "react-bootstrap";
+import { FaPlus, FaLink, FaTimes } from "react-icons/fa";
 import GenericForm from "../../../../../components/form/GenericForm.tsx";
 import './FormQualif.css';
 
@@ -39,7 +39,9 @@ const FormQualif: React.FC<Props> = ({
   const [showPartenaireModal, setShowPartenaireModal] = useState(false);
   const [localClients, setLocalClients] = useState<any[]>([]);
   const [localPartenaires, setLocalPartenaires] = useState<any[]>([]);
+  const [selectedPartenaireId, setSelectedPartenaireId] = useState<string>("");
 
+  // Initialiser les données
   useEffect(() => {
     setLocalClients(clients);
   }, [clients]);
@@ -48,7 +50,21 @@ const FormQualif: React.FC<Props> = ({
     setLocalPartenaires(partenaires);
   }, [partenaires]);
 
+  // Initialiser le form avec les partenaires s'ils existent
+  useEffect(() => {
+    if (form.partenaires && partenaires.length > 0) {
+      // Assurer que les partenaires sont des objets complets
+      const updatedPartenaires = form.partenaires.map((p: any) => {
+        if (typeof p === 'number' || typeof p === 'string') {
+          return partenaires.find(part => part.id === Number(p)) || { id: p };
+        }
+        return p;
+      });
+      setForm(prev => ({ ...prev, partenaires: updatedPartenaires }));
+    }
+  }, [partenaires]);
 
+  // Valeurs par défaut
   useEffect(() => {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -74,6 +90,33 @@ const FormQualif: React.FC<Props> = ({
       setForm(prev => ({ ...prev, internalDeadline: isoDeadline }));
     }
   }, []);
+
+  // Gestion des partenaires multiples
+  const handleAddPartenaire = () => {
+    if (!selectedPartenaireId) return;
+    
+    const selectedPartenaire = localPartenaires.find(p => p.id === Number(selectedPartenaireId));
+    if (!selectedPartenaire) return;
+
+    // Vérifier si le partenaire est déjà sélectionné
+    const isAlreadySelected = form.partenaires?.some((p: any) => 
+      (typeof p === 'object' ? p.id : p) === selectedPartenaire.id
+    );
+
+    if (!isAlreadySelected) {
+      const updatedPartenaires = [...(form.partenaires || []), selectedPartenaire];
+      setForm(prev => ({ ...prev, partenaires: updatedPartenaires }));
+    }
+
+    setSelectedPartenaireId("");
+  };
+
+  const handleRemovePartenaire = (partenaireId: number) => {
+    const updatedPartenaires = form.partenaires?.filter((p: any) => 
+      (typeof p === 'object' ? p.id : p) !== partenaireId
+    ) || [];
+    setForm(prev => ({ ...prev, partenaires: updatedPartenaires }));
+  };
 
   return (
     <>
@@ -138,7 +181,7 @@ const FormQualif: React.FC<Props> = ({
             />
           </Col>
 
-          {/* Client / Partenaire */}
+          {/* Client */}
           <Col md={6}>
             <Form.Label className="required-asterisk">Client *</Form.Label>
             <InputGroup>
@@ -160,26 +203,66 @@ const FormQualif: React.FC<Props> = ({
               </Button>
             </InputGroup>
           </Col>
+
+          {/* Partenaires eTech - Version multiple */}
           <Col md={6}>
-            <Form.Label>Partenaire eTech</Form.Label>
+            <Form.Label>Partenaires eTech</Form.Label>
             <InputGroup>
-            <Form.Select
-              name="leadPartenaire"
-              value={form.leadPartenaire?.id || ""}
-              onChange={e => {
-                const selectedPartenaire = localPartenaires.find(p => p.id === Number(e.target.value)) || null;
-                setForm(prev => ({ ...prev, leadPartenaire: selectedPartenaire }));
-              }}
-            >
-              <option value="">-- Sélectionner --</option>
-              {localPartenaires.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Form.Select>
-              <Button variant="outline-primary" onClick={() => setShowPartenaireModal(true)}>
+              <Form.Select
+                value={selectedPartenaireId}
+                onChange={e => setSelectedPartenaireId(e.target.value)}
+              >
+                <option value="">-- Sélectionner un partenaire --</option>
+                {localPartenaires.map(p => {
+                  // Vérifier si le partenaire est déjà sélectionné
+                  const isSelected = form.partenaires?.some((part: any) => 
+                    (typeof part === 'object' ? part.id : part) === p.id
+                  );
+                  return !isSelected ? (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ) : null;
+                })}
+              </Form.Select>
+              <Button 
+                variant="outline-primary" 
+                onClick={handleAddPartenaire}
+                disabled={!selectedPartenaireId}
+              >
                 <FaPlus />
               </Button>
+              <Button 
+                variant="outline-secondary" 
+                onClick={() => setShowPartenaireModal(true)}
+              >
+                Nouveau
+              </Button>
             </InputGroup>
+
+            {/* Liste des partenaires sélectionnés */}
+            {(form.partenaires && form.partenaires.length > 0) && (
+              <ListGroup className="mt-2">
+                {form.partenaires.map((p: any, index: number) => {
+                  const partenaire = typeof p === 'object' ? p : localPartenaires.find(part => part.id === p);
+                  if (!partenaire) return null;
+                  
+                  return (
+                    <ListGroup.Item 
+                      key={partenaire.id || index}
+                      className="d-flex justify-content-between align-items-center py-1"
+                    >
+                      <span>{partenaire.name || `Partenaire #${partenaire.id}`}</span>
+                      <Badge 
+                        bg="danger" 
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => handleRemovePartenaire(partenaire.id)}
+                      >
+                        <FaTimes />
+                      </Badge>
+                    </ListGroup.Item>
+                  );
+                })}
+              </ListGroup>
+            )}
           </Col>
 
           {/* Deadlines */}
@@ -210,38 +293,39 @@ const FormQualif: React.FC<Props> = ({
               ))}
             </Form.Select>
           </Col>
-        {/* Drive avec nom et lien */}
-        <Col md={6}>
-          <Form.Label>Nom du Répertoire Drive</Form.Label>
-          <Form.Control
-            name="driveFolderName"
-            value={form.driveFolderName || ""}
-            onChange={handleChange}
-            placeholder="Ex: Projet ABC"
-          />
-        </Col>
 
-        <Col md={6}>
-          <Form.Label>Lien du Répertoire Drive</Form.Label>
-          <InputGroup>
+          {/* Drive avec nom et lien */}
+          <Col md={6}>
+            <Form.Label>Nom du Répertoire Drive</Form.Label>
             <Form.Control
-              name="driveFolderLink"
-              value={form.driveFolderLink || ""}
+              name="driveFolderName"
+              value={form.driveFolderName || ""}
               onChange={handleChange}
-              placeholder="https://drive.google.com/..."
+              placeholder="Ex: Projet ABC"
             />
-            {form.driveFolderLink && (
-              <Button
-                variant="outline-success"
-                href={form.driveFolderLink}
-                target="_blank"
-                title="Ouvrir le répertoire"
-              >
-                <FaLink />
-              </Button>
-            )}
-          </InputGroup>
-        </Col>
+          </Col>
+
+          <Col md={6}>
+            <Form.Label>Lien du Répertoire Drive</Form.Label>
+            <InputGroup>
+              <Form.Control
+                name="driveFolderLink"
+                value={form.driveFolderLink || ""}
+                onChange={handleChange}
+                placeholder="https://drive.google.com/..."
+              />
+              {form.driveFolderLink && (
+                <Button
+                  variant="outline-success"
+                  href={form.driveFolderLink}
+                  target="_blank"
+                  title="Ouvrir le répertoire"
+                >
+                  <FaLink />
+                </Button>
+              )}
+            </InputGroup>
+          </Col>
 
           {/* TDR */}
           <Col md={6}>
@@ -392,7 +476,11 @@ const FormQualif: React.FC<Props> = ({
             onSubmit={async (data: any) => {
               const newPartenaire = await partenaireService.create(data);
               setLocalPartenaires(prev => [...prev, newPartenaire]);
-              setForm(prev => ({ ...prev, leadPartenaire: newPartenaire }));
+              
+              // Ajouter automatiquement le nouveau partenaire à la liste
+              const updatedPartenaires = [...(form.partenaires || []), newPartenaire];
+              setForm(prev => ({ ...prev, partenaires: updatedPartenaires }));
+              
               setShowPartenaireModal(false);
             }}
             onCancel={() => setShowPartenaireModal(false)}
@@ -401,7 +489,6 @@ const FormQualif: React.FC<Props> = ({
           />
         </Modal.Body>
       </Modal>
-
     </>
   );
 };

@@ -34,6 +34,9 @@ type FormLeadProps = {
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
   const { api } = useAuth();
   const leadService = new LeadService(api);
+  // if (lead?.id) {
+  //   lead=leadService.getById(lead.id);
+  // }
   const deviseService = useDeviseService();
   const technoService = useTechnoService();
   const typeFacturationService = useTypeFacturationService();
@@ -111,7 +114,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     secteur: lead.leadSecteur?.id || "",
     statut: lead.currentLeadStatus?.leadStatus?.id || "1",
     client: lead.client || null,
-    leadPartenaire: lead.leadPartenaires?.length ? lead.leadPartenaires[0].partenaire : null,
+    leadPartenaire: lead.leadPartenaires?.length ? lead.leadPartenaires : null,
     typeFinancement: lead.typeProjetFinancement || null,
     realDeadline: lead.leadRealDeadLine ? lead.leadRealDeadLine.substring(0, 16) : "",
     driveFolderName: lead.driveFolder?.name || "",
@@ -427,7 +430,7 @@ const formatLeadPayload = (form: any) => {
 
         const existingTechFin = await leadTechFinService.getByLeadId(leadId);
         const techFinId =
-          existingTechFin?.idLeadTechFinDetails || existingTechFin?.id;
+          existingTechFin?.idLeadTechFinDetails || existingTechFin?.idLeadTechFinDetails;
 
         const technosFormatted = (formTechFin.technos || []).map(
           (technoId: number) => ({
@@ -437,6 +440,8 @@ const formatLeadPayload = (form: any) => {
 
         const techFinData = {
           idLeadTechFinDetails: techFinId,
+          idLead: leadId,
+          budget: formTechFin.budget || 0,
           volumeJHVendu: formTechFin.volumeJHVendu || 0,
           tauxDeChange: formTechFin.tauxDeChange || 1,
           impots: formTechFin.impots || 0,
