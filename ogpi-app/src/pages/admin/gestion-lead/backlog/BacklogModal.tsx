@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Sortable from "sortablejs";
 
 import Button from "../../../../components/button/Button.tsx";
-import { FaPlus, FaSpinner, FaEdit, FaTrash, FaEye, FaArrowLeft } from "react-icons/fa";
+import { FaPlus, FaSpinner, FaEdit, FaTrash, FaEye, FaArrowLeft, FaCalendar } from "react-icons/fa";
 import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
 import "./BacklogModal.css";
@@ -12,6 +12,7 @@ import { BacklogPhaseService } from "../../../../services/lead/backlog/BacklogPh
 import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogProfilService.tsx";
 import { BacklogLineService } from "../../../../services/lead/backlog/BacklogLineService.tsx";
 import { BacklogLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
+import { BacklogDeliverableService } from "../../../../services/lead/backlog/BacklogdeliverableService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import BacklogForm from "./BacklogForm.tsx";
 
@@ -24,6 +25,8 @@ import {
   BacklogLineProfil,
   CreateBacklogRequest
 } from "../../../../types/lead/Backlog/Backlog.tsx";
+
+import { BacklogDeliverable } from "../../../../types/lead/Backlog/Backlog.tsx";
 
 interface BacklogModalProps {
   show: boolean;
@@ -40,6 +43,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const backlogProfilService = new BacklogProfilService(api);
   const backlogLineService = new BacklogLineService(api);
   const backlogLineProfilService = new BacklogLineProfilService(api);
+  const backlogDeliverableService = new BacklogDeliverableService(api);
 
   // États pour la liste des backlogs
   const [backlogs, setBacklogs] = useState<Backlog[]>([]);
@@ -52,22 +56,26 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [profils, setProfils] = useState<BacklogProfil[]>([]);
   const [lines, setLines] = useState<BacklogLine[]>([]);
   const [lineProfils, setLineProfils] = useState<BacklogLineProfil[]>([]);
+  const [deliverables, setDeliverables] = useState<Map<number, BacklogDeliverable[]>>(new Map());
   
   const [showLotModal, setShowLotModal] = useState(false);
   const [showPhaseModal, setShowPhaseModal] = useState(false);
   const [showProfilModal, setShowProfilModal] = useState(false);
   const [showLineModal, setShowLineModal] = useState(false);
   const [showLineProfilModal, setShowLineProfilModal] = useState(false);
+  const [showDeliverableModal, setShowDeliverableModal] = useState(false);
   
   const [editingLot, setEditingLot] = useState<BacklogLot | null>(null);
   const [editingPhase, setEditingPhase] = useState<BacklogPhase | null>(null);
   const [editingProfil, setEditingProfil] = useState<BacklogProfil | null>(null);
   const [editingLine, setEditingLine] = useState<BacklogLine | null>(null);
   const [editingLineProfil, setEditingLineProfil] = useState<BacklogLineProfil | null>(null);
+  const [editingDeliverable, setEditingDeliverable] = useState<BacklogDeliverable | null>(null);
   
   const [currentLotId, setCurrentLotId] = useState<number | null>(null);
   const [currentLineId, setCurrentLineId] = useState<number | null>(null);
   const [currentProfilId, setCurrentProfilId] = useState<number | null>(null);
+  const [currentPhaseId, setCurrentPhaseId] = useState<number | null>(null);
   const [showBacklogFormModal, setShowBacklogFormModal] = useState(false);
   const [creatingBacklog, setCreatingBacklog] = useState(false);
 
@@ -82,6 +90,11 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     phaseId: null as number | null 
   });
   const [newLineProfil, setNewLineProfil] = useState({ volume: 0 });
+  const [newDeliverable, setNewDeliverable] = useState({ 
+    name: "", 
+    deliveryDate: "", 
+    description: "" 
+  });
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,10 +107,11 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const sortableInstance = useRef<Sortable | null>(null);
   const profilSortableInstance = useRef<Sortable | null>(null);
   const phaseSortableInstances = useRef<Map<number, Sortable>>(new Map());
+  const deliverableSortableInstances = useRef<Map<number, Sortable>>(new Map());
   const lineTableBodyRef = useRef<HTMLTableSectionElement | null>(null);
   const lineSortableInstance = useRef<Sortable | null>(null);
 
-    const handleCreateBacklog = async (item: CreateBacklogRequest) => {
+  const handleCreateBacklog = async (item: CreateBacklogRequest) => {
     if (!leadId) return;
 
     try {
@@ -115,8 +129,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         console.error("Erreur lors de la création du backlog:", err);
         alert("Impossible de créer le backlog.");
     }
-    };
-
+  };
 
   /* ================= FETCH LISTE DES BACKLOGS ================= */
   useEffect(() => {
@@ -177,6 +190,23 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       });
       setLineProfils(allLineProfils);
 
+      // Charger les livrables pour chaque phase
+      const deliverablesMap = new Map<number, BacklogDeliverable[]>();
+      const allPhases = sortedLots.flatMap(lot => lot.phases || []);
+      
+      for (const phase of allPhases) {
+        try {
+          const phaseDeliverables = await backlogDeliverableService.getByPhaseId(phase.id);
+          const sortedDeliverables = [...phaseDeliverables].sort((a, b) => a.order - b.order);
+          deliverablesMap.set(phase.id, sortedDeliverables);
+        } catch (err) {
+          console.error(`Erreur lors du chargement des livrables pour la phase ${phase.id}:`, err);
+          deliverablesMap.set(phase.id, []);
+        }
+      }
+      
+      setDeliverables(deliverablesMap);
+
     } catch (err) {
       console.error("Erreur lors du chargement du backlog:", err);
       setError("Impossible de charger le backlog. Veuillez réessayer.");
@@ -193,6 +223,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     setProfils([]);
     setLines([]);
     setLineProfils([]);
+    setDeliverables(new Map());
   };
 
   /* ================= SORTABLE LINES (tableau) ================= */
@@ -402,6 +433,74 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     };
   }, [lots, show, selectedBacklogId]);
 
+  /* ================= SORTABLE DELIVERABLES ================= */
+  useEffect(() => {
+    if (!show || !selectedBacklogId) return;
+
+    deliverableSortableInstances.current.forEach((instance) => instance.destroy());
+    deliverableSortableInstances.current.clear();
+
+    lots.forEach((lot) => {
+      if (!lot.phases) return;
+
+      lot.phases.forEach((phase) => {
+        const phaseDeliverables = deliverables.get(phase.id);
+        if (!phaseDeliverables || phaseDeliverables.length === 0) return;
+
+        const deliverableListElement = document.querySelector(
+          `[data-phase-id="${phase.id}"] .deliverables-list-sortable`
+        ) as HTMLElement;
+
+        if (!deliverableListElement) return;
+
+        const sortable = Sortable.create(deliverableListElement, {
+          animation: 150,
+          handle: ".deliverable-drag-handle",
+          ghostClass: "sortable-ghost",
+          chosenClass: "sortable-chosen",
+          dragClass: "sortable-drag",
+          onEnd: async (evt) => {
+            if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
+
+            const currentDeliverables = deliverables.get(phase.id);
+            if (!currentDeliverables) return;
+
+            const newDeliverables = [...currentDeliverables];
+            const [movedDeliverable] = newDeliverables.splice(evt.oldIndex, 1);
+            newDeliverables.splice(evt.newIndex, 0, movedDeliverable);
+
+            const reorderedDeliverables = newDeliverables.map((deliverable, index) => ({
+              ...deliverable,
+              order: index + 1,
+            }));
+
+            const updatedMap = new Map(deliverables);
+            updatedMap.set(phase.id, reorderedDeliverables);
+            setDeliverables(updatedMap);
+
+            try {
+              const orderUpdates = reorderedDeliverables.map((deliverable) => ({
+                id: deliverable.id,
+                order: deliverable.order,
+              }));
+              await backlogDeliverableService.updateOrder(orderUpdates);
+            } catch (err) {
+              console.error("Erreur lors de la mise à jour de l'ordre des livrables:", err);
+              fetchBacklog();
+            }
+          },
+        });
+
+        deliverableSortableInstances.current.set(phase.id, sortable);
+      });
+    });
+
+    return () => {
+      deliverableSortableInstances.current.forEach((instance) => instance.destroy());
+      deliverableSortableInstances.current.clear();
+    };
+  }, [lots, deliverables, show, selectedBacklogId]);
+
   /* ================= LOT ACTIONS ================= */
   const openAddLot = () => {
     setEditingLot(null);
@@ -545,6 +644,11 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
               : lot
           )
         );
+
+        // Initialiser la liste des livrables pour la nouvelle phase
+        const updatedMap = new Map(deliverables);
+        updatedMap.set(createdPhase.id, []);
+        setDeliverables(updatedMap);
       }
 
       setShowPhaseModal(false);
@@ -579,6 +683,11 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         })
       );
 
+      // Supprimer les livrables de cette phase
+      const updatedMap = new Map(deliverables);
+      updatedMap.delete(phaseId);
+      setDeliverables(updatedMap);
+
       const currentLot = lots.find((l) => l.id === lotId);
       if (currentLot?.phases) {
         const orderUpdates = currentLot.phases
@@ -592,6 +701,115 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     } catch (err) {
       console.error("Erreur lors de la suppression de la phase:", err);
       alert("Impossible de supprimer la phase.");
+    }
+  };
+
+  /* ================= DELIVERABLE ACTIONS ================= */
+  const openAddDeliverable = (phaseId: number) => {
+    setCurrentPhaseId(phaseId);
+    setEditingDeliverable(null);
+    setNewDeliverable({ name: "", deliveryDate: "", description: "" });
+    setShowDeliverableModal(true);
+  };
+
+  const openEditDeliverable = (deliverable: BacklogDeliverable, phaseId: number) => {
+    setCurrentPhaseId(phaseId);
+    setEditingDeliverable(deliverable);
+    setNewDeliverable({ 
+      name: deliverable.name, 
+      deliveryDate: deliverable.deliveryDate.split('T')[0], // Format pour input date
+      description: deliverable.description 
+    });
+    setShowDeliverableModal(true);
+  };
+
+  const saveDeliverable = async () => {
+    if (!newDeliverable.name.trim()) {
+      alert("Le nom du livrable est requis");
+      return;
+    }
+
+    if (!newDeliverable.deliveryDate) {
+      alert("La date de livraison est requise");
+      return;
+    }
+
+    if (currentPhaseId === null) return;
+
+    setSaving(true);
+    try {
+      if (editingDeliverable) {
+        const updatedDeliverable = await backlogDeliverableService.update(editingDeliverable.id, {
+          name: newDeliverable.name,
+          deliveryDate: newDeliverable.deliveryDate,
+          description: newDeliverable.description,
+        });
+
+        const updatedMap = new Map(deliverables);
+        const currentDeliverables = updatedMap.get(currentPhaseId) || [];
+        updatedMap.set(
+          currentPhaseId,
+          currentDeliverables.map((d) => (d.id === editingDeliverable.id ? updatedDeliverable : d))
+        );
+        setDeliverables(updatedMap);
+      } else {
+        const currentDeliverables = deliverables.get(currentPhaseId) || [];
+        const nextOrder = Math.max(...currentDeliverables.map((d) => d.order), 0) + 1;
+
+        const newDeliverableData = {
+          name: newDeliverable.name,
+          deliveryDate: newDeliverable.deliveryDate,
+          description: newDeliverable.description,
+          order: nextOrder,
+          phaseId: currentPhaseId,
+        };
+
+        const createdDeliverable = await backlogDeliverableService.create(newDeliverableData);
+
+        const updatedMap = new Map(deliverables);
+        updatedMap.set(currentPhaseId, [...currentDeliverables, createdDeliverable]);
+        setDeliverables(updatedMap);
+      }
+
+      setShowDeliverableModal(false);
+      setEditingDeliverable(null);
+      setNewDeliverable({ name: "", deliveryDate: "", description: "" });
+      setCurrentPhaseId(null);
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde du livrable:", err);
+      alert("Une erreur est survenue lors de la sauvegarde.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteDeliverable = async (deliverableId: number, phaseId: number) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce livrable ?")) {
+      return;
+    }
+
+    try {
+      await backlogDeliverableService.delete(deliverableId);
+
+      const updatedMap = new Map(deliverables);
+      const currentDeliverables = updatedMap.get(phaseId) || [];
+      const updatedDeliverables = currentDeliverables
+        .filter((d) => d.id !== deliverableId)
+        .map((d, i) => ({ ...d, order: i + 1 }));
+
+      updatedMap.set(phaseId, updatedDeliverables);
+      setDeliverables(updatedMap);
+
+      if (updatedDeliverables.length > 0) {
+        const orderUpdates = updatedDeliverables.map((d) => ({
+          id: d.id,
+          order: d.order,
+        }));
+        await backlogDeliverableService.updateOrder(orderUpdates);
+      }
+    } catch (err) {
+      console.error("Erreur lors de la suppression du livrable:", err);
+      alert("Impossible de supprimer le livrable.");
     }
   };
 
@@ -928,6 +1146,15 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         lotTotalVolume,
         lotTotalAmount
       };
+    });
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
     });
   };
 
@@ -1273,31 +1500,90 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                     {lot.phases
                                       .sort((a, b) => a.order - b.order)
                                       .map((phase) => (
-                                        <div key={phase.id} className="phase-item">
+                                        <div key={phase.id} className="phase-item" data-phase-id={phase.id}>
                                           <div className="phase-drag-handle">⋮⋮</div>
                                           <div className="phase-content">
-                                            <span className="phase-order">
-                                              {phase.order}.{" "}
-                                            </span>
-                                            <span className="phase-name">
-                                              {phase.name}
-                                            </span>
-                                          </div>
-                                          <div className="phase-actions">
-                                            <button
-                                              className="btn-icon"
-                                              onClick={() => openEditPhase(phase, lot.id)}
-                                              title="Modifier"
-                                            >
-                                              <FaEdit />
-                                            </button>
-                                            <button
-                                              className="btn-icon"
-                                              onClick={() => deletePhase(phase.id, lot.id)}
-                                              title="Supprimer"
-                                            >
-                                              <FaTrash />
-                                            </button>
+                                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                              <div>
+                                                <span className="phase-order">
+                                                  {phase.order}.{" "}
+                                                </span>
+                                                <span className="phase-name">
+                                                  {phase.name}
+                                                </span>
+                                              </div>
+                                              <div className="phase-actions">
+                                                <button
+                                                  className="btn btn-sm btn-success me-1"
+                                                  onClick={() => openAddDeliverable(phase.id)}
+                                                  title="Ajouter un livrable"
+                                                >
+                                                  <FaCalendar className="me-1" />
+                                                  Livrable
+                                                </button>
+                                                <button
+                                                  className="btn-icon"
+                                                  onClick={() => openEditPhase(phase, lot.id)}
+                                                  title="Modifier"
+                                                >
+                                                  <FaEdit />
+                                                </button>
+                                                <button
+                                                  className="btn-icon"
+                                                  onClick={() => deletePhase(phase.id, lot.id)}
+                                                  title="Supprimer"
+                                                >
+                                                  <FaTrash />
+                                                </button>
+                                              </div>
+                                            </div>
+
+                                            {/* LIVRABLES */}
+                                            {deliverables.get(phase.id) && deliverables.get(phase.id)!.length > 0 && (
+                                              <div className="deliverables-section mt-2 ms-4">
+                                                <div className="deliverables-list-sortable">
+                                                  {deliverables.get(phase.id)!
+                                                    .sort((a, b) => a.order - b.order)
+                                                    .map((deliverable) => (
+                                                      <div key={deliverable.id} className="deliverable-item">
+                                                        <div className="deliverable-drag-handle">⋮⋮</div>
+                                                        <div className="deliverable-content">
+                                                          <div className="d-flex justify-content-between align-items-start">
+                                                            <div>
+                                                              <strong>{deliverable.name}</strong>
+                                                              <div className="text-muted small">
+                                                                <FaCalendar className="me-1" />
+                                                                {formatDate(deliverable.deliveryDate)}
+                                                              </div>
+                                                              {deliverable.description && (
+                                                                <div className="text-muted small mt-1">
+                                                                  {deliverable.description}
+                                                                </div>
+                                                              )}
+                                                            </div>
+                                                            <div className="deliverable-actions">
+                                                              <button
+                                                                className="btn-icon"
+                                                                onClick={() => openEditDeliverable(deliverable, phase.id)}
+                                                                title="Modifier"
+                                                              >
+                                                                <FaEdit />
+                                                              </button>
+                                                              <button
+                                                                className="btn-icon"
+                                                                onClick={() => deleteDeliverable(deliverable.id, phase.id)}
+                                                                title="Supprimer"
+                                                              >
+                                                                <FaTrash />
+                                                              </button>
+                                                            </div>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                    ))}
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
                                         </div>
                                       ))}
@@ -1502,6 +1788,75 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                 : "Ajouter"
             }
             onClick={savePhase}
+          />
+        </Modal.Footer>
+      </Modal>
+
+      {/* MODAL DELIVERABLE */}
+      <Modal
+        show={showDeliverableModal}
+        onHide={() => !saving && setShowDeliverableModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {editingDeliverable ? "Modifier le livrable" : "Ajouter un livrable"}
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Nom du livrable *</Form.Label>
+              <Form.Control
+                value={newDeliverable.name}
+                onChange={(e) => setNewDeliverable({ ...newDeliverable, name: e.target.value })}
+                placeholder="Entrez le nom du livrable"
+                disabled={saving}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Date de livraison *</Form.Label>
+              <Form.Control
+                type="date"
+                value={newDeliverable.deliveryDate}
+                onChange={(e) => setNewDeliverable({ ...newDeliverable, deliveryDate: e.target.value })}
+                disabled={saving}
+              />
+            </Form.Group>
+
+            <Form.Group>
+              <Form.Label>Description du livrable</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={newDeliverable.description}
+                onChange={(e) => setNewDeliverable({ ...newDeliverable, description: e.target.value })}
+                placeholder="Entrez la description du livrable"
+                disabled={saving}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            label="Annuler"
+            variant="outline"
+            onClick={() => setShowDeliverableModal(false)}
+          />
+          <Button
+            label={
+              editingDeliverable
+                ? saving
+                  ? "Enregistrement..."
+                  : "Enregistrer"
+                : saving
+                ? "Ajout..."
+                : "Ajouter"
+            }
+            onClick={saveDeliverable}
           />
         </Modal.Footer>
       </Modal>

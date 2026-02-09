@@ -175,3 +175,33 @@ export interface CreateBacklogRequest {
   leadId: number;
   desc?: string; 
 }
+export interface BacklogDeliverable {
+  id: number;
+  name: string;
+  deliveryDate: string; 
+  description: string;
+  phaseId: number;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateBacklogDeliverableRequest {
+  name: string;
+  deliveryDate: string;
+  description: string;
+  phaseId: number;
+  order: number;
+}
+
+export interface UpdateBacklogDeliverableRequest {
+  name?: string;
+  deliveryDate?: string;
+  description?: string;
+  order?: number;
+}
+
+export interface UpdateDeliverableOrderRequest {
+  id: number;
+  order: number;
+}
