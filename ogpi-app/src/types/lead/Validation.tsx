@@ -16,6 +16,7 @@ export interface Validation {
   commentaire: string;
   leadId: number;
   role: ValidationRole;
+  dateValidation:String;
 }
 
 export interface CreateValidationRequest {

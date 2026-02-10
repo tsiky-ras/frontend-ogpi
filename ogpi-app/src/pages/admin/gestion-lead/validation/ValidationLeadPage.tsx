@@ -21,8 +21,7 @@ const ValidationLeadPage: React.FC = () => {
   const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "go" | "nogo">("all");
-  const [expandedLeadId, setExpandedLeadId] = useState<number | null>(null);
-  const [loadingLeadDetails, setLoadingLeadDetails] = useState<number | null>(null);
+  const [loadingLeadDetails, setLoadingLeadDetails] = useState<Set<number>>(new Set());
   const [leadDetails, setLeadDetails] = useState<Map<number, Lead>>(new Map());
 
   /* ================= LOAD DATA ================= */
@@ -56,16 +55,32 @@ const ValidationLeadPage: React.FC = () => {
       return;
     }
 
-    setLoadingLeadDetails(leadId);
+    setLoadingLeadDetails(prev => new Set(prev).add(leadId));
     try {
+      console.log(`🔍 Chargement des détails pour le lead ${leadId}...`);
       // Appeler l'endpoint qui retourne tous les détails
       const fullLead = await leadService.getValidationById(leadId);
+      console.log(`✅ Détails chargés pour le lead ${leadId}:`, fullLead);
       
       setLeadDetails(prev => new Map(prev).set(leadId, fullLead));
     } catch (e) {
       console.error("Erreur chargement détails lead", e);
     } finally {
-      setLoadingLeadDetails(null);
+      setLoadingLeadDetails(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(leadId);
+        return newSet;
+      });
+    }
+  };
+
+  /**
+   * 🔥 Callback appelé quand l'utilisateur déplie un lead
+   */
+  const handleToggleExpand = (leadId: number, isExpanded: boolean) => {
+    if (isExpanded) {
+      console.log(`📂 Lead ${leadId} déplié - chargement des détails...`);
+      loadLeadDetails(leadId);
     }
   };
 
@@ -79,7 +94,7 @@ const ValidationLeadPage: React.FC = () => {
     try {
       const request: CreateValidationRequest = {
         leadId,
-        decision: 0, // 1 = Go
+        decision: 0, // 0 = Go
         commentaire: comment,
       };
 
@@ -97,9 +112,8 @@ const ValidationLeadPage: React.FC = () => {
         return newMap;
       });
       
-      if (expandedLeadId === leadId) {
-        await loadLeadDetails(leadId);
-      }
+      // Recharger les détails si le lead est toujours affiché
+      await loadLeadDetails(leadId);
     } catch (e) {
       console.error("Erreur validation lead", e);
       alert("Erreur lors de la validation");
@@ -115,7 +129,7 @@ const ValidationLeadPage: React.FC = () => {
     try {
       const request: CreateValidationRequest = {
         leadId,
-        decision: 1, // 0 = No Go
+        decision: 1, // 1 = No Go
         commentaire: comment,
       };
 
@@ -133,9 +147,8 @@ const ValidationLeadPage: React.FC = () => {
         return newMap;
       });
       
-      if (expandedLeadId === leadId) {
-        await loadLeadDetails(leadId);
-      }
+      // Recharger les détails si le lead est toujours affiché
+      await loadLeadDetails(leadId);
     } catch (e) {
       console.error("Erreur rejet lead", e);
       alert("Erreur lors du rejet");
@@ -146,13 +159,6 @@ const ValidationLeadPage: React.FC = () => {
     loadLeadsToValidate();
     loadLeadStatuses();
   }, []);
-
-  // Charger les détails quand un lead est étendu
-  useEffect(() => {
-    if (expandedLeadId !== null) {
-      loadLeadDetails(expandedLeadId);
-    }
-  }, [expandedLeadId]);
 
   /* ================= FILTER ================= */
   const STATUS_FILTER_BY_LABEL: Record<string, "all" | "pending" | "go" | "nogo"> = {
@@ -193,14 +199,16 @@ const ValidationLeadPage: React.FC = () => {
     const detailedLead = leadDetails.get(lead.leadId);
     
     if (detailedLead) {
-      // Utiliser les détails complets si disponibles
+      // ✅ Utiliser les détails complets si disponibles
+      console.log(`✅ Utilisation des détails complets pour le lead ${lead.leadId}`);
       return {
         ...detailedLead,
-        id:  detailedLead.id,
+        id: detailedLead.id,
       } as Lead;
     }
     
-    // Sinon, mapper les données basiques
+    // ⚠️ Sinon, mapper les données basiques
+    console.log(`⚠️ Utilisation des données basiques pour le lead ${lead.leadId}`);
     return {
       id: lead.leadId,
       businessUnit: lead.businessUnit,
@@ -280,24 +288,17 @@ const ValidationLeadPage: React.FC = () => {
 
       {!loading &&
         filteredLeads.map((lead) => {
-          const isLoading = loadingLeadDetails === lead.leadId;
+          const isLoading = loadingLeadDetails.has(lead.leadId);
           
           return (
             <div key={lead.leadId} className="mb-4">
-              {isLoading ? (
-                <div className="text-center p-4">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Chargement...</span>
-                  </div>
-                  <p className="mt-2">Chargement des détails...</p>
-                </div>
-              ) : (
-                <ValidationFormPage
-                  lead={mapLeadData(lead)}
-                  onValidate={(comment) => handleValidate(lead.leadId, comment)}
-                  onReject={(comment) => handleReject(lead.leadId, comment)}
-                />
-              )}
+              <ValidationFormPage
+                lead={mapLeadData(lead)}
+                onValidate={(comment) => handleValidate(lead.leadId, comment)}
+                onReject={(comment) => handleReject(lead.leadId, comment)}
+                onToggleExpand={(isExpanded) => handleToggleExpand(lead.leadId, isExpanded)}
+                isLoadingDetails={isLoading}
+              />
             </div>
           );
         })}
