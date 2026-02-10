@@ -10,26 +10,59 @@ import { BusinessUnit } from '../profil/poste/BusinessUnit.tsx';
 import { DriveFile } from './DriveFile.tsx';
 import { DriveFolder } from './DriveFolder.tsx';
 
+// Types pour les historiques et statuts actuels
+export interface LeadStep {
+  id: number;
+  order: number;
+  label: string;
+}
+
+export interface CurrentLeadStatus {
+  id: number;
+  dateUpdated: string;
+  leadId: number;
+  leadStatus: LeadStatus;
+}
+
+export interface CurrentLeadStep {
+  id: number;
+  dateChangement: string;
+  leadId: number;
+  leadStep: LeadStep;
+}
+
+export interface CreatedByUser {
+  id: number;
+  username: string;
+  email: string;
+}
+
 export interface Lead {
+  // Identifiants
   id: number;               
   name: string;            
   reference: string;        
   description: string;       
 
+  // Dates
   periode: string;           
   internalDeadline: string;  
   realDeadline: string;      
 
+  // Détails du projet
   projetFinancement: string; 
   commentaire: string;      
 
-  zone: number;             
+  // Zone et JIRA
+  zone: number;              // 0 = Local, 1 = OffShore
   jiraProject: string;     
   jiraTicket: string;        
 
+  // Drive
   driveFolder?: DriveFolder; 
   driveFile?: DriveFile;
   
+  // Relations
   client: Client;
   type: LeadType;
   category: LeadCategory;
@@ -38,6 +71,13 @@ export interface Lead {
   typeFinancement: TypeProjetFinancement;
   businessUnit: BusinessUnit;
 
+  // Partenaires
   partenaires: Partenaire[];
 
+  // Statut et étape actuels
+  currentLeadStatus?: CurrentLeadStatus;
+  currentLeadStep?: CurrentLeadStep;
+
+  // Créateur du lead
+  createdByUser?: CreatedByUser;
 }

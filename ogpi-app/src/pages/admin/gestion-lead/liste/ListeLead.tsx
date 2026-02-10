@@ -81,6 +81,9 @@ const ListeLead: React.FC = () => {
             }
           : null,
 
+        // 🔥 Créateur du lead
+        createdByUser: fullLead.createdByUser || null,
+
         // 🔥 Partenaires normalisés (depuis leadPartenaires du getById)
         partenaires: fullLead.leadPartenaires?.map((lp: any) => lp.partenaire) || [],
         leadPartenaires: fullLead.leadPartenaires || [],
@@ -130,29 +133,49 @@ const ListeLead: React.FC = () => {
       const data = await leadService.getAll();
 
       const leadsData: Lead[] = data.map((lead: any) => ({
+        // Identifiants
         id: lead.leadId,
         name: lead.leadName,
-        reference: lead.leadRef,
+        reference: lead.leadRef || '',
+        
+        // Informations de base
         businessUnit: lead.businessUnit,
         typeFinancement: lead.typeProjetFinancement,
-        description: lead.leadDescription,
+        description: lead.leadDescription || '',
+        
+        // Dates
         periode: lead.leadPeriode,
-        internalDeadline: lead.leadInternalDeadLine,
-        realDeadline: lead.leadRealDeadLine,
-        projetFinancement: lead.typeProjetFinancement,
-        commentaire: lead.leadCommentaire,
-        zone: lead.leadZone === 0 ? "Local" : "OffShore",
-        jiraProject: lead.leadGoProjetJira,
-        jiraTicket: lead.leadGoTicketJira,
+        internalDeadline: lead.leadInternalDeadLine || '',
+        realDeadline: lead.leadRealDeadLine || '',
+        
+        // Détails du projet
+        projetFinancement: lead.projetDeFinancement || '',
+        commentaire: lead.leadCommentaire || '',
+        
+        // Zone et JIRA
+        zone: lead.leadZone === 0 ? 0 : 1,  // Garder le nombre au lieu de transformer en string
+        jiraProject: lead.leadGoProjetJira || '',
+        jiraTicket: lead.leadGoTicketJira || '',
+        
+        // Drive
         driveFolder: lead.driveFolder || undefined,
         driveFile: lead.mainDriveFile || undefined,
+        
+        // Relations
         client: lead.client,
         type: lead.leadType,
         category: lead.category,
         secteur: lead.leadSecteur,
+        
+        // Statuts et étapes
         status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'En attente', order: 0 },
         currentLeadStatus: lead.currentLeadStatus,
-        // Note: partenaires et historiques ne sont pas dans getAll pour des raisons de performance
+        currentLeadStep: lead.currentLeadStep,
+        
+        // Créateur
+        createdByUser: lead.createdByUser || undefined,
+        
+        // Partenaires (vide dans getAll)
         partenaires: [],
       }));
 
@@ -287,7 +310,7 @@ const ListeLead: React.FC = () => {
     },
     { key: 'projetFinancement', label: 'Type de financement', render: (row: Lead) => row.typeFinancement?.label || '-' },
     { key: 'commentaire', label: 'Commentaire', render: (row: Lead) => row.commentaire || '-' },
-    { key: 'zone', label: 'Zone', render: (row: Lead) => row.zone != null ? row.zone : '-' },
+    { key: 'zone', label: 'Zone', render: (row: Lead) => row.zone === 0 ? 'Local' : 'OffShore' },
     {
       key: 'partenaires',
       label: 'Partenaires',
@@ -315,6 +338,11 @@ const ListeLead: React.FC = () => {
           : '-',
     },
     {
+      key: 'createdBy',
+      label: 'Créé par',
+      render: (row: Lead) => row.createdByUser?.username || '-',
+    },
+    {
       key: 'status',
       label: 'Statut',
       render: (row: Lead) => {
@@ -326,6 +354,15 @@ const ListeLead: React.FC = () => {
         };
         const [cls, label] = map[row.status.label] || ['bg-secondary', 'En attente de validation'];
         return <span className={`badge ${cls}`}>{label}</span>;
+      },
+    },
+    {
+      key: 'step',
+      label: 'Étape',
+      render: (row: Lead) => {
+        const stepLabel = row.currentLeadStep?.leadStep?.label;
+        if (!stepLabel) return '-';
+        return <span className="badge bg-primary">{stepLabel}</span>;
       },
     },
     {
