@@ -693,11 +693,8 @@
 }
 
 /* ===== TEXTE ===== */
-.comment-text {
-  font-size: 0.95rem;
-  color: #1a1c1d;
-  line-height: 1.6;
-  margin: 0.25rem 0 0 0;
-  white-space: pre-wrap;
-  padding-left: 0.25rem;
+.comment-text{
+  background-color: #ffffff !important;
+  color: #223A46 !important;
 }
+

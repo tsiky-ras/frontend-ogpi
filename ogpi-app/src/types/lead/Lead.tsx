@@ -74,6 +74,8 @@ export interface Lead {
 
   // Partenaires
   partenaires: Partenaire[];
+  // used for display
+  leadPartenaires:Partenaire[];
 
   // Statut et étape actuels
   currentLeadStatus?: CurrentLeadStatus;

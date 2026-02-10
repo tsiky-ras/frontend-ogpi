@@ -198,18 +198,8 @@ const ValidationLeadPage: React.FC = () => {
   const mapLeadData = (lead: any): Lead => {
     const detailedLead = leadDetails.get(lead.leadId);
     
-    if (detailedLead) {
-      // ✅ Utiliser les détails complets si disponibles
-      console.log(`✅ Utilisation des détails complets pour le lead ${lead.leadId}`);
-      return {
-        ...detailedLead,
-        id: detailedLead.id,
-      } as Lead;
-    }
-    
-    // ⚠️ Sinon, mapper les données basiques
-    console.log(`⚠️ Utilisation des données basiques pour le lead ${lead.leadId}`);
-    return {
+    // Données de base communes aux deux cas
+    const baseData = {
       id: lead.leadId,
       businessUnit: lead.businessUnit,
       name: lead.leadName,
@@ -224,7 +214,6 @@ const ValidationLeadPage: React.FC = () => {
       realDeadline: lead.leadRealDeadLine || '',
       driveFolder: lead.driveFolder,
       driveFile: lead.mainDriveFile,
-      partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
       status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'En attente', order: 0 },
       currentLeadStatus: lead.currentLeadStatus,
       currentLeadStep: lead.currentLeadStep,
@@ -235,8 +224,36 @@ const ValidationLeadPage: React.FC = () => {
       jiraTicket: lead.leadGoTicketJira || '',
       typeFinancement: lead.typeProjetFinancement,
       createdByUser: lead.createdByUser,
-      validations: lead.validations || [],
     };
+    
+    if (detailedLead) {
+      // ✅ Fusionner les détails complets avec les données de base pour ne rien perdre
+      console.log(`✅ Utilisation des détails complets pour le lead ${lead.leadId}`);
+      console.log(`📊 Structure complète detailedLead:`, detailedLead);
+      console.log(`📊 leadPartenaires brut:`, detailedLead.leadPartenaires);
+      
+      const mappedPartenaires = detailedLead.leadPartenaires?.map((lp: any) => {
+        console.log(`🔍 Mapping leadPartenaire:`, lp);
+        console.log(`🔍 Partenaire extrait:`, lp.partenaire);
+        return lp.partenaire;
+      }) || [];
+      
+      console.log(`📊 Partenaires mappés (total: ${mappedPartenaires.length}):`, mappedPartenaires);
+      
+      return {
+        ...baseData,
+        partenaires: mappedPartenaires,
+        validations: detailedLead.validations || [],
+      } as Lead;
+    }
+    
+    // ⚠️ Sinon, mapper les données basiques
+    console.log(`⚠️ Utilisation des données basiques pour le lead ${lead.leadId}`);
+    return {
+      ...baseData,
+      partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
+      validations: lead.validations || [],
+    } as Lead;
   };
 
   /* ================= RENDER ================= */
