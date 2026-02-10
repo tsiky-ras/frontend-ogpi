@@ -20,6 +20,17 @@ export class LeadService {
     }
   }
 
+
+  async getToValidate() {
+    try {
+      const response = await this.api.get('/leads/tovalidate');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des leads :', error);
+      throw error;
+    }
+  }
+
   /**
    * Récupère tous les leads à partir de leur statut
    */
@@ -40,6 +51,16 @@ export class LeadService {
   async getById(id: number) {
     try {
       const response = await this.api.get(`/leads/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors de la récupération du lead ${id} :`, error);
+      throw error;
+    }
+  }
+
+  async getValidationById(id: number) {
+    try {
+      const response = await this.api.get(`/leads/validation/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération du lead ${id} :`, error);

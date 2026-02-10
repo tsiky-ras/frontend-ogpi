@@ -1,37 +1,43 @@
-import { useAuth } from "../../context/AuthContext.tsx";
-import { Validation } from "../../types/lead/Validation.tsx";
+import { CreateValidationRequest, Validation } from '../../types/lead/Validation.tsx';
 
-export const useValidationService = () => {
-  const { api } = useAuth();
+export class ValidationService {
+  private api: any;
 
-  const base = "/leads";
+  constructor(api: any) {
+    this.api = api;
+  }
 
   /**
    * Créer une validation pour un lead
    */
-  const create = async (
-    leadId: number,
-    validation: Validation
-  ): Promise<Validation> => {
-    const res = await api.post(
-      `${base}/${leadId}/validations`,
-      validation
-    );
-    return res.data;
-  };
+  async create(request: CreateValidationRequest): Promise<Validation> {
+    try {
+      const response = await this.api.post('/lead-validations/validate', request);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la création de la validation:', error);
+      throw error;
+    }
+  }
 
   /**
-   * Vérifier si un lead est GO
+   * Récupérer toutes les validations d'un lead
    */
-  const isLeadGo = async (leadId: number): Promise<boolean> => {
-    const res = await api.get(
-      `${base}/${leadId}/validations/go`
-    );
-    return res.data;
-  };
+  async getByLeadId(leadId: number): Promise<Validation[]> {
+    try {
+      const response = await this.api.get(`/lead-validations/lead/${leadId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des validations:', error);
+      throw error;
+    }
+  }
+}
 
+export const useValidationService = () => {
+  // Ce hook peut être utilisé si vous avez un contexte d'API
+  // Pour l'instant, retournons juste les méthodes
   return {
-    create,
-    isLeadGo,
+    ValidationService,
   };
 };

@@ -5,26 +5,31 @@ import { LeadService } from "../../../../services/lead/LeadService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import { LeadStatus } from "../../../../types/lead/LeadStatus.tsx";
 import { LeadStatusService } from "../../../../services/lead/LeadStatusService.tsx";
-import { useValidationService } from "../../../../services/lead/ValidationService.tsx";
-import { RoleUser } from "../../../../types/user/RoleUser.tsx";
+import { ValidationService } from "../../../../services/lead/ValidationService.tsx";
+import { CreateValidationRequest } from "../../../../types/lead/Validation.tsx";
+import { Lead } from "../../../../types/lead/Lead.tsx";
+
 const ValidationLeadPage: React.FC = () => {
   const { api, user } = useAuth();
 
   const leadService = new LeadService(api);
   const leadStatusService = new LeadStatusService(api);
-  const { create: createValidation } = useValidationService();
+  const validationService = new ValidationService(api);
 
   const [search, setSearch] = useState("");
   const [leads, setLeads] = useState<any[]>([]);
   const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "go" | "nogo">("all");
+  const [expandedLeadId, setExpandedLeadId] = useState<number | null>(null);
+  const [loadingLeadDetails, setLoadingLeadDetails] = useState<number | null>(null);
+  const [leadDetails, setLeadDetails] = useState<Map<number, Lead>>(new Map());
 
   /* ================= LOAD DATA ================= */
   const loadLeadsToValidate = async () => {
     setLoading(true);
     try {
-      const data = await leadService.getAll();
+      const data = await leadService.getToValidate();
       setLeads(data);
     } catch (e) {
       console.error("Erreur chargement leads", e);
@@ -42,107 +47,112 @@ const ValidationLeadPage: React.FC = () => {
     }
   };
 
-  /* ================= VALIDATE / REJECT ================= */
-    console.log(user)
-    console.log(user?.userId);
-    console.log(user?.role?.roleId)
+  /**
+   * 🔥 Charger les détails complets d'un lead (avec partenaires et validations)
+   */
+  const loadLeadDetails = async (leadId: number) => {
+    if (leadDetails.has(leadId)) {
+      // Détails déjà chargés
+      return;
+    }
 
+    setLoadingLeadDetails(leadId);
+    try {
+      // Appeler l'endpoint qui retourne tous les détails
+      const fullLead = await leadService.getValidationById(leadId);
+      
+      setLeadDetails(prev => new Map(prev).set(leadId, fullLead));
+    } catch (e) {
+      console.error("Erreur chargement détails lead", e);
+    } finally {
+      setLoadingLeadDetails(null);
+    }
+  };
+
+  /* ================= VALIDATE / REJECT ================= */
   const handleValidate = async (leadId: number, comment: string) => {
     if (!user) {
       alert("Impossible de valider : utilisateur non connecté.");
       return;
     }
 
-    if (!user.role || !user.role.roleId) {
-      alert("Impossible de valider : votre rôle n'est pas défini correctement.");
-      console.error("Rôle de l'utilisateur manquant :", user);
-      return;
-    }
-
     try {
-      const roleUser: RoleUser = {
-        id: 0, 
-        user: {
-          userId: user.userId,
-          username: user.username,
-          email: user.email,
-          is_active:true,
-        },
-        role: {
-          roleId: user.role.roleId,
-          roleLabel: user.role.roleLabel,
-        },
+      const request: CreateValidationRequest = {
+        leadId,
+        decision: 0, // 1 = Go
+        commentaire: comment,
       };
 
-      console.log("Validation envoyée :", {
-        leadId,
-        comment,
-        validatedBy: roleUser,
-      });
+      console.log("Validation envoyée :", request);
 
-      await createValidation(leadId, {
-        decision: 1, 
-        comments: comment,
-        validatedBy: roleUser,
-      });
-
+      await validationService.create(request);
+      
+      // Recharger les leads et les détails du lead validé
       await loadLeadsToValidate();
+      
+      // Forcer le rechargement des détails
+      setLeadDetails(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(leadId);
+        return newMap;
+      });
+      
+      if (expandedLeadId === leadId) {
+        await loadLeadDetails(leadId);
+      }
     } catch (e) {
       console.error("Erreur validation lead", e);
+      alert("Erreur lors de la validation");
     }
   };
 
-    const handleReject = async (leadId: number, comment: string) => {
+  const handleReject = async (leadId: number, comment: string) => {
     if (!user) {
-      alert("Impossible de valider : utilisateur non connecté.");
-      return;
-    }
-
-    if (!user.role || !user.role.roleId) {
-      alert("Impossible de valider : votre rôle n'est pas défini correctement.");
-      console.error("Rôle de l'utilisateur manquant :", user);
+      alert("Impossible de rejeter : utilisateur non connecté.");
       return;
     }
 
     try {
-      const roleUser: RoleUser = {
-        id: 0, 
-        user: {
-          userId: user.userId,
-          username: user.username,
-          email: user.email,
-          is_active:true
-        },
-        role: {
-          roleId: user.role.roleId,
-          roleLabel: user.role.roleLabel,
-        },
+      const request: CreateValidationRequest = {
+        leadId,
+        decision: 1, // 0 = No Go
+        commentaire: comment,
       };
 
-      console.log("Validation envoyée :", {
-        leadId,
-        comment,
-        validatedBy: roleUser,
-      });
+      console.log("Rejet envoyé :", request);
 
-      await createValidation(leadId, {
-        decision: 0, 
-        comments: comment,
-        validatedBy: roleUser,
-      });
-
+      await validationService.create(request);
+      
+      // Recharger les leads et les détails du lead rejeté
       await loadLeadsToValidate();
+      
+      // Forcer le rechargement des détails
+      setLeadDetails(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(leadId);
+        return newMap;
+      });
+      
+      if (expandedLeadId === leadId) {
+        await loadLeadDetails(leadId);
+      }
     } catch (e) {
-      console.error("Erreur validation lead", e);
+      console.error("Erreur rejet lead", e);
+      alert("Erreur lors du rejet");
     }
   };
-
-
 
   useEffect(() => {
     loadLeadsToValidate();
     loadLeadStatuses();
   }, []);
+
+  // Charger les détails quand un lead est étendu
+  useEffect(() => {
+    if (expandedLeadId !== null) {
+      loadLeadDetails(expandedLeadId);
+    }
+  }, [expandedLeadId]);
 
   /* ================= FILTER ================= */
   const STATUS_FILTER_BY_LABEL: Record<string, "all" | "pending" | "go" | "nogo"> = {
@@ -175,6 +185,51 @@ const ValidationLeadPage: React.FC = () => {
         l.client?.name?.toLowerCase().includes(value)
     );
   }, [search, leads, activeFilter, leadStatuses]);
+
+  /**
+   * Mapper les données du lead pour le composant
+   */
+  const mapLeadData = (lead: any): Lead => {
+    const detailedLead = leadDetails.get(lead.leadId);
+    
+    if (detailedLead) {
+      // Utiliser les détails complets si disponibles
+      return {
+        ...detailedLead,
+        id:  detailedLead.id,
+      } as Lead;
+    }
+    
+    // Sinon, mapper les données basiques
+    return {
+      id: lead.leadId,
+      businessUnit: lead.businessUnit,
+      name: lead.leadName,
+      reference: lead.leadRef || '',
+      client: lead.client,
+      type: lead.leadType,
+      category: lead.category,
+      secteur: lead.leadSecteur,
+      zone: lead.leadZone,
+      description: lead.leadDescription || '',
+      internalDeadline: lead.leadInternalDeadLine || '',
+      realDeadline: lead.leadRealDeadLine || '',
+      driveFolder: lead.driveFolder,
+      driveFile: lead.mainDriveFile,
+      partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
+      status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'En attente', order: 0 },
+      currentLeadStatus: lead.currentLeadStatus,
+      currentLeadStep: lead.currentLeadStep,
+      periode: lead.leadPeriode,
+      projetFinancement: lead.projetDeFinancement || '',
+      commentaire: lead.leadCommentaire || '',
+      jiraProject: lead.leadGoProjetJira || '',
+      jiraTicket: lead.leadGoTicketJira || '',
+      typeFinancement: lead.typeProjetFinancement,
+      createdByUser: lead.createdByUser,
+      validations: lead.validations || [],
+    };
+  };
 
   /* ================= RENDER ================= */
   return (
@@ -224,38 +279,28 @@ const ValidationLeadPage: React.FC = () => {
       {!loading && filteredLeads.length === 0 && <p className="mt-3">Aucun lead trouvé.</p>}
 
       {!loading &&
-        filteredLeads.map((lead) => (
-          <div key={lead.leadId} className="mb-4">
-            <ValidationFormPage
-              lead={{
-                id: lead.leadId,
-                businessUnit: lead.businessUnit,
-                name: lead.leadName,
-                reference: lead.leadRef,
-                client: lead.client,
-                type: lead.leadType,
-                category: lead.category,
-                secteur: lead.leadSecteur,
-                zone: lead.leadZone,
-                description: lead.leadDescription,
-                internalDeadline: lead.leadInternalDeadLine,
-                realDeadline: lead.leadRealDeadLine,
-                driveFolder: lead.driveFolder,
-                driveFile: lead.mainDriveFile,
-                partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
-                status: lead.currentLeadStatus?.leadStatus,
-                periode: lead.leadPeriode,
-                projetFinancement: lead.typeProjetFinancement,
-                commentaire: lead.leadCommentaire,
-                jiraProject: lead.leadGoProjetJira,
-                jiraTicket: lead.leadGoTicketJira,
-                typeFinancement: lead.typeProjetFinancement,
-              }}
-              onValidate={(comment) => handleValidate(lead.leadId, comment)}
-              onReject={(comment) => handleReject(lead.leadId, comment)}
-            />
-          </div>
-        ))}
+        filteredLeads.map((lead) => {
+          const isLoading = loadingLeadDetails === lead.leadId;
+          
+          return (
+            <div key={lead.leadId} className="mb-4">
+              {isLoading ? (
+                <div className="text-center p-4">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Chargement...</span>
+                  </div>
+                  <p className="mt-2">Chargement des détails...</p>
+                </div>
+              ) : (
+                <ValidationFormPage
+                  lead={mapLeadData(lead)}
+                  onValidate={(comment) => handleValidate(lead.leadId, comment)}
+                  onReject={(comment) => handleReject(lead.leadId, comment)}
+                />
+              )}
+            </div>
+          );
+        })}
     </div>
   );
 };

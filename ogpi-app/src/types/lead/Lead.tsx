@@ -9,6 +9,7 @@ import { TypeProjetFinancement } from './TypeProjetFinancement.tsx';
 import { BusinessUnit } from '../profil/poste/BusinessUnit.tsx';
 import { DriveFile } from './DriveFile.tsx';
 import { DriveFolder } from './DriveFolder.tsx';
+import { Validation } from './Validation.tsx';
 
 // Types pour les historiques et statuts actuels
 export interface LeadStep {
@@ -80,4 +81,7 @@ export interface Lead {
 
   // Créateur du lead
   createdByUser?: CreatedByUser;
+
+  // Validations
+  validations?: Validation[];
 }

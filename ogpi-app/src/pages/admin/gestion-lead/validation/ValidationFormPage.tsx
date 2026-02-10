@@ -11,6 +11,9 @@ import {
   FaBuilding,
   FaChevronDown,
   FaChevronUp,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaUser,
 } from "react-icons/fa";
 import { Lead } from "../../../../types/lead/Lead.tsx";
 import "./ValidationFormPage.css";
@@ -22,17 +25,17 @@ interface ValidationFormProps {
   readonly?: boolean;
 }
 
-  type StatusBadgeConfig = {
-    className: string;
-  };
+type StatusBadgeConfig = {
+  className: string;
+};
 
-  const STATUS_BADGE_BY_LABEL: Record<string, StatusBadgeConfig> = {
-    "En attente de validation": { className: "bg-warning text-dark" },
-    "Go": { className: "bg-success" },
-    "No Go": { className: "bg-danger" },
-  };
+const STATUS_BADGE_BY_LABEL: Record<string, StatusBadgeConfig> = {
+  "En attente de validation": { className: "bg-warning text-dark" },
+  "Go": { className: "bg-success" },
+  "No Go": { className: "bg-danger" },
+};
 
-  const STATUS_CLASS_BY_LABEL: Record<string, string> = {
+const STATUS_CLASS_BY_LABEL: Record<string, string> = {
   "En attente de validation": "status-pending",
   "Go": "status-go",
   "No Go": "status-nogo",
@@ -48,6 +51,20 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   
   if (!lead) return null;
+
+  // Fonction pour obtenir le label de décision
+  const getDecisionLabel = (decision: number) => {
+    return decision === 1 ? "Go" : "No Go";
+  };
+
+  // Fonction pour obtenir l'icône de décision
+  const getDecisionIcon = (decision: number) => {
+    return decision === 1 ? (
+      <FaCheckCircle className="validation-icon-go" />
+    ) : (
+      <FaTimesCircle className="validation-icon-nogo" />
+    );
+  };
 
   return (
     <div className="validation-form-container">
@@ -71,6 +88,11 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
               >
                 {lead.status?.label || "Statut inconnu"}
               </div>
+              {lead.validations && lead.validations.length > 0 && (
+                <div className="validation-count-badge">
+                  {lead.validations.length} validation{lead.validations.length > 1 ? 's' : ''}
+                </div>
+              )}
             </div>
           </div>
           <button className="expand-toggle" type="button">
@@ -90,6 +112,41 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
 
         {/* ===== CONTENU DÉVELOPPABLE ===== */}
         <div className={`validation-expandable ${isExpanded ? 'expanded' : 'collapsed'}`}>
+          {/* ===== HISTORIQUE DES VALIDATIONS ===== */}
+          {lead.validations && lead.validations.length > 0 && (
+            <div className="validations-history-section">
+              <h3 className="section-title">Historique des validations</h3>
+              <div className="validations-list">
+                {lead.validations.map((validation) => (
+                  <div 
+                    key={validation.id} 
+                    className={`validation-item ${validation.decision === 1 ? 'validation-go' : 'validation-nogo'}`}
+                  >
+                    <div className="validation-item-header">
+                      <div className="validation-decision">
+                        {getDecisionIcon(validation.decision)}
+                        <span className="validation-decision-label">
+                          {getDecisionLabel(validation.decision)}
+                        </span>
+                      </div>
+                      <div className="validation-user-info">
+                        <FaUser className="user-icon" />
+                        <span className="user-name">{validation.user.username}</span>
+                        <span className="user-role">({validation.role.roleLabel})</span>
+                      </div>
+                    </div>
+                    {validation.commentaire && (
+                      <div className="validation-item-comment">
+                        <FaFileAlt className="comment-icon" />
+                        <p>{validation.commentaire}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ===== CONTENU PRINCIPAL ===== */}
           <div className="validation-content">
             {/* ===== COLONNE GAUCHE - INFORMATIONS GÉNÉRALES ===== */}
@@ -197,7 +254,7 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
                 {lead.partenaires && lead.partenaires.length > 0 ? (
                   <div className="contact-details">
                     {lead.partenaires.map((p, index) => (
-                      <div key={index} className="contact-details">
+                      <div key={index} className="contact-details mb-3">
                         <div className="contact-row">
                           <span className="contact-label">Nom :</span>
                           <span className="contact-value">{p.name}</span>
@@ -210,6 +267,7 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
                           <span className="contact-label">Téléphone :</span>
                           <span className="contact-value">{p.phone || "-"}</span>
                         </div>
+                        {index < lead.partenaires.length - 1 && <hr className="my-2" />}
                       </div>
                     ))}
                   </div>
