@@ -78,4 +78,5 @@ export interface LeadTechFinDetails {
   typeFacturation: {
     idTypeFacturation: number;
   };
+  volumeJHVenduEtMontant?: ChiffresBacklog[];
 }

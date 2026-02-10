@@ -34,9 +34,6 @@ type FormLeadProps = {
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
   const { api } = useAuth();
   const leadService = new LeadService(api);
-  // if (lead?.id) {
-  //   lead=leadService.getById(lead.id);
-  // }
   const deviseService = useDeviseService();
   const technoService = useTechnoService();
   const typeFacturationService = useTypeFacturationService();
@@ -101,28 +98,41 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     setFormTechFin((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  const mapLeadToForm = (lead: any) => ({
-    periode: lead.leadPeriode?.substring(0, 7) || "",
-    nom: lead.leadName || "",
-    reference: lead.leadRef || "",
-    description: lead.leadDescription || "",
-    commentaire: lead.leadCommentaire || "",
-    zone: lead.leadZone ?? "",
-    businessUnit: lead.businessUnit?.id || "",
-    typeOpportunite: lead.leadType?.id || "",
-    categorie: lead.category?.id || "",
-    secteur: lead.leadSecteur?.id || "",
-    statut: lead.currentLeadStatus?.leadStatus?.id || "1",
-    client: lead.client || null,
-    leadPartenaire: lead.leadPartenaires?.length ? lead.leadPartenaires : null,
-    typeFinancement: lead.typeProjetFinancement || null,
-    realDeadline: lead.leadRealDeadLine ? lead.leadRealDeadLine.substring(0, 16) : "",
-    driveFolderName: lead.driveFolder?.name || "",
-    driveFolderLink: lead.driveFolder?.link || "",
-    mainDriveFileName: lead.mainDriveFile?.name || "",
-    mainDriveFileLink: lead.mainDriveFile?.link || "",
-    mainDriveFileDescription: lead.mainDriveFile?.description || "",
-  });
+  const mapLeadToForm = (lead: any) => {
+    console.log("=== mapLeadToForm ===");
+    console.log("lead.leadPartenaires:", lead.leadPartenaires);
+    
+    // 🔥 Extraire les partenaires depuis leadPartenaires
+    const partenairesArray = lead.leadPartenaires?.map((lp: any) => lp.partenaire) || [];
+    console.log("partenairesArray extracted:", partenairesArray);
+
+    return {
+      periode: lead.leadPeriode?.substring(0, 7) || "",
+      nom: lead.leadName || "",
+      reference: lead.leadRef || "",
+      description: lead.leadDescription || "",
+      commentaire: lead.leadCommentaire || "",
+      zone: lead.leadZone ?? "",
+      businessUnit: lead.businessUnit?.id || "",
+      typeOpportunite: lead.leadType?.id || "",
+      categorie: lead.category?.id || "",
+      secteur: lead.leadSecteur?.id || "",
+      statut: lead.currentLeadStatus?.leadStatus?.id || "1",
+      client: lead.client || null,
+      
+      // 🔥 Correction: utiliser partenaires (array) au lieu de leadPartenaire (single)
+      partenaires: partenairesArray,
+      
+      typeFinancement: lead.typeProjetFinancement || null,
+      realDeadline: lead.leadRealDeadLine ? lead.leadRealDeadLine.substring(0, 16) : "",
+      internalDeadline: lead.leadInternalDeadLine ? lead.leadInternalDeadLine.substring(0, 16) : "",
+      driveFolderName: lead.driveFolder?.name || "",
+      driveFolderLink: lead.driveFolder?.link || "",
+      mainDriveFileName: lead.mainDriveFile?.name || "",
+      mainDriveFileLink: lead.mainDriveFile?.link || "",
+      mainDriveFileDescription: lead.mainDriveFile?.description || "",
+    };
+  };
 
   const mapLeadToTechFinForm = (lead: any) => {
     console.log("=== mapLeadToTechFinForm ===");
@@ -134,7 +144,8 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       technosIds = lead.technos
         .map((item: any) => {
           console.log("Processing techno item:", item);
-                    if (item?.techno?.idTechno) {
+          
+          if (item?.techno?.idTechno) {
             return Number(item.techno.idTechno);
           }
           if (typeof item === 'object' && item !== null && item.idTechno) {
@@ -154,51 +165,52 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     console.log("technosIds extraits:", technosIds);
 
     return {
-      technos: technosIds, 
+      technos: technosIds,
       volumeJHVendu: lead.volumeJHVendu || 0,
-      deviseId: lead.devise?.idDevise || "",    
+      deviseId: lead.devise?.idDevise || "",
       tauxDeChange: lead.tauxDeChange || 1,
-      typeFacturationId: lead.typeFacturation?.idTypeFacturation || "",    
+      typeFacturationId: lead.typeFacturation?.idTypeFacturation || "",
       impots: lead.impots || 0,
       dateAttribution: lead.dateAttribution || "",
       budget: lead.montantOffre || lead.budget || 0,
     };
   };
-    useEffect(() => {
-      if (!show) return;
 
-      const fetchFinanceData = async () => {
-        try {
-          const [devs, factTypes] = await Promise.all([
-            deviseService.getAll(),
-            typeFacturationService.getAll(),
-          ]);
+  useEffect(() => {
+    if (!show) return;
 
-          setDevises(devs);
-          setTypeFacturations(factTypes);
-        } catch (err) {
-          console.error("Erreur lors du fetch des données financières :", err);
-        }
-      };
+    const fetchFinanceData = async () => {
+      try {
+        const [devs, factTypes] = await Promise.all([
+          deviseService.getAll(),
+          typeFacturationService.getAll(),
+        ]);
 
-      fetchFinanceData();
-    }, [show]); 
+        setDevises(devs);
+        setTypeFacturations(factTypes);
+      } catch (err) {
+        console.error("Erreur lors du fetch des données financières :", err);
+      }
+    };
 
-    /* ================= Fetch technos ================= */
-    useEffect(() => {
-      if (!show) return;
+    fetchFinanceData();
+  }, [show]);
 
-      const fetchTechno = async () => {
-        try {
-          const list = await technoService.getAll();
-          setTechnos(list);
-        } catch (err) {
-          console.error("Erreur lors du fetch des technos :", err);
-        }
-      };
+  /* ================= Fetch technos ================= */
+  useEffect(() => {
+    if (!show) return;
 
-      fetchTechno();
-    }, [show]);
+    const fetchTechno = async () => {
+      try {
+        const list = await technoService.getAll();
+        setTechnos(list);
+      } catch (err) {
+        console.error("Erreur lors du fetch des technos :", err);
+      }
+    };
+
+    fetchTechno();
+  }, [show]);
 
   /* ================= Fetch listes ================= */
   useEffect(() => {
@@ -244,38 +256,18 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         console.log("=== MODE ÉDITION ===");
         console.log("Lead reçu:", lead);
 
+        // 🔥 Mapper le lead au formulaire (avec partenaires corrigés)
         setForm(mapLeadToForm(lead));
 
-        try {
-          const leadId = lead.leadId || lead.id;
-          if (!leadId) {
-            console.error("Pas d'ID de lead disponible");
-            return;
-          }
+        // 🔥 Mapper les données tech & fin
+        const mappedTechFin = mapLeadToTechFinForm(lead);
+        console.log("FormTechFin final:", mappedTechFin);
+        setFormTechFin(mappedTechFin);
 
-          const techFinData = await leadTechFinService.getByLeadId(leadId);
-          console.log("Tech&Fin récupéré depuis API:", techFinData);
-
-          const mappedTechFin = mapLeadToTechFinForm({
-            ...lead,
-            technos: techFinData.technos || [],
-            volumeJHVendu: techFinData.volumeJHVendu || 0,
-            devise: techFinData.devise || null,
-            tauxDeChange: techFinData.tauxDeChange || 1,
-            typeFacturation: techFinData.typeFacturation || null,
-            impots: techFinData.impots || 0,
-            dateAttribution: techFinData.dateAttribution || "",
-            montantOffre: techFinData.montantOffre || 0,
-          });
-
-          console.log("FormTechFin final:", mappedTechFin);
-          setFormTechFin(mappedTechFin);
-          setCurrentStep("offre");
-        } catch (error) {
-          console.error("Erreur lors du chargement Tech&Fin:", error);
-          setFormTechFin(mapLeadToTechFinForm(lead));
-        }
+        // Déterminer l'onglet initial
+        setCurrentStep("qualification");
       } else {
+        // Mode création
         setForm({
           periode: "",
           businessUnit: "",
@@ -292,7 +284,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           commentaire: "",
           zone: "",
           client: null,
-          leadPartenaire: null,
+          partenaires: [],
           driveFolderName: "",
           driveFolderLink: "",
           mainDriveFileName: "",
@@ -317,45 +309,16 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
   }, [show, lead]);
 
   const isNoGo = lead?.currentLeadStatus?.leadStatus?.label === "No Go";
-  useEffect(() => {
-    if (!show || !lead) return;
 
-    const fetchLeadTechFin = async () => {
-      try {
-        const leadId = lead.leadId || lead.id;
-        if (!leadId) return;
-
-        console.log("=== Chargement Tech&Fin pour lead:", leadId);
-        const techFinData = await leadTechFinService.getByLeadId(leadId);
-        console.log("Tech&Fin récupéré:", techFinData);
-
-        const mappedTechFin = mapLeadToTechFinForm({
-          ...lead,
-          technos: techFinData.technos || [],
-          volumeJHVendu: techFinData.volumeJHVendu || 0,
-          devise: techFinData.devise || null,
-          tauxDeChange: techFinData.tauxDeChange || 1,
-          typeFacturation: techFinData.typeFacturation || null,
-          impots: techFinData.impots || 0,
-          dateAttribution: techFinData.dateAttribution || "",
-          montantOffre: techFinData.montantOffre || 0,
-          budget: techFinData.montantOffre || 0,
-        });
-
-        setFormTechFin(mappedTechFin);
-      } catch (error) {
-        console.error("Erreur lors du fetch Tech&Fin:", error);
-      }
-    };
-
-  fetchLeadTechFin();
-}, [show, lead?.leadId, lead?.id]);
-
-  
-const formatLeadPayload = (form: any) => {
+  const formatLeadPayload = (form: any) => {
     const nowIso = new Date().toISOString();
     const periodeDate = form.periode ? `${form.periode}-01` : null;
     
+    // 🔥 Formater les partenaires pour l'API
+    const leadPartenairesFormatted = (form.partenaires || []).map((p: any) => ({
+      partenaire: { id: p.id }
+    }));
+
     return {
       leadPeriode: periodeDate,
       leadDescription: form.description,
@@ -370,9 +333,7 @@ const formatLeadPayload = (form: any) => {
       leadType: form.typeOpportunite ? { id: form.typeOpportunite } : null,
       leadSecteur: form.secteur ? { id: form.secteur } : null,
       businessUnit: form.businessUnit ? { id: form.businessUnit } : null,
-      leadPartenaires: form.leadPartenaire
-        ? [{ partenaire: { id: form.leadPartenaire.id } }]
-        : [],
+      leadPartenaires: leadPartenairesFormatted,
       leadStatusHistories: [
         { dateUpdated: nowIso, leadStatus: form.statut ? { id: form.statut } : { id: 1 } }
       ],
@@ -395,6 +356,7 @@ const formatLeadPayload = (form: any) => {
       let savedLead = lead;
       if (currentStep === "qualification") {
         const qualifData = formatLeadPayload(form);
+        console.log("Payload qualification:", qualifData);
         const currentLeadId = lead?.leadId || lead?.id;
 
         if (lead && currentLeadId) {
@@ -411,10 +373,10 @@ const formatLeadPayload = (form: any) => {
 
         setTimeout(() => {
           setShowSuccessMessage(false);
-          setCurrentStep("offre"); 
+          setCurrentStep("offre");
         }, 1500);
 
-        return; 
+        return;
       }
 
       if (currentStep === "offre") {
@@ -429,8 +391,7 @@ const formatLeadPayload = (form: any) => {
         }
 
         const existingTechFin = await leadTechFinService.getByLeadId(leadId);
-        const techFinId =
-          existingTechFin?.idLeadTechFinDetails || existingTechFin?.idLeadTechFinDetails;
+        const techFinId = existingTechFin?.idLeadTechFinDetails;
 
         const technosFormatted = (formTechFin.technos || []).map(
           (technoId: number) => ({
@@ -455,6 +416,7 @@ const formatLeadPayload = (form: any) => {
           },
         };
 
+        console.log("Payload Tech&Fin:", techFinData);
         await leadTechFinService.update(techFinData);
 
         setShowLoadingMessage(false);
@@ -478,8 +440,8 @@ const formatLeadPayload = (form: any) => {
       setShowErrorMessage(true);
     }
   };
-  
-/* ================= Render ================= */
+
+  /* ================= Render ================= */
   return (
     <>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable>
@@ -541,12 +503,12 @@ const formatLeadPayload = (form: any) => {
                   <FormTechFin
                     form={formTechFin}
                     setForm={setFormTechFin}
-                    devises={devises}                     
-                    typeFacturations={typeFacturations}   
+                    devises={devises}
+                    typeFacturations={typeFacturations}
                     technos={technos}
                     technoService={technoService}
                     deviseService={deviseService}
-                    typeFacturationService={typeFacturationService} 
+                    typeFacturationService={typeFacturationService}
                   />
                 )}
               </Tab.Pane>
