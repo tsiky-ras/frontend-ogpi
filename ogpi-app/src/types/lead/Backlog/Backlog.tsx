@@ -25,9 +25,6 @@ export interface BacklogPhaseOrderUpdate {
   order: number;
 }
 
-
-// Types pour les entités Backlog
-
 export interface BacklogProfil {
   id: number;
   order: number;
