@@ -94,7 +94,7 @@ const ValidationLeadPage: React.FC = () => {
     try {
       const request: CreateValidationRequest = {
         leadId,
-        decision: 0, // 0 = Go
+        decision: 1, // 1 = Go
         commentaire: comment,
       };
 
@@ -129,7 +129,7 @@ const ValidationLeadPage: React.FC = () => {
     try {
       const request: CreateValidationRequest = {
         leadId,
-        decision: 1, // 1 = No Go
+        decision: 0, // 0 = No Go
         commentaire: comment,
       };
 

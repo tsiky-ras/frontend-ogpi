@@ -69,7 +69,7 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
 
   // Fonction pour obtenir le label de décision
   const getDecisionLabel = (decision: number) => {
-    return decision === 0 ? "Go" : "No Go";
+    return decision === 1 ? "Go" : "No Go";
   };
 
   // Fonction pour obtenir l'icône de décision
@@ -328,7 +328,7 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
                       <div
                         key={validation.id}
                         className={`comment-item ${
-                          validation.decision === 0 ? "comment-go" : "comment-nogo"
+                          validation.decision === 1 ? "comment-go" : "comment-nogo"
                         }`}
                       >
                         <div className="comment-header">
