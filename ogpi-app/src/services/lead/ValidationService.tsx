@@ -1,4 +1,4 @@
-import { CreateValidationRequest, Validation } from '../../types/lead/Validation.tsx';
+import { CreateValidationRequest, LeadValidationCheckDTO, Validation } from '../../types/lead/Validation.tsx';
 
 export class ValidationService {
   private api: any;
@@ -13,6 +13,17 @@ export class ValidationService {
   async create(request: CreateValidationRequest): Promise<Validation> {
     try {
       const response = await this.api.post('/lead-validations/validate', request);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la création de la validation:', error);
+      throw error;
+    }
+  }
+
+
+  async isLeadValidated(leadId:number): Promise<LeadValidationCheckDTO> {
+    try {
+      const response = await this.api.get(`/lead-validations/is-lead-valid/${leadId}`);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la création de la validation:', error);

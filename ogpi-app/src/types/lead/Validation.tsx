@@ -24,3 +24,8 @@ export interface CreateValidationRequest {
   decision: number; // 0 = No Go, 1 = Go
   commentaire: string;
 }
+
+export interface LeadValidationCheckDTO {
+  validated: boolean;
+  nextRole?:string;
+}
