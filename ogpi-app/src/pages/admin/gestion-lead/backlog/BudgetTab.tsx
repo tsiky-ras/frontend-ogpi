@@ -256,7 +256,6 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                     {activeProfils.map((p) => (
                       <React.Fragment key={p.id}>
                         <th className="text-end text-muted fw-normal">JH</th>
-                        <th className="text-end text-muted fw-normal">€</th>
                       </React.Fragment>
                     ))}
                     <th></th>
