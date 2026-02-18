@@ -26,7 +26,7 @@ export class ValidationService {
       const response = await this.api.get(`/lead-validations/is-lead-valid/${leadId}`);
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la création de la validation:', error);
+      console.error('Erreur lors de la validation:', error);
       throw error;
     }
   }
