@@ -15,6 +15,8 @@ import { BacklogLineProfilService } from "../../../../services/lead/backlog/Back
 import { BacklogDeliverableService } from "../../../../services/lead/backlog/BacklogdeliverableService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import BacklogForm from "./BacklogForm.tsx";
+import PlanningTab from "./PalanningTab.tsx";
+import BudgetTab from "./BudgetTab.tsx";
 
 import { 
   Backlog, 
@@ -1263,8 +1265,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                               <tr>
                                 <th>Profil</th>
                                 <th className="text-end">Volume total (JH)</th>
-                                <th className="text-end">TJM (€)</th>
-                                <th className="text-end">Montant total (€)</th>
+                                <th className="text-end">TJM</th>
+                                <th className="text-end">Montant total</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1313,7 +1315,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                   <tr>
                                     <th>Phase</th>
                                     <th className="text-end">Volume (JH)</th>
-                                    <th className="text-end">Montant (€)</th>
+                                    <th className="text-end">Montant</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1658,6 +1660,27 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                   </>
                 )}
               </Tab>
+              {/* TAB PLANNING */}
+              <Tab eventKey="planning" title="Planning">
+                <PlanningTab
+                  lots={lots}
+                  profils={profils}
+                  lines={lines}
+                  lineProfils={lineProfils}
+                  deliverables={deliverables}
+                  selectedBacklogId={selectedBacklogId}
+                />
+              </Tab>
+              {/* TAB BUDGET */}
+              <Tab eventKey="budget" title="Budget">
+                <BudgetTab
+                  lots={lots}
+                  profils={profils}
+                  lines={lines}
+                  lineProfils={lineProfils}
+                  selectedBacklogId={selectedBacklogId}
+                />
+              </Tab>
             </Tabs>
           </div>
         </Modal.Body>
@@ -1870,7 +1893,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
             </Form.Group>
 
             <Form.Group>
-              <Form.Label>TJM (€) *</Form.Label>
+              <Form.Label>TJM *</Form.Label>
               <Form.Control
                 type="number"
                 step="0.01"

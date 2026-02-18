@@ -933,8 +933,8 @@ const BacklogPage: React.FC = () => {
                           <tr>
                             <th>Profil</th>
                             <th className="text-end">Volume total (JH)</th>
-                            <th className="text-end">TJM (€)</th>
-                            <th className="text-end">Montant total (€)</th>
+                            <th className="text-end">TJM</th>
+                            <th className="text-end">Montant total</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -983,7 +983,7 @@ const BacklogPage: React.FC = () => {
                               <tr>
                                 <th>Phase</th>
                                 <th className="text-end">Volume (JH)</th>
-                                <th className="text-end">Montant (€)</th>
+                                <th className="text-end">Montant</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1392,7 +1392,7 @@ const BacklogPage: React.FC = () => {
             </Form.Group>
 
             <Form.Group>
-              <Form.Label>TJM (€) *</Form.Label>
+              <Form.Label>TJM *</Form.Label>
               <Form.Control
                 type="number"
                 step="0.01"
