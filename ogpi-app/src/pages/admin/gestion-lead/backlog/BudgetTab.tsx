@@ -12,6 +12,7 @@ interface BudgetTabProps {
   lines: BacklogLine[];
   lineProfils: BacklogLineProfil[];
   selectedBacklogId: number | null;
+  deviseAbr?: string | null;
 }
 
 const LOT_COLOR = "#1a6b38";
@@ -23,6 +24,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
   lines,
   lineProfils,
   selectedBacklogId,
+  deviseAbr,
 }) => {
   // Profils actifs (ayant au moins un volume)
   const activeProfils = useMemo(() => {
@@ -111,7 +113,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
               Synthèse par profil — toutes phases confondues
             </small>
           </div>
-          <span
+            <span
             className="badge"
             style={{
               backgroundColor: "#fff",
@@ -121,7 +123,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
               fontWeight: 700,
             }}
           >
-            {fmt(grandTotalAmount)} 
+            {fmt(grandTotalAmount)}{deviseAbr ? ` ${deviseAbr}` : ""}
           </span>
         </div>
 
@@ -152,7 +154,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                       </td>
                       <td className="text-end">{fmt(profil.tjm)}</td>
                       <td className="text-end">{fmt(volume)}</td>
-                      <td className="text-end fw-semibold">{fmt(amount)}</td>
+                      <td className="text-end fw-semibold">{fmt(amount)}{deviseAbr ? ` ${deviseAbr}` : ""}</td>
                       <td>
                         <div className="d-flex align-items-center gap-2">
                           <div
@@ -187,7 +189,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                 <tr style={{ backgroundColor: "#f0f7f0", fontWeight: 700 }}>
                   <td colSpan={2}>TOTAL GÉNÉRAL</td>
                   <td className="text-end">{fmt(grandTotalVolume)} JH</td>
-                  <td className="text-end" style={{ color: LOT_COLOR }}>{fmt(grandTotalAmount)}</td>
+                  <td className="text-end" style={{ color: LOT_COLOR }}>{fmt(grandTotalAmount)}{deviseAbr ? ` ${deviseAbr}` : ""}</td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -225,7 +227,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                   fontWeight: 700,
                 }}
               >
-                {fmt(lotTotalAmount)}
+                {fmt(lotTotalAmount)}{deviseAbr ? ` ${deviseAbr}` : ""}
               </span>
             </div>
           </div>
@@ -292,7 +294,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                         ))}
                         <td className="text-end fw-semibold">{totalVolume > 0 ? fmt(totalVolume) : "—"}</td>
                         <td className="text-end fw-bold" style={{ color: LOT_COLOR }}>
-                          {totalAmount > 0 ? fmt(totalAmount) : "—"}
+                          {totalAmount > 0 ? `${fmt(totalAmount)}${deviseAbr ? ` ${deviseAbr}` : ""}` : "—"}
                         </td>
                         <td>
                           {totalAmount > 0 ? (
@@ -348,7 +350,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                     })}
                     <td className="text-end">{fmt(lotTotalVolume)} JH</td>
                     <td className="text-end" style={{ color: LOT_COLOR }}>
-                      {fmt(lotTotalAmount)} 
+                      {fmt(lotTotalAmount)}{deviseAbr ? ` ${deviseAbr}` : ""}
                     </td>
                     <td>
                       <small className="text-muted">
@@ -396,7 +398,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                         )}
                       </td>
                       <td className="text-end">{fmt(lotTotalVolume)}</td>
-                      <td className="text-end fw-semibold">{fmt(lotTotalAmount)}</td>
+                      <td className="text-end fw-semibold">{fmt(lotTotalAmount)}{deviseAbr ? ` ${deviseAbr}` : ""}</td>
                       <td>
                         <div className="d-flex align-items-center gap-2">
                           <div

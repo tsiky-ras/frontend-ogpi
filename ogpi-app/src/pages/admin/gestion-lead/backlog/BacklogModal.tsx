@@ -13,6 +13,7 @@ import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogP
 import { BacklogLineService } from "../../../../services/lead/backlog/BacklogLineService.tsx";
 import { BacklogLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
 import { BacklogDeliverableService } from "../../../../services/lead/backlog/BacklogdeliverableService.tsx";
+import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import BacklogForm from "./BacklogForm.tsx";
 import PlanningTab from "./PalanningTab.tsx";
@@ -46,6 +47,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const backlogLineService = new BacklogLineService(api);
   const backlogLineProfilService = new BacklogLineProfilService(api);
   const backlogDeliverableService = new BacklogDeliverableService(api);
+  const leadTechFinService = useLeadTechFinDetailsService();
 
   // États pour la liste des backlogs
   const [backlogs, setBacklogs] = useState<Backlog[]>([]);
@@ -105,6 +107,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [expandedPhases, setExpandedPhases] = useState<Set<number>>(new Set());
   // Set of phase ids currently loading deliverables
   const [loadingDeliverables, setLoadingDeliverables] = useState<Set<number>>(new Set());
+  const [deviseAbr, setDeviseAbr] = useState<string | null>(null);
 
   // Refs pour les sortables existants
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -168,6 +171,24 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       fetchBacklog();
     }
   }, [selectedBacklogId]);
+
+  useEffect(() => {
+    // fetch lead tech-fin details to retrieve currency abbreviation
+    const fetchDevise = async () => {
+      try {
+        if (!leadId) return;
+        const techFin = await leadTechFinService.getByLeadId(leadId);
+        // some API responses include full devise object, others only id; handle safely
+        const abr = (techFin && (techFin.devise?.abrDevise || techFin.devise?.abrDevise)) || null;
+        setDeviseAbr(abr);
+      } catch (err) {
+        console.error("Erreur lors du chargement de la devise de l'offre technique:", err);
+        setDeviseAbr(null);
+      }
+    };
+
+    fetchDevise();
+  }, [leadId]);
 
   const fetchBacklog = async () => {
     if (!selectedBacklogId) return;
@@ -1275,7 +1296,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                   <td><strong>{profil.name}</strong></td>
                                   <td className="text-end">{totalVolume.toFixed(2)}</td>
                                   <td className="text-end">{profil.tjm.toFixed(2)}</td>
-                                  <td className="text-end"><strong>{totalAmount.toFixed(2)}</strong></td>
+                                  <td className="text-end"><strong>{`${totalAmount.toFixed(2)} ${deviseAbr || ''}`}</strong></td>
                                 </tr>
                               ))}
                               <tr className="table-active">
@@ -1288,7 +1309,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                 <td></td>
                                 <td className="text-end">
                                   <strong>
-                                    {profilTotals.reduce((sum, pt) => sum + pt.totalAmount, 0).toFixed(2)}
+                                    {`${profilTotals.reduce((sum, pt) => sum + pt.totalAmount, 0).toFixed(2)} ${deviseAbr || ''}`}
                                   </strong>
                                 </td>
                               </tr>
@@ -1307,7 +1328,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                         {lotTotals.map(({ lot, phaseTotals, lotTotalVolume, lotTotalAmount }) => (
                           <div key={lot.id} className="mb-4">
                             <h6 className="text-primary">
-                              {lot.name} - Volume: {lotTotalVolume.toFixed(2)} JH - Montant: {lotTotalAmount.toFixed(2)}
+                              {lot.name} - Volume: {lotTotalVolume.toFixed(2)} JH - Montant: {`${lotTotalAmount.toFixed(2)} ${deviseAbr || ''}`}
                             </h6>
                             <div className="table-responsive">
                               <table className="table table-sm table-bordered">
@@ -1669,6 +1690,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                   lineProfils={lineProfils}
                   deliverables={deliverables}
                   selectedBacklogId={selectedBacklogId}
+                  deviseAbr={deviseAbr}
                 />
               </Tab>
               {/* TAB BUDGET */}
@@ -1679,6 +1701,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                   lines={lines}
                   lineProfils={lineProfils}
                   selectedBacklogId={selectedBacklogId}
+                  deviseAbr={deviseAbr}
                 />
               </Tab>
             </Tabs>

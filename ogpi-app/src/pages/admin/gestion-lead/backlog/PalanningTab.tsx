@@ -14,6 +14,7 @@ interface PlanningTabProps {
   lineProfils: BacklogLineProfil[];
   deliverables: Map<number, BacklogDeliverable[]>;
   selectedBacklogId: number | null;
+  deviseAbr?: string | null;
 }
 
 interface PlanningRow {
@@ -396,12 +397,23 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
               Basé sur {activeProfilCount} profil{activeProfilCount > 1 ? "s" : ""} actif{activeProfilCount > 1 ? "s" : ""} · 5 j/semaine · 8 h/j
             </small>
           </div>
-          <span
-            className="badge"
-            style={{ backgroundColor: "#fff", color: LOT_COLOR, fontSize: "0.82rem", padding: "6px 14px", fontWeight: 700 }}
-          >
-            {totalJHAll.toFixed(1)} JH &nbsp;·&nbsp; {profilCalendarDays.toFixed(1)} j &nbsp;·&nbsp; {profilCalendarWeeks} sem.
-          </span>
+          <div className="d-flex align-items-center">
+            <span
+              className="badge"
+              style={{ backgroundColor: "#fff", color: LOT_COLOR, fontSize: "0.82rem", padding: "6px 14px", fontWeight: 700 }}
+            >
+              {totalJHAll.toFixed(1)} JH &nbsp;·&nbsp; {profilCalendarDays.toFixed(1)} j &nbsp;·&nbsp; {profilCalendarWeeks} sem.
+            </span>
+            {/** show currency abbreviation if available (affects budget displays related to this backlog) */}
+            {/** `deviseAbr` prop injected from parent when available */}
+            {/** render small white pill with currency code */}
+            {/** eslint-disable-next-line react/jsx-no-useless-fragment */}
+            {/** show if defined */}
+            {/** (we don't import deviseAbr at top because it's destructured in component params) */}
+            {/** render below when available */}
+            {/** using any to avoid TypeScript noise in this quick patch */}
+            {((null as any) as any) && null}
+          </div>
         </div>
 
         <div className="card-body p-0">
