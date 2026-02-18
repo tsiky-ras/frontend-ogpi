@@ -264,30 +264,30 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
           </colgroup>
           <thead>
             <tr style={{ backgroundColor: h1, color: "#fff" }}>
-              <th rowSpan={2} style={{ verticalAlign: "middle", fontSize: "0.8rem", color: "#fff" }}>
+              <th rowSpan={2} style={{ verticalAlign: "middle", fontSize: "0.8rem", color: "#000000" }}>
                 Tâche
               </th>
-              <th rowSpan={2} style={{ verticalAlign: "middle", fontSize: "0.72rem", color: "#fff", textAlign: "center" }}>
+              <th rowSpan={2} style={{ verticalAlign: "middle", fontSize: "0.72rem", color: "#000000", textAlign: "center" }}>
                 JH
               </th>
-              <th rowSpan={2} style={{ verticalAlign: "middle", fontSize: "0.72rem", color: "#fff", textAlign: "center" }}>
+              <th rowSpan={2} style={{ verticalAlign: "middle", fontSize: "0.72rem", color: "#000000", textAlign: "center" }}>
                 Durée (j)
               </th>
               {months.map((m) => (
                 <th
                   key={m}
                   colSpan={4}
-                  style={{ textAlign: "center", fontSize: "0.8rem", color: "#fff", fontWeight: 700 }}
+                  style={{ textAlign: "center", fontSize: "0.8rem", color: "#000000", fontWeight: 700 }}
                 >
                   MOIS {m}
                 </th>
               ))}
             </tr>
-            <tr style={{ backgroundColor: h2, color: "#fff" }}>
+            <tr style={{ backgroundColor: h2, color: "#000000" }}>
               {weeks.map((w) => (
                 <th
                   key={w}
-                  style={{ textAlign: "center", fontSize: "0.66rem", padding: "2px 0", color: "#fff", fontWeight: 600 }}
+                  style={{ textAlign: "center", fontSize: "0.66rem", padding: "2px 0", color: "#000000", fontWeight: 600 }}
                 >
                   {getWeekLabel(w)}
                 </th>
@@ -404,14 +404,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             >
               {totalJHAll.toFixed(1)} JH &nbsp;·&nbsp; {profilCalendarDays.toFixed(1)} j &nbsp;·&nbsp; {profilCalendarWeeks} sem.
             </span>
-            {/** show currency abbreviation if available (affects budget displays related to this backlog) */}
-            {/** `deviseAbr` prop injected from parent when available */}
-            {/** render small white pill with currency code */}
-            {/** eslint-disable-next-line react/jsx-no-useless-fragment */}
-            {/** show if defined */}
-            {/** (we don't import deviseAbr at top because it's destructured in component params) */}
-            {/** render below when available */}
-            {/** using any to avoid TypeScript noise in this quick patch */}
             {((null as any) as any) && null}
           </div>
         </div>
