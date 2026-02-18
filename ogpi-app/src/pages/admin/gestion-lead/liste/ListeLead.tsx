@@ -347,12 +347,14 @@ const ListeLead: React.FC = () => {
       label: 'Statut',
       render: (row: Lead) => {
         const map: any = {
-          'No Go': ['bg-danger', 'No Go'],
-          'Go': ['bg-success', 'Go'],
-          'En attente de validation': ['bg-secondary', 'En attente de validation'],
-          'Ouvert': ['bg-info', 'Ouvert'],
+          1: ['bg-info', 'Ouvert'],
+          2: ['bg-danger', 'No Go'],
+          3: ['bg-warning', 'En cours de rédaction'],
+          4: ['bg-primary', 'En cours d\'évaluation'],
+          5: ['bg-success', 'Gagnée'],
+          6: ['bg-secondary', 'Perdue'],
         };
-        const [cls, label] = map[row.status.label] || ['bg-secondary', 'En attente de validation'];
+        const [cls, label] = map[row.status.id] || ['bg-secondary', 'En attente de validation'];
         return <span className={`badge ${cls}`}>{label}</span>;
       },
     },
@@ -360,9 +362,25 @@ const ListeLead: React.FC = () => {
       key: 'step',
       label: 'Étape',
       render: (row: Lead) => {
-        const stepLabel = row.currentLeadStep?.leadStep?.label;
-        if (!stepLabel) return '-';
-        return <span className="badge bg-primary">{stepLabel}</span>;
+        const map: any = {
+          1: ['bg-secondary', 'Ouvert'],
+          2: ['bg-danger', 'No Go'],
+          3: ['bg-info', 'Analyse technique'],
+          4: ['bg-primary', 'Validation technique'],
+          5: ['bg-info', 'Analyse financière'],
+          6: ['bg-primary', 'Validation financière'],
+          7: ['bg-warning', 'Rédaction'],
+          8: ['bg-warning', 'Revue qualité'],
+          9: ['bg-success', 'Soumission offre'],
+          10: ['bg-success', 'Gagnée'],
+          11: ['bg-secondary', 'Perdue'],
+        };
+        
+        const stepId = row.currentLeadStep?.leadStep?.id;
+        if (!stepId) return '-';
+        
+        const [cls, label] = map[stepId] || ['bg-secondary', 'Étape inconnue'];
+        return <span className={`badge ${cls}`}>{label}</span>;
       },
     },
     {
