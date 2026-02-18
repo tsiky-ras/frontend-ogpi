@@ -975,7 +975,7 @@ const BacklogPage: React.FC = () => {
                     {lotTotals.map(({ lot, phaseTotals, lotTotalVolume, lotTotalAmount }) => (
                       <div key={lot.id} className="mb-4">
                         <h6 className="text-primary">
-                          {lot.name} - Volume: {lotTotalVolume.toFixed(2)} JH - Montant: {lotTotalAmount.toFixed(2)} €
+                          {lot.name} - Volume: {lotTotalVolume.toFixed(2)} JH - Montant: {lotTotalAmount.toFixed(2)} 
                         </h6>
                         <div className="table-responsive">
                           <table className="table table-sm table-bordered">
@@ -1223,7 +1223,7 @@ const BacklogPage: React.FC = () => {
                           </div>
                           <div className="backlog-desc">{profil.desc || "—"}</div>
                           <div className="profil-tjm mt-2">
-                            <strong>TJM:</strong> {profil.tjm.toFixed(2)} €
+                            <strong>TJM:</strong> {profil.tjm.toFixed(2)} 
                           </div>
                         </div>
 

@@ -121,7 +121,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
               fontWeight: 700,
             }}
           >
-            {fmt(grandTotalAmount)} €
+            {fmt(grandTotalAmount)} 
           </span>
         </div>
 
@@ -187,7 +187,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                 <tr style={{ backgroundColor: "#f0f7f0", fontWeight: 700 }}>
                   <td colSpan={2}>TOTAL GÉNÉRAL</td>
                   <td className="text-end">{fmt(grandTotalVolume)} JH</td>
-                  <td className="text-end" style={{ color: LOT_COLOR }}>{fmt(grandTotalAmount)} €</td>
+                  <td className="text-end" style={{ color: LOT_COLOR }}>{fmt(grandTotalAmount)}</td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -225,7 +225,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                   fontWeight: 700,
                 }}
               >
-                {fmt(lotTotalAmount)} €
+                {fmt(lotTotalAmount)}
               </span>
             </div>
           </div>
@@ -240,14 +240,14 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                       <th key={p.id} className="text-end" colSpan={2} style={{ minWidth: "160px" }}>
                         {p.name}
                         <br />
-                        <small className="text-muted fw-normal">({fmt(p.tjm)} €/j)</small>
+                        <small className="text-muted fw-normal">({fmt(p.tjm)} /j)</small>
                       </th>
                     ))}
                     <th className="text-end" style={{ minWidth: "120px" }}>
                       Total JH
                     </th>
                     <th className="text-end" style={{ minWidth: "130px" }}>
-                      Total (€)
+                      Total 
                     </th>
                     <th style={{ minWidth: "130px" }}>Part lot</th>
                   </tr>
@@ -349,7 +349,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                     })}
                     <td className="text-end">{fmt(lotTotalVolume)} JH</td>
                     <td className="text-end" style={{ color: LOT_COLOR }}>
-                      {fmt(lotTotalAmount)} €
+                      {fmt(lotTotalAmount)} 
                     </td>
                     <td>
                       <small className="text-muted">
@@ -397,7 +397,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                         )}
                       </td>
                       <td className="text-end">{fmt(lotTotalVolume)}</td>
-                      <td className="text-end fw-semibold">{fmt(lotTotalAmount)} €</td>
+                      <td className="text-end fw-semibold">{fmt(lotTotalAmount)}</td>
                       <td>
                         <div className="d-flex align-items-center gap-2">
                           <div
@@ -433,7 +433,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
                   <td>TOTAL GÉNÉRAL</td>
                   <td className="text-end">{fmt(grandTotalVolume)} JH</td>
                   <td className="text-end" style={{ color: LOT_COLOR, fontSize: "1rem" }}>
-                    {fmt(grandTotalAmount)} €
+                    {fmt(grandTotalAmount)} 
                   </td>
                   <td></td>
                 </tr>
