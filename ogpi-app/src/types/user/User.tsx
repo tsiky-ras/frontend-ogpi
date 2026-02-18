@@ -1,6 +1,7 @@
 import { Role } from "./Role";
 import { Permission } from "./Permission";
 import { Profil } from "../profil/Profil";
+import { RoleUser } from "./RoleUser";
 
 export interface User {
   userId: number;
@@ -9,9 +10,7 @@ export interface User {
   password?: string;
 
   is_active: boolean;
-
-  role?: Role;               
+  role?: Role;
   permissions?: Permission[];
-
   profil?: Profil;
 }

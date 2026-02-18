@@ -8,191 +8,305 @@ import {
   FaHashtag,
   FaTag,
   FaIndustry,
+  FaBuilding,
+  FaChevronDown,
+  FaChevronUp,
 } from "react-icons/fa";
-
-/* ================= TYPES ================= */
-
-export type LeadValidation = {
-  name: string;
-  reference: string;
-  client?: string;
-  type?: string;
-  category?: string;
-  secteur?: string;
-  description?: string;
-  internalDeadline?: string;
-  realDeadline?: string;
-  driveLink?: string;
-};
+import { Lead } from "../../../../types/lead/Lead.tsx";
+import "./ValidationFormPage.css";
 
 interface ValidationFormProps {
-  lead: LeadValidation;
+  lead: Lead;
   onValidate?: (comment: string) => void;
   onReject?: (comment: string) => void;
   readonly?: boolean;
 }
 
-/* ================= COMPONENT ================= */
+  type StatusBadgeConfig = {
+    className: string;
+  };
 
-const ValidationForm: React.FC<ValidationFormProps> = ({
+  const STATUS_BADGE_BY_LABEL: Record<string, StatusBadgeConfig> = {
+    "En attente de validation": { className: "bg-warning text-dark" },
+    "Go": { className: "bg-success" },
+    "No Go": { className: "bg-danger" },
+  };
+
+  const STATUS_CLASS_BY_LABEL: Record<string, string> = {
+  "En attente de validation": "status-pending",
+  "Go": "status-go",
+  "No Go": "status-nogo",
+};
+
+const ValidationFormPage: React.FC<ValidationFormProps> = ({
   lead,
   onValidate,
   onReject,
   readonly = false,
 }) => {
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState<string>("");
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  
+  if (!lead) return null;
 
   return (
     <div className="validation-form-container">
       <div className="validation-card">
-        {/* Titre */}
-        <div className="validation-title-row">
-          <h2 className="validation-title">{lead.name}</h2>
+        {/* ===== EN-TÊTE CLIQUABLE ===== */}
+        <div 
+          className="validation-header clickable"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="validation-header-content">
+            <h1 className="validation-title">{lead.name}</h1>
+            <div className="validation-meta">
+              <div className="validation-reference">
+                <FaHashtag className="ref-icon" />
+                <span>{lead.reference}</span>
+              </div>
+              <div
+                className={`validation-status-badge ${
+                  STATUS_CLASS_BY_LABEL[lead.status?.label ?? ""] || "status-unknown"
+                }`}
+              >
+                {lead.status?.label || "Statut inconnu"}
+              </div>
+            </div>
+          </div>
+          <button className="expand-toggle" type="button">
+            {isExpanded ? (
+              <>
+                <FaChevronUp className="chevron-icon" />
+                <span>Masquer</span>
+              </>
+            ) : (
+              <>
+                <FaChevronDown className="chevron-icon" />
+                <span>Voir détails</span>
+              </>
+            )}
+          </button>
         </div>
 
-        {/* Contenu */}
-        <div className="validation-content">
-          {/* Colonne gauche */}
-          <div className="validation-left">
-            <div className="validation-infos">
-              {/* Référence */}
-              <div className="validation-item">
-                <FaHashtag className="validation-icon" />
-                <span>
-                  <b>Référence</b> : {lead.reference}
-                </span>
+        {/* ===== CONTENU DÉVELOPPABLE ===== */}
+        <div className={`validation-expandable ${isExpanded ? 'expanded' : 'collapsed'}`}>
+          {/* ===== CONTENU PRINCIPAL ===== */}
+          <div className="validation-content">
+            {/* ===== COLONNE GAUCHE - INFORMATIONS GÉNÉRALES ===== */}
+            <div className="validation-section">
+              <h3 className="section-title">Informations générales</h3>
+              <div className="info-grid">
+                <div className="info-card">
+                  <div className="info-card-header">
+                    <FaBuilding className="info-icon" />
+                    <span className="info-label">Business Unit</span>
+                  </div>
+                  <p className="info-value">{lead.businessUnit?.name || "-"}</p>
+                </div>
+
+                <div className="info-card">
+                  <div className="info-card-header">
+                    <FaTag className="info-icon" />
+                    <span className="info-label">Catégorie</span>
+                  </div>
+                  <p className="info-value">{lead.category?.label || "-"}</p>
+                </div>
+
+                <div className="info-card">
+                  <div className="info-card-header">
+                    <FaTag className="info-icon" />
+                    <span className="info-label">Type</span>
+                  </div>
+                  <p className="info-value">{lead.type?.label || "-"}</p>
+                </div>
+
+                <div className="info-card">
+                  <div className="info-card-header">
+                    <FaIndustry className="info-icon" />
+                    <span className="info-label">Secteur</span>
+                  </div>
+                  <p className="info-value">{lead.secteur?.label || "-"}</p>
+                </div>
+
+                <div className="info-card">
+                  <div className="info-card-header">
+                    <FaIndustry className="info-icon" />
+                    <span className="info-label">Zone</span>
+                  </div>
+                  <p className="info-value">
+                    {lead.zone === 0 ? "Local" : lead.zone === 1 ? "Offshore" : "-"}
+                  </p>
+                </div>
+
+                <div className="info-card">
+                  <div className="info-card-header">
+                    <FaCalendarAlt className="info-icon" />
+                    <span className="info-label">Date de soumission</span>
+                  </div>
+                  <p className="info-value">
+                    {lead.realDeadline
+                      ? new Date(lead.realDeadline).toLocaleDateString("fr-FR")
+                      : "-"}
+                  </p>
+                </div>
               </div>
 
-              {/* Type */}
-              {lead.type && (
-                <div className="validation-item">
-                  <FaTag className="validation-icon" />
-                  <span>
-                    <b>Type</b> : {lead.type}
-                  </span>
-                </div>
-              )}
-
-              {/* Catégorie */}
-              {lead.category && (
-                <div className="validation-item">
-                  <FaTag className="validation-icon" />
-                  <span>
-                    <b>Catégorie</b> : {lead.category}
-                  </span>
-                </div>
-              )}
-
-              {/* Secteur */}
-              {lead.secteur && (
-                <div className="validation-item">
-                  <FaIndustry className="validation-icon" />
-                  <span>
-                    <b>Secteur</b> : {lead.secteur}
-                  </span>
-                </div>
-              )}
-
-              {/* Deadlines */}
-              {lead.internalDeadline && (
-                <div className="validation-item">
-                  <FaCalendarAlt className="validation-icon" />
-                  <span>
-                    <b>Deadline interne</b> :{" "}
-                    {new Date(lead.internalDeadline).toLocaleDateString("fr-FR")}
-                  </span>
-                </div>
-              )}
-
-              {lead.realDeadline && (
-                <div className="validation-item">
-                  <FaCalendarAlt className="validation-icon" />
-                  <span>
-                    <b>Date de soumission</b> :{" "}
-                    {new Date(lead.realDeadline).toLocaleDateString("fr-FR")}
-                  </span>
-                </div>
-              )}
-
-              {/* Client */}
-              {lead.client && (
-                <div className="validation-item">
-                  <FaUserTie className="validation-icon" />
-                  <span>
-                    <b>Client</b> : {lead.client}
-                  </span>
-                </div>
-              )}
-
-              {/* Description */}
               {lead.description && (
-                <div className="validation-item">
-                  <FaFileAlt className="validation-icon" />
-                  <span>
-                    <b>Description</b> : {lead.description}
-                  </span>
+                <div className="description-box">
+                  <div className="description-header">
+                    <FaFileAlt className="info-icon" />
+                    <span className="info-label">Description</span>
+                  </div>
+                  <p className="description-text">{lead.description}</p>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Colonne droite */}
-          <div className="validation-right">
-            {lead.driveLink && (
-              <div className="validation-item">
-                <FaFolderOpen className="validation-icon" />
-                <a
-                  href={lead.driveLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="validation-link"
-                >
-                  Accéder au dossier Drive
-                </a>
+            {/* ===== COLONNE DROITE - CONTACTS ===== */}
+            <div className="validation-section">
+              <h3 className="section-title">Contacts</h3>
+
+              {/* Client */}
+              <div className="contact-card">
+                <div className="contact-header">
+                  <FaUserTie className="contact-icon" />
+                  <h4 className="contact-title">Client</h4>
+                </div>
+                <div className="contact-details">
+                  <div className="contact-row">
+                    <span className="contact-label">Nom :</span>
+                    <span className="contact-value">{lead.client?.name || "-"}</span>
+                  </div>
+                  <div className="contact-row">
+                    <span className="contact-label">Email :</span>
+                    <span className="contact-value">{lead.client?.email || "-"}</span>
+                  </div>
+                  <div className="contact-row">
+                    <span className="contact-label">Téléphone :</span>
+                    <span className="contact-value">{lead.client?.phone || "-"}</span>
+                  </div>
+                </div>
               </div>
-            )}
+
+              {/* Partenaires */}
+              <div className="contact-card">
+                <div className="contact-header">
+                  <FaUserTie className="contact-icon" />
+                  <h4 className="contact-title">Partenaires</h4>
+                </div>
+                {lead.partenaires && lead.partenaires.length > 0 ? (
+                  <div className="contact-details">
+                    {lead.partenaires.map((p, index) => (
+                      <div key={index} className="contact-details">
+                        <div className="contact-row">
+                          <span className="contact-label">Nom :</span>
+                          <span className="contact-value">{p.name}</span>
+                        </div>
+                        <div className="contact-row">
+                          <span className="contact-label">Email :</span>
+                          <span className="contact-value">{p.email || "-"}</span>
+                        </div>
+                        <div className="contact-row">
+                          <span className="contact-label">Téléphone :</span>
+                          <span className="contact-value">{p.phone || "-"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="no-data">Aucun partenaire</p>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* ===== SECTION RESSOURCES (PLEINE LARGEUR) ===== */}
+          {(lead.driveFolder || lead.driveFile) && (
+            <div className="resources-section">
+              <div className="resources-card">
+                <h3 className="section-title">Ressources</h3>
+                <div className="resources-list">
+                  {lead.driveFolder && (
+                    <a
+                      href={lead.driveFolder.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="resource-link"
+                    >
+                      <FaFolderOpen className="resource-icon" />
+                      <div className="resource-info">
+                        <span className="resource-label">Répertoire</span>
+                        <span className="resource-name">
+                          {lead.driveFolder.name || "Voir dossier"}
+                        </span>
+                      </div>
+                    </a>
+                  )}
+                  {lead.driveFile && (
+                    <a
+                      href={lead.driveFile.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="resource-link"
+                    >
+                      <FaFileAlt className="resource-icon" />
+                      <div className="resource-info">
+                        <span className="resource-label">TDR</span>
+                        <span className="resource-name">
+                          {lead.driveFile.name || "Voir fichier"}
+                        </span>
+                        {lead.driveFile.description && (
+                          <span className="resource-description">
+                            {lead.driveFile.description}
+                          </span>
+                        )}
+                      </div>
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== SECTION COMMENTAIRE ===== */}
+          <div className="validation-comment-section">
+            <label className="comment-label">
+              <FaFileAlt className="comment-icon" />
+              Commentaires de validation
+            </label>
+            <textarea
+              className="validation-comment"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={4}
+              disabled={readonly}
+              placeholder="Ajoutez vos commentaires de validation ici..."
+            />
+          </div>
+
+          {/* ===== ACTIONS ===== */}
+          {!readonly ? (
+            <div className="validation-actions">
+              <Button
+                label="No Go"
+                variant="secondary"
+                onClick={() => onReject?.(comment)}
+              />
+              <Button
+                label="Go"
+                variant="primary"
+                onClick={() => onValidate?.(comment)}
+              />
+            </div>
+          ) : (
+            <div className="validation-readonly">
+              <span>✓ Décision déjà prise</span>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Commentaire */}
-      <div className="validation-comment-row">
-        <label htmlFor="validation-comment">
-          Commentaires de validation :
-        </label>
-        <textarea
-          id="validation-comment"
-          className="validation-comment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          rows={3}
-          disabled={readonly}
-        />
-      </div>
-
-      {/* Actions */}
-      {!readonly && (
-        <div className="validation-actions">
-          <Button
-            label="Go"
-            variant="primary"
-            onClick={() => onValidate?.(comment)}
-          />
-          <Button
-            label="No Go"
-            variant="secondary"
-            onClick={() => onReject?.(comment)}
-          />
-        </div>
-      )}
-
-      {readonly && (
-        <div className="text-end text-muted">
-          Décision déjà prise
-        </div>
-      )}
     </div>
   );
 };
 
-export default ValidationForm;
+export default ValidationFormPage;

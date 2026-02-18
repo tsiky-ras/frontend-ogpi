@@ -5,6 +5,7 @@ import {
   UpdateBacklogProfilRequest,
   OrderUpdate,
   Backlog,
+  CreateBacklogRequest
 } from "../../../types/lead/Backlog/Backlog";
 
 export class BacklogService {
@@ -12,6 +13,11 @@ export class BacklogService {
 
   constructor(api: AxiosInstance) {
     this.api = api;
+  }
+
+  async createBacklog(data: CreateBacklogRequest): Promise<Backlog> {
+    const response = await this.api.post("/backlogs", data);
+    return response.data;
   }
 
   /**
@@ -66,4 +72,12 @@ export class BacklogService {
   async updateOrder(orderUpdates: OrderUpdate[]): Promise<void> {
     await this.api.put("/backlog-profils/update-order", orderUpdates);
   }
+  /**
+ * Récupérer tous les backlogs d’un lead
+ */
+  async getByLeadId(leadId: number): Promise<Backlog[]> {
+    const response = await this.api.get(`/backlogs/lead/${leadId}`);
+    return response.data;
+  }
+
 }

@@ -5,11 +5,11 @@ import Title from "../../../components/title/Title.tsx";
 import { Tabs, Tab } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-import ListeLead from "./liste/ListeLead.tsx";
-import ValidationLeadPage from "./validation/ValidationLeadPage.tsx";
+import TacheList from "./liste/TacheList.tsx";
+import MesTaches from "./mes-taches/MesTaches.tsx";
 
-const LeadPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("liste");
+const TachePage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<string>("mes-taches");
 
   return (
     <div className="page-lead-layout">
@@ -25,36 +25,29 @@ const LeadPage: React.FC = () => {
             <div className="row mb-3">
               <div className="col">
                 <Title
-                  title="Gestion des opportunités"
-                  subtitle="Suivi, validation et organisation des leads"
+                  title="Gestion des tâches"
+                  subtitle="Suivi des tâches par lead et par projet"
                 />
               </div>
             </div>
 
-            {/* ONGLET */}
             <Tabs
               activeKey={activeTab}
               onSelect={(k) => k && setActiveTab(k)}
               className="mb-4"
-              mountOnEnter     
-              unmountOnExit    
+              mountOnEnter
+              unmountOnExit
             >
-              <Tab eventKey="liste" title="Liste">
-                <ListeLead />
+              <Tab eventKey="mes-taches" title="Mes Tâches">
+                <MesTaches currentUser="Tsiky" />
               </Tab>
 
-              <Tab eventKey="validation" title="Validation">
-                <ValidationLeadPage />
+              <Tab eventKey="lead" title="Lead">
+                <TacheList type="LEAD" />
               </Tab>
 
-              <Tab eventKey="kanban" title="Kanban">
-                <div className="p-4 text-muted">
-                  <h5>Kanban (à venir)</h5>
-                  <p>
-                    Cette vue permettra de gérer les opportunités par statut
-                    (drag & drop).
-                  </p>
-                </div>
+              <Tab eventKey="projet" title="Projet">
+                <TacheList type="PROJET" />
               </Tab>
             </Tabs>
           </div>
@@ -64,4 +57,4 @@ const LeadPage: React.FC = () => {
   );
 };
 
-export default LeadPage;
+export default TachePage;

@@ -25,9 +25,6 @@ export interface BacklogPhaseOrderUpdate {
   order: number;
 }
 
-
-// Types pour les entités Backlog
-
 export interface BacklogProfil {
   id: number;
   order: number;
@@ -168,4 +165,40 @@ export interface Backlog {
   lots?: BacklogLot[];
   lines?: BacklogLine[];
   phases?: BacklogPhase[];
+}
+
+export interface CreateBacklogRequest {
+  name: string;
+  leadId: number;
+  desc?: string; 
+}
+export interface BacklogDeliverable {
+  id: number;
+  name: string;
+  deliveryDate: string; 
+  description: string;
+  phaseId: number;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateBacklogDeliverableRequest {
+  name: string;
+  deliveryDate: string;
+  description: string;
+  phaseId: number;
+  order: number;
+}
+
+export interface UpdateBacklogDeliverableRequest {
+  name?: string;
+  deliveryDate?: string;
+  description?: string;
+  order?: number;
+}
+
+export interface UpdateDeliverableOrderRequest {
+  id: number;
+  order: number;
 }
