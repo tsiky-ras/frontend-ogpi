@@ -9,6 +9,7 @@ import CollecteLoadingMessage from "../../../../components/message/CollecteLoadi
 import FormQualif from "./qualification/FormQualif.tsx";
 import FormTechFin from "./technique-financiere/FormTechFin.tsx";
 import "./FormLead.css";
+import FormJira from "./Jira/FormJira.tsx";
 
 import { BusinessUnitService } from "../../../../services/profil/poste/BusinessUnitService.tsx";
 import { LeadTypeService } from "../../../../services/lead/LeadTypeService.tsx";
@@ -23,6 +24,8 @@ import { useDeviseService } from "../../../../services/lead/tech-fin/DeviseServi
 import { useTechnoService } from "../../../../services/lead/tech-fin/TechnoService.tsx";
 import { useTypeFacturationService } from "../../../../services/lead/tech-fin/TypeFacturationService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
+import { UserDisplayService} from "../../../../services/user/UserDisplayService.tsx";
+
 
 type FormLeadProps = {
   show: boolean;
@@ -34,6 +37,7 @@ type FormLeadProps = {
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
   const { api } = useAuth();
   const leadService = new LeadService(api);
+  const userDisplayService = new UserDisplayService(api);  
   const deviseService = useDeviseService();
   const technoService = useTechnoService();
   const typeFacturationService = useTypeFacturationService();
@@ -308,7 +312,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     initForm();
   }, [show, lead]);
 
-  const isNoGo = lead?.currentLeadStatus?.leadStatus?.label === "No Go";
+  const isNoGo = lead?.currentLeadStatus?.leadStatus?.id <3;
 
   const formatLeadPayload = (form: any) => {
     const nowIso = new Date().toISOString();
@@ -514,10 +518,18 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
               </Tab.Pane>
 
               <Tab.Pane eventKey="etapes">
-                {isNoGo && (
+                {!lead ? (
+                  <p className="text-warning">Sauvegardez d'abord le lead.</p>
+                ) : isNoGo ? (
                   <p className="text-danger">
-                    Impossible de modifier cet onglet pour un lead No Go.
+                    Impossible pour un lead No Go.
                   </p>
+                ) : (
+                  <FormJira
+                    lead={lead}
+                    leadService={leadService}
+                    userService={userDisplayService}
+                  />
                 )}
               </Tab.Pane>
             </Tab.Content>

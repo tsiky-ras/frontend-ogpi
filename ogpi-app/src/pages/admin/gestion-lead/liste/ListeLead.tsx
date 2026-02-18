@@ -378,6 +378,7 @@ const ListeLead: React.FC = () => {
         
         const stepId = row.currentLeadStep?.leadStep?.id;
         if (!stepId) return '-';
+          
         
         const [cls, label] = map[stepId] || ['bg-secondary', 'Étape inconnue'];
         return <span className={`badge ${cls}`}>{label}</span>;

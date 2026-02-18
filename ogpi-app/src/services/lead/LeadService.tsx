@@ -106,6 +106,28 @@ export class LeadService {
       throw error;
     }
   }
+
+
+  /**
+ * Récupère les infos JIRA d'un lead
+ */
+async getJira(id: number) {
+  const res = await this.api.get(`/leads/JIRA/${id}`);
+  return res.data;
 }
+
+/**
+ * Update JIRA
+ */
+async updateJira(id: number, data: any) {
+  const res = await this.api.put(`/leads/${id}/JIRA`, data);
+  return res.data;
+}
+
+
+}
+
+
+
 
 
