@@ -1,15 +1,20 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
 import Title from "../../../components/title/Title.tsx";
-import { Tabs, Tab } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-import TacheList from "./liste/TacheList.tsx";
 import MesTaches from "./mes-taches/MesTaches.tsx";
+import { LeadTaskUserService } from "../../../services/lead/tasks/LeadTaskUserService.tsx";
+import { useAuth } from "../../../context/AuthContext.tsx";
+import "./TachePage.css";
 
 const TachePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("mes-taches");
+  const [activeTab, setActiveTab] = useState<"afaire" | "avalider">("afaire");
+  const {api} = useAuth();
+
+  // Service instancié ici, une seule fois, passé en prop à MesTaches
+  const leadTaskUserService = useMemo(() => new LeadTaskUserService(api), [api]);
 
   return (
     <div className="page-lead-layout">
@@ -26,30 +31,42 @@ const TachePage: React.FC = () => {
               <div className="col">
                 <Title
                   title="Gestion des tâches"
-                  subtitle="Suivi des tâches par lead et par projet"
+                  subtitle="Suivi et validation de vos tâches"
                 />
               </div>
             </div>
 
-            <Tabs
-              activeKey={activeTab}
-              onSelect={(k) => k && setActiveTab(k)}
-              className="mb-4"
-              mountOnEnter
-              unmountOnExit
-            >
-              <Tab eventKey="mes-taches" title="Mes Tâches">
-                <MesTaches currentUser="Tsiky" />
-              </Tab>
+            {/* Tab switcher */}
+            <div className="tp-tab-switcher">
+              <button
+                className={`tp-tab-btn${activeTab === "afaire" ? " active" : ""}`}
+                onClick={() => setActiveTab("afaire")}
+              >
+                <span className="tp-tab-icon">📋</span>
+                Mes tâches à faire
+              </button>
+              <button
+                className={`tp-tab-btn${activeTab === "avalider" ? " active" : ""}`}
+                onClick={() => setActiveTab("avalider")}
+              >
+                <span className="tp-tab-icon">✅</span>
+                Tâches à valider
+                <span className="tp-tab-soon">bientôt</span>
+              </button>
+            </div>
 
-              <Tab eventKey="lead" title="Lead">
-                <TacheList type="LEAD" />
-              </Tab>
-
-              <Tab eventKey="projet" title="Projet">
-                <TacheList type="PROJET" />
-              </Tab>
-            </Tabs>
+            <div className="tp-tab-content">
+              {activeTab === "afaire" && (
+                <MesTaches service={leadTaskUserService} />
+              )}
+              {activeTab === "avalider" && (
+                <div className="tp-coming-soon">
+                  <div className="tp-cs-icon">🚧</div>
+                  <h5>Module en cours de développement</h5>
+                  <p>La liste des tâches à valider sera disponible prochainement.</p>
+                </div>
+              )}
+            </div>
           </div>
         </main>
       </div>
