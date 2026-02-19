@@ -15,8 +15,8 @@ interface BudgetTabProps {
   deviseAbr?: string | null;
 }
 
-const LOT_COLOR = "#1a6b38";
-const PHASE_COLOR = "#28a745";
+const LOT_COLOR = "#223A46";
+const PHASE_COLOR = "#223A46";
 
 const BudgetTab: React.FC<BudgetTabProps> = ({
   lots,

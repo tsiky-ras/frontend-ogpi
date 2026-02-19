@@ -42,19 +42,19 @@ const MIN_BAR  = 4;
 const HANDLE_W = 8;
 
 const COLOR = {
-  lotBar:      "#1a6b38",
+  lotBar:      "#223A46",
   phaseAuto:   "#28a745",
-  phaseManual: "#7b3fbe",
-  delivAuto:   "#6ec997",
-  delivManual: "#a67ce0",
+  phaseManual: "#0e8f82",
+  delivManual:   "#6ec997",
+  delivAuto: "#007975",
   ghost:       "#c8e6c9",
   lotBg:       "#f0f7f1",
   phaseBg:     "#fafffe",
   selectedBg:  "#f0e8ff",
   grid:        "#e4eae4",
   gridMajor:   "#c5d5c5",
-  headerBg:    "#1a6b38",
-  headerSub:   "#2e7d52",
+  headerBg:    "#284350",
+  headerSub:   "#223A46",
   headerText:  "#ffffff",
 };
 
