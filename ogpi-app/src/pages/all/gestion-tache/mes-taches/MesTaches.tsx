@@ -1,45 +1,43 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  FaClock,
-  FaHourglassHalf,
-  FaCheckCircle,
-  FaChevronDown,
-  FaChevronUp,
-  FaFileAlt,
-  FaFolder,
-  FaUser,
-  FaCalendarAlt,
-  FaExternalLinkAlt,
-  FaTimesCircle,
-  FaTag,
-  FaSpinner,
-  FaInbox,
+  FaClock, FaHourglassHalf, FaCheckCircle, FaChevronDown, FaChevronUp,
+  FaFileAlt, FaFolder, FaUser, FaCalendarAlt, FaExternalLinkAlt,
+  FaTimesCircle, FaTag, FaSpinner, FaInbox, FaPlus, FaEdit, FaTrash,
+  FaTimes, FaSave,
 } from "react-icons/fa";
 import "./MesTaches.css";
 
-/* ─────────────── Types ─────────────── */
+/* ═══════════════════════════════════════
+   TYPES
+═══════════════════════════════════════ */
 interface LeadTaskStatus {
   leadTaskStatusId: number;
   leadTaskStatusLabel: string;
+}
+
+interface DriveFile {
+  id?: number;
+  name: string;
+  link: string;
+  description: string;
+  driveFolderId?: number;
+}
+
+interface TaskFile {
+  id?: number;
+  commentaire: string;
+  driveFile: DriveFile;
+  leadTaskUserId: number;
 }
 
 interface LeadTaskUserSummary {
   leadTaskUserId: number;
   dateAffectation: string;
   leadTaskUserDeadline: string | null;
-  leadTask: {
-    leadTaskId: number;
-    leadTaskName: string;
-    leadTaskDesc: string;
-  };
+  leadTask: { leadTaskId: number; leadTaskName: string; leadTaskDesc: string };
   leadId: number;
-  leadTaskUserStatus: {
-    leadTaskStatus: LeadTaskStatus;
-  };
-  leadDetails: {
-    leadName: string;
-    leadRef: string;
-  };
+  leadTaskUserStatus: { leadTaskStatus: LeadTaskStatus };
+  leadDetails: { leadName: string; leadRef: string };
 }
 
 interface LeadTaskUserDetails extends LeadTaskUserSummary {
@@ -56,38 +54,38 @@ interface LeadTaskUserDetails extends LeadTaskUserSummary {
     user: { id: number; username: string; email: string };
     role: { roleId: number; roleLabel: string };
   }> | null;
-  leadTaskFiles: Array<{
-    id: number;
-    commentaire: string;
-    driveFile: { id: number; name: string; link: string; description: string };
-  }> | null;
+  leadTaskFiles: TaskFile[] | null;
   leadDetails: {
-    leadName: string;
-    leadRef: string;
-    leadInternalDeadLine: string | null;
-    leadRealDeadLine: string | null;
+    leadName: string; leadRef: string;
+    leadInternalDeadLine: string | null; leadRealDeadLine: string | null;
     client: { id: number; name: string; email: string; phone: string } | null;
     mainDriveFile: { id: number; name: string; link: string; description: string } | null;
     driveFolder: { id: number; name: string; link: string } | null;
   };
 }
 
-// Interface minimale pour le service — évite l'import direct
 interface ILeadTaskUserService {
   getAll(): Promise<LeadTaskUserSummary[]>;
   getById(id: number): Promise<LeadTaskUserDetails>;
 }
 
-/* ─────────────── Helpers ─────────────── */
-const fmt = (iso: string | null | undefined) => {
+interface ILeadTaskFileService {
+  create(data: TaskFile): Promise<TaskFile>;
+  update(id: number, data: TaskFile): Promise<TaskFile>;
+  delete(id: number): Promise<void>;
+}
+
+/* ═══════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════ */
+const fmt = (iso?: string | null) => {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("fr-FR", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
 };
-
-const fmtDate = (iso: string | null | undefined) => {
+const fmtDate = (iso?: string | null) => {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("fr-FR", {
     day: "2-digit", month: "short", year: "numeric",
@@ -95,11 +93,7 @@ const fmtDate = (iso: string | null | undefined) => {
 };
 
 const STATUS_COLORS: Record<number, string> = {
-  1: "#94a3b8",
-  2: "#f59e0b",
-  3: "#3b82f6",
-  4: "#8b5cf6",
-  5: "#10b981",
+  1: "#94a3b8", 2: "#f59e0b", 3: "#3b82f6", 4: "#8b5cf6", 5: "#10b981",
 };
 const statusColor = (id: number) => STATUS_COLORS[id] ?? "#64748b";
 const isOverdue = (d: string | null) => !!d && new Date(d).getTime() < Date.now();
@@ -109,7 +103,276 @@ const isSoon = (d: string | null) => {
   return diff > 0 && diff < 2 * 3600 * 1000;
 };
 
-/* ─────────────── Status Badge ─────────────── */
+/* ═══════════════════════════════════════
+   FILE MODAL
+═══════════════════════════════════════ */
+const EMPTY_FILE = (leadTaskUserId: number): TaskFile => ({
+  commentaire: "",
+  driveFile: { name: "", link: "", description: "" },
+  leadTaskUserId,
+});
+
+interface FileModalProps {
+  mode: "create" | "edit";
+  initial: TaskFile;
+  onSave: (file: TaskFile) => Promise<void>;
+  onClose: () => void;
+}
+
+const FileModal: React.FC<FileModalProps> = ({ mode, initial, onSave, onClose }) => {
+  const [form, setForm] = useState<TaskFile>(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const setDrive = (field: keyof DriveFile, value: string) =>
+    setForm((f) => ({ ...f, driveFile: { ...f.driveFile, [field]: value } }));
+
+  const handleSave = async () => {
+    if (!form.driveFile.name.trim()) { setError("Le nom du fichier est requis."); return; }
+    if (!form.driveFile.link.trim()) { setError("Le lien est requis."); return; }
+    setSaving(true);
+    try {
+      await onSave(form);
+      onClose();
+    } catch {
+      setError("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-modal-overlay" onClick={onClose}>
+      <div className="mt-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-modal-header">
+          <h5>{mode === "create" ? "Ajouter un fichier" : "Modifier le fichier"}</h5>
+          <button className="mt-modal-close" onClick={onClose}><FaTimes /></button>
+        </div>
+
+        <div className="mt-modal-body">
+          {error && <div className="mt-modal-error">{error}</div>}
+
+          <div className="mt-field">
+            <label>Nom du fichier <span className="mt-required">*</span></label>
+            <input
+              type="text"
+              placeholder="document_technique.pdf"
+              value={form.driveFile.name}
+              onChange={(e) => setDrive("name", e.target.value)}
+            />
+          </div>
+
+          <div className="mt-field">
+            <label>Lien Drive <span className="mt-required">*</span></label>
+            <input
+              type="url"
+              placeholder="https://drive.google.com/..."
+              value={form.driveFile.link}
+              onChange={(e) => setDrive("link", e.target.value)}
+            />
+          </div>
+
+          <div className="mt-field">
+            <label>Description</label>
+            <input
+              type="text"
+              placeholder="Description du fichier"
+              value={form.driveFile.description}
+              onChange={(e) => setDrive("description", e.target.value)}
+            />
+          </div>
+
+          <div className="mt-field">
+            <label>Commentaire</label>
+            <textarea
+              placeholder="Commentaire sur ce fichier…"
+              value={form.commentaire}
+              onChange={(e) => setForm((f) => ({ ...f, commentaire: e.target.value }))}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <div className="mt-modal-footer">
+          <button className="mt-btn mt-btn--ghost" onClick={onClose} disabled={saving}>
+            Annuler
+          </button>
+          <button className="mt-btn mt-btn--primary" onClick={handleSave} disabled={saving}>
+            {saving ? <FaSpinner className="mt-spin" /> : <FaSave size={13} />}
+            {mode === "create" ? "Ajouter" : "Enregistrer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════
+   DELETE CONFIRM MODAL
+═══════════════════════════════════════ */
+interface DeleteModalProps {
+  fileName: string;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}
+
+const DeleteModal: React.FC<DeleteModalProps> = ({ fileName, onConfirm, onClose }) => {
+  const [loading, setLoading] = useState(false);
+  const handleConfirm = async () => {
+    setLoading(true);
+    try { await onConfirm(); onClose(); }
+    finally { setLoading(false); }
+  };
+  return (
+    <div className="mt-modal-overlay" onClick={onClose}>
+      <div className="mt-modal mt-modal--sm" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-modal-header">
+          <h5>Supprimer le fichier</h5>
+          <button className="mt-modal-close" onClick={onClose}><FaTimes /></button>
+        </div>
+        <div className="mt-modal-body">
+          <p className="mt-delete-msg">
+            Voulez-vous supprimer <strong>{fileName}</strong> ? Cette action est irréversible.
+          </p>
+        </div>
+        <div className="mt-modal-footer">
+          <button className="mt-btn mt-btn--ghost" onClick={onClose} disabled={loading}>Annuler</button>
+          <button className="mt-btn mt-btn--danger" onClick={handleConfirm} disabled={loading}>
+            {loading ? <FaSpinner className="mt-spin" /> : <FaTrash size={12} />}
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════
+   FILES SECTION (avec CRUD)
+═══════════════════════════════════════ */
+interface FilesSectionProps {
+  files: TaskFile[];
+  leadTaskUserId: number;
+  fileService: ILeadTaskFileService;
+  onFilesChange: (files: TaskFile[]) => void;
+}
+
+const FilesSection: React.FC<FilesSectionProps> = ({
+  files, leadTaskUserId, fileService, onFilesChange,
+}) => {
+  const [modal, setModal] = useState<
+    | { type: "create" }
+    | { type: "edit"; file: TaskFile }
+    | { type: "delete"; file: TaskFile }
+    | null
+  >(null);
+
+  const handleCreate = async (data: TaskFile) => {
+    const created = await fileService.create(data);
+    onFilesChange([...files, created]);
+  };
+
+  const handleUpdate = async (data: TaskFile) => {
+    const updated = await fileService.update(data.id!, data);
+    onFilesChange(files.map((f) => (f.id === updated.id ? updated : f)));
+  };
+
+  const handleDelete = async (file: TaskFile) => {
+    await fileService.delete(file.id!);
+    onFilesChange(files.filter((f) => f.id !== file.id));
+  };
+
+  return (
+    <div className="mt-section">
+      <div className="mt-section-title">
+        <FaFileAlt size={11} /> Fichiers de la tâche
+        <span className="mt-section-count">{files.length}</span>
+        <button
+          className="mt-add-file-btn"
+          onClick={() => setModal({ type: "create" })}
+          title="Ajouter un fichier"
+        >
+          <FaPlus size={10} /> Ajouter
+        </button>
+      </div>
+
+      {files.length === 0 && (
+        <div className="mt-files-empty">
+          <span>Aucun fichier joint. </span>
+          <button className="mt-link-btn" onClick={() => setModal({ type: "create" })}>
+            Ajouter un fichier
+          </button>
+        </div>
+      )}
+
+      {files.length > 0 && (
+        <div className="mt-files">
+          {files.map((f) => (
+            <div key={f.id} className="mt-file-item">
+              <FaFileAlt size={14} className="mt-file-icon" />
+              <div className="mt-file-info">
+                <a
+                  href={f.driveFile.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-file-name"
+                >
+                  {f.driveFile.name} <FaExternalLinkAlt size={9} />
+                </a>
+                {f.commentaire && <span className="mt-file-comment">{f.commentaire}</span>}
+              </div>
+              <div className="mt-file-actions">
+                <button
+                  className="mt-file-action-btn edit"
+                  onClick={() => setModal({ type: "edit", file: f })}
+                  title="Modifier"
+                >
+                  <FaEdit size={12} />
+                </button>
+                <button
+                  className="mt-file-action-btn delete"
+                  onClick={() => setModal({ type: "delete", file: f })}
+                  title="Supprimer"
+                >
+                  <FaTrash size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modals */}
+      {modal?.type === "create" && (
+        <FileModal
+          mode="create"
+          initial={EMPTY_FILE(leadTaskUserId)}
+          onSave={handleCreate}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === "edit" && (
+        <FileModal
+          mode="edit"
+          initial={modal.file}
+          onSave={handleUpdate}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === "delete" && (
+        <DeleteModal
+          fileName={modal.file.driveFile.name}
+          onConfirm={() => handleDelete(modal.file)}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════
+   STATUS BADGE
+═══════════════════════════════════════ */
 const StatusBadge: React.FC<{ statusId: number; label: string }> = ({ statusId, label }) => {
   const c = statusColor(statusId);
   return (
@@ -119,9 +382,17 @@ const StatusBadge: React.FC<{ statusId: number; label: string }> = ({ statusId, 
   );
 };
 
-/* ─────────────── Expanded Details ─────────────── */
-const ExpandedDetails: React.FC<{ details: LeadTaskUserDetails }> = ({ details }) => {
+/* ═══════════════════════════════════════
+   EXPANDED DETAILS
+═══════════════════════════════════════ */
+interface ExpandedDetailsProps {
+  details: LeadTaskUserDetails;
+  fileService: ILeadTaskFileService;
+}
+
+const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService }) => {
   const lead = details.leadDetails;
+  const [files, setFiles] = useState<TaskFile[]>(details.leadTaskFiles ?? []);
 
   return (
     <div className="mt-expanded">
@@ -162,42 +433,24 @@ const ExpandedDetails: React.FC<{ details: LeadTaskUserDetails }> = ({ details }
         <div className="mt-drive-row">
           {lead.mainDriveFile && (
             <a href={lead.mainDriveFile.link} target="_blank" rel="noreferrer" className="mt-drive-link mt-drive-link--file">
-              <FaFileAlt size={12} />
-              <span>{lead.mainDriveFile.name}</span>
-              <FaExternalLinkAlt size={9} />
+              <FaFileAlt size={12} /><span>{lead.mainDriveFile.name}</span><FaExternalLinkAlt size={9} />
             </a>
           )}
           {lead.driveFolder && (
             <a href={lead.driveFolder.link} target="_blank" rel="noreferrer" className="mt-drive-link mt-drive-link--folder">
-              <FaFolder size={12} />
-              <span>{lead.driveFolder.name}</span>
-              <FaExternalLinkAlt size={9} />
+              <FaFolder size={12} /><span>{lead.driveFolder.name}</span><FaExternalLinkAlt size={9} />
             </a>
           )}
         </div>
       </div>
 
-      {/* Task files */}
-      {details.leadTaskFiles && details.leadTaskFiles.length > 0 && (
-        <div className="mt-section">
-          <div className="mt-section-title">
-            <FaFileAlt size={11} /> Fichiers de la tâche
-            <span className="mt-section-count">{details.leadTaskFiles.length}</span>
-          </div>
-          <div className="mt-files">
-            {details.leadTaskFiles.map((f) => (
-              <a key={f.id} href={f.driveFile.link} target="_blank" rel="noreferrer" className="mt-file-item">
-                <FaFileAlt size={14} className="mt-file-icon" />
-                <div className="mt-file-info">
-                  <span className="mt-file-name">{f.driveFile.name}</span>
-                  {f.commentaire && <span className="mt-file-comment">{f.commentaire}</span>}
-                </div>
-                <FaExternalLinkAlt size={10} className="mt-file-ext" />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Files with CRUD */}
+      <FilesSection
+        files={files}
+        leadTaskUserId={details.leadTaskUserId}
+        fileService={fileService}
+        onFilesChange={setFiles}
+      />
 
       {/* Status history */}
       {details.leadTaskUserStatusList && details.leadTaskUserStatusList.length > 0 && (
@@ -226,9 +479,7 @@ const ExpandedDetails: React.FC<{ details: LeadTaskUserDetails }> = ({ details }
             {details.leadTaskValidations.map((v) => (
               <div key={v.id} className={`mt-val-item ${v.decision === 1 ? "go" : "nogo"}`}>
                 <div className="mt-val-decision">
-                  {v.decision === 1
-                    ? <FaCheckCircle className="go-icon" />
-                    : <FaTimesCircle className="nogo-icon" />}
+                  {v.decision === 1 ? <FaCheckCircle className="go-icon" /> : <FaTimesCircle className="nogo-icon" />}
                   <strong>{v.decision === 1 ? "GO" : "NO GO"}</strong>
                 </div>
                 <div className="mt-val-body">
@@ -245,11 +496,14 @@ const ExpandedDetails: React.FC<{ details: LeadTaskUserDetails }> = ({ details }
   );
 };
 
-/* ─────────────── Task Card ─────────────── */
+/* ═══════════════════════════════════════
+   TASK CARD
+═══════════════════════════════════════ */
 const TacheCard: React.FC<{
   tache: LeadTaskUserSummary;
-  service: ILeadTaskUserService;
-}> = ({ tache, service }) => {
+  taskService: ILeadTaskUserService;
+  fileService: ILeadTaskFileService;
+}> = ({ tache, taskService, fileService }) => {
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<LeadTaskUserDetails | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -258,7 +512,7 @@ const TacheCard: React.FC<{
     if (!open && !details) {
       setLoadingDetail(true);
       try {
-        const d = await service.getById(tache.leadTaskUserId);
+        const d = await taskService.getById(tache.leadTaskUserId);
         setDetails(d);
       } catch (e) {
         console.error("Erreur chargement détails tâche:", e);
@@ -267,7 +521,7 @@ const TacheCard: React.FC<{
       }
     }
     setOpen((v) => !v);
-  }, [open, details, tache.leadTaskUserId, service]);
+  }, [open, details, tache.leadTaskUserId, taskService]);
 
   const overdue = isOverdue(tache.leadTaskUserDeadline);
   const soon = isSoon(tache.leadTaskUserDeadline);
@@ -279,7 +533,6 @@ const TacheCard: React.FC<{
       overdue ? "mt-card--overdue" : "",
       soon && !overdue ? "mt-card--soon" : "",
     ].filter(Boolean).join(" ")}>
-
       <div
         className="mt-card-header"
         onClick={handleToggle}
@@ -319,7 +572,9 @@ const TacheCard: React.FC<{
         </button>
       </div>
 
-      {open && !loadingDetail && details && <ExpandedDetails details={details} />}
+      {open && !loadingDetail && details && (
+        <ExpandedDetails details={details} fileService={fileService} />
+      )}
       {open && loadingDetail && (
         <div className="mt-detail-loading">
           <FaSpinner className="mt-spin" /> Chargement des détails…
@@ -329,13 +584,20 @@ const TacheCard: React.FC<{
   );
 };
 
-/* ─────────────── Main Component ─────────────── */
+/* ═══════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════ */
 interface Props {
-  service: ILeadTaskUserService;
+  taskService: ILeadTaskUserService;
+  fileService: ILeadTaskFileService;
   currentUserName?: string;
 }
 
-const MesTaches: React.FC<Props> = ({ service, currentUserName = "Utilisateur" }) => {
+const MesTaches: React.FC<Props> = ({
+  taskService,
+  fileService,
+  currentUserName = "Utilisateur",
+}) => {
   const [taches, setTaches] = useState<LeadTaskUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -346,17 +608,17 @@ const MesTaches: React.FC<Props> = ({ service, currentUserName = "Utilisateur" }
       try {
         setLoading(true);
         setError(null);
-        const data = await service.getAll();
+        const data = await taskService.getAll();
         if (!cancelled) setTaches(data);
       } catch (e) {
-        if (!cancelled) setError("Impossible de charger les tâches. Vérifiez votre connexion.");
-        console.error("MesTaches fetch error:", e);
+        if (!cancelled) setError("Impossible de charger les tâches.");
+        console.error(e);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [service]);
+  }, [taskService]);
 
   const counts = {
     total: taches.length,
@@ -367,15 +629,12 @@ const MesTaches: React.FC<Props> = ({ service, currentUserName = "Utilisateur" }
 
   return (
     <div className="mes-taches-wrapper">
-
       <div className="mt-header">
         <div>
           <h4 className="mt-title">Mes Tâches</h4>
           <p className="mt-subtitle">
             Bonjour <strong>{currentUserName}</strong> —{" "}
-            {loading
-              ? "chargement…"
-              : `${counts.total} tâche${counts.total !== 1 ? "s" : ""} assignée${counts.total !== 1 ? "s" : ""}`}
+            {loading ? "chargement…" : `${counts.total} tâche${counts.total !== 1 ? "s" : ""} assignée${counts.total !== 1 ? "s" : ""}`}
           </p>
         </div>
       </div>
@@ -406,8 +665,7 @@ const MesTaches: React.FC<Props> = ({ service, currentUserName = "Utilisateur" }
 
       {!loading && error && (
         <div className="mt-state-box mt-state-box--error">
-          <FaTimesCircle size={30} />
-          <p>{error}</p>
+          <FaTimesCircle size={30} /><p>{error}</p>
         </div>
       )}
 
@@ -422,7 +680,12 @@ const MesTaches: React.FC<Props> = ({ service, currentUserName = "Utilisateur" }
       {!loading && !error && taches.length > 0 && (
         <div className="mt-list">
           {taches.map((t) => (
-            <TacheCard key={t.leadTaskUserId} tache={t} service={service} />
+            <TacheCard
+              key={t.leadTaskUserId}
+              tache={t}
+              taskService={taskService}
+              fileService={fileService}
+            />
           ))}
         </div>
       )}

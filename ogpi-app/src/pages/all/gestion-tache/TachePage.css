@@ -1,6 +1,6 @@
-/* ═══════════════════════════════
-   TachePage — Tab switcher styles
-   ═══════════════════════════════ */
+/* ═══════════════════════════════════════════
+   TachePage.css — Layout onglets Tâches
+   ═══════════════════════════════════════════ */
 
    .tp-tab-switcher {
     display: flex;
@@ -27,9 +27,7 @@
     transition: all 0.15s ease;
     white-space: nowrap;
   }
-  
   .tp-tab-btn:hover { color: #334155; background: #e2e8f0; }
-  
   .tp-tab-btn.active {
     background: #ffffff;
     color: #1e293b;
@@ -70,7 +68,6 @@
     color: #94a3b8;
     gap: 8px;
   }
-  
   .tp-cs-icon { font-size: 2.4rem; margin-bottom: 8px; }
   .tp-coming-soon h5 { font-size: 1rem; font-weight: 600; color: #475569; margin: 0 0 4px; }
   .tp-coming-soon p  { font-size: 0.875rem; margin: 0; color: #94a3b8; }

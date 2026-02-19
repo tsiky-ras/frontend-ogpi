@@ -6,15 +6,21 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 import MesTaches from "./mes-taches/MesTaches.tsx";
 import { LeadTaskUserService } from "../../../services/lead/tasks/LeadTaskUserService.tsx";
+import { LeadTaskFileService } from "../../../services/lead/tasks/LeadTaskFileService.tsx";
+
+// ⚠️  Remplacez ce chemin par celui de votre instance axios
+// Regardez comment vos autres pages importent l'api, ex :
+// import { api } from "../../../api/axiosConfig";
+// import apiClient from "../../../utils/httpClient";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import "./TachePage.css";
 
 const TachePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"afaire" | "avalider">("afaire");
   const {api} = useAuth();
-
-  // Service instancié ici, une seule fois, passé en prop à MesTaches
-  const leadTaskUserService = useMemo(() => new LeadTaskUserService(api), [api]);
+  // Services instanciés une seule fois, passés en props
+  const leadTaskUserService = useMemo(() => new LeadTaskUserService(api), []);
+  const leadTaskFileService = useMemo(() => new LeadTaskFileService(api), []);
 
   return (
     <div className="page-lead-layout">
@@ -36,7 +42,6 @@ const TachePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Tab switcher */}
             <div className="tp-tab-switcher">
               <button
                 className={`tp-tab-btn${activeTab === "afaire" ? " active" : ""}`}
@@ -57,7 +62,10 @@ const TachePage: React.FC = () => {
 
             <div className="tp-tab-content">
               {activeTab === "afaire" && (
-                <MesTaches service={leadTaskUserService} />
+                <MesTaches
+                  taskService={leadTaskUserService}
+                  fileService={leadTaskFileService}
+                />
               )}
               {activeTab === "avalider" && (
                 <div className="tp-coming-soon">
