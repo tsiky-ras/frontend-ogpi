@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Modal, Button, Nav, Tab } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 
@@ -24,8 +24,7 @@ import { useDeviseService } from "../../../../services/lead/tech-fin/DeviseServi
 import { useTechnoService } from "../../../../services/lead/tech-fin/TechnoService.tsx";
 import { useTypeFacturationService } from "../../../../services/lead/tech-fin/TypeFacturationService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
-import { UserDisplayService} from "../../../../services/user/UserDisplayService.tsx";
-
+import { UserDisplayService } from "../../../../services/user/UserDisplayService.tsx";
 
 type FormLeadProps = {
   show: boolean;
@@ -37,7 +36,7 @@ type FormLeadProps = {
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
   const { api } = useAuth();
   const leadService = new LeadService(api);
-  const userDisplayService = new UserDisplayService(api);  
+  const userDisplayService = new UserDisplayService(api);
   const deviseService = useDeviseService();
   const technoService = useTechnoService();
   const typeFacturationService = useTypeFacturationService();
@@ -71,6 +70,9 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     budget: 0,
   });
 
+  // Données JIRA remontées par FormJira via onDataReady
+  const jiraDataRef = useRef<any>(null);
+
   /* ================= Listes ================= */
   const [businessUnits, setBusinessUnits] = useState<any[]>([]);
   const [typeOpportunites, setTypeOpportunites] = useState<any[]>([]);
@@ -97,19 +99,8 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     setForm((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  const handleTechFinChange = (e: any) => {
-    const { name, value } = e.target;
-    setFormTechFin((prev: any) => ({ ...prev, [name]: value }));
-  };
-
   const mapLeadToForm = (lead: any) => {
-    console.log("=== mapLeadToForm ===");
-    console.log("lead.leadPartenaires:", lead.leadPartenaires);
-    
-    // 🔥 Extraire les partenaires depuis leadPartenaires
     const partenairesArray = lead.leadPartenaires?.map((lp: any) => lp.partenaire) || [];
-    console.log("partenairesArray extracted:", partenairesArray);
-
     return {
       periode: lead.leadPeriode?.substring(0, 7) || "",
       nom: lead.leadName || "",
@@ -123,10 +114,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       secteur: lead.leadSecteur?.id || "",
       statut: lead.currentLeadStatus?.leadStatus?.id || "1",
       client: lead.client || null,
-      
-      // 🔥 Correction: utiliser partenaires (array) au lieu de leadPartenaire (single)
       partenaires: partenairesArray,
-      
       typeFinancement: lead.typeProjetFinancement || null,
       realDeadline: lead.leadRealDeadLine ? lead.leadRealDeadLine.substring(0, 16) : "",
       internalDeadline: lead.leadInternalDeadLine ? lead.leadInternalDeadLine.substring(0, 16) : "",
@@ -139,35 +127,18 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
   };
 
   const mapLeadToTechFinForm = (lead: any) => {
-    console.log("=== mapLeadToTechFinForm ===");
-    console.log("lead.technos brut:", lead.technos);
-    
     let technosIds: number[] = [];
-    
     if (Array.isArray(lead.technos)) {
       technosIds = lead.technos
         .map((item: any) => {
-          console.log("Processing techno item:", item);
-          
-          if (item?.techno?.idTechno) {
-            return Number(item.techno.idTechno);
-          }
-          if (typeof item === 'object' && item !== null && item.idTechno) {
-            return Number(item.idTechno);
-          }
-          if (typeof item === 'object' && item !== null && item.id) {
-            return Number(item.id);
-          }
-          if (typeof item === 'number') {
-            return item;
-          }
+          if (item?.techno?.idTechno) return Number(item.techno.idTechno);
+          if (typeof item === "object" && item !== null && item.idTechno) return Number(item.idTechno);
+          if (typeof item === "object" && item !== null && item.id) return Number(item.id);
+          if (typeof item === "number") return item;
           return null;
         })
         .filter((id: any) => id !== null && !isNaN(id));
     }
-
-    console.log("technosIds extraits:", technosIds);
-
     return {
       technos: technosIds,
       volumeJHVendu: lead.volumeJHVendu || 0,
@@ -182,28 +153,23 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
 
   useEffect(() => {
     if (!show) return;
-
     const fetchFinanceData = async () => {
       try {
         const [devs, factTypes] = await Promise.all([
           deviseService.getAll(),
           typeFacturationService.getAll(),
         ]);
-
         setDevises(devs);
         setTypeFacturations(factTypes);
       } catch (err) {
         console.error("Erreur lors du fetch des données financières :", err);
       }
     };
-
     fetchFinanceData();
   }, [show]);
 
-  /* ================= Fetch technos ================= */
   useEffect(() => {
     if (!show) return;
-
     const fetchTechno = async () => {
       try {
         const list = await technoService.getAll();
@@ -212,20 +178,14 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         console.error("Erreur lors du fetch des technos :", err);
       }
     };
-
     fetchTechno();
   }, [show]);
 
-  /* ================= Fetch listes ================= */
   useEffect(() => {
     if (!show) return;
-
     const fetchData = async () => {
       try {
-        const [
-          bu, types, cats, sects, stats,
-          typeFin, clts, parts
-        ] = await Promise.all([
+        const [bu, types, cats, sects, stats, typeFin, clts, parts] = await Promise.all([
           new BusinessUnitService(api).getAll(),
           new LeadTypeService(api).getAll(),
           new LeadCategoryService(api).getAll(),
@@ -235,7 +195,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           new ClientService(api).getAll(),
           new PartenaireService(api).getAll(),
         ]);
-
         setBusinessUnits(bu);
         setTypeOpportunites(types);
         setCategories(cats);
@@ -248,30 +207,17 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         console.error(err);
       }
     };
-
     fetchData();
   }, [show, api]);
 
   useEffect(() => {
     if (!show) return;
-
     const initForm = async () => {
       if (lead) {
-        console.log("=== MODE ÉDITION ===");
-        console.log("Lead reçu:", lead);
-
-        // 🔥 Mapper le lead au formulaire (avec partenaires corrigés)
         setForm(mapLeadToForm(lead));
-
-        // 🔥 Mapper les données tech & fin
-        const mappedTechFin = mapLeadToTechFinForm(lead);
-        console.log("FormTechFin final:", mappedTechFin);
-        setFormTechFin(mappedTechFin);
-
-        // Déterminer l'onglet initial
+        setFormTechFin(mapLeadToTechFinForm(lead));
         setCurrentStep("qualification");
       } else {
-        // Mode création
         setForm({
           periode: "",
           businessUnit: "",
@@ -306,23 +252,20 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           budget: 0,
         });
         setCurrentStep("qualification");
+        jiraDataRef.current = null;
       }
     };
-
     initForm();
   }, [show, lead]);
 
-  const isNoGo = lead?.currentLeadStatus?.leadStatus?.id <3;
+  const isNoGo = lead?.currentLeadStatus?.leadStatus?.id < 3;
 
   const formatLeadPayload = (form: any) => {
     const nowIso = new Date().toISOString();
     const periodeDate = form.periode ? `${form.periode}-01` : null;
-    
-    // 🔥 Formater les partenaires pour l'API
     const leadPartenairesFormatted = (form.partenaires || []).map((p: any) => ({
-      partenaire: { id: p.id }
+      partenaire: { id: p.id },
     }));
-
     return {
       leadPeriode: periodeDate,
       leadDescription: form.description,
@@ -339,29 +282,33 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
       businessUnit: form.businessUnit ? { id: form.businessUnit } : null,
       leadPartenaires: leadPartenairesFormatted,
       leadStatusHistories: [
-        { dateUpdated: nowIso, leadStatus: form.statut ? { id: form.statut } : { id: 1 } }
+        { dateUpdated: nowIso, leadStatus: form.statut ? { id: form.statut } : { id: 1 } },
       ],
       typeProjetFinancement: form.typeFinancement ? { id: form.typeFinancement.id } : null,
       driveFolder: form.driveFolderName
         ? { name: form.driveFolderName, link: form.driveFolderLink || "" }
         : null,
       mainDriveFile: form.mainDriveFileName
-        ? { name: form.mainDriveFileName, link: form.mainDriveFileLink || "", description: form.mainDriveFileDescription || "" }
-        : null
+        ? {
+            name: form.mainDriveFileName,
+            link: form.mainDriveFileLink || "",
+            description: form.mainDriveFileDescription || "",
+          }
+        : null,
     };
   };
 
-  /* ================= Save ================= */
+  /* ================= Save unifié ================= */
   const handleSave = async () => {
-    console.log("=== DÉBUT handleSave ===", currentStep);
     setShowLoadingMessage(true);
 
     try {
-      let savedLead = lead;
+      const currentLeadId = lead?.leadId || lead?.id;
+
+      // ── Onglet Qualification ──────────────────────────────────────────────
       if (currentStep === "qualification") {
         const qualifData = formatLeadPayload(form);
-        console.log("Payload qualification:", qualifData);
-        const currentLeadId = lead?.leadId || lead?.id;
+        let savedLead: any;
 
         if (lead && currentLeadId) {
           savedLead = await leadService.updateQualif(currentLeadId, qualifData);
@@ -372,7 +319,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         setShowLoadingMessage(false);
         setSuccessMessage("Qualification sauvegardée avec succès !");
         setShowSuccessMessage(true);
-
         onSubmit(savedLead);
 
         setTimeout(() => {
@@ -383,29 +329,21 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         return;
       }
 
+      // ── Onglet Offre Tech & Fin ───────────────────────────────────────────
       if (currentStep === "offre") {
-        const leadId = lead?.leadId || lead?.id;
-
-        if (!leadId) {
-          throw new Error("Veuillez d'abord sauvegarder la qualification.");
-        }
-
-        if (!formTechFin.deviseId || !formTechFin.typeFacturationId) {
+        if (!currentLeadId) throw new Error("Veuillez d'abord sauvegarder la qualification.");
+        if (!formTechFin.deviseId || !formTechFin.typeFacturationId)
           throw new Error("Veuillez compléter la devise et le type de facturation.");
-        }
 
-        const existingTechFin = await leadTechFinService.getByLeadId(leadId);
+        const existingTechFin = await leadTechFinService.getByLeadId(currentLeadId);
         const techFinId = existingTechFin?.idLeadTechFinDetails;
-
-        const technosFormatted = (formTechFin.technos || []).map(
-          (technoId: number) => ({
-            techno: { idTechno: technoId },
-          })
-        );
+        const technosFormatted = (formTechFin.technos || []).map((technoId: number) => ({
+          techno: { idTechno: technoId },
+        }));
 
         const techFinData = {
           idLeadTechFinDetails: techFinId,
-          idLead: leadId,
+          idLead: currentLeadId,
           budget: formTechFin.budget || 0,
           volumeJHVendu: formTechFin.volumeJHVendu || 0,
           tauxDeChange: formTechFin.tauxDeChange || 1,
@@ -413,14 +351,11 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           dateAttribution: formTechFin.dateAttribution || null,
           montantOffre: formTechFin.budget || 0,
           technos: technosFormatted,
-          lead: { leadId },
+          lead: { leadId: currentLeadId },
           devise: { idDevise: Number(formTechFin.deviseId) },
-          typeFacturation: {
-            idTypeFacturation: Number(formTechFin.typeFacturationId),
-          },
+          typeFacturation: { idTypeFacturation: Number(formTechFin.typeFacturationId) },
         };
 
-        console.log("Payload Tech&Fin:", techFinData);
         await leadTechFinService.update(techFinData);
 
         setShowLoadingMessage(false);
@@ -434,13 +369,30 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
 
         return;
       }
+
+      // ── Onglet Étapes & Validations (JIRA) ───────────────────────────────
+      if (currentStep === "etapes") {
+        if (!currentLeadId) throw new Error("ID du lead manquant.");
+
+        const jiraData = jiraDataRef.current;
+        if (!jiraData) throw new Error("Aucune donnée JIRA à sauvegarder.");
+
+        await leadService.updateJira(currentLeadId, jiraData);
+
+        setShowLoadingMessage(false);
+        setSuccessMessage("JIRA mis à jour avec succès !");
+        setShowSuccessMessage(true);
+
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+        }, 2000);
+
+        return;
+      }
     } catch (err) {
       console.error("=== ERREUR handleSave ===", err);
-
       setShowLoadingMessage(false);
-      setErrorMessage(
-        err instanceof Error ? err.message : "Erreur inconnue"
-      );
+      setErrorMessage(err instanceof Error ? err.message : "Erreur inconnue");
       setShowErrorMessage(true);
     }
   };
@@ -466,13 +418,19 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
             }}
           >
             <Nav variant="pills" className="mb-4">
-              <Nav.Item><Nav.Link eventKey="qualification">Qualification</Nav.Link></Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="qualification">Qualification</Nav.Link>
+              </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="offre" disabled={!lead}>
                   Offre technique & financière
                 </Nav.Link>
               </Nav.Item>
-              <Nav.Item><Nav.Link eventKey="etapes" disabled={!lead}>Étapes & validations</Nav.Link></Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="etapes" disabled={!lead}>
+                  Étapes & validations
+                </Nav.Link>
+              </Nav.Item>
             </Nav>
 
             <Tab.Content>
@@ -521,14 +479,15 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
                 {!lead ? (
                   <p className="text-warning">Sauvegardez d'abord le lead.</p>
                 ) : isNoGo ? (
-                  <p className="text-danger">
-                    Impossible pour un lead No Go.
-                  </p>
+                  <p className="text-danger">Impossible pour un lead No Go.</p>
                 ) : (
                   <FormJira
                     lead={lead}
                     leadService={leadService}
                     userService={userDisplayService}
+                    onDataReady={(data) => {
+                      jiraDataRef.current = data;
+                    }}
                   />
                 )}
               </Tab.Pane>
@@ -537,7 +496,9 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="secondary" onClick={onClose}>Annuler</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
           <Button variant="primary" onClick={handleSave}>
             {lead ? "Modifier" : "Créer"}
           </Button>

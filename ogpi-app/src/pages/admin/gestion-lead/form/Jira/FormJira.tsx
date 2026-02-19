@@ -1,49 +1,65 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Table, Form, Button, Spinner } from "react-bootstrap";
+import { Table, Form, Spinner } from "react-bootstrap";
 
 type Props = {
   lead: any;
   leadService: any;
   userService: any;
+  onDataReady?: (data: any) => void; // Remonte les données vers le parent
 };
 
-const FormJira: React.FC<Props> = ({ lead, leadService, userService }) => {
+const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady }) => {
   const [jira, setJira] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  
-  const fetchedRef = useRef(false); // Pour éviter les doubles appels en dev
+
+  const fetchedRef = useRef(false);
 
   const statusId = lead?.currentLeadStatus?.leadStatus?.id;
   const canShow = statusId > 2;
-
-  // Récupérer l'ID du lead une seule fois
   const leadId = lead?.leadId || lead?.id;
 
+  // Convertit une date ISO en format compatible datetime-local (YYYY-MM-DDTHH:mm)
+  const toDateTimeLocal = (isoString: string | null): string => {
+    if (!isoString) return "";
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return "";
+      // Retirer les secondes et le timezone pour datetime-local
+      return date.toISOString().substring(0, 16);
+    } catch {
+      return "";
+    }
+  };
+
   useEffect(() => {
-    // Ne pas exécuter si les conditions ne sont pas remplies
     if (!canShow || !leadId || fetchedRef.current) return;
 
     const fetchData = async () => {
       setLoading(true);
       try {
-        console.log("Chargement des données JIRA pour leadId:", leadId);
-        
         const [jiraData, usersData] = await Promise.all([
           leadService.getJira(leadId),
           userService.getAll(),
         ]);
-        
-        console.log("Données JIRA reçues:", jiraData);
-        console.log("Utilisateurs reçus:", usersData);
-        
+
+        // Normaliser les deadlines au format datetime-local dès le chargement
+        if (jiraData?.leadTaskUsers) {
+          jiraData.leadTaskUsers = jiraData.leadTaskUsers.map((t: any) => ({
+            ...t,
+            leadTaskUserDeadline: toDateTimeLocal(t.leadTaskUserDeadline),
+          }));
+        }
+
         setJira(jiraData);
         setUsers(usersData);
-        fetchedRef.current = true; // Marquer comme déjà chargé
+        fetchedRef.current = true;
+
+        // Remonter les données initiales au parent
+        onDataReady?.(jiraData);
       } catch (error) {
         console.error("Erreur lors du chargement:", error);
-        alert("Erreur lors du chargement des données");
+        alert("Erreur lors du chargement des données JIRA");
       } finally {
         setLoading(false);
       }
@@ -51,73 +67,54 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService }) => {
 
     fetchData();
 
-    // Cleanup si le composant est démonté
     return () => {
       fetchedRef.current = false;
     };
-  }, [leadId, canShow]); // Dépendances simplifiées
+  }, [leadId, canShow]);
+
+  // À chaque modification du state jira, on remonte la donnée au parent
+  useEffect(() => {
+    if (jira) {
+      onDataReady?.(jira);
+    }
+  }, [jira]);
 
   const updateTask = useCallback((index: number, field: string, value: any) => {
     setJira((prevJira: any) => {
       if (!prevJira) return prevJira;
       const copy = { ...prevJira };
       if (copy.leadTaskUsers?.[index]) {
+        copy.leadTaskUsers = [...copy.leadTaskUsers];
         copy.leadTaskUsers[index] = {
           ...copy.leadTaskUsers[index],
-          [field]: value
+          [field]: value,
         };
       }
       return copy;
     });
   }, []);
 
-  const updateUser = useCallback((index: number, userId: number) => {
-    setJira((prevJira: any) => {
-      if (!prevJira) return prevJira;
-      const copy = { ...prevJira };
-      const selected = users.find((u) => u.id === Number(userId));
-      if (copy.leadTaskUsers?.[index]) {
-        copy.leadTaskUsers[index] = {
-          ...copy.leadTaskUsers[index],
-          user: selected
-        };
-      }
-      return copy;
-    });
-  }, [users]);
+  const updateUser = useCallback(
+    (index: number, userId: number) => {
+      setJira((prevJira: any) => {
+        if (!prevJira) return prevJira;
+        const copy = { ...prevJira };
+        const selected = users.find((u) => u.id === Number(userId));
+        if (copy.leadTaskUsers?.[index]) {
+          copy.leadTaskUsers = [...copy.leadTaskUsers];
+          copy.leadTaskUsers[index] = {
+            ...copy.leadTaskUsers[index],
+            user: selected,
+          };
+        }
+        return copy;
+      });
+    },
+    [users]
+  );
 
-  const handleSave = async () => {
-    console.log("=== DÉBUT handleSave ===");
-    console.log("lead:", lead);
-    console.log("leadId calculé:", lead.leadId || lead.id);
-    console.log("jira data:", jira);
-    
-    const leadId = lead.leadId || lead.id;
-    
-    if (!leadId) {
-      console.error("ID du lead manquant");
-      alert("ID du lead manquant");
-      return;
-    }
-  
-    setSaving(true);
-    try {
-      console.log("Appel API updateJira avec:", { leadId, jira });
-      const result = await leadService.updateJira(leadId, jira);
-      console.log("Résultat API:", result);
-      alert("JIRA mis à jour !");
-    } catch (error) {
-      console.error("Erreur lors de la sauvegarde:", error);
-      alert("Erreur lors de la sauvegarde: " + (error as Error).message);
-    } finally {
-      setSaving(false);
-    }
-    console.log("=== FIN handleSave ===");
-  };
-
-  // Affichage conditionnel
   if (!canShow) return null;
-  
+
   if (loading) {
     return (
       <div className="text-center p-4">
@@ -128,11 +125,7 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService }) => {
   }
 
   if (!jira) {
-    return (
-      <div className="alert alert-warning">
-        Aucune donnée JIRA disponible
-      </div>
-    );
+    return <div className="alert alert-warning">Aucune donnée JIRA disponible</div>;
   }
 
   return (
@@ -143,9 +136,10 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService }) => {
         <Form.Label>Projet JIRA</Form.Label>
         <Form.Control
           value={jira.leadGoProjetJira || ""}
-          onChange={(e) =>
-            setJira({ ...jira, leadGoProjetJira: e.target.value })
-          }
+          onChange={(e) => {
+            const updated = { ...jira, leadGoProjetJira: e.target.value };
+            setJira(updated);
+          }}
         />
       </Form.Group>
 
@@ -153,9 +147,10 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService }) => {
         <Form.Label>Ticket JIRA</Form.Label>
         <Form.Control
           value={jira.leadGoTicketJira || ""}
-          onChange={(e) =>
-            setJira({ ...jira, leadGoTicketJira: e.target.value })
-          }
+          onChange={(e) => {
+            const updated = { ...jira, leadGoTicketJira: e.target.value };
+            setJira(updated);
+          }}
         />
       </Form.Group>
 
@@ -199,30 +194,6 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService }) => {
           ))}
         </tbody>
       </Table>
-
-      <div className="d-flex justify-content-end mt-3">
-        <Button 
-          onClick={handleSave} 
-          disabled={saving}
-          variant="primary"
-        >
-          {saving ? (
-            <>
-              <Spinner
-                as="span"
-                animation="border"
-                size="sm"
-                role="status"
-                aria-hidden="true"
-                className="me-2"
-              />
-              Sauvegarde...
-            </>
-          ) : (
-            "Sauvegarder"
-          )}
-        </Button>
-      </div>
     </div>
   );
 };
