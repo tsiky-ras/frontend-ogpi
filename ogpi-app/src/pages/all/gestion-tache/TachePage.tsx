@@ -1,3 +1,5 @@
+// Extrait de TachePage.tsx — partie mise à jour pour intégrer TachesAValider
+
 import React, { useMemo, useState } from "react";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
@@ -5,22 +7,26 @@ import Title from "../../../components/title/Title.tsx";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 import MesTaches from "./mes-taches/MesTaches.tsx";
+import TachesAValider from "./valider/TachesAValider.tsx";
 import { LeadTaskUserService } from "../../../services/lead/tasks/LeadTaskUserService.tsx";
 import { LeadTaskFileService } from "../../../services/lead/tasks/LeadTaskFileService.tsx";
-
-// ⚠️  Remplacez ce chemin par celui de votre instance axios
-// Regardez comment vos autres pages importent l'api, ex :
-// import { api } from "../../../api/axiosConfig";
-// import apiClient from "../../../utils/httpClient";
+import { LeadTaskUserStatusService } from "../../../services/lead/tasks/LeadTaskUserStatusService.tsx";
+import { LeadTaskValidationService } from "../../../services/lead/tasks/LeadTaskValidationService.tsx";
+// ⚠️  Créer un service dédié "to-validate" qui appelle /lead-task-user/to-validate
+import { LeadTaskToValidateService } from "../../../services/lead/tasks/LeadTaskToValidateService.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import "./TachePage.css";
 
 const TachePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"afaire" | "avalider">("afaire");
-  const {api} = useAuth();
-  // Services instanciés une seule fois, passés en props
-  const leadTaskUserService = useMemo(() => new LeadTaskUserService(api), []);
-  const leadTaskFileService = useMemo(() => new LeadTaskFileService(api), []);
+  const { api, user } = useAuth();
+
+  const leadTaskUserService      = useMemo(() => new LeadTaskUserService(api), [api]);
+  const leadTaskFileService      = useMemo(() => new LeadTaskFileService(api), [api]);
+  const leadTaskStatusService    = useMemo(() => new LeadTaskUserStatusService(api), [api]);
+  const leadTaskValidationService = useMemo(() => new LeadTaskValidationService(api), [api]);
+  // Service qui appelle GET /lead-task-user/to-validate au lieu de /all
+  const leadTaskToValidateService = useMemo(() => new LeadTaskToValidateService(api), [api]);
 
   return (
     <div className="page-lead-layout">
@@ -56,7 +62,6 @@ const TachePage: React.FC = () => {
               >
                 <span className="tp-tab-icon">✅</span>
                 Tâches à valider
-                <span className="tp-tab-soon">bientôt</span>
               </button>
             </div>
 
@@ -65,14 +70,16 @@ const TachePage: React.FC = () => {
                 <MesTaches
                   taskService={leadTaskUserService}
                   fileService={leadTaskFileService}
+                  statusService={leadTaskStatusService}
+                  currentUserName={user?.username}
                 />
               )}
               {activeTab === "avalider" && (
-                <div className="tp-coming-soon">
-                  <div className="tp-cs-icon">🚧</div>
-                  <h5>Module en cours de développement</h5>
-                  <p>La liste des tâches à valider sera disponible prochainement.</p>
-                </div>
+                <TachesAValider
+                  taskService={leadTaskToValidateService}
+                  validationService={leadTaskValidationService}
+                  currentUserName={user?.username}
+                />
               )}
             </div>
           </div>
