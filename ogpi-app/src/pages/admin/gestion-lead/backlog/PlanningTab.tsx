@@ -270,28 +270,30 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       let phaseCursor = globalCursor;
 
       phases.forEach(phase => {
-        const pKey  = `phase-${phase.id}`;
-        const autoH = getAutoH(phase.id);
-        const effH  = getEffH(pKey, autoH);
-        const isOv  = hasOverride(pKey);
+        const pKey = `phase-${phase.id}`;
+        const lineJH = getJH(lines.filter(l => l.phaseId === phase.id).map(l => l.id));
+        // Ne pas forcer une durée minimale si le JH est nul : affichage 0
+        const autoH = lineJH > 0 ? getAutoH(phase.id) : 0;
+        const effH = lineJH > 0 ? getEffH(pKey, autoH) : 0;
+        const isOv = hasOverride(pKey);
 
         const phStart = phaseCursor;
-        const phEnd   = phStart + effH;
+        const phEnd = phStart + effH;
 
         childRows.push({
-          id:           pKey,
-          kind:         "phase",
-          label:        phase.name,
-          phaseId:      phase.id,
-          lotId:        lot.id,
-          startH:       phStart,
-          endH:         phEnd,
-          autoStartH:   phStart,
-          autoEndH:     phStart + autoH,
+          id: pKey,
+          kind: "phase",
+          label: phase.name,
+          phaseId: phase.id,
+          lotId: lot.id,
+          startH: phStart,
+          endH: phEnd,
+          autoStartH: phStart,
+          autoEndH: phStart + autoH,
           isOverridden: isOv,
-          color:        isOv ? COLOR.phaseManual : COLOR.phaseAuto,
-          depth:        1,
-          totalJH:      getJH(lines.filter(l => l.phaseId === phase.id).map(l => l.id)),
+          color: isOv ? COLOR.phaseManual : COLOR.phaseAuto,
+          depth: 1,
+          totalJH: lineJH,
         });
 
         const delivs = (deliverables.get(phase.id) || [])
