@@ -829,13 +829,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             <span className="text-muted" style={{ fontSize: "0.72rem" }}>
               ←→ ou +/- pour ajuster d'une {unit === "hour" ? "heure" : unit === "day" ? "journée" : unit === "week" ? "semaine" : "mois"}
             </span>
-            {(selectedRow.isOverridden || pending.has(selectedRow.id)) && (
-              <button className="btn btn-sm btn-outline-danger ms-auto"
-                style={{ fontSize: "0.72rem" }}
-                onClick={() => handleReset(selectedRow.id)}>
-                ↺ Réinitialiser
-              </button>
-            )}
           </div>
         )}
       </div>
