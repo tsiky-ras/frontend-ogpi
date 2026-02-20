@@ -5,46 +5,31 @@ import {
   FaTimesCircle, FaTag, FaSpinner, FaInbox, FaThumbsUp, FaThumbsDown,
 } from "react-icons/fa";
 import "./TachesAValider.css";
+
 /* ═══════════════════════════════════════
-   TYPES (réutilisés depuis MesTaches)
+   TYPES
 ═══════════════════════════════════════ */
 interface LeadTaskStatus {
   leadTaskStatusId: number;
   leadTaskStatusLabel: string;
 }
-
 interface DriveFile {
-  id?: number;
-  name: string;
-  link: string;
-  description: string;
-  driveFolderId?: number;
+  id?: number; name: string; link: string; description: string; driveFolderId?: number;
 }
-
 interface TaskFile {
-  id?: number;
-  commentaire: string;
-  driveFile: DriveFile;
-  leadTaskUserId: number;
+  id?: number; commentaire: string; driveFile: DriveFile; leadTaskUserId: number;
 }
-
 interface StatusEntry {
-  leadTaskUserStatusId: number;
-  leadTaskUserStatusDate: string;
-  leadTaskUserStatusCommentaire: string;
-  leadTaskStatus: LeadTaskStatus;
+  leadTaskUserStatusId: number; leadTaskUserStatusDate: string;
+  leadTaskUserStatusCommentaire: string; leadTaskStatus: LeadTaskStatus;
 }
-
 interface LeadTaskUserSummary {
-  leadTaskUserId: number;
-  dateAffectation: string;
-  leadTaskUserDeadline: string | null;
+  leadTaskUserId: number; dateAffectation: string; leadTaskUserDeadline: string | null;
   leadTask: { leadTaskId: number; leadTaskName: string; leadTaskDesc: string };
   leadId: number;
   leadTaskUserStatus: { leadTaskStatus: LeadTaskStatus };
   leadDetails: { leadName: string; leadRef: string };
 }
-
 interface LeadTaskUserDetails extends LeadTaskUserSummary {
   leadTaskUserStatusList: StatusEntry[] | null;
   leadTaskValidations: Array<{
@@ -61,18 +46,12 @@ interface LeadTaskUserDetails extends LeadTaskUserSummary {
     driveFolder: { id: number; name: string; link: string } | null;
   };
 }
-
 interface ILeadTaskUserService {
   getAll(): Promise<LeadTaskUserSummary[]>;
   getById(id: number): Promise<LeadTaskUserDetails>;
 }
-
 interface ILeadTaskValidationService {
-  create(data: {
-    leadTaskUserId: number;
-    decision: number; // 1 = GO, 0 = NO GO
-    commentaire: string;
-  }): Promise<unknown>;
+  create(data: { leadTaskUserId: number; decision: number; commentaire: string }): Promise<unknown>;
 }
 
 /* ═══════════════════════════════════════
@@ -80,21 +59,14 @@ interface ILeadTaskValidationService {
 ═══════════════════════════════════════ */
 const fmt = (iso?: string | null) => {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("fr-FR", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 const fmtDate = (iso?: string | null) => {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 };
-
 const STATUS_COLORS: Record<number, string> = {
-  1: "#94a3b8", 2: "#f59e0b", 3: "#3b82f6",
-  4: "#8b5cf6", 5: "#ef4444", 6: "#f97316", 7: "#10b981",
+  1: "#94a3b8", 2: "#f59e0b", 3: "#3b82f6", 4: "#8b5cf6", 5: "#ef4444", 6: "#f97316", 7: "#10b981",
 };
 const statusColor = (id: number) => STATUS_COLORS[id] ?? "#64748b";
 const isOverdue = (d: string | null) => !!d && new Date(d).getTime() < Date.now();
@@ -109,39 +81,81 @@ const isSoon = (d: string | null) => {
 ═══════════════════════════════════════ */
 const StatusBadge: React.FC<{ statusId: number; label: string }> = ({ statusId, label }) => {
   const c = statusColor(statusId);
+  return <span className="mt-badge" style={{ color: c, background: c + "18", border: `1px solid ${c}33` }}>{label}</span>;
+};
+
+/* ═══════════════════════════════════════
+   POPUP RÉSULTAT
+═══════════════════════════════════════ */
+const ResultPopup: React.FC<{ decision: 1 | 0; onClose: () => void }> = ({ decision, onClose }) => (
+  <div className="tav-result-overlay" onClick={onClose}>
+    <div className={`tav-result-popup ${decision === 1 ? "ok" : "ko"}`} onClick={(e) => e.stopPropagation()}>
+      <button className="tav-result-close" onClick={onClose}><FaTimesCircle size={16} /></button>
+      <div className="tav-result-icon">
+        {decision === 1
+          ? <FaCheckCircle size={42} className="tav-result-ok-icon" />
+          : <FaTimesCircle size={42} className="tav-result-ko-icon" />}
+      </div>
+      <h5 className="tav-result-title">
+        {decision === 1 ? "Décision OK enregistrée" : "Décision KO enregistrée"}
+      </h5>
+      <p className="tav-result-msg">
+        {decision === 1
+          ? "Votre validation a bien été prise en compte."
+          : "Votre décision a bien été prise en compte. Le collaborateur a été informé qu'il devra corriger des éléments de la tâche."}
+      </p>
+      <button className="mt-btn mt-btn--primary tav-result-btn" onClick={onClose}>Fermer</button>
+    </div>
+  </div>
+);
+
+/* ═══════════════════════════════════════
+   VALIDATIONS EXISTANTES (lecture seule)
+═══════════════════════════════════════ */
+const ValidationsList: React.FC<{ validations: LeadTaskUserDetails["leadTaskValidations"] }> = ({ validations }) => {
+  if (!validations || validations.length === 0) return null;
   return (
-    <span className="mt-badge" style={{ color: c, background: c + "18", border: `1px solid ${c}33` }}>
-      {label}
-    </span>
+    <div className="mt-section">
+      <div className="mt-section-title"><FaCheckCircle size={11} /> Validations existantes</div>
+      <div className="mt-validations">
+        {validations.map((v) => (
+          <div key={v.id} className={`mt-val-item ${v.decision === 1 ? "go" : "nogo"}`}>
+            <div className="mt-val-decision">
+              {v.decision === 1 ? <FaCheckCircle className="go-icon" /> : <FaTimesCircle className="nogo-icon" />}
+              <strong>{v.decision === 1 ? "OK" : "KO"}</strong>
+            </div>
+            <div className="mt-val-body">
+              <span className="mt-val-user">{v.user.username}</span>
+              <span className="mt-val-role">{v.role.roleLabel}</span>
+              <span className="mt-val-date">{fmt(v.validationTime)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 
 /* ═══════════════════════════════════════
-   GO / NO GO PANEL
+   OK / KO PANEL
 ═══════════════════════════════════════ */
-interface GoNogoPanelProps {
+interface OkKoPanelProps {
   leadTaskUserId: number;
   validationService: ILeadTaskValidationService;
-  onValidated: () => void;
+  onValidated: (decision: 1 | 0) => void;
   existingValidations: LeadTaskUserDetails["leadTaskValidations"];
 }
 
-const GoNogoPanel: React.FC<GoNogoPanelProps> = ({
-  leadTaskUserId, validationService, onValidated, existingValidations,
-}) => {
+const OkKoPanel: React.FC<OkKoPanelProps> = ({ leadTaskUserId, validationService, onValidated, existingValidations }) => {
   const [pending, setPending] = useState<1 | 0 | null>(null);
   const [commentaire, setCommentaire] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
-  const hasValidated = existingValidations && existingValidations.length > 0;
+  const count = existingValidations?.length ?? 0;
 
-  const handleDecision = (decision: 1 | 0) => {
-    setPending(decision);
-    setCommentaire("");
-    setError(null);
-  };
+  const handleDecision = (d: 1 | 0) => { setPending(d); setCommentaire(""); setError(null); };
+  const handleCancel = () => { setPending(null); setCommentaire(""); setError(null); };
 
   const handleConfirm = async () => {
     if (pending === null) return;
@@ -151,11 +165,12 @@ const GoNogoPanel: React.FC<GoNogoPanelProps> = ({
       await validationService.create({
         leadTaskUserId,
         decision: pending,
-        commentaire: commentaire.trim() || (pending === 1 ? "GO" : "NO GO"),
+        commentaire: commentaire.trim() || (pending === 1 ? "OK" : "KO"),
       });
-      setSuccess(true);
+      const decided = pending;
       setPending(null);
-      onValidated();
+      setCommentaire("");
+      onValidated(decided);
     } catch {
       setError("Erreur lors de la validation. Veuillez réessayer.");
     } finally {
@@ -163,72 +178,42 @@ const GoNogoPanel: React.FC<GoNogoPanelProps> = ({
     }
   };
 
-  const handleCancel = () => {
-    setPending(null);
-    setCommentaire("");
-    setError(null);
-  };
-
-  if (success) {
-    return (
-      <div className="tav-gonogo-wrapper">
-        <div className="tav-gonogo-success">
-          <FaCheckCircle className="tav-gonogo-success-icon" />
-          <span>Votre décision a bien été enregistrée.</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="tav-gonogo-wrapper">
       <div className="tav-gonogo-label">
-        Décision de validation
-        {hasValidated && (
+        Votre décision
+        {count > 0 && (
           <span className="tav-gonogo-already">
-            (déjà validé par {existingValidations!.length} intervenant{existingValidations!.length > 1 ? "s" : ""})
+            ({count} décision{count > 1 ? "s" : ""} déjà enregistrée{count > 1 ? "s" : ""})
           </span>
         )}
       </div>
-
       <div className="tav-gonogo-buttons">
-        <button
-          className={`tav-gonogo-btn go${pending === 1 ? " active" : ""}`}
-          onClick={() => handleDecision(1)}
-          disabled={saving}
-        >
-          <FaThumbsUp size={14} /> GO
+        <button className={`tav-gonogo-btn go${pending === 1 ? " active" : ""}`} onClick={() => handleDecision(1)} disabled={saving}>
+          <FaThumbsUp size={14} /> OK
         </button>
-        <button
-          className={`tav-gonogo-btn nogo${pending === 0 ? " active" : ""}`}
-          onClick={() => handleDecision(0)}
-          disabled={saving}
-        >
-          <FaThumbsDown size={14} /> NO GO
+        <button className={`tav-gonogo-btn nogo${pending === 0 ? " active" : ""}`} onClick={() => handleDecision(0)} disabled={saving}>
+          <FaThumbsDown size={14} /> KO
         </button>
       </div>
-
       {pending !== null && (
         <div className="tav-gonogo-confirm-box">
           <div className="tav-gonogo-confirm-header">
             {pending === 1
-              ? <><FaCheckCircle className="go-icon" /> <span>Confirmer le <strong>GO</strong></span></>
-              : <><FaTimesCircle className="nogo-icon" /> <span>Confirmer le <strong>NO GO</strong></span></>
-            }
+              ? <><FaCheckCircle className="go-icon" /><span>Confirmer la décision <strong>OK</strong></span></>
+              : <><FaTimesCircle className="nogo-icon" /><span>Confirmer la décision <strong>KO</strong></span></>}
           </div>
           {error && <div className="mt-scb-error">{error}</div>}
           <textarea
             className="mt-scb-textarea"
-            placeholder={pending === 1 ? "Commentaire GO (optionnel)…" : "Raison du refus (optionnel)…"}
+            placeholder={pending === 1 ? "Commentaire (optionnel)…" : "Raison du refus (optionnel)…"}
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
             rows={3}
             autoFocus
           />
           <div className="mt-scb-footer">
-            <button className="mt-btn mt-btn--ghost mt-btn--sm" onClick={handleCancel} disabled={saving}>
-              Annuler
-            </button>
+            <button className="mt-btn mt-btn--ghost mt-btn--sm" onClick={handleCancel} disabled={saving}>Annuler</button>
             <button
               className={`mt-btn mt-btn--sm${pending === 1 ? " mt-btn--primary" : " mt-btn--danger"}`}
               onClick={handleConfirm}
@@ -245,7 +230,7 @@ const GoNogoPanel: React.FC<GoNogoPanelProps> = ({
 };
 
 /* ═══════════════════════════════════════
-   EXPANDED DETAILS (version validation)
+   EXPANDED DETAILS (validation)
 ═══════════════════════════════════════ */
 interface ExpandedDetailsValidationProps {
   details: LeadTaskUserDetails;
@@ -253,25 +238,33 @@ interface ExpandedDetailsValidationProps {
   onReload: () => void;
 }
 
-const ExpandedDetailsValidation: React.FC<ExpandedDetailsValidationProps> = ({
-  details, validationService, onReload,
-}) => {
+const ExpandedDetailsValidation: React.FC<ExpandedDetailsValidationProps> = ({ details, validationService, onReload }) => {
   const lead = details.leadDetails;
+  const [popupDecision, setPopupDecision] = useState<1 | 0 | null>(null);
+
+  const handleValidated = (decision: 1 | 0) => setPopupDecision(decision);
+  const handlePopupClose = () => { setPopupDecision(null); onReload(); };
 
   return (
     <div className="mt-expanded">
 
-      {/* GO / NO GO panel */}
+      {/* Popup résultat */}
+      {popupDecision !== null && <ResultPopup decision={popupDecision} onClose={handlePopupClose} />}
+
+      {/* ① Validations existantes EN HAUT */}
+      <ValidationsList validations={details.leadTaskValidations} />
+
+      {/* ② Panel OK / KO */}
       <div className="mt-section">
-        <GoNogoPanel
+        <OkKoPanel
           leadTaskUserId={details.leadTaskUserId}
           validationService={validationService}
-          onValidated={onReload}
+          onValidated={handleValidated}
           existingValidations={details.leadTaskValidations}
         />
       </div>
 
-      {/* Lead info */}
+      {/* ③ Informations Lead */}
       <div className="mt-section">
         <div className="mt-section-title"><FaTag size={11} /> Informations Lead</div>
         <div className="mt-info-grid">
@@ -288,19 +281,13 @@ const ExpandedDetailsValidation: React.FC<ExpandedDetailsValidationProps> = ({
           {lead.leadInternalDeadLine && (
             <div className="mt-info-block">
               <FaCalendarAlt className="mt-info-icon" />
-              <div>
-                <span className="mt-info-label">Deadline interne</span>
-                <span className="mt-info-value">{fmtDate(lead.leadInternalDeadLine)}</span>
-              </div>
+              <div><span className="mt-info-label">Deadline interne</span><span className="mt-info-value">{fmtDate(lead.leadInternalDeadLine)}</span></div>
             </div>
           )}
           {lead.leadRealDeadLine && (
             <div className="mt-info-block">
               <FaCalendarAlt className="mt-info-icon" />
-              <div>
-                <span className="mt-info-label">Deadline réelle</span>
-                <span className="mt-info-value">{fmtDate(lead.leadRealDeadLine)}</span>
-              </div>
+              <div><span className="mt-info-label">Deadline réelle</span><span className="mt-info-value">{fmtDate(lead.leadRealDeadLine)}</span></div>
             </div>
           )}
         </div>
@@ -318,7 +305,7 @@ const ExpandedDetailsValidation: React.FC<ExpandedDetailsValidationProps> = ({
         </div>
       </div>
 
-      {/* Files (lecture seule) */}
+      {/* ④ Fichiers (lecture seule) */}
       {details.leadTaskFiles && details.leadTaskFiles.length > 0 && (
         <div className="mt-section">
           <div className="mt-section-title">
@@ -341,7 +328,7 @@ const ExpandedDetailsValidation: React.FC<ExpandedDetailsValidationProps> = ({
         </div>
       )}
 
-      {/* Status history */}
+      {/* ⑤ Historique statuts */}
       {details.leadTaskUserStatusList && details.leadTaskUserStatusList.length > 0 && (
         <div className="mt-section">
           <div className="mt-section-title"><FaClock size={11} /> Historique des statuts</div>
@@ -359,30 +346,6 @@ const ExpandedDetailsValidation: React.FC<ExpandedDetailsValidationProps> = ({
           </div>
         </div>
       )}
-
-      {/* Validations existantes */}
-      {details.leadTaskValidations && details.leadTaskValidations.length > 0 && (
-        <div className="mt-section">
-          <div className="mt-section-title"><FaCheckCircle size={11} /> Validations</div>
-          <div className="mt-validations">
-            {details.leadTaskValidations.map((v) => (
-              <div key={v.id} className={`mt-val-item ${v.decision === 1 ? "go" : "nogo"}`}>
-                <div className="mt-val-decision">
-                  {v.decision === 1
-                    ? <FaCheckCircle className="go-icon" />
-                    : <FaTimesCircle className="nogo-icon" />}
-                  <strong>{v.decision === 1 ? "GO" : "NO GO"}</strong>
-                </div>
-                <div className="mt-val-body">
-                  <span className="mt-val-user">{v.user.username}</span>
-                  <span className="mt-val-role">{v.role.roleLabel}</span>
-                  <span className="mt-val-date">{fmt(v.validationTime)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -394,7 +357,8 @@ const TacheAValiderCard: React.FC<{
   tache: LeadTaskUserSummary;
   taskService: ILeadTaskUserService;
   validationService: ILeadTaskValidationService;
-}> = ({ tache, taskService, validationService }) => {
+  onGlobalReload: () => void;
+}> = ({ tache, taskService, validationService, onGlobalReload }) => {
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<LeadTaskUserDetails | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -416,42 +380,20 @@ const TacheAValiderCard: React.FC<{
     setOpen((v) => !v);
   }, [open, details, loadDetails]);
 
-  const handleValidated = useCallback(async () => {
-    await loadDetails();
-  }, [loadDetails]);
-
   const overdue = isOverdue(tache.leadTaskUserDeadline);
   const soon = isSoon(tache.leadTaskUserDeadline);
 
   return (
-    <div className={[
-      "mt-card",
-      open ? "mt-card--open" : "",
-      overdue ? "mt-card--overdue" : "",
-      soon && !overdue ? "mt-card--soon" : "",
-    ].filter(Boolean).join(" ")}>
-      <div
-        className="mt-card-header"
-        onClick={handleToggle}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === "Enter" && handleToggle()}
-      >
+    <div className={["mt-card", open ? "mt-card--open" : "", overdue ? "mt-card--overdue" : "", soon && !overdue ? "mt-card--soon" : ""].filter(Boolean).join(" ")}>
+      <div className="mt-card-header" onClick={handleToggle} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && handleToggle()}>
         <div className="mt-card-main">
           <div className="mt-card-toprow">
             <span className="mt-card-name">{tache.leadTask.leadTaskName}</span>
-            <StatusBadge
-              statusId={tache.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId}
-              label={tache.leadTaskUserStatus.leadTaskStatus.leadTaskStatusLabel}
-            />
+            <StatusBadge statusId={tache.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId} label={tache.leadTaskUserStatus.leadTaskStatus.leadTaskStatusLabel} />
           </div>
           <div className="mt-card-meta">
-            <span className="mt-meta-chip mt-meta-lead">
-              <FaTag size={9} />{tache.leadDetails.leadRef} · {tache.leadDetails.leadName}
-            </span>
-            <span className="mt-meta-chip">
-              <FaCalendarAlt size={9} />Affecté le {fmtDate(tache.dateAffectation)}
-            </span>
+            <span className="mt-meta-chip mt-meta-lead"><FaTag size={9} />{tache.leadDetails.leadRef} · {tache.leadDetails.leadName}</span>
+            <span className="mt-meta-chip"><FaCalendarAlt size={9} />Affecté le {fmtDate(tache.dateAffectation)}</span>
             {tache.leadTaskUserDeadline && (
               <span className={`mt-meta-chip mt-meta-deadline${overdue ? " overdue" : soon ? " soon" : ""}`}>
                 <FaClock size={9} />Deadline : {fmt(tache.leadTaskUserDeadline)}
@@ -460,22 +402,14 @@ const TacheAValiderCard: React.FC<{
           </div>
         </div>
         <button className="mt-chevron-btn" aria-label="Voir les détails">
-          {loadingDetail
-            ? <FaSpinner className="mt-spin" />
-            : open ? <FaChevronUp size={13} /> : <FaChevronDown size={13} />}
+          {loadingDetail ? <FaSpinner className="mt-spin" /> : open ? <FaChevronUp size={13} /> : <FaChevronDown size={13} />}
         </button>
       </div>
 
       {open && !loadingDetail && details && (
-        <ExpandedDetailsValidation
-          details={details}
-          validationService={validationService}
-          onReload={handleValidated}
-        />
+        <ExpandedDetailsValidation details={details} validationService={validationService} onReload={onGlobalReload} />
       )}
-      {open && loadingDetail && (
-        <div className="mt-detail-loading"><FaSpinner className="mt-spin" /> Chargement…</div>
-      )}
+      {open && loadingDetail && <div className="mt-detail-loading"><FaSpinner className="mt-spin" /> Chargement…</div>}
     </div>
   );
 };
@@ -489,19 +423,29 @@ interface Props {
   currentUserName?: string;
 }
 
-const TachesAValider: React.FC<Props> = ({
-  taskService, validationService, currentUserName = "Utilisateur",
-}) => {
+const TachesAValider: React.FC<Props> = ({ taskService, validationService, currentUserName = "Utilisateur" }) => {
   const [taches, setTaches] = useState<LeadTaskUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const loadAll = useCallback(async () => {
+    try {
+      setLoading(true); setError(null);
+      const data = await taskService.getAll();
+      setTaches(data);
+    } catch (e) {
+      setError("Impossible de charger les tâches à valider.");
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [taskService]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        setLoading(true);
-        setError(null);
+        setLoading(true); setError(null);
         const data = await taskService.getAll();
         if (!cancelled) setTaches(data);
       } catch (e) {
@@ -521,31 +465,19 @@ const TachesAValider: React.FC<Props> = ({
           <h4 className="mt-title">Tâches à valider</h4>
           <p className="mt-subtitle">
             Bonjour <strong>{currentUserName}</strong> —{" "}
-            {loading
-              ? "chargement…"
-              : `${taches.length} tâche${taches.length !== 1 ? "s" : ""} en attente de validation`}
+            {loading ? "chargement…" : `${taches.length} tâche${taches.length !== 1 ? "s" : ""} en attente de validation`}
           </p>
         </div>
       </div>
 
-      {loading && (
-        <div className="mt-state-box">
-          <FaSpinner className="mt-spin mt-spin--lg" /><p>Chargement des tâches…</p>
-        </div>
-      )}
-      {!loading && error && (
-        <div className="mt-state-box mt-state-box--error">
-          <FaTimesCircle size={30} /><p>{error}</p>
-        </div>
-      )}
+      {loading && <div className="mt-state-box"><FaSpinner className="mt-spin mt-spin--lg" /><p>Chargement des tâches…</p></div>}
+      {!loading && error && <div className="mt-state-box mt-state-box--error"><FaTimesCircle size={30} /><p>{error}</p></div>}
       {!loading && !error && taches.length === 0 && (
         <div className="mt-state-box mt-state-box--empty">
           <FaInbox size={36} className="mt-empty-icon" />
-          <p>Aucune tâche à valider pour le moment</p>
-          <span>Tout est à jour !</span>
+          <p>Aucune tâche à valider pour le moment</p><span>Tout est à jour !</span>
         </div>
       )}
-
       {!loading && !error && taches.length > 0 && (
         <div className="mt-list">
           {taches.map((t) => (
@@ -554,6 +486,7 @@ const TachesAValider: React.FC<Props> = ({
               tache={t}
               taskService={taskService}
               validationService={validationService}
+              onGlobalReload={loadAll}
             />
           ))}
         </div>

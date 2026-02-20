@@ -20,18 +20,17 @@ const STATUS = {
   APPROUVE: 7,
 } as const;
 
-// Étapes visibles dans le slider (dans l'ordre)
 const SLIDER_STEPS = [
-  { id: STATUS.ATTRIBUE,              label: "Attribué",               short: "Attribué" },
-  { id: STATUS.EN_COURS,              label: "En cours",               short: "En cours" },
-  { id: STATUS.SOUMIS_POUR_VALIDATION,label: "Soumis pour validation", short: "Soumis" },
+  { id: STATUS.ATTRIBUE,               label: "Attribué",               short: "Attribué" },
+  { id: STATUS.EN_COURS,               label: "En cours",               short: "En cours" },
+  { id: STATUS.SOUMIS_POUR_VALIDATION, label: "Soumis pour validation", short: "Soumis" },
 ];
 
-// Depuis quel statut peut-on avancer ?
+// A_MODIFIER se comporte comme ATTRIBUE : on peut repasser EN_COURS
 const ALLOWED_TRANSITIONS: Record<number, number> = {
-  [STATUS.ATTRIBUE]: STATUS.EN_COURS,
-  [STATUS.EN_COURS]: STATUS.SOUMIS_POUR_VALIDATION,
-  [STATUS.A_MODIFIER]: STATUS.EN_COURS, // après refus, on repasse en cours
+  [STATUS.ATTRIBUE]:   STATUS.EN_COURS,
+  [STATUS.EN_COURS]:   STATUS.SOUMIS_POUR_VALIDATION,
+  [STATUS.A_MODIFIER]: STATUS.EN_COURS,
 };
 
 /* ═══════════════════════════════════════
@@ -146,7 +145,7 @@ interface StatusSliderProps {
   currentStatusId: number;
   leadTaskUserId: number;
   statusService: ILeadTaskUserStatusService;
-  onStatusChanged: () => void; // rechargement depuis le parent
+  onStatusChanged: (newStatusId: number, newStatusLabel: string) => void;
 }
 
 const StatusSlider: React.FC<StatusSliderProps> = ({
@@ -159,12 +158,11 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
 
   const nextStatusId = ALLOWED_TRANSITIONS[currentStatusId] ?? null;
 
-  // Index actuel dans les steps visibles
-  const currentIdx = SLIDER_STEPS.findIndex((s) => s.id === currentStatusId);
-  // Si statut non dans slider (ex: A_MODIFIER), on mappe visuellement
-  const displayIdx = currentStatusId === STATUS.A_MODIFIER
-    ? 1 // affiche comme "En cours" avec couleur rouge
-    : currentIdx >= 0 ? currentIdx : 0;
+  // A_MODIFIER se comporte visuellement comme ATTRIBUE (step 0), couleur rouge
+  const currentIdx = currentStatusId === STATUS.A_MODIFIER
+    ? 0
+    : SLIDER_STEPS.findIndex((s) => s.id === currentStatusId);
+  const displayIdx = currentIdx >= 0 ? currentIdx : 0;
 
   const handleStepClick = (stepId: number) => {
     if (stepId === nextStatusId) {
@@ -184,9 +182,11 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
         leadTaskStatus: { leadTaskStatusId: pendingStatusId },
         leadTaskUserId,
       });
+      const newStep = SLIDER_STEPS.find(s => s.id === pendingStatusId);
       setPendingStatusId(null);
       setCommentaire("");
-      onStatusChanged(); // rechargement côté parent
+      // Notifie le parent avec le nouveau statut pour maj immédiate de la liste
+      onStatusChanged(pendingStatusId, newStep?.label ?? "");
     } catch {
       setError("Erreur lors du changement de statut. Veuillez réessayer.");
     } finally {
@@ -214,7 +214,6 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
         )}
       </div>
 
-      {/* Steps */}
       <div className="mt-slider-track">
         {SLIDER_STEPS.map((step, idx) => {
           const isDone = idx < displayIdx;
@@ -253,7 +252,6 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
         })}
       </div>
 
-      {/* Popup commentaire */}
       {pendingStatusId && (
         <div className="mt-status-comment-box">
           <div className="mt-scb-header">
@@ -470,13 +468,22 @@ interface ExpandedDetailsProps {
   details: LeadTaskUserDetails;
   fileService: ILeadTaskFileService;
   statusService: ILeadTaskUserStatusService;
-  onReload: () => void;
+  onStatusChanged: (newStatusId: number, newStatusLabel: string) => void;
 }
 
-const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService, statusService, onReload }) => {
+const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService, statusService, onStatusChanged }) => {
   const lead = details.leadDetails;
   const [files, setFiles] = useState<TaskFile[]>(details.leadTaskFiles ?? []);
-  const currentStatusId = details.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId;
+  const [currentStatusId, setCurrentStatusId] = useState(details.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState(details.leadTaskUserStatus.leadTaskStatus.leadTaskStatusLabel);
+
+  const handleStatusChanged = (newStatusId: number, newStatusLabel: string) => {
+    // Mise à jour immédiate dans les détails affichés
+    setCurrentStatusId(newStatusId);
+    setCurrentStatusLabel(newStatusLabel);
+    // Propagation vers la carte parente pour sync dans la liste
+    onStatusChanged(newStatusId, newStatusLabel);
+  };
 
   return (
     <div className="mt-expanded">
@@ -488,7 +495,7 @@ const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService,
           currentStatusId={currentStatusId}
           leadTaskUserId={details.leadTaskUserId}
           statusService={statusService}
-          onStatusChanged={onReload}
+          onStatusChanged={handleStatusChanged}
         />
       </div>
 
@@ -570,7 +577,7 @@ const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService,
               <div key={v.id} className={`mt-val-item ${v.decision === 1 ? "go" : "nogo"}`}>
                 <div className="mt-val-decision">
                   {v.decision === 1 ? <FaCheckCircle className="go-icon" /> : <FaTimesCircle className="nogo-icon" />}
-                  <strong>{v.decision === 1 ? "GO" : "NO GO"}</strong>
+                  <strong>{v.decision === 1 ? "OK" : "KO"}</strong>
                 </div>
                 <div className="mt-val-body">
                   <span className="mt-val-user">{v.user.username}</span>
@@ -598,12 +605,18 @@ const TacheCard: React.FC<{
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<LeadTaskUserDetails | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  // Statut local de la carte (mis à jour immédiatement sans refetch de la liste)
+  const [localStatus, setLocalStatus] = useState<LeadTaskStatus>(
+    tache.leadTaskUserStatus.leadTaskStatus
+  );
 
   const loadDetails = useCallback(async () => {
     setLoadingDetail(true);
     try {
       const d = await taskService.getById(tache.leadTaskUserId);
       setDetails(d);
+      // Sync le statut local avec les données fraîches
+      setLocalStatus(d.leadTaskUserStatus.leadTaskStatus);
     } catch (e) {
       console.error("Erreur chargement détails tâche:", e);
     } finally {
@@ -616,10 +629,11 @@ const TacheCard: React.FC<{
     setOpen((v) => !v);
   }, [open, details, loadDetails]);
 
-  // Rechargement après changement de statut
-  const handleStatusChanged = useCallback(async () => {
-    await loadDetails();
-  }, [loadDetails]);
+  // Appelé par ExpandedDetails quand le statut change via le slider
+  const handleStatusChanged = useCallback((newStatusId: number, newStatusLabel: string) => {
+    // Mise à jour immédiate du badge dans la liste (sans refetch)
+    setLocalStatus({ leadTaskStatusId: newStatusId, leadTaskStatusLabel: newStatusLabel });
+  }, []);
 
   const overdue = isOverdue(tache.leadTaskUserDeadline);
   const soon = isSoon(tache.leadTaskUserDeadline);
@@ -630,9 +644,10 @@ const TacheCard: React.FC<{
         <div className="mt-card-main">
           <div className="mt-card-toprow">
             <span className="mt-card-name">{tache.leadTask.leadTaskName}</span>
+            {/* Badge utilise localStatus pour refléter les changements immédiats */}
             <StatusBadge
-              statusId={tache.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId}
-              label={tache.leadTaskUserStatus.leadTaskStatus.leadTaskStatusLabel}
+              statusId={localStatus.leadTaskStatusId}
+              label={localStatus.leadTaskStatusLabel}
             />
           </div>
           <div className="mt-card-meta">
@@ -655,7 +670,7 @@ const TacheCard: React.FC<{
           details={details}
           fileService={fileService}
           statusService={statusService}
-          onReload={handleStatusChanged}
+          onStatusChanged={handleStatusChanged}
         />
       )}
       {open && loadingDetail && (
@@ -679,6 +694,19 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
   const [taches, setTaches] = useState<LeadTaskUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const loadAll = useCallback(async () => {
+    try {
+      setLoading(true); setError(null);
+      const data = await taskService.getAll();
+      setTaches(data);
+    } catch (e) {
+      setError("Impossible de charger les tâches.");
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [taskService]);
 
   useEffect(() => {
     let cancelled = false;
