@@ -53,14 +53,12 @@ const TachePage: React.FC = () => {
                 className={`tp-tab-btn${activeTab === "afaire" ? " active" : ""}`}
                 onClick={() => setActiveTab("afaire")}
               >
-                <span className="tp-tab-icon">📋</span>
                 Mes tâches à faire
               </button>
               <button
                 className={`tp-tab-btn${activeTab === "avalider" ? " active" : ""}`}
                 onClick={() => setActiveTab("avalider")}
               >
-                <span className="tp-tab-icon">✅</span>
                 Tâches à valider
               </button>
             </div>
