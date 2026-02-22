@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
 import Title from "../../../components/title/Title.tsx";
@@ -7,9 +7,32 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 import ListeLead from "./liste/ListeLead.tsx";
 import ValidationLeadPage from "./validation/ValidationLeadPage.tsx";
+import { useAuth } from "../../../context/AuthContext.tsx";
+import { LeadService } from "../../../services/lead/LeadService.tsx";
 
 const LeadPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("liste");
+  const { api } = useAuth();
+  const leadService = new LeadService(api);
+  const [validationCount, setValidationCount] = useState<number>(0);
+
+  const fetchValidationCount = async () => {
+    try {
+      const data = await leadService.getToValidate();
+      setValidationCount(Array.isArray(data) ? data.length : 0);
+    } catch (err) {
+      console.error("Erreur fetch validation count", err);
+      setValidationCount(0);
+    }
+  };
+
+  useEffect(() => {
+    fetchValidationCount();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "validation") fetchValidationCount();
+  }, [activeTab]);
 
   return (
     <div className="page-lead-layout">
@@ -43,9 +66,9 @@ const LeadPage: React.FC = () => {
                 <ListeLead />
               </Tab>
 
-              <Tab eventKey="validation" title="Validation">
-                <ValidationLeadPage />
-              </Tab>
+                <Tab eventKey="validation" title={<span>Validation <span className="badge bg-secondary ms-2">{validationCount}</span></span>}>
+                    <ValidationLeadPage onUpdated={fetchValidationCount} />
+                </Tab>
 
               <Tab eventKey="kanban" title="Kanban">
                 <div className="p-4 text-muted">

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { FaTimesCircle, FaCheckCircle, FaHourglassHalf } from "react-icons/fa";
 import ValidationFormPage from "./ValidationFormPage.tsx";
 import FilterBar from "../../../../components/filters/FilterBar.tsx";
 import { LeadService } from "../../../../services/lead/LeadService.tsx";
@@ -20,8 +21,8 @@ const ValidationPopup: React.FC<ValidationPopupProps> = ({ type, nextRole, onClo
   const isRejected = type === "rejected";
   const isValidated = type === "validated";
 
-  const headerColor = isRejected ? "#dc3545" : isValidated ? "#198754" : "#0d6efd";
-  const headerIcon = isRejected ? "❌" : isValidated ? "✅" : "⏳";
+  const headerColor = isRejected ? "#C93C29" : isValidated ? "#198754" : "#EABF5B";
+  const headerIcon = isRejected ? <FaTimesCircle /> : isValidated ? <FaCheckCircle /> : <FaHourglassHalf />;
 
   const title = isRejected
     ? "Lead rejeté (No Go)"
@@ -106,7 +107,11 @@ const ValidationPopup: React.FC<ValidationPopupProps> = ({ type, nextRole, onClo
 };
 
 /* ================= MAIN COMPONENT ================= */
-const ValidationLeadPage: React.FC = () => {
+interface ValidationLeadPageProps {
+  onUpdated?: () => void;
+}
+
+const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) => {
   const { api, user } = useAuth();
 
   const leadService = new LeadService(api);
@@ -188,6 +193,8 @@ const ValidationLeadPage: React.FC = () => {
 
       await validationService.create(request);
       await loadLeadsToValidate();
+      // notify parent to refresh counts immediately
+      try { onUpdated && onUpdated(); } catch (e) { /* ignore */ }
 
       // Check validation status → show appropriate popup
       const result = await validationService.isLeadValidated(leadId);
@@ -226,6 +233,8 @@ const ValidationLeadPage: React.FC = () => {
 
       await validationService.create(request);
       await loadLeadsToValidate();
+      // notify parent to refresh counts immediately
+      try { onUpdated && onUpdated(); } catch (e) { /* ignore */ }
 
       // Show rejection popup
       setPopup({ visible: true, type: "rejected", nextRole: null });
