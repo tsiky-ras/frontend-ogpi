@@ -1,12 +1,15 @@
 import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import "./Sidebar.css";
 import { routes } from "../../config/routes.tsx";
 import { FaSignOutAlt, FaChevronDown } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext.tsx"; // <-- import du hook
 
 const Sidebar = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [openSubMenu, setOpenSubMenu] = useState<string | null>(null);
+  const { logout } = useAuth(); // <-- récupère logout
+  const navigate = useNavigate(); // <-- pour rediriger après logout
 
   const toggleMenu = (label: string) => {
     setOpenMenu(openMenu === label ? null : label);
@@ -17,6 +20,11 @@ const Sidebar = () => {
     setOpenSubMenu(openSubMenu === label ? null : label);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login"); // redirection vers la page de login
+  };
+
   return (
     <div className="sidebar">
       <div className="menu-wrapper">
@@ -24,7 +32,6 @@ const Sidebar = () => {
           <ul>
             {routes.map((route) => (
               <li key={route.label}>
-                {/* ===== ROUTE SIMPLE ===== */}
                 {route.path && !route.children && (
                   <NavLink
                     to={route.path}
@@ -37,7 +44,6 @@ const Sidebar = () => {
                   </NavLink>
                 )}
 
-                {/* ===== ROUTE NIVEAU 1 ===== */}
                 {route.children && (
                   <>
                     <div
@@ -60,14 +66,11 @@ const Sidebar = () => {
                       <ul className="submenu">
                         {route.children.map((child) => (
                           <li key={child.label}>
-                            {/* ===== ROUTE NIVEAU 2 ===== */}
                             {child.children ? (
                               <>
                                 <div
                                   className="submenu-link submenu-parent"
-                                  onClick={() =>
-                                    toggleSubMenu(child.label)
-                                  }
+                                  onClick={() => toggleSubMenu(child.label)}
                                 >
                                   {child.icon}
                                   <span>{child.label}</span>
@@ -104,8 +107,7 @@ const Sidebar = () => {
                               <NavLink
                                 to={child.path}
                                 className={({ isActive }) =>
-                                  "submenu-link" +
-                                  (isActive ? " active" : "")
+                                  "submenu-link" + (isActive ? " active" : "")
                                 }
                               >
                                 {child.icon}
@@ -125,7 +127,7 @@ const Sidebar = () => {
       </div>
 
       <div className="logout">
-        <button>
+        <button onClick={handleLogout}>
           <FaSignOutAlt />
           <span>Déconnexion</span>
         </button>

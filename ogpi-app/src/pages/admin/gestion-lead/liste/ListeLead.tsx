@@ -39,7 +39,6 @@ const ListeLead: React.FC = () => {
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const backlogService = new BacklogService(api);
 
-  
   const [kpis, setKpis] = useState({
     activeOpportunitiesThisPeriod: 0,
     conversionRate: 0,
@@ -47,45 +46,149 @@ const ListeLead: React.FC = () => {
     upcomingDeadlines: 0,
   });
 
+  /**
+   * 🔥 Fonction centralisée pour charger les détails complets d'un lead
+   * Utilisée pour l'édition ET la visualisation
+   */
+  const loadFullLeadDetails = async (leadId: number) => {
+    try {
+      console.log("=== Chargement complet du lead:", leadId);
+      
+      // 1️⃣ Récupérer le lead complet avec partenaires et historiques
+      const fullLead = await leadService.getById(leadId);
+      console.log("Lead complet récupéré:", fullLead);
+
+      // 2️⃣ Récupérer les détails Tech & Fin
+      const techFinDetails = await leadTechFinService.getByLeadId(leadId);
+      console.log("Tech & Fin récupérés:", techFinDetails);
+
+      // 3️⃣ Construire l'objet lead complet et normalisé
+      const completeLead = {
+        ...fullLead,
+        id: fullLead.leadId || fullLead.id,
+        leadId: fullLead.leadId || fullLead.id,
+        
+        // Normalisation des données d'affichage
+        name: fullLead.leadName || fullLead.name,
+        
+        // Client normalisé
+        client: fullLead.client
+          ? {
+              id: fullLead.client.id,
+              name: fullLead.client.name,
+              email: fullLead.client.email,
+              phone: fullLead.client.phone,
+            }
+          : null,
+
+        // 🔥 Créateur du lead
+        createdByUser: fullLead.createdByUser || null,
+
+        // 🔥 Partenaires normalisés (depuis leadPartenaires du getById)
+        partenaires: fullLead.leadPartenaires?.map((lp: any) => lp.partenaire) || [],
+        leadPartenaires: fullLead.leadPartenaires || [],
+
+        // 🔥 Historiques (depuis getById)
+        leadStatusHistories: fullLead.leadStatusHistories || [],
+        leadStepHistories: fullLead.leadStepHistories || [],
+
+        // 🔥 Tech & Fin (SOURCE UNIQUE)
+        techFinDetails: {
+          idLeadTechFinDetails: techFinDetails?.idLeadTechFinDetails || null,
+          technos: techFinDetails?.technos || [],
+          devise: techFinDetails?.devise || null,
+          typeFacturation: techFinDetails?.typeFacturation || null,
+          volumeJHVendu: techFinDetails?.volumeJHVendu ?? 0,
+          tauxDeChange: techFinDetails?.tauxDeChange ?? 1,
+          impots: techFinDetails?.impots ?? 0,
+          montantOffre: techFinDetails?.montantOffre ?? 0,
+          budget: techFinDetails?.montantOffre ?? 0,
+          dateAttribution: techFinDetails?.dateAttribution || null,
+          volumeJHVenduEtMontant: techFinDetails?.volumeJHVenduEtMontant || [],
+        },
+
+        // 🔥 Données pour le formulaire d'édition
+        technos: techFinDetails?.technos || [],
+        volumeJHVendu: techFinDetails?.volumeJHVendu || 0,
+        devise: techFinDetails?.devise || null,
+        tauxDeChange: techFinDetails?.tauxDeChange || 1,
+        typeFacturation: techFinDetails?.typeFacturation || null,
+        impots: techFinDetails?.impots || 0,
+        dateAttribution: techFinDetails?.dateAttribution || "",
+        montantOffre: techFinDetails?.montantOffre || 0,
+        budget: techFinDetails?.montantOffre || 0,
+      };
+
+      console.log("Lead complet normalisé:", completeLead);
+      return completeLead;
+
+    } catch (error) {
+      console.error("Erreur lors du chargement des détails complets:", error);
+      throw error;
+    }
+  };
+
   const loadLeads = async () => {
-  try {
-    const data = await leadService.getAll();
+    try {
+      const data = await leadService.getAll();
 
-    const leadsData: Lead[] = data.map((lead: any) => ({
-      id: lead.leadId,
-      name: lead.leadName,
-      reference: lead.leadRef,
-      bu: lead.businessUnit,
-      typeFinancement: lead.typeProjetFinancement,
-      description: lead.leadDescription,
-      periode: lead.leadPeriode,
-      internalDeadline: lead.leadInternalDeadLine,
-      realDeadline: lead.leadRealDeadLine,
-      projetFinancement: lead.typeProjetFinancement,
-      commentaire: lead.leadCommentaire,
-      zone: lead.leadZone === 0 ? "Local" : "OffShore",
-      jiraProject: lead.leadGoProjetJira,
-      jiraTicket: lead.leadGoTicketJira,
-      driveFolder: lead.driveFolder || undefined,
-      driveFile: lead.mainDriveFile || undefined,
-      client: lead.client,
-      type: lead.leadType,
-      category: lead.category,
-      secteur: lead.leadSecteur,
-      status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'En attente', order: 0 },
-      partenaires: lead.leadPartenaires?.map((p: any) => p.partenaire) || [],
-    }));
+      const leadsData: Lead[] = data.map((lead: any) => ({
+        // Identifiants
+        id: lead.leadId,
+        name: lead.leadName,
+        reference: lead.leadRef || '',
+        
+        // Informations de base
+        businessUnit: lead.businessUnit,
+        typeFinancement: lead.typeProjetFinancement,
+        description: lead.leadDescription || '',
+        
+        // Dates
+        periode: lead.leadPeriode,
+        internalDeadline: lead.leadInternalDeadLine || '',
+        realDeadline: lead.leadRealDeadLine || '',
+        
+        // Détails du projet
+        projetFinancement: lead.projetDeFinancement || '',
+        commentaire: lead.leadCommentaire || '',
+        
+        // Zone et JIRA
+        zone: lead.leadZone === 0 ? 0 : 1,  // Garder le nombre au lieu de transformer en string
+        jiraProject: lead.leadGoProjetJira || '',
+        jiraTicket: lead.leadGoTicketJira || '',
+        
+        // Drive
+        driveFolder: lead.driveFolder || undefined,
+        driveFile: lead.mainDriveFile || undefined,
+        
+        // Relations
+        client: lead.client,
+        type: lead.leadType,
+        category: lead.category,
+        secteur: lead.leadSecteur,
+        
+        // Statuts et étapes
+        status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'En attente', order: 0 },
+        currentLeadStatus: lead.currentLeadStatus,
+        currentLeadStep: lead.currentLeadStep,
+        
+        // Créateur
+        createdByUser: lead.createdByUser || undefined,
+        
+        // Partenaires (vide dans getAll)
+        partenaires: [],
+      }));
 
-    setOpportunities(leadsData);
-    calculateKPIs(leadsData);
-  } catch (error) {
-    console.error("Erreur chargement leads", error);
-  }
-};
+      setOpportunities(leadsData);
+      calculateKPIs(leadsData);
+    } catch (error) {
+      console.error("Erreur chargement leads", error);
+    }
+  };
 
-useEffect(() => {
-  loadLeads();
-}, [period]);
+  useEffect(() => {
+    loadLeads();
+  }, [period]);
 
   const getCurrencySymbol = () => {
     switch (currency) {
@@ -187,7 +290,7 @@ useEffect(() => {
     {
       key: 'businessUnit',
       label: 'Business Unit',
-      render: (row: Lead) => row.bu?.name || '-',
+      render: (row: Lead) => row.businessUnit?.name || '-',
     },
     { key: 'name', label: 'Nom' },
     { key: 'reference', label: 'Référence' },
@@ -207,7 +310,7 @@ useEffect(() => {
     },
     { key: 'projetFinancement', label: 'Type de financement', render: (row: Lead) => row.typeFinancement?.label || '-' },
     { key: 'commentaire', label: 'Commentaire', render: (row: Lead) => row.commentaire || '-' },
-    { key: 'zone', label: 'Zone', render: (row: Lead) => row.zone != null ? row.zone : '-' },
+    { key: 'zone', label: 'Zone', render: (row: Lead) => row.zone === 0 ? 'Local' : 'OffShore' },
     {
       key: 'partenaires',
       label: 'Partenaires',
@@ -235,15 +338,49 @@ useEffect(() => {
           : '-',
     },
     {
+      key: 'createdBy',
+      label: 'Créé par',
+      render: (row: Lead) => row.createdByUser?.username || '-',
+    },
+    {
       key: 'status',
       label: 'Statut',
       render: (row: Lead) => {
         const map: any = {
-          'No Go': ['bg-danger', 'No Go'],
-          'Go': ['bg-success', 'Go'],
-          'En attente de validation': ['bg-secondary', 'En attente de validation'],
+          1: ['bg-info', 'Ouvert'],
+          2: ['bg-danger', 'No Go'],
+          3: ['bg-warning', 'En cours de rédaction'],
+          4: ['bg-primary', 'En cours d\'évaluation'],
+          5: ['bg-success', 'Gagnée'],
+          6: ['bg-secondary', 'Perdue'],
         };
-        const [cls, label] = map[row.status.label] || ['bg-secondary', 'En attente de validation'];
+        const [cls, label] = map[row.status.id] || ['bg-secondary', 'En attente de validation'];
+        return <span className={`badge ${cls}`}>{label}</span>;
+      },
+    },
+    {
+      key: 'step',
+      label: 'Étape',
+      render: (row: Lead) => {
+        const map: any = {
+          1: ['bg-secondary', 'Ouvert'],
+          2: ['bg-danger', 'No Go'],
+          3: ['bg-info', 'Analyse technique'],
+          4: ['bg-primary', 'Validation technique'],
+          5: ['bg-info', 'Analyse financière'],
+          6: ['bg-primary', 'Validation financière'],
+          7: ['bg-warning', 'Rédaction'],
+          8: ['bg-warning', 'Revue qualité'],
+          9: ['bg-success', 'Soumission offre'],
+          10: ['bg-success', 'Gagnée'],
+          11: ['bg-secondary', 'Perdue'],
+        };
+        
+        const stepId = row.currentLeadStep?.leadStep?.id;
+        if (!stepId) return '-';
+          
+        
+        const [cls, label] = map[stepId] || ['bg-secondary', 'Étape inconnue'];
         return <span className={`badge ${cls}`}>{label}</span>;
       },
     },
@@ -256,87 +393,23 @@ useEffect(() => {
             if (!row.id) return;
 
             try {
-              // 1️⃣ Récupérer le lead complet
-              const fullLead = await leadService.getById(row.id);
-              console.log("Lead récupéré :", fullLead);
-
-              // 2️⃣ Récupérer les détails Tech & Fin
-              const techFinDetails = await leadTechFinService.getByLeadId(row.id);
-              console.log("Tech & Fin récupérés :", techFinDetails);
-
-              // 3️⃣ Sécuriser les données pour l'affichage
-              const safeLead = {
-                ...fullLead,
-                id: fullLead.leadId || fullLead.id,
-                leadId: fullLead.leadId || fullLead.id,
-
-                // Normalisation affichage
-                name: fullLead.leadName || fullLead.name,
-                bu: fullLead.bu?.name ? { name: fullLead.bu.name } : null,
-                client: fullLead.client
-                  ? {
-                      id: fullLead.client.id,
-                      name: fullLead.client.name,
-                      email: fullLead.client.email,
-                      phone: fullLead.client.phone,
-                    }
-                  : null,
-
-                // 🔥 Tech & Fin (SOURCE UNIQUE)
-                techFinDetails: {
-                  ...techFinDetails,
-                  technos: techFinDetails?.technos || [],
-                  devise: techFinDetails?.devise || null,
-                  typeFacturation: techFinDetails?.typeFacturation || null,
-                  volumeJHVendu: techFinDetails?.volumeJHVendu ?? 0,
-                  tauxDeChange: techFinDetails?.tauxDeChange ?? 1,
-                  impots: techFinDetails?.impots ?? 0,
-                  montantOffre: techFinDetails?.montantOffre ?? 0,
-                  budget: techFinDetails?.montantOffre ?? 0,
-                  dateAttribution: techFinDetails?.dateAttribution || null,
-                },
-              };
-
-              console.log("SafeLead pour détails :", safeLead);
-
-              // 4️⃣ Afficher le modal détails
-              setSelectedLead(safeLead);
+              // 🔥 Utiliser la fonction centralisée
+              const completeLead = await loadFullLeadDetails(row.id);
+              
+              setSelectedLead(completeLead);
               setShowDetailLead(true);
             } catch (error) {
-              console.error("Erreur chargement détails offre tech & fin", error);
+              console.error("Erreur chargement détails pour visualisation", error);
             }
           }}
           onEdit={async () => {
             if (!row.id) return;
 
             try {
-              // 1. ✅ Récupérer le lead complet
-              const fullLead = await leadService.getById(row.id);
-              console.log("Full lead récupéré:", fullLead);
+              // 🔥 Utiliser la même fonction centralisée pour l'édition
+              const completeLead = await loadFullLeadDetails(row.id);
               
-              // 2. ✅ Récupérer les détails tech & fin
-              const techFinDetails = await leadTechFinService.getByLeadId(row.id);
-              console.log("Tech & Fin récupérés:", techFinDetails);
-              
-              // 3. ✅ Fusionner les données
-              const safeLead = {
-                ...fullLead,
-                id: fullLead.leadId || fullLead.id,
-                leadId: fullLead.leadId || fullLead.id,
-                // ✅ Ajouter les données tech & fin au lead
-                technos: techFinDetails.technos || [],
-                volumeJHVendu: techFinDetails.volumeJHVendu || 0,
-                devise: techFinDetails.devise || null,
-                tauxDeChange: techFinDetails.tauxDeChange || 1,
-                typeFacturation: techFinDetails.typeFacturation || null,
-                impots: techFinDetails.impots || 0,
-                dateAttribution: techFinDetails.dateAttribution || "",
-                montantOffre: techFinDetails.montantOffre || 0,
-                budget: techFinDetails.montantOffre || 0, // ✅ Alias pour compatibilité
-              };
-              
-              console.log("SafeLead complet avec tech&fin:", safeLead);
-              setSelectedLead(safeLead);  
+              setSelectedLead(completeLead);
               setShowFormLead(true);
             } catch (error) {
               console.error("Erreur chargement lead pour édition", error);
@@ -420,51 +493,51 @@ useEffect(() => {
       <div className="liste-lead-wrapper">
         <main className="liste-lead-main">
           <div className="container-fluid">
-          {/* Ligne 2 : Filtres période & devise + bouton créer */}
-          <div className="row align-items-center mb-4">
-            {/* Filtres période & devise */}
-            <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
-              <div className="d-flex flex-wrap gap-2">
-                <select
-                  value={period}
-                  onChange={(e) =>
-                    setPeriod(e.target.value as 'week' | 'month' | 'semester' | 'year')
-                  }
-                  className="form-select form-select-sm"
-                  style={{ width: 140 }}
-                >
-                  <option value="week">Semaine</option>
-                  <option value="month">Mois</option>
-                  <option value="semester">Semestre</option>
-                  <option value="year">Année</option>
-                </select>
+            {/* Ligne 2 : Filtres période & devise + bouton créer */}
+            <div className="row align-items-center mb-4">
+              {/* Filtres période & devise */}
+              <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
+                <div className="d-flex flex-wrap gap-2">
+                  <select
+                    value={period}
+                    onChange={(e) =>
+                      setPeriod(e.target.value as 'week' | 'month' | 'semester' | 'year')
+                    }
+                    className="form-select form-select-sm"
+                    style={{ width: 140 }}
+                  >
+                    <option value="week">Semaine</option>
+                    <option value="month">Mois</option>
+                    <option value="semester">Semestre</option>
+                    <option value="year">Année</option>
+                  </select>
 
-                <select
-                  value={currency}
-                  onChange={(e) =>
-                    setCurrency(e.target.value as 'AR' | 'Euro' | '$')
-                  }
-                  className="form-select form-select-sm"
-                  style={{ width: 120 }}
-                >
-                  <option value="Euro">Euro €</option>
-                  <option value="$">Dollar $</option>
-                </select>
+                  <select
+                    value={currency}
+                    onChange={(e) =>
+                      setCurrency(e.target.value as 'AR' | 'Euro' | '$')
+                    }
+                    className="form-select form-select-sm"
+                    style={{ width: 120 }}
+                  >
+                    <option value="Euro">Euro €</option>
+                    <option value="$">Dollar $</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Bouton créer */}
+              <div className="col-lg-4 col-md-12 text-lg-end">
+                <Button
+                  label="Créer une opportunité"
+                  icon={<FaPlus />}
+                  onClick={() => {
+                    setSelectedLead(null);
+                    setShowFormLead(true);
+                  }}
+                />
               </div>
             </div>
-
-            {/* Bouton créer */}
-            <div className="col-lg-4 col-md-12 text-lg-end">
-              <Button
-                label="Créer une opportunité"
-                icon={<FaPlus />}
-                onClick={() => {
-                  setSelectedLead(null);
-                  setShowFormLead(true);
-                }}
-              />
-            </div>
-          </div>
 
             {/* KPI */}
             <div className="row mb-4">
@@ -518,40 +591,43 @@ useEffect(() => {
         </main>
       </div>
 
-        {/* Formulaire Lead */}
-        <FormLead
-          show={showFormLead}
-          onClose={() => {
-            setShowFormLead(false);
-            setSelectedLead(null); 
-          }}
-          lead={selectedLead} 
-          onSubmit={async () => {
-            await loadLeads();
-            setShowFormLead(false);
-            setSelectedLead(null);
-          }}
-        />
+      {/* Formulaire Lead */}
+      <FormLead
+        show={showFormLead}
+        onClose={() => {
+          setShowFormLead(false);
+          setSelectedLead(null);
+        }}
+        lead={selectedLead}
+        onSubmit={async () => {
+          await loadLeads();
+          setShowFormLead(false);
+          setSelectedLead(null);
+        }}
+      />
 
       {/* Détails Lead */}
       <DetailsLead
         show={showDetailLead}
-        onClose={() => setShowDetailLead(false)}
-        lead={selectedLead}
-    />
-
-    {selectedLeadId && (
-      <BacklogModal
-        show={showBacklogModal}
         onClose={() => {
-          setShowBacklogModal(false);
-          setSelectedLeadId(null);
-          setSelectedLeadName('');
+          setShowDetailLead(false);
+          setSelectedLead(null);
         }}
-        leadId={selectedLeadId}
-        leadName={selectedLeadName}
+        lead={selectedLead}
       />
-    )}    
+
+      {selectedLeadId && (
+        <BacklogModal
+          show={showBacklogModal}
+          onClose={() => {
+            setShowBacklogModal(false);
+            setSelectedLeadId(null);
+            setSelectedLeadName('');
+          }}
+          leadId={selectedLeadId}
+          leadName={selectedLeadName}
+        />
+      )}
     </div>
   );
 };

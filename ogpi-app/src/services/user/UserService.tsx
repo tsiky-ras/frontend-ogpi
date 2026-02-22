@@ -4,6 +4,7 @@ import { User } from "../../types/user/User.tsx";
 export const useUserService = () => {
   const { api } = useAuth();
 
+  
   const base = "/users";
 
   // ---------------- GET ALL USERS ----------------
@@ -48,7 +49,7 @@ export const useUserService = () => {
       userId: user.userId,
       username: user.username,
       email: user.email,
-      isActive: user.isActive,
+      isActive: user.is_active,
       role: user.role ? { roleId: user.role.roleId } : undefined,
     };
 
@@ -78,4 +79,8 @@ export const useUserService = () => {
     remove,
     resetPassword,
   };
+
+
+  
+
 };

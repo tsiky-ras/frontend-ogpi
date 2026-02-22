@@ -38,17 +38,29 @@ const DetailsLead: React.FC<DetailsLeadProps> = ({ show, onClose, lead }) => {
             <Modal.Title style={{ color: "white" }}>
               {lead.leadName || "-"}
             </Modal.Title>
-            <p>{lead.leadRef || "-"}</p>
+            <p className="mb-1">{lead.leadRef || "-"}</p>
+            {lead.createdByUser && (
+              <small style={{ color: "#ddd" }}>
+                Créé par: {lead.createdByUser.username} ({lead.createdByUser.email})
+              </small>
+            )}
           </div>
 
-          <span
-            className={`badge ${getBadgeClass(
-              lead.currentLeadStatus?.leadStatus?.label
-            )}`}
-          >
-            {lead.currentLeadStatus?.leadStatus?.label ||
-              "En attente de validation"}
-          </span>
+          <div className="d-flex flex-column align-items-end gap-2">
+            <span
+              className={`badge ${getBadgeClass(
+                lead.currentLeadStatus?.leadStatus?.label
+              )}`}
+            >
+              {lead.currentLeadStatus?.leadStatus?.label ||
+                "En attente de validation"}
+            </span>
+            {lead.currentLeadStep?.leadStep && (
+              <span className="badge bg-primary">
+                Étape: {lead.currentLeadStep.leadStep.label}
+              </span>
+            )}
+          </div>
         </div>
       </Modal.Header>
 

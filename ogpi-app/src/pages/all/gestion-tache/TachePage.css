@@ -1,0 +1,73 @@
+/* ═══════════════════════════════════════════
+   TachePage.css — Layout onglets Tâches
+   ═══════════════════════════════════════════ */
+
+   .tp-tab-switcher {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    background: #f1f5f9;
+    padding: 5px;
+    border-radius: 12px;
+    width: fit-content;
+  }
+  
+  .tp-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 20px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .tp-tab-btn:hover { color: #334155; background: #e2e8f0; }
+  .tp-tab-btn.active {
+    background: #ffffff;
+    color: #1e293b;
+    font-weight: 600;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.08);
+  }
+  
+  .tp-tab-icon { font-size: 0.95rem; }
+  
+  .tp-tab-soon {
+    font-size: 0.63rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #e0f2fe;
+    color: #0284c7;
+    padding: 2px 6px;
+    border-radius: 5px;
+  }
+  
+  .tp-tab-content { animation: tp-fadein 0.2s ease; }
+  
+  @keyframes tp-fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  
+  .tp-coming-soon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 24px;
+    text-align: center;
+    border: 1.5px dashed #e2e8f0;
+    border-radius: 16px;
+    background: #f8fafc;
+    color: #94a3b8;
+    gap: 8px;
+  }
+  .tp-cs-icon { font-size: 2.4rem; margin-bottom: 8px; }
+  .tp-coming-soon h5 { font-size: 1rem; font-weight: 600; color: #475569; margin: 0 0 4px; }
+  .tp-coming-soon p  { font-size: 0.875rem; margin: 0; color: #94a3b8; }

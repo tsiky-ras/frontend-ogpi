@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Modal, Button, Nav, Tab } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 
@@ -9,6 +9,7 @@ import CollecteLoadingMessage from "../../../../components/message/CollecteLoadi
 import FormQualif from "./qualification/FormQualif.tsx";
 import FormTechFin from "./technique-financiere/FormTechFin.tsx";
 import "./FormLead.css";
+import FormJira from "./Jira/FormJira.tsx";
 
 import { BusinessUnitService } from "../../../../services/profil/poste/BusinessUnitService.tsx";
 import { LeadTypeService } from "../../../../services/lead/LeadTypeService.tsx";
@@ -23,6 +24,7 @@ import { useDeviseService } from "../../../../services/lead/tech-fin/DeviseServi
 import { useTechnoService } from "../../../../services/lead/tech-fin/TechnoService.tsx";
 import { useTypeFacturationService } from "../../../../services/lead/tech-fin/TypeFacturationService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
+import { UserDisplayService } from "../../../../services/user/UserDisplayService.tsx";
 
 type FormLeadProps = {
   show: boolean;
@@ -34,6 +36,7 @@ type FormLeadProps = {
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
   const { api } = useAuth();
   const leadService = new LeadService(api);
+  const userDisplayService = new UserDisplayService(api);
   const deviseService = useDeviseService();
   const technoService = useTechnoService();
   const typeFacturationService = useTypeFacturationService();
@@ -67,6 +70,9 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     budget: 0,
   });
 
+  // Données JIRA remontées par FormJira via onDataReady
+  const jiraDataRef = useRef<any>(null);
+
   /* ================= Listes ================= */
   const [businessUnits, setBusinessUnits] = useState<any[]>([]);
   const [typeOpportunites, setTypeOpportunites] = useState<any[]>([]);
@@ -93,120 +99,93 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     setForm((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  const handleTechFinChange = (e: any) => {
-    const { name, value } = e.target;
-    setFormTechFin((prev: any) => ({ ...prev, [name]: value }));
+  const mapLeadToForm = (lead: any) => {
+    const partenairesArray = lead.leadPartenaires?.map((lp: any) => lp.partenaire) || [];
+    return {
+      periode: lead.leadPeriode?.substring(0, 7) || "",
+      nom: lead.leadName || "",
+      reference: lead.leadRef || "",
+      description: lead.leadDescription || "",
+      commentaire: lead.leadCommentaire || "",
+      zone: lead.leadZone ?? "",
+      businessUnit: lead.businessUnit?.id || "",
+      typeOpportunite: lead.leadType?.id || "",
+      categorie: lead.category?.id || "",
+      secteur: lead.leadSecteur?.id || "",
+      statut: lead.currentLeadStatus?.leadStatus?.id || "1",
+      client: lead.client || null,
+      partenaires: partenairesArray,
+      typeFinancement: lead.typeProjetFinancement || null,
+      realDeadline: lead.leadRealDeadLine ? lead.leadRealDeadLine.substring(0, 16) : "",
+      internalDeadline: lead.leadInternalDeadLine ? lead.leadInternalDeadLine.substring(0, 16) : "",
+      driveFolderName: lead.driveFolder?.name || "",
+      driveFolderLink: lead.driveFolder?.link || "",
+      mainDriveFileName: lead.mainDriveFile?.name || "",
+      mainDriveFileLink: lead.mainDriveFile?.link || "",
+      mainDriveFileDescription: lead.mainDriveFile?.description || "",
+    };
   };
 
-  const mapLeadToForm = (lead: any) => ({
-    periode: lead.leadPeriode?.substring(0, 7) || "",
-    nom: lead.leadName || "",
-    reference: lead.leadRef || "",
-    description: lead.leadDescription || "",
-    commentaire: lead.leadCommentaire || "",
-    zone: lead.leadZone ?? "",
-    businessUnit: lead.businessUnit?.id || "",
-    typeOpportunite: lead.leadType?.id || "",
-    categorie: lead.category?.id || "",
-    secteur: lead.leadSecteur?.id || "",
-    statut: lead.currentLeadStatus?.leadStatus?.id || "1",
-    client: lead.client || null,
-    leadPartenaire: lead.leadPartenaires?.length ? lead.leadPartenaires[0].partenaire : null,
-    typeFinancement: lead.typeProjetFinancement || null,
-    realDeadline: lead.leadRealDeadLine ? lead.leadRealDeadLine.substring(0, 16) : "",
-    driveFolderName: lead.driveFolder?.name || "",
-    driveFolderLink: lead.driveFolder?.link || "",
-    mainDriveFileName: lead.mainDriveFile?.name || "",
-    mainDriveFileLink: lead.mainDriveFile?.link || "",
-    mainDriveFileDescription: lead.mainDriveFile?.description || "",
-  });
-
   const mapLeadToTechFinForm = (lead: any) => {
-    console.log("=== mapLeadToTechFinForm ===");
-    console.log("lead.technos brut:", lead.technos);
-    
     let technosIds: number[] = [];
-    
     if (Array.isArray(lead.technos)) {
       technosIds = lead.technos
         .map((item: any) => {
-          console.log("Processing techno item:", item);
-                    if (item?.techno?.idTechno) {
-            return Number(item.techno.idTechno);
-          }
-          if (typeof item === 'object' && item !== null && item.idTechno) {
-            return Number(item.idTechno);
-          }
-          if (typeof item === 'object' && item !== null && item.id) {
-            return Number(item.id);
-          }
-          if (typeof item === 'number') {
-            return item;
-          }
+          if (item?.techno?.idTechno) return Number(item.techno.idTechno);
+          if (typeof item === "object" && item !== null && item.idTechno) return Number(item.idTechno);
+          if (typeof item === "object" && item !== null && item.id) return Number(item.id);
+          if (typeof item === "number") return item;
           return null;
         })
         .filter((id: any) => id !== null && !isNaN(id));
     }
-
-    console.log("technosIds extraits:", technosIds);
-
     return {
-      technos: technosIds, 
+      technos: technosIds,
       volumeJHVendu: lead.volumeJHVendu || 0,
-      deviseId: lead.devise?.idDevise || "",    
+      deviseId: lead.devise?.idDevise || "",
       tauxDeChange: lead.tauxDeChange || 1,
-      typeFacturationId: lead.typeFacturation?.idTypeFacturation || "",    
+      typeFacturationId: lead.typeFacturation?.idTypeFacturation || "",
       impots: lead.impots || 0,
       dateAttribution: lead.dateAttribution || "",
       budget: lead.montantOffre || lead.budget || 0,
     };
   };
-    useEffect(() => {
-      if (!show) return;
 
-      const fetchFinanceData = async () => {
-        try {
-          const [devs, factTypes] = await Promise.all([
-            deviseService.getAll(),
-            typeFacturationService.getAll(),
-          ]);
-
-          setDevises(devs);
-          setTypeFacturations(factTypes);
-        } catch (err) {
-          console.error("Erreur lors du fetch des données financières :", err);
-        }
-      };
-
-      fetchFinanceData();
-    }, [show]); 
-
-    /* ================= Fetch technos ================= */
-    useEffect(() => {
-      if (!show) return;
-
-      const fetchTechno = async () => {
-        try {
-          const list = await technoService.getAll();
-          setTechnos(list);
-        } catch (err) {
-          console.error("Erreur lors du fetch des technos :", err);
-        }
-      };
-
-      fetchTechno();
-    }, [show]);
-
-  /* ================= Fetch listes ================= */
   useEffect(() => {
     if (!show) return;
+    const fetchFinanceData = async () => {
+      try {
+        const [devs, factTypes] = await Promise.all([
+          deviseService.getAll(),
+          typeFacturationService.getAll(),
+        ]);
+        setDevises(devs);
+        setTypeFacturations(factTypes);
+      } catch (err) {
+        console.error("Erreur lors du fetch des données financières :", err);
+      }
+    };
+    fetchFinanceData();
+  }, [show]);
 
+  useEffect(() => {
+    if (!show) return;
+    const fetchTechno = async () => {
+      try {
+        const list = await technoService.getAll();
+        setTechnos(list);
+      } catch (err) {
+        console.error("Erreur lors du fetch des technos :", err);
+      }
+    };
+    fetchTechno();
+  }, [show]);
+
+  useEffect(() => {
+    if (!show) return;
     const fetchData = async () => {
       try {
-        const [
-          bu, types, cats, sects, stats,
-          typeFin, clts, parts
-        ] = await Promise.all([
+        const [bu, types, cats, sects, stats, typeFin, clts, parts] = await Promise.all([
           new BusinessUnitService(api).getAll(),
           new LeadTypeService(api).getAll(),
           new LeadCategoryService(api).getAll(),
@@ -216,7 +195,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           new ClientService(api).getAll(),
           new PartenaireService(api).getAll(),
         ]);
-
         setBusinessUnits(bu);
         setTypeOpportunites(types);
         setCategories(cats);
@@ -229,49 +207,16 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         console.error(err);
       }
     };
-
     fetchData();
   }, [show, api]);
 
   useEffect(() => {
     if (!show) return;
-
     const initForm = async () => {
       if (lead) {
-        console.log("=== MODE ÉDITION ===");
-        console.log("Lead reçu:", lead);
-
         setForm(mapLeadToForm(lead));
-
-        try {
-          const leadId = lead.leadId || lead.id;
-          if (!leadId) {
-            console.error("Pas d'ID de lead disponible");
-            return;
-          }
-
-          const techFinData = await leadTechFinService.getByLeadId(leadId);
-          console.log("Tech&Fin récupéré depuis API:", techFinData);
-
-          const mappedTechFin = mapLeadToTechFinForm({
-            ...lead,
-            technos: techFinData.technos || [],
-            volumeJHVendu: techFinData.volumeJHVendu || 0,
-            devise: techFinData.devise || null,
-            tauxDeChange: techFinData.tauxDeChange || 1,
-            typeFacturation: techFinData.typeFacturation || null,
-            impots: techFinData.impots || 0,
-            dateAttribution: techFinData.dateAttribution || "",
-            montantOffre: techFinData.montantOffre || 0,
-          });
-
-          console.log("FormTechFin final:", mappedTechFin);
-          setFormTechFin(mappedTechFin);
-          setCurrentStep("offre");
-        } catch (error) {
-          console.error("Erreur lors du chargement Tech&Fin:", error);
-          setFormTechFin(mapLeadToTechFinForm(lead));
-        }
+        setFormTechFin(mapLeadToTechFinForm(lead));
+        setCurrentStep("qualification");
       } else {
         setForm({
           periode: "",
@@ -289,7 +234,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           commentaire: "",
           zone: "",
           client: null,
-          leadPartenaire: null,
+          partenaires: [],
           driveFolderName: "",
           driveFolderLink: "",
           mainDriveFileName: "",
@@ -307,52 +252,20 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           budget: 0,
         });
         setCurrentStep("qualification");
+        jiraDataRef.current = null;
       }
     };
-
     initForm();
   }, [show, lead]);
 
-  const isNoGo = lead?.currentLeadStatus?.leadStatus?.label === "No Go";
-  useEffect(() => {
-    if (!show || !lead) return;
+  const isNoGo = lead?.currentLeadStatus?.leadStatus?.id < 3;
 
-    const fetchLeadTechFin = async () => {
-      try {
-        const leadId = lead.leadId || lead.id;
-        if (!leadId) return;
-
-        console.log("=== Chargement Tech&Fin pour lead:", leadId);
-        const techFinData = await leadTechFinService.getByLeadId(leadId);
-        console.log("Tech&Fin récupéré:", techFinData);
-
-        const mappedTechFin = mapLeadToTechFinForm({
-          ...lead,
-          technos: techFinData.technos || [],
-          volumeJHVendu: techFinData.volumeJHVendu || 0,
-          devise: techFinData.devise || null,
-          tauxDeChange: techFinData.tauxDeChange || 1,
-          typeFacturation: techFinData.typeFacturation || null,
-          impots: techFinData.impots || 0,
-          dateAttribution: techFinData.dateAttribution || "",
-          montantOffre: techFinData.montantOffre || 0,
-          budget: techFinData.montantOffre || 0,
-        });
-
-        setFormTechFin(mappedTechFin);
-      } catch (error) {
-        console.error("Erreur lors du fetch Tech&Fin:", error);
-      }
-    };
-
-  fetchLeadTechFin();
-}, [show, lead?.leadId, lead?.id]);
-
-  
-const formatLeadPayload = (form: any) => {
+  const formatLeadPayload = (form: any) => {
     const nowIso = new Date().toISOString();
     const periodeDate = form.periode ? `${form.periode}-01` : null;
-    
+    const leadPartenairesFormatted = (form.partenaires || []).map((p: any) => ({
+      partenaire: { id: p.id },
+    }));
     return {
       leadPeriode: periodeDate,
       leadDescription: form.description,
@@ -367,32 +280,35 @@ const formatLeadPayload = (form: any) => {
       leadType: form.typeOpportunite ? { id: form.typeOpportunite } : null,
       leadSecteur: form.secteur ? { id: form.secteur } : null,
       businessUnit: form.businessUnit ? { id: form.businessUnit } : null,
-      leadPartenaires: form.leadPartenaire
-        ? [{ partenaire: { id: form.leadPartenaire.id } }]
-        : [],
+      leadPartenaires: leadPartenairesFormatted,
       leadStatusHistories: [
-        { dateUpdated: nowIso, leadStatus: form.statut ? { id: form.statut } : { id: 1 } }
+        { dateUpdated: nowIso, leadStatus: form.statut ? { id: form.statut } : { id: 1 } },
       ],
       typeProjetFinancement: form.typeFinancement ? { id: form.typeFinancement.id } : null,
       driveFolder: form.driveFolderName
         ? { name: form.driveFolderName, link: form.driveFolderLink || "" }
         : null,
       mainDriveFile: form.mainDriveFileName
-        ? { name: form.mainDriveFileName, link: form.mainDriveFileLink || "", description: form.mainDriveFileDescription || "" }
-        : null
+        ? {
+            name: form.mainDriveFileName,
+            link: form.mainDriveFileLink || "",
+            description: form.mainDriveFileDescription || "",
+          }
+        : null,
     };
   };
 
-  /* ================= Save ================= */
+  /* ================= Save unifié ================= */
   const handleSave = async () => {
-    console.log("=== DÉBUT handleSave ===", currentStep);
     setShowLoadingMessage(true);
 
     try {
-      let savedLead = lead;
+      const currentLeadId = lead?.leadId || lead?.id;
+
+      // ── Onglet Qualification ──────────────────────────────────────────────
       if (currentStep === "qualification") {
         const qualifData = formatLeadPayload(form);
-        const currentLeadId = lead?.leadId || lead?.id;
+        let savedLead: any;
 
         if (lead && currentLeadId) {
           savedLead = await leadService.updateQualif(currentLeadId, qualifData);
@@ -403,51 +319,41 @@ const formatLeadPayload = (form: any) => {
         setShowLoadingMessage(false);
         setSuccessMessage("Qualification sauvegardée avec succès !");
         setShowSuccessMessage(true);
-
         onSubmit(savedLead);
 
         setTimeout(() => {
           setShowSuccessMessage(false);
-          setCurrentStep("offre"); 
+          setCurrentStep("offre");
         }, 1500);
 
-        return; 
+        return;
       }
 
+      // ── Onglet Offre Tech & Fin ───────────────────────────────────────────
       if (currentStep === "offre") {
-        const leadId = lead?.leadId || lead?.id;
-
-        if (!leadId) {
-          throw new Error("Veuillez d'abord sauvegarder la qualification.");
-        }
-
-        if (!formTechFin.deviseId || !formTechFin.typeFacturationId) {
+        if (!currentLeadId) throw new Error("Veuillez d'abord sauvegarder la qualification.");
+        if (!formTechFin.deviseId || !formTechFin.typeFacturationId)
           throw new Error("Veuillez compléter la devise et le type de facturation.");
-        }
 
-        const existingTechFin = await leadTechFinService.getByLeadId(leadId);
-        const techFinId =
-          existingTechFin?.idLeadTechFinDetails || existingTechFin?.id;
-
-        const technosFormatted = (formTechFin.technos || []).map(
-          (technoId: number) => ({
-            techno: { idTechno: technoId },
-          })
-        );
+        const existingTechFin = await leadTechFinService.getByLeadId(currentLeadId);
+        const techFinId = existingTechFin?.idLeadTechFinDetails;
+        const technosFormatted = (formTechFin.technos || []).map((technoId: number) => ({
+          techno: { idTechno: technoId },
+        }));
 
         const techFinData = {
           idLeadTechFinDetails: techFinId,
+          idLead: currentLeadId,
+          budget: formTechFin.budget || 0,
           volumeJHVendu: formTechFin.volumeJHVendu || 0,
           tauxDeChange: formTechFin.tauxDeChange || 1,
           impots: formTechFin.impots || 0,
           dateAttribution: formTechFin.dateAttribution || null,
           montantOffre: formTechFin.budget || 0,
           technos: technosFormatted,
-          lead: { leadId },
+          lead: { leadId: currentLeadId },
           devise: { idDevise: Number(formTechFin.deviseId) },
-          typeFacturation: {
-            idTypeFacturation: Number(formTechFin.typeFacturationId),
-          },
+          typeFacturation: { idTypeFacturation: Number(formTechFin.typeFacturationId) },
         };
 
         await leadTechFinService.update(techFinData);
@@ -463,18 +369,35 @@ const formatLeadPayload = (form: any) => {
 
         return;
       }
+
+      // ── Onglet Étapes & Validations (JIRA) ───────────────────────────────
+      if (currentStep === "etapes") {
+        if (!currentLeadId) throw new Error("ID du lead manquant.");
+
+        const jiraData = jiraDataRef.current;
+        if (!jiraData) throw new Error("Aucune donnée JIRA à sauvegarder.");
+
+        await leadService.updateJira(currentLeadId, jiraData);
+
+        setShowLoadingMessage(false);
+        setSuccessMessage("JIRA mis à jour avec succès !");
+        setShowSuccessMessage(true);
+
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+        }, 2000);
+
+        return;
+      }
     } catch (err) {
       console.error("=== ERREUR handleSave ===", err);
-
       setShowLoadingMessage(false);
-      setErrorMessage(
-        err instanceof Error ? err.message : "Erreur inconnue"
-      );
+      setErrorMessage(err instanceof Error ? err.message : "Erreur inconnue");
       setShowErrorMessage(true);
     }
   };
-  
-/* ================= Render ================= */
+
+  /* ================= Render ================= */
   return (
     <>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable>
@@ -495,13 +418,19 @@ const formatLeadPayload = (form: any) => {
             }}
           >
             <Nav variant="pills" className="mb-4">
-              <Nav.Item><Nav.Link eventKey="qualification">Qualification</Nav.Link></Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="qualification">Qualification</Nav.Link>
+              </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="offre" disabled={!lead}>
                   Offre technique & financière
                 </Nav.Link>
               </Nav.Item>
-              <Nav.Item><Nav.Link eventKey="etapes" disabled={!lead}>Étapes & validations</Nav.Link></Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="etapes" disabled={!lead}>
+                  Étapes & validations
+                </Nav.Link>
+              </Nav.Item>
             </Nav>
 
             <Tab.Content>
@@ -536,21 +465,30 @@ const formatLeadPayload = (form: any) => {
                   <FormTechFin
                     form={formTechFin}
                     setForm={setFormTechFin}
-                    devises={devises}                     
-                    typeFacturations={typeFacturations}   
+                    devises={devises}
+                    typeFacturations={typeFacturations}
                     technos={technos}
                     technoService={technoService}
                     deviseService={deviseService}
-                    typeFacturationService={typeFacturationService} 
+                    typeFacturationService={typeFacturationService}
                   />
                 )}
               </Tab.Pane>
 
               <Tab.Pane eventKey="etapes">
-                {isNoGo && (
-                  <p className="text-danger">
-                    Impossible de modifier cet onglet pour un lead No Go.
-                  </p>
+                {!lead ? (
+                  <p className="text-warning">Sauvegardez d'abord le lead.</p>
+                ) : isNoGo ? (
+                  <p className="text-danger">Impossible pour un lead No Go.</p>
+                ) : (
+                  <FormJira
+                    lead={lead}
+                    leadService={leadService}
+                    userService={userDisplayService}
+                    onDataReady={(data) => {
+                      jiraDataRef.current = data;
+                    }}
+                  />
                 )}
               </Tab.Pane>
             </Tab.Content>
@@ -558,7 +496,9 @@ const formatLeadPayload = (form: any) => {
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="secondary" onClick={onClose}>Annuler</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
           <Button variant="primary" onClick={handleSave}>
             {lead ? "Modifier" : "Créer"}
           </Button>

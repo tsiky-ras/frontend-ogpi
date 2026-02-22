@@ -93,12 +93,12 @@ const DetailsQualif: React.FC<DetailsQualifProps> = ({ lead }) => {
           </Col>
           <Col md={6}>
             <label>Client</label>
-            <p><strong>{lead.client.name}</strong></p>
+            <p><strong>{lead.client?.name}</strong></p>
             <p className="contact-line">
-              Email : <span>{lead.client.email || '-'}</span>
+              Email : <span>{lead.client?.email || '-'}</span>
             </p>
             <p className="contact-line">
-              Téléphone : <span>{lead.client.phone || '-'}</span>
+              Téléphone : <span>{lead.client?.phone || '-'}</span>
             </p>
           </Col>
 

@@ -20,6 +20,17 @@ export class LeadService {
     }
   }
 
+
+  async getToValidate() {
+    try {
+      const response = await this.api.get('/leads/tovalidate');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des leads :', error);
+      throw error;
+    }
+  }
+
   /**
    * Récupère tous les leads à partir de leur statut
    */
@@ -40,6 +51,16 @@ export class LeadService {
   async getById(id: number) {
     try {
       const response = await this.api.get(`/leads/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors de la récupération du lead ${id} :`, error);
+      throw error;
+    }
+  }
+
+  async getValidationById(id: number) {
+    try {
+      const response = await this.api.get(`/leads/validation/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération du lead ${id} :`, error);
@@ -85,6 +106,28 @@ export class LeadService {
       throw error;
     }
   }
+
+
+  /**
+ * Récupère les infos JIRA d'un lead
+ */
+async getJira(id: number) {
+  const res = await this.api.get(`/leads/JIRA/${id}`);
+  return res.data;
 }
+
+/**
+ * Update JIRA
+ */
+async updateJira(id: number, data: any) {
+  const res = await this.api.put(`/leads/${id}/JIRA`, data);
+  return res.data;
+}
+
+
+}
+
+
+
 
 
