@@ -9,6 +9,7 @@ import ListeLead from "./liste/ListeLead.tsx";
 import ValidationLeadPage from "./validation/ValidationLeadPage.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import { LeadService } from "../../../services/lead/LeadService.tsx";
+import KanbanLead from "./kanban/KanbanLead.tsx";
 
 const LeadPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("liste");
@@ -70,14 +71,8 @@ const LeadPage: React.FC = () => {
                     <ValidationLeadPage onUpdated={fetchValidationCount} />
                 </Tab>
 
-              <Tab eventKey="kanban" title="Kanban">
-                <div className="p-4 text-muted">
-                  <h5>Kanban (à venir)</h5>
-                  <p>
-                    Cette vue permettra de gérer les opportunités par statut
-                    (drag & drop).
-                  </p>
-                </div>
+             <Tab eventKey="kanban" title="Kanban">
+                <KanbanLead />
               </Tab>
             </Tabs>
           </div>
