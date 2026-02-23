@@ -1028,7 +1028,7 @@ const BacklogPage: React.FC = () => {
                         <th style={{width: '150px'}}>Epic</th>
                         <th style={{width: '150px'}}>User Story</th>
                         <th style={{width: '200px'}}>Description</th>
-                        <th style={{width: '200px'}}>Résultat</th>
+                        <th style={{width: '200px'}}>Détails</th>
                         {profils.map(profil => (
                           <th key={profil.id} style={{width: '100px'}}>
                             {profil.name}
@@ -1491,13 +1491,13 @@ const BacklogPage: React.FC = () => {
             </Form.Group>
 
             <Form.Group>
-              <Form.Label>Résultat</Form.Label>
+              <Form.Label>Détails</Form.Label>
               <Form.Control
                 as="textarea"
                 rows={2}
                 value={newLine.resultat}
                 onChange={(e) => setNewLine({ ...newLine, resultat: e.target.value })}
-                placeholder="Entrez le résultat attendu"
+                placeholder="Entrez les détails du résultat attendu"
                 disabled={saving}
               />
             </Form.Group>

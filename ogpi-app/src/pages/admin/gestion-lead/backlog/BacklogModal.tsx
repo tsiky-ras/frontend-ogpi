@@ -687,14 +687,31 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
               <Tab eventKey="backlog" title="Backlog">
                 {!selectedBacklogId ? (
                   <div>
-                    <BacklogForm show={showBacklogFormModal} onClose={() => setShowBacklogFormModal(false)} onSubmit={handleCreateBacklog} leadId={leadId} />
-                    <Button label="Créer un backlog" icon={<FaPlus />} onClick={() => setShowBacklogFormModal(true)} variant="primary" className="mb-3" />
-                    {backlogs.length === 0 ? (
-                      <div className="text-center text-muted py-5">
-                        <p>Aucun backlog trouvé pour ce lead.</p>
-                        <p className="small">Les backlogs seront créés automatiquement lors de la gestion du lead.</p>
-                      </div>
-                    ) : (
+                    {/* Bouton + formulaire de création : uniquement quand aucun backlog n'existe */}
+                    {backlogs.length === 0 && (
+                      <>
+                        <BacklogForm
+                          show={showBacklogFormModal}
+                          onClose={() => setShowBacklogFormModal(false)}
+                          onSubmit={handleCreateBacklog}
+                          leadId={leadId}
+                        />
+                        <Button
+                          label="Créer un backlog"
+                          icon={<FaPlus />}
+                          onClick={() => setShowBacklogFormModal(true)}
+                          variant="primary"
+                          className="mb-3"
+                        />
+                        <div className="text-center text-muted py-5">
+                          <p>Aucun backlog trouvé pour ce lead.</p>
+                          <p className="small">Cliquez sur "Créer un backlog" pour commencer.</p>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Liste des backlogs existants */}
+                    {backlogs.length > 0 && (
                       <div className="row">
                         {backlogs.map(backlogItem => (
                           <div key={backlogItem.id} className="col-md-6 col-lg-4 mb-3">
@@ -791,7 +808,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                             <th style={{width:'150px'}}>Epic</th>
                             <th style={{width:'150px'}}>User Story</th>
                             <th style={{width:'200px'}}>Description</th>
-                            <th style={{width:'200px'}}>Résultat</th>
+                            <th style={{width:'200px'}}>Détails</th>
                             {profils.map(profil => <th key={profil.id} style={{width:'100px'}}>{profil.name}</th>)}
                             <th style={{width:'120px'}}>Actions</th>
                           </tr>
@@ -816,7 +833,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                 <td key={profil.id} className="text-center backlog-profil-cell"
                                   onClick={() => openLineProfilModal(line.id, profil.id)}
                                   style={{cursor:'pointer'}} title="Cliquez pour modifier le volume">
-                                  {getLineProfilVolume(line.id, profil.id) || "—"}
+                                  {getLineProfilVolume(line.id, profil.id)}                                
                                 </td>
                               ))}
                               <td>
@@ -1123,8 +1140,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
               <Form.Control as="textarea" rows={2} value={newLine.description} onChange={e => setNewLine({ ...newLine, description: e.target.value })} placeholder="Entrez la description" disabled={saving} />
             </Form.Group>
             <Form.Group>
-              <Form.Label>Résultat</Form.Label>
-              <Form.Control as="textarea" rows={2} value={newLine.resultat} onChange={e => setNewLine({ ...newLine, resultat: e.target.value })} placeholder="Entrez le résultat attendu" disabled={saving} />
+              <Form.Label>Détails</Form.Label>
+              <Form.Control as="textarea" rows={2} value={newLine.resultat} onChange={e => setNewLine({ ...newLine, resultat: e.target.value })} placeholder="Entrez les détails du résultat attendu" disabled={saving} />
             </Form.Group>
           </Form>
         </Modal.Body>
