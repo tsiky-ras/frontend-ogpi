@@ -157,8 +157,8 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
       <Table bordered striped hover responsive>
         <thead className="table-light">
           <tr>
-            <th>Tâche</th>
-            <th>Utilisateur</th>
+            <th>Tâche(s)</th>
+            <th>Collaborateur(s)</th>
             <th>Deadline</th>
           </tr>
         </thead>
