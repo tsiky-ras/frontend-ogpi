@@ -303,7 +303,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
               : creationMode === "choice"
               ? "Créer un projet"
               : creationMode === "from-lead"
-              ? "Créer un projet depuis un lead"
+              ? "Créer un projet depuis une opportunité"
               : "Créer un nouveau projet"}
           </Modal.Title>
         </Modal.Header>
@@ -319,7 +319,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
                 style={{ width: 320 }}
                 onClick={() => setCreationMode("from-lead")}
               >
-                Nouveau projet depuis un lead existant
+                Depuis une opportunité existante
               </Button>
               <Button
                 variant="outline-secondary"
@@ -337,7 +337,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
             <div className="mb-4">
               <Form.Group className="mb-2">
                 <Form.Label>
-                  <strong>Rechercher un lead</strong> (par référence ou nom)
+                  <strong>Rechercher une opportunité</strong> (par référence ou nom)
                 </Form.Label>
                 <div className="position-relative">
                   <Form.Control

@@ -27,27 +27,27 @@ const FormProjetInline: React.FC<FormProjetInlineProps> = ({
 
   const fullLead = useFullLead(lead?.leadId || lead?.id) || lead;
 
-  const [form, setForm] = useState<Projet>({
-    nomProjet: "",
-    dateAttribution: "",
+  const buildFormFromLead = (): Projet => ({
+    nomProjet: fullLead?.leadName || "",
+    dateAttribution: fullLead?.dateAttribution?.substring(0, 10) || "",
     dateDebutPrevu: "",
     dateFinPrevu: "",
-    refBC: "",
-    refCompte: "",
+    refBC: fullLead?.leadRef || "",
+    refCompte: fullLead?.refCompte || "",
     statutProduction: "",
-    userCp: null,
+    userCp: fullLead?.responsable || null,
     userSuppleante: null,
-    typeFacturation: { idTypeFacturation: 1, libelle: "Interne" },
-    description: "",
+    typeFacturation:
+      fullLead?.typeFacturation || { idTypeFacturation: 1, libelle: "Interne" },
+    description: fullLead?.leadDescription || "",
   });
 
+  const [form, setForm] = useState<Projet>(buildFormFromLead());
   const [users, setUsers] = useState<any[]>([]);
   const [typeFacturations, setTypeFacturations] = useState<any[]>([]);
   const [existingProjets, setExistingProjets] = useState<any[]>([]);
-  const [editingProjet, setEditingProjet] = useState<any | null>(null);
-  const [showForm, setShowForm] = useState(false);
 
-  // Load users + fact + projets
+  // ── Chargement des données
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -66,7 +66,9 @@ const FormProjetInline: React.FC<FormProjetInlineProps> = ({
       try {
         const leadId = fullLead?.leadId || fullLead?.id;
         if (!leadId) return;
+
         const allProjets = await projetService.getAll();
+        // Récupérer les projets liés à ce lead
         const filtered = (allProjets || []).filter(
           (p: any) => p.lead?.leadId === leadId || p.lead?.id === leadId
         );
@@ -80,40 +82,20 @@ const FormProjetInline: React.FC<FormProjetInlineProps> = ({
     fetchExistingProjets();
   }, [fullLead]);
 
-  // Pré-remplissage
-  const buildFormFromLead = (): Projet => ({
-    nomProjet: fullLead?.leadName || "",
-    dateAttribution: fullLead?.dateAttribution?.substring(0, 10) || "",
-    dateDebutPrevu: "",
-    dateFinPrevu: "",
-    refBC: fullLead?.leadRef || "",
-    refCompte: fullLead?.refCompte || "",
-    statutProduction: "",
-    userCp: fullLead?.responsable || null,
-    userSuppleante: null,
-    typeFacturation:
-      fullLead?.typeFacturation || { idTypeFacturation: 1, libelle: "Interne" },
-    description: fullLead?.leadDescription || "",
-  });
-
-  const handleNewProjet = () => {
-    setEditingProjet(null);
-    setForm(buildFormFromLead());
-    setShowForm(true);
-  };
-
-  const handleEditProjet = (projet: any) => {
-    setEditingProjet(projet);
-    setForm({ ...projet });
-    setShowForm(true);
-  };
-
   const handleChange = (e: any) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // SAVE
+  const buildProjetPayload = (): any => ({
+    ...form,
+    lead: fullLead?.leadId ? { leadId: fullLead.leadId } : null,
+    userCp: form.userCp || null,
+    userSuppleante: form.userSuppleante || null,
+    typeFacturation:
+      form.typeFacturation || { idTypeFacturation: 1, libelle: "Interne" },
+  });
+
   const handleSave = async () => {
     if (!form.nomProjet || !form.dateDebutPrevu) {
       onError("Nom projet et date début obligatoires");
@@ -122,23 +104,10 @@ const FormProjetInline: React.FC<FormProjetInlineProps> = ({
 
     onLoading(true);
     try {
-      const leadId = fullLead?.leadId || fullLead?.id;
-      const payload = { ...form, lead: { leadId } };
-
-      let savedProjet;
-      if (editingProjet?.idProjet) {
-        savedProjet = await projetService.update(editingProjet.idProjet, payload);
-        setExistingProjets((prev) =>
-          prev.map((p) => (p.idProjet === editingProjet.idProjet ? savedProjet : p))
-        );
-      } else {
-        savedProjet = await projetService.create(payload);
-        setExistingProjets((prev) => [...prev, savedProjet]);
-      }
-
+      const payload = buildProjetPayload();
+      const savedProjet = await projetService.create(payload);
+      setExistingProjets([savedProjet]);
       onSuccess(savedProjet);
-      setShowForm(false);
-      setEditingProjet(null);
     } catch (err: any) {
       onError(err.message || "Erreur projet");
     } finally {
@@ -146,106 +115,149 @@ const FormProjetInline: React.FC<FormProjetInlineProps> = ({
     }
   };
 
+  // ── Si un projet existe déjà pour ce lead, ne plus afficher dans la recherche
+  if (existingProjets.length > 0) {
+    const p = existingProjets[0];
+    return (
+      <div>
+        <Alert variant="info">
+          Un projet est déjà lié à cette opportunité :{" "}
+          <strong className="ms-2">{p.nomProjet}</strong> ({p.refBC || "—"})
+        </Alert>
+      </div>
+    );
+  }
+
+  // ── Formulaire de création si aucun projet lié
   return (
     <div>
-      {/* Liste projets existants */}
-      {existingProjets.length > 0 && (
-        <div className="mb-4">
-          <h6 className="text-muted">Projets liés</h6>
-          <div className="list-group">
-            {existingProjets.map((p) => (
-              <div key={p.idProjet} className="list-group-item d-flex justify-content-between">
-                <div>
-                  <strong>{p.nomProjet}</strong>
-                  <small className="ms-2 text-muted">
-                    {p.dateDebutPrevu} → {p.dateFinPrevu || "—"}
-                  </small>
-                </div>
-                <Button size="sm" variant="outline-primary" onClick={() => handleEditProjet(p)}>
-                  Modifier
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <Alert variant="success">
+        Nouveau projet depuis {fullLead?.leadRef} – {fullLead?.leadName}
+      </Alert>
 
-      {!showForm && (
-        <Button variant="success" onClick={handleNewProjet}>
-          + Créer un projet depuis le lead
-        </Button>
-      )}
+      <Form>
+        <Row>
+          <Col md={6}>
+            <Form.Group className="mb-3">
+              <Form.Label>Nom du projet *</Form.Label>
+              <Form.Control name="nomProjet" value={form.nomProjet} onChange={handleChange} />
+            </Form.Group>
 
-      {showForm && (
-        <>
-          <Alert variant={editingProjet ? "info" : "success"}>
-            {editingProjet
-              ? `Modification : ${editingProjet.nomProjet}`
-              : `Nouveau projet depuis ${fullLead?.leadRef} – ${fullLead?.leadName}`}
-          </Alert>
+            <Form.Group className="mb-3">
+              <Form.Label>Date attribution</Form.Label>
+              <Form.Control
+                type="date"
+                name="dateAttribution"
+                value={form.dateAttribution}
+                onChange={handleChange}
+              />
+            </Form.Group>
 
-          <Form>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Nom du projet *</Form.Label>
-                  <Form.Control name="nomProjet" value={form.nomProjet} onChange={handleChange} />
-                </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Ref Compte</Form.Label>
+              <Form.Control name="refCompte" value={form.refCompte} onChange={handleChange} />
+            </Form.Group>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Date attribution</Form.Label>
-                  <Form.Control type="date" name="dateAttribution" value={form.dateAttribution} onChange={handleChange} />
-                </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Chef de projet</Form.Label>
+              <Form.Select
+                value={form.userCp?.userId || ""}
+                onChange={(e) => {
+                  const user = users.find((u) => u.userId === Number(e.target.value)) || null;
+                  setForm((p) => ({ ...p, userCp: user }));
+                }}
+              >
+                <option value="">Sélectionnez</option>
+                {users.map((u) => (
+                  <option key={u.userId} value={u.userId}>
+                    {u.nom} {u.username}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Ref Compte</Form.Label>
-                  <Form.Control name="refCompte" value={form.refCompte} onChange={handleChange} />
-                </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Type de facturation</Form.Label>
+              <Form.Select
+                value={form.typeFacturation?.idTypeFacturation || ""}
+                onChange={(e) => {
+                  const type = typeFacturations.find(
+                    (t) => t.idTypeFacturation === Number(e.target.value)
+                  );
+                  setForm((p) => ({ ...p, typeFacturation: type }));
+                }}
+              >
+                {typeFacturations.map((t) => (
+                  <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
+                    {t.nomTypeFacturation}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+          </Col>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Chef de projet</Form.Label>
-                  <Form.Select
-                    value={form.userCp?.userId || ""}
-                    onChange={(e) => {
-                      const user = users.find((u) => u.userId === Number(e.target.value));
-                      setForm((p) => ({ ...p, userCp: user }));
-                    }}
-                  >
-                    <option value="">Sélectionnez</option>
-                    {users.map((u) => (
-                      <option key={u.userId} value={u.userId}>
-                        {u.nom} {u.username}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
+          <Col md={6}>
+            <Form.Group className="mb-3">
+              <Form.Label>Date début *</Form.Label>
+              <Form.Control
+                type="date"
+                name="dateDebutPrevu"
+                value={form.dateDebutPrevu}
+                onChange={handleChange}
+              />
+            </Form.Group>
 
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Date début *</Form.Label>
-                  <Form.Control type="date" name="dateDebutPrevu" value={form.dateDebutPrevu} onChange={handleChange} />
-                </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Date fin</Form.Label>
+              <Form.Control
+                type="date"
+                name="dateFinPrevu"
+                value={form.dateFinPrevu}
+                onChange={handleChange}
+              />
+            </Form.Group>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Date fin</Form.Label>
-                  <Form.Control type="date" name="dateFinPrevu" value={form.dateFinPrevu} onChange={handleChange} />
-                </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Ref BC</Form.Label>
+              <Form.Control name="refBC" value={form.refBC} onChange={handleChange} />
+            </Form.Group>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Description</Form.Label>
-                  <Form.Control as="textarea" rows={4} name="description" value={form.description} onChange={handleChange} />
-                </Form.Group>
-              </Col>
-            </Row>
-          </Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Suppléant(e)</Form.Label>
+              <Form.Select
+                name="userSuppleante"
+                value={form.userSuppleante?.userId || ""}
+                onChange={(e) => {
+                  const user = users.find((u) => u.userId === Number(e.target.value)) || null;
+                  setForm((prev) => ({ ...prev, userSuppleante: user }));
+                }}
+              >
+                <option value="">Sélectionnez</option>
+                {users.map((u) => (
+                  <option key={u.userId} value={u.userId}>
+                    {u.nom} {u.username}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
 
-          <div className="d-flex gap-2 mt-2">
-            <Button onClick={handleSave}>{editingProjet ? "Modifier" : "Créer"}</Button>
-            <Button variant="outline-secondary" onClick={() => setShowForm(false)}>Annuler</Button>
-          </div>
-        </>
-      )}
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={4}
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+              />
+            </Form.Group>
+          </Col>
+        </Row>
+      </Form>
+
+      <div className="d-flex gap-2 mt-2">
+        <Button onClick={handleSave}>Créer</Button>
+      </div>
     </div>
   );
 };

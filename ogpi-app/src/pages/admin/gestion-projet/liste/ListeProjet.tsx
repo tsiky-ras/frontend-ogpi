@@ -56,6 +56,14 @@ const ListeProjet: React.FC = () => {
   /* ================= TABLE ================= */
   const columns = [
     { key: 'nomProjet', label: 'Nom du projet' },
+    {
+    key: 'lead',
+    label: 'Opportunité associée',
+    render: (row: Projet) => {
+        if (!row.lead) return '-';
+        return `${row.lead.leadRef || '-'} – ${row.lead.leadName || '-'}`;
+    },
+    },
     { key: 'refBC', label: 'Réf BC' },
     { key: 'refCompte', label: 'Réf Compte' },
     {
@@ -118,6 +126,12 @@ const ListeProjet: React.FC = () => {
   const renderExpandedRow = (row: Projet) => (
     <div className="expanded-row-content p-4 bg-light">
       <div className="row g-3">
+        <div className="col-md-6">
+            <label className="expanded-label">Lead</label>
+            <p className="expanded-text">
+                {row.lead ? `${row.lead.leadRef || '-'} – ${row.lead.leadName || '-'}` : '-'}
+            </p>
+        </div>
         <div className="col-md-4">
           <label className="expanded-label">Référence BC</label>
           <p className="expanded-text">{row.refBC || '-'}</p>
