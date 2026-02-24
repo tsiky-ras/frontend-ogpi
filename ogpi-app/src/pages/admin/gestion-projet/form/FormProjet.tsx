@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Modal, Button, Form, Row, Col } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 
 import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
@@ -10,11 +10,13 @@ import { ProjetService } from "../../../../services/projet/ProjetService.tsx";
 import { useUserService } from "../../../../services/user/UserService.tsx";
 import { useTypeFacturationService } from "../../../../services/lead/tech-fin/TypeFacturationService.tsx";
 
+import { Projet } from "../../types/projet/Projet"; // Assurez-vous que Projet inclut description
+
 type FormProjetProps = {
   show: boolean;
   onClose: () => void;
-  onSubmit: (projet: any) => void;
-  projet?: any | null;
+  onSubmit: (projet: Projet) => void;
+  projet?: Projet | null;
 };
 
 const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet }) => {
@@ -23,7 +25,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
   const userService = useUserService();
   const typeFactService = useTypeFacturationService();
 
-  const [form, setForm] = useState<any>({
+  const [form, setForm] = useState<Projet>({
     nomProjet: "",
     dateAttribution: "",
     dateDebutPrevu: "",
@@ -33,7 +35,8 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     statutProduction: "",
     userCp: null,
     userSuppleante: null,
-    typeFacturation: { idTypeFacturation: 1, libelle: "Interne" }, // valeur par défaut
+    typeFacturation: { idTypeFacturation: 1, libelle: "Interne" },
+    description: "",
   });
 
   const [users, setUsers] = useState<any[]>([]);
@@ -58,8 +61,6 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
         ]);
         setUsers(userList);
         setTypeFacturations(factList);
-        console.log("Users chargés", userList);
-        console.log("Types de facturation chargés", factList);
 
         // Statuts production fixes
         setStatuts([
@@ -89,9 +90,11 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
         userCp: projet.userCp || null,
         userSuppleante: projet.userSuppleante || null,
         typeFacturation: projet.typeFacturation || { idTypeFacturation: 1, libelle: "Interne" },
+        description: projet.description || "",
       });
     } else {
-      setForm({
+      setForm(prev => ({
+        ...prev,
         nomProjet: "",
         dateAttribution: "",
         dateDebutPrevu: "",
@@ -102,7 +105,8 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
         userCp: null,
         userSuppleante: null,
         typeFacturation: { idTypeFacturation: 1, libelle: "Interne" },
-      });
+        description: "",
+      }));
     }
   }, [show, projet]);
 
@@ -146,8 +150,8 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
 
   return (
     <>
-    <Modal show={show} onHide={onClose} fullscreen centered scrollable>        
-    <Modal.Header closeButton>
+      <Modal show={show} onHide={onClose} fullscreen centered scrollable>
+        <Modal.Header closeButton>
           <Modal.Title>
             {projet ? `Modifier le projet : ${projet.nomProjet}` : "Créer un projet"}
           </Modal.Title>
@@ -155,123 +159,138 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
 
         <Modal.Body>
           <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Nom du projet *</Form.Label>
-              <Form.Control
-                type="text"
-                name="nomProjet"
-                value={form.nomProjet}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
+            <Row>
+              {/* Colonne de gauche */}
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Nom du projet *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="nomProjet"
+                    value={form.nomProjet}
+                    onChange={handleChange}
+                    required
+                  />
+                </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Date d'attribution</Form.Label>
-              <Form.Control
-                type="date"
-                name="dateAttribution"
-                value={form.dateAttribution}
-                onChange={handleChange}
-              />
-            </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date d'attribution</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="dateAttribution"
+                    value={form.dateAttribution}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Ref Compte</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="refCompte"
+                    value={form.refCompte}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Chef de projet</Form.Label>
+                  <Form.Select
+                    name="userCp"
+                    value={form.userCp?.userId || ""}
+                    onChange={(e) => {
+                      const user = users.find(u => u.userId === Number(e.target.value)) || null;
+                      setForm(prev => ({ ...prev, userCp: user }));
+                    }}
+                  >
+                    <option value="">Sélectionnez</option>
+                    {users.map(u => (
+                      <option key={u.userId} value={u.userId}>
+                        {u.nom} {u.username}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Type de facturation</Form.Label>
+                  <Form.Select
+                    name="typeFacturation"
+                    value={form.typeFacturation?.idTypeFacturation || ""}
+                    onChange={(e) => {
+                      const type = typeFacturations.find(t => t.idTypeFacturation === Number(e.target.value));
+                      setForm(prev => ({ ...prev, typeFacturation: type }));
+                    }}
+                  >
+                    {typeFacturations.map(t => (
+                      <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
+                        {t.nomTypeFacturation}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Date de début prévu *</Form.Label>
-              <Form.Control
-                type="date"
-                name="dateDebutPrevu"
-                value={form.dateDebutPrevu}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Date de fin prévu</Form.Label>
-              <Form.Control
-                type="date"
-                name="dateFinPrevu"
-                value={form.dateFinPrevu}
-                onChange={handleChange}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Ref BC</Form.Label>
-              <Form.Control
-                type="text"
-                name="refBC"
-                value={form.refBC}
-                onChange={handleChange}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Ref Compte</Form.Label>
-              <Form.Control
-                type="text"
-                name="refCompte"
-                value={form.refCompte}
-                onChange={handleChange}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Chef de projet</Form.Label>
-              <Form.Select
-                name="userCp"
-                value={form.userCp?.userId || ""}
-                onChange={(e) => {
-                  const user = users.find((u) => u.userId === Number(e.target.value)) || null;
-                  setForm((prev: any) => ({ ...prev, userCp: user }));
-                }}
-              >
-                <option value="">Sélectionnez</option>
-                {users.map((u) => (
-                  <option key={u.userId} value={u.userId}>
-                    {u.nom} {u.username}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Suppléant(e)</Form.Label>
-              <Form.Select
-                name="userSuppleante"
-                value={form.userSuppleante?.userId || ""}
-                onChange={(e) => {
-                  const user = users.find((u) => u.userId === Number(e.target.value)) || null;
-                  setForm((prev: any) => ({ ...prev, userSuppleante: user }));
-                }}
-              >
-                <option value="">Sélectionnez</option>
-                {users.map((u) => (
-                  <option key={u.userId} value={u.userId}>
-                    {u.nom} {u.username}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Type de facturation</Form.Label>
-              <Form.Select
-                name="typeFacturation"
-                value={form.typeFacturation?.idTypeFacturation || ""}
-                onChange={(e) => {
-                  const type = typeFacturations.find((t) => t.idTypeFacturation === Number(e.target.value));
-                  setForm((prev: any) => ({ ...prev, typeFacturation: type }));
-                }}
-              >
-                {typeFacturations.map((t) => (
-                  <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
-                    {t.nomTypeFacturation}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+              {/* Colonne de droite */}
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date de fin prévu</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="dateFinPrevu"
+                    value={form.dateFinPrevu}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                
+                <Form.Group className="mb-3">
+                  <Form.Label>Date de début prévu *</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="dateDebutPrevu"
+                    value={form.dateDebutPrevu}
+                    onChange={handleChange}
+                    required
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Ref BC</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="refBC"
+                    value={form.refBC}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Suppléant(e)</Form.Label>
+                  <Form.Select
+                    name="userSuppleante"
+                    value={form.userSuppleante?.userId || ""}
+                    onChange={(e) => {
+                      const user = users.find(u => u.userId === Number(e.target.value)) || null;
+                      setForm(prev => ({ ...prev, userSuppleante: user }));
+                    }}
+                  >
+                    <option value="">Sélectionnez</option>
+                    {users.map(u => (
+                      <option key={u.userId} value={u.userId}>
+                        {u.nom} {u.username}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+                {/* Champ Description */}
+                <Form.Group className="mb-3">
+                  <Form.Label>Description</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={4}
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    placeholder="Ajouter une description du projet"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
           </Form>
         </Modal.Body>
 

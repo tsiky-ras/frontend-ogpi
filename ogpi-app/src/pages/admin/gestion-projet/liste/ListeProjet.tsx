@@ -7,8 +7,6 @@ import { FaPlus } from 'react-icons/fa';
 import FilterBar from '../../../../components/filters/FilterBar.tsx';
 import Table from '../../../../components/table/Table.tsx';
 import StatCard from '../../../../components/stat/StatCard.tsx';
-// import FormProjet from '../form/FormProjet.tsx';
-// import DetailsProjet from '../details/DetailsProjet.tsx';
 import MenuListeProjet from '../menu/MenuListeProjet.tsx';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ListeProjet.css';
@@ -17,7 +15,6 @@ import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Projet } from '../../../../types/projet/Projet.tsx';
 import FormProjet from '../form/FormProjet.tsx';
 
-/* ================= COMPONENT ================= */
 const ListeProjet: React.FC = () => {
   const { api } = useAuth();
   const [search, setSearch] = useState('');
@@ -38,10 +35,8 @@ const ListeProjet: React.FC = () => {
   const loadProjets = async () => {
     try {
       const data = await projetService.getAll();
-      console.log("Projets chargés", data);
       setProjets(data);
 
-      // KPI simples
       setKpis({
         totalProjets: data.length,
         totalCP: data.filter(p => p.userCp).length,
@@ -63,7 +58,7 @@ const ListeProjet: React.FC = () => {
     { key: 'refCompte', label: 'Réf Compte' },
     {
       key: 'dateAttribution',
-      label: 'Date d\'attribution',
+      label: "Date d'attribution",
       render: (row: Projet) => row.dateAttribution ? new Date(row.dateAttribution).toLocaleDateString('fr-FR') : '-',
     },
     {
@@ -80,6 +75,15 @@ const ListeProjet: React.FC = () => {
       key: 'typeFacturation',
       label: 'Type de facturation',
       render: (row: Projet) => row.typeFacturation?.nomTypeFacturation || '-',
+    },
+    {
+      key:'description',
+      label:'Description',
+      render: (row: Projet) => (
+        <div style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {row.description || '-'}
+        </div>
+      ),
     },
     {
       key: 'actions',
@@ -112,6 +116,14 @@ const ListeProjet: React.FC = () => {
           <div className="expanded-item">
             <label className="expanded-label">Référence Compte</label>
             <p className="expanded-text">{row.refCompte || '-'}</p>
+          </div>
+        </div>
+      </div>
+      <div className="row g-3 mt-3">
+        <div className="col-12">
+          <div className="expanded-item">
+            <label className="expanded-label">Description</label>
+            <p className="expanded-text">{row.description || '-'}</p>
           </div>
         </div>
       </div>
@@ -171,19 +183,12 @@ const ListeProjet: React.FC = () => {
       </div>
 
       {/* Formulaire Projet */}
-        <FormProjet
-            show={showFormProjet}
-            onClose={() => { setShowFormProjet(false); setSelectedProjet(null); }}
-            projet={selectedProjet}
-            onSubmit={async () => { await loadProjets(); setShowFormProjet(false); setSelectedProjet(null); }}
-        />
-
-      {/* Détails Projet */}
-      {/* <DetailsProjet
-        show={showDetailProjet}
-        onClose={() => { setShowDetailProjet(false); setSelectedProjet(null); }}
+      <FormProjet
+        show={showFormProjet}
+        onClose={() => { setShowFormProjet(false); setSelectedProjet(null); }}
         projet={selectedProjet}
-      /> */}
+        onSubmit={async () => { await loadProjets(); setShowFormProjet(false); setSelectedProjet(null); }}
+      />
     </div>
   );
 };
