@@ -46,32 +46,23 @@ const ListeLead: React.FC = () => {
     upcomingDeadlines: 0,
   });
 
-  /**
-   * 🔥 Fonction centralisée pour charger les détails complets d'un lead
-   * Utilisée pour l'édition ET la visualisation
-   */
   const loadFullLeadDetails = async (leadId: number) => {
     try {
       console.log("=== Chargement complet du lead:", leadId);
       
-      // 1️⃣ Récupérer le lead complet avec partenaires et historiques
       const fullLead = await leadService.getById(leadId);
       console.log("Lead complet récupéré:", fullLead);
 
-      // 2️⃣ Récupérer les détails Tech & Fin
       const techFinDetails = await leadTechFinService.getByLeadId(leadId);
       console.log("Tech & Fin récupérés:", techFinDetails);
 
-      // 3️⃣ Construire l'objet lead complet et normalisé
       const completeLead = {
         ...fullLead,
         id: fullLead.leadId || fullLead.id,
         leadId: fullLead.leadId || fullLead.id,
         
-        // Normalisation des données d'affichage
         name: fullLead.leadName || fullLead.name,
         
-        // Client normalisé
         client: fullLead.client
           ? {
               id: fullLead.client.id,
@@ -81,18 +72,14 @@ const ListeLead: React.FC = () => {
             }
           : null,
 
-        // 🔥 Créateur du lead
         createdByUser: fullLead.createdByUser || null,
 
-        // 🔥 Partenaires normalisés (depuis leadPartenaires du getById)
         partenaires: fullLead.leadPartenaires?.map((lp: any) => lp.partenaire) || [],
         leadPartenaires: fullLead.leadPartenaires || [],
 
-        // 🔥 Historiques (depuis getById)
         leadStatusHistories: fullLead.leadStatusHistories || [],
         leadStepHistories: fullLead.leadStepHistories || [],
 
-        // 🔥 Tech & Fin (SOURCE UNIQUE)
         techFinDetails: {
           idLeadTechFinDetails: techFinDetails?.idLeadTechFinDetails || null,
           technos: techFinDetails?.technos || [],
@@ -107,7 +94,6 @@ const ListeLead: React.FC = () => {
           volumeJHVenduEtMontant: techFinDetails?.volumeJHVenduEtMontant || [],
         },
 
-        // 🔥 Données pour le formulaire d'édition
         technos: techFinDetails?.technos || [],
         volumeJHVendu: techFinDetails?.volumeJHVendu || 0,
         devise: techFinDetails?.devise || null,

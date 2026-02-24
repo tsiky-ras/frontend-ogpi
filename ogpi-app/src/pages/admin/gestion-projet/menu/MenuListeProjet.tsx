@@ -5,7 +5,7 @@ import "./MenuListeProjet.css";
 interface MenuListeProjetProps {
   onDetails?: () => void;
   onEdit?: () => void;
-  onViewBacklog?: () => void; // facultatif
+  onViewBacklog?: () => void; 
 }
 
 const MenuListeProjet: React.FC<MenuListeProjetProps> = ({

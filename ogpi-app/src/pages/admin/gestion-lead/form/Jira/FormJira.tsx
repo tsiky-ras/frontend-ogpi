@@ -5,7 +5,7 @@ type Props = {
   lead: any;
   leadService: any;
   userService: any;
-  onDataReady?: (data: any) => void; // Remonte les données vers le parent
+  onDataReady?: (data: any) => void;
 };
 
 const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady }) => {
@@ -19,18 +19,22 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
   const canShow = statusId > 2;
   const leadId = lead?.leadId || lead?.id;
 
-  // Convertit une date ISO en format compatible datetime-local (YYYY-MM-DDTHH:mm)
   const toDateTimeLocal = (isoString: string | null): string => {
     if (!isoString) return "";
     try {
       const date = new Date(isoString);
       if (isNaN(date.getTime())) return "";
-      // Retirer les secondes et le timezone pour datetime-local
       return date.toISOString().substring(0, 16);
     } catch {
       return "";
     }
   };
+
+  // ── Reset du ref quand le lead change pour forcer le rechargement ───────
+  useEffect(() => {
+    fetchedRef.current = false;
+    setJira(null);
+  }, [leadId]);
 
   useEffect(() => {
     if (!canShow || !leadId || fetchedRef.current) return;
@@ -43,7 +47,6 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
           userService.getAll(),
         ]);
 
-        // Normaliser les deadlines au format datetime-local dès le chargement
         if (jiraData?.leadTaskUsers) {
           jiraData.leadTaskUsers = jiraData.leadTaskUsers.map((t: any) => ({
             ...t,
@@ -55,7 +58,6 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
         setUsers(usersData);
         fetchedRef.current = true;
 
-        // Remonter les données initiales au parent
         onDataReady?.(jiraData);
       } catch (error) {
         console.error("Erreur lors du chargement:", error);
@@ -72,7 +74,6 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
     };
   }, [leadId, canShow]);
 
-  // À chaque modification du state jira, on remonte la donnée au parent
   useEffect(() => {
     if (jira) {
       onDataReady?.(jira);

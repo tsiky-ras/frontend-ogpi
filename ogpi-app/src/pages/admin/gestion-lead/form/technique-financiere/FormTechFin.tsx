@@ -24,97 +24,77 @@ const FormTechFin: React.FC<Props> = ({
   deviseService,
   typeFacturationService,
 }) => {
-  /* ================= Technologies ================= */
+  /* ================= Normalisation ================= */
+  const normalizeTechnos = (input: any[]): number[] =>
+    Array.from(
+      new Set(
+        input
+          ?.map((item) =>
+            typeof item === "object" && item !== null
+              ? Number(item.idTechno || item.id)
+              : Number(item)
+          )
+          .filter((id) => !isNaN(id)) || []
+      )
+    );
+
+  /* ================= State local ================= */
   const [showTechnoModal, setShowTechnoModal] = useState(false);
   const [localTechnos, setLocalTechnos] = useState<any[]>([]);
-
-  useEffect(() => {
-    setLocalTechnos(technos);
-  }, [technos]);
-
-  /* ================= Devises ================= */
   const [showDeviseModal, setShowDeviseModal] = useState(false);
   const [localDevises, setLocalDevises] = useState<any[]>([]);
-
-  useEffect(() => {
-    setLocalDevises(devises);
-  }, [devises]);
-
-  /* ================= Type Facturation ================= */
   const [showFacturationModal, setShowFacturationModal] = useState(false);
   const [localTypeFacturations, setLocalTypeFacturations] = useState<any[]>([]);
 
+  /* ================= Effets ================= */
+  // Déduplication automatique des technos
   useEffect(() => {
-    setLocalTypeFacturations(typeFacturations);
-  }, [typeFacturations]);
-  
+    const uniqueTechnos = Array.from(new Map(technos.map((t) => [t.idTechno || t.id, t])).values());
+    setLocalTechnos(uniqueTechnos);
+  }, [technos]);
+
+  useEffect(() => setLocalDevises(devises), [devises]);
+  useEffect(() => setLocalTypeFacturations(typeFacturations), [typeFacturations]);
+
+  /* ================= Debug ================= */
   useEffect(() => {
     console.log("=== DEBUG FormTechFin ===");
     console.log("form.technos:", form.technos);
-    console.log("Type:", typeof form.technos, "IsArray:", Array.isArray(form.technos));
-    if (Array.isArray(form.technos)) {
-      console.log("Premier élément:", form.technos[0]);
-    }
+    console.log("Normalisé:", normalizeTechnos(form.technos));
   }, [form.technos]);
+
   /* ================= Render ================= */
   return (
     <>
       {/* ================= Technologies ================= */}
       <section className="fiche-section">
         <h4>Technologies</h4>
-
         <Row className="g-3">
           <Col md={8}>
             <Form.Label>Technologies</Form.Label>
-
             <div className="d-flex flex-column">
               {localTechnos.map((t) => {
-                // Normaliser form.technos pour toujours avoir un tableau d'IDs
-                const technosIds = Array.isArray(form.technos)
-                  ? form.technos.map((item: any) => {
-                      if (typeof item === 'object' && item !== null) {
-                        return item.idTechno || item.id;
-                      }
-                      return item;
-                    }).filter((id: any) => id != null && !isNaN(Number(id)))
-                  : [];
-
-                const isChecked = technosIds.includes(Number(t.idTechno));
+                const idTech = Number(t.idTechno || t.id);
+                const isChecked = normalizeTechnos(form.technos).includes(idTech);
 
                 return (
                   <Form.Check
-                    key={t.idTechno}
+                    key={idTech} 
                     type="checkbox"
-                    id={`techno-${t.idTechno}`}
+                    id={`techno-${idTech}`}
                     label={t.nomTechno}
                     checked={isChecked}
                     onChange={(e) => {
-                      setForm((prev: any) => {
-                        // Normaliser prev.technos
-                        const currentIds = Array.isArray(prev.technos)
-                          ? prev.technos.map((item: any) => {
-                              if (typeof item === 'object' && item !== null) {
-                                return Number(item.idTechno || item.id);
-                              }
-                              return Number(item);
-                            }).filter((id: any) => !isNaN(id))
-                          : [];
-
-                        const newTechnos = e.target.checked
-                          ? [...currentIds, Number(t.idTechno)]
-                          : currentIds.filter((id: number) => id !== Number(t.idTechno));
-
-                        return {
-                          ...prev,
-                          technos: newTechnos,
-                        };
-                      });
+                      const currentIds = normalizeTechnos(form.technos);
+                      const newTechnos = e.target.checked
+                        ? [...currentIds, idTech]
+                        : currentIds.filter((id) => id !== idTech);
+                      setForm((prev) => ({ ...prev, technos: newTechnos }));
                     }}
                   />
                 );
               })}
             </div>
-
             <Button
               variant="outline-primary"
               className="mt-2"
@@ -126,10 +106,9 @@ const FormTechFin: React.FC<Props> = ({
         </Row>
       </section>
 
-      {/* ================= Financier ================= */}
+      {/* ================= Données financières ================= */}
       <section className="fiche-section">
         <h4>Données financières</h4>
-
         <Row className="g-3">
           <Col md={4}>
             <Form.Label>Volume JH vendu</Form.Label>
@@ -137,27 +116,22 @@ const FormTechFin: React.FC<Props> = ({
               type="number"
               value={form.volumeJHVendu}
               onChange={(e) =>
-                setForm((prev: any) => ({
-                  ...prev,
-                  volumeJHVendu: Number(e.target.value),
-                }))
+                setForm((prev) => ({ ...prev, volumeJHVendu: Number(e.target.value) }))
               }
             />
           </Col>
 
-          {/* ================= DEVISE ================= */}
           <Col md={4}>
             <Form.Label>Devise</Form.Label>
             <InputGroup>
               <Form.Select
                 value={form.deviseId}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setForm((prev: any) => ({
+                onChange={(e) =>
+                  setForm((prev) => ({
                     ...prev,
-                    deviseId: value === "" ? "" : Number(value),
+                    deviseId: e.target.value ? Number(e.target.value) : "",
                   }))
-                }}
+                }
               >
                 <option value="">-- Sélectionner --</option>
                 {localDevises.map((d) => (
@@ -166,26 +140,19 @@ const FormTechFin: React.FC<Props> = ({
                   </option>
                 ))}
               </Form.Select>
-              <Button
-                variant="outline-primary"
-                onClick={() => setShowDeviseModal(true)}
-              >
+              <Button variant="outline-primary" onClick={() => setShowDeviseModal(true)}>
                 <FaPlus />
               </Button>
             </InputGroup>
           </Col>
+
           <Col md={4}>
             <Form.Label>Taux de change</Form.Label>
             <Form.Control
               type="number"
               step="0.01"
               value={form.tauxDeChange}
-              onChange={(e) =>
-                setForm((prev: any) => ({
-                  ...prev,
-                  tauxDeChange: Number(e.target.value),
-                }))
-              }
+              onChange={(e) => setForm((prev) => ({ ...prev, tauxDeChange: Number(e.target.value) }))}
             />
           </Col>
 
@@ -194,56 +161,41 @@ const FormTechFin: React.FC<Props> = ({
             <Form.Control
               type="number"
               value={form.budget}
-              onChange={(e) =>
-                setForm((prev: any) => ({
-                  ...prev,
-                  budget: Number(e.target.value),
-                }))
-              }
+              onChange={(e) => setForm((prev) => ({ ...prev, budget: Number(e.target.value) }))}
             />
           </Col>
 
-        {/* ================= TYPE FACTURATION ================= */}
-        <Col md={4}>
-          <Form.Label>Type de facturation</Form.Label>
-          <InputGroup>
-            <Form.Select
-              value={form.typeFacturationId}
-              onChange={(e) => {
-                const value = e.target.value;
-                setForm((prev: any) => ({
-                  ...prev,
-                  typeFacturationId: value === "" ? "" : Number(value),
-                }))
-              }}
-            >
-              <option value="">-- Sélectionner --</option>
-              {localTypeFacturations.map((t) => (
-                <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
-                  {t.nomTypeFacturation}
-                </option>
-              ))}
-            </Form.Select>
+          <Col md={4}>
+            <Form.Label>Type de facturation</Form.Label>
+            <InputGroup>
+              <Form.Select
+                value={form.typeFacturationId}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    typeFacturationId: e.target.value ? Number(e.target.value) : "",
+                  }))
+                }
+              >
+                <option value="">-- Sélectionner --</option>
+                {localTypeFacturations.map((t) => (
+                  <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
+                    {t.nomTypeFacturation}
+                  </option>
+                ))}
+              </Form.Select>
+              <Button variant="outline-primary" onClick={() => setShowFacturationModal(true)}>
+                <FaPlus />
+              </Button>
+            </InputGroup>
+          </Col>
 
-            <Button
-              variant="outline-primary"
-              onClick={() => setShowFacturationModal(true)}
-            >
-              <FaPlus />
-            </Button>
-          </InputGroup>
-        </Col>
           <Col md={4}>
             <Form.Label>Impôts (%)</Form.Label>
             <Form.Control
               type="number"
               value={form.impots}
-              onChange={(e) =>
-                setForm((prev: any) => ({
-                  ...prev,
-                  impots: Number(e.target.value),
-                }))
-              }
+              onChange={(e) => setForm((prev) => ({ ...prev, impots: Number(e.target.value) }))}
             />
           </Col>
 
@@ -252,23 +204,14 @@ const FormTechFin: React.FC<Props> = ({
             <Form.Control
               type="date"
               value={form.dateAttribution}
-              onChange={(e) =>
-                setForm((prev: any) => ({
-                  ...prev,
-                  dateAttribution: e.target.value,
-                }))
-              }
+              onChange={(e) => setForm((prev) => ({ ...prev, dateAttribution: e.target.value }))}
             />
           </Col>
         </Row>
       </section>
 
       {/* ================= Modal création Techno ================= */}
-      <Modal
-        show={showTechnoModal}
-        onHide={() => setShowTechnoModal(false)}
-        centered
-      >
+      <Modal show={showTechnoModal} onHide={() => setShowTechnoModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Créer une technologie</Modal.Title>
         </Modal.Header>
@@ -277,21 +220,19 @@ const FormTechFin: React.FC<Props> = ({
           <GenericForm
             valueKey="nomTechno"
             initialData={{ nomTechno: "", descTechno: "" }}
-            extraInputs={[
-              {
-                name: "descTechno",
-                label: "Description",
-                type: "textarea",
-              },
-            ]}
+            extraInputs={[{ name: "descTechno", label: "Description", type: "textarea" }]}
             onSubmit={async (data: any) => {
               const newTechno = await technoService.create(data);
-              setLocalTechnos((prev) => [...prev, newTechno]);
-              setForm((prev: any) => ({
+              setLocalTechnos((prev) => {
+                const uniqueTechs = Array.from(
+                  new Map([...prev, newTechno].map((t) => [t.idTechno || t.id, t])).values()
+                );
+                return uniqueTechs;
+              });
+              setForm((prev) => ({
                 ...prev,
-                technos: [...(prev.technos || []), newTechno.idTechno || newTechno.id],
+                technos: normalizeTechnos([...prev.technos, newTechno.idTechno || newTechno.id]),
               }));
-
               setShowTechnoModal(false);
             }}
             onCancel={() => setShowTechnoModal(false)}

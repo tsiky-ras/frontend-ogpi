@@ -10,6 +10,7 @@ import FormQualif from "./qualification/FormQualif.tsx";
 import FormTechFin from "./technique-financiere/FormTechFin.tsx";
 import "./FormLead.css";
 import FormJira from "./Jira/FormJira.tsx";
+import FormProjetInline from "../../gestion-projet/form/FormProjetInline.tsx";
 
 import { BusinessUnitService } from "../../../../services/profil/poste/BusinessUnitService.tsx";
 import { LeadTypeService } from "../../../../services/lead/LeadTypeService.tsx";
@@ -31,9 +32,10 @@ type FormLeadProps = {
   onClose: () => void;
   onSubmit: (data: any) => void;
   lead?: any | null;
+  initialTab?: string;
 };
 
-const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) => {
+const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, initialTab }) => {
   const { api } = useAuth();
   const leadService = new LeadService(api);
   const userDisplayService = new UserDisplayService(api);
@@ -70,7 +72,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     budget: 0,
   });
 
-  // Données JIRA remontées par FormJira via onDataReady
   const jiraDataRef = useRef<any>(null);
 
   /* ================= Listes ================= */
@@ -93,7 +94,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
   const [errorMessage, setErrorMessage] = useState("");
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
 
-  /* ================= Handlers ================= */
+  /* ================= Mappers ================= */
   const handleChange = (e: any) => {
     const { name, value } = e.target;
     setForm((prev: any) => ({ ...prev, [name]: value }));
@@ -126,6 +127,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     };
   };
 
+  // Fallback uniquement si l'API TechFin ne répond pas
   const mapLeadToTechFinForm = (lead: any) => {
     let technosIds: number[] = [];
     if (Array.isArray(lead.technos)) {
@@ -151,41 +153,31 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
     };
   };
 
-  useEffect(() => {
-    if (!show) return;
-    const fetchFinanceData = async () => {
-      try {
-        const [devs, factTypes] = await Promise.all([
-          deviseService.getAll(),
-          typeFacturationService.getAll(),
-        ]);
-        setDevises(devs);
-        setTypeFacturations(factTypes);
-      } catch (err) {
-        console.error("Erreur lors du fetch des données financières :", err);
-      }
-    };
-    fetchFinanceData();
-  }, [show]);
+  // Extrait les IDs technos depuis la réponse API TechFin
+  const extractTechnosIds = (techFinData: any): number[] => {
+    if (!Array.isArray(techFinData.technos)) return [];
+    return techFinData.technos
+      .map((item: any) => {
+        if (item?.techno?.idTechno) return Number(item.techno.idTechno);
+        if (item?.idTechno) return Number(item.idTechno);
+        if (item?.id) return Number(item.id);
+        if (typeof item === "number") return item;
+        return null;
+      })
+      .filter((id: any) => id !== null && !isNaN(id));
+  };
 
+  /* ================= Chargement principal ================= */
   useEffect(() => {
     if (!show) return;
-    const fetchTechno = async () => {
-      try {
-        const list = await technoService.getAll();
-        setTechnos(list);
-      } catch (err) {
-        console.error("Erreur lors du fetch des technos :", err);
-      }
-    };
-    fetchTechno();
-  }, [show]);
 
-  useEffect(() => {
-    if (!show) return;
-    const fetchData = async () => {
+    const fetchAll = async () => {
       try {
-        const [bu, types, cats, sects, stats, typeFin, clts, parts] = await Promise.all([
+        // 1. Toutes les listes en parallèle
+        const [
+          bu, types, cats, sects, stats, typeFin, clts, parts,
+          devs, factTypes, techList,
+        ] = await Promise.all([
           new BusinessUnitService(api).getAll(),
           new LeadTypeService(api).getAll(),
           new LeadCategoryService(api).getAll(),
@@ -194,7 +186,11 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           new TypeProjetFinancementService(api).getAll(),
           new ClientService(api).getAll(),
           new PartenaireService(api).getAll(),
+          deviseService.getAll(),
+          typeFacturationService.getAll(),
+          technoService.getAll(),
         ]);
+
         setBusinessUnits(bu);
         setTypeOpportunites(types);
         setCategories(cats);
@@ -203,60 +199,90 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         setTypeFinancements(typeFin);
         setClients(clts);
         setPartenaires(parts);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchData();
-  }, [show, api]);
+        setDevises(devs);
+        setTypeFacturations(factTypes);
+        setTechnos(techList);
 
-  useEffect(() => {
-    if (!show) return;
-    const initForm = async () => {
-      if (lead) {
-        setForm(mapLeadToForm(lead));
-        setFormTechFin(mapLeadToTechFinForm(lead));
-        setCurrentStep("qualification");
-      } else {
-        setForm({
-          periode: "",
-          businessUnit: "",
-          description: "",
-          nom: "",
-          reference: "",
-          typeOpportunite: "",
-          categorie: "",
-          secteur: "",
-          statut: "1",
-          typeFinancement: "",
-          realDeadline: "",
-          internalDeadline: "",
-          commentaire: "",
-          zone: "",
-          client: null,
-          partenaires: [],
-          driveFolderName: "",
-          driveFolderLink: "",
-          mainDriveFileName: "",
-          mainDriveFileLink: "",
-          mainDriveFileDescription: "",
-        });
-        setFormTechFin({
-          technos: [],
-          volumeJHVendu: 0,
-          deviseId: "",
-          tauxDeChange: 1,
-          typeFacturationId: "",
-          impots: 0,
-          dateAttribution: "",
-          budget: 0,
-        });
-        setCurrentStep("qualification");
-        jiraDataRef.current = null;
+          // 2. Init formulaires après chargement des listes
+          if (lead) {
+          const currentLeadId = lead?.leadId || lead?.id;
+          setForm(mapLeadToForm(lead));
+
+          // Si le lead a déjà ses données TechFin fusionnées (chargé via loadFullLeadDetails
+          // dans ListeLead ou handleSelectLead dans FormProjet), on les utilise directement.
+          // Sinon on les charge depuis l'API.
+          const hasPreloadedTechFin =
+            lead.technos !== undefined ||
+            lead.devise !== undefined ||
+            lead.typeFacturation !== undefined;
+
+          let techFinData: any = null;
+
+          if (hasPreloadedTechFin) {
+            // Données déjà présentes sur le lead — même structure que la réponse API
+            techFinData = {
+              technos: lead.technos || [],
+              volumeJHVendu: lead.volumeJHVendu || 0,
+              devise: lead.devise || null,
+              tauxDeChange: lead.tauxDeChange || 1,
+              typeFacturation: lead.typeFacturation || null,
+              impots: lead.impots || 0,
+              dateAttribution: lead.dateAttribution || "",
+              montantOffre: lead.montantOffre || lead.budget || 0,
+              budget: lead.montantOffre || lead.budget || 0,
+            };
+            console.log("=== TechFin depuis le lead pré-chargé ===", techFinData);
+          } else {
+            // Fallback : charger depuis l'API
+            try {
+              techFinData = await leadTechFinService.getByLeadId(currentLeadId);
+              console.log("=== TechFin chargé depuis l'API ===", JSON.stringify(techFinData, null, 2));
+            } catch (err) {
+              console.warn("TechFin non trouvé, fallback sur lead brut :", err);
+            }
+          }
+
+          if (techFinData) {
+            setFormTechFin({
+              technos: extractTechnosIds(techFinData),
+              volumeJHVendu: techFinData.volumeJHVendu || 0,
+              deviseId: techFinData.devise?.idDevise || "",
+              tauxDeChange: techFinData.tauxDeChange || 1,
+              typeFacturationId: techFinData.typeFacturation?.idTypeFacturation || "",
+              impots: techFinData.impots || 0,
+              dateAttribution: techFinData.dateAttribution
+                ? techFinData.dateAttribution.substring(0, 10)
+                : "",
+              budget: techFinData.montantOffre || techFinData.budget || 0,
+            });
+          } else {
+            setFormTechFin(mapLeadToTechFinForm(lead));
+          }
+
+          setCurrentStep(initialTab || "qualification");
+        } else {
+          setForm({
+            periode: "", businessUnit: "", description: "", nom: "",
+            reference: "", typeOpportunite: "", categorie: "", secteur: "",
+            statut: "1", typeFinancement: "", realDeadline: "",
+            internalDeadline: "", commentaire: "", zone: "", client: null,
+            partenaires: [], driveFolderName: "", driveFolderLink: "",
+            mainDriveFileName: "", mainDriveFileLink: "", mainDriveFileDescription: "",
+          });
+          setFormTechFin({
+            technos: [], volumeJHVendu: 0, deviseId: "", tauxDeChange: 1,
+            typeFacturationId: "", impots: 0, dateAttribution: "", budget: 0,
+          });
+          setCurrentStep("qualification");
+          jiraDataRef.current = null;
+        }
+      } catch (err) {
+        console.error("Erreur chargement données FormLead :", err);
       }
     };
-    initForm();
-  }, [show, lead]);
+
+    fetchAll();
+  }, [show, lead, initialTab]);
 
   const isNoGo = lead?.currentLeadStatus?.leadStatus?.id < 3;
 
@@ -300,12 +326,13 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
 
   /* ================= Save unifié ================= */
   const handleSave = async () => {
+    if (currentStep === "projet") return;
+
     setShowLoadingMessage(true);
 
     try {
       const currentLeadId = lead?.leadId || lead?.id;
 
-      // ── Onglet Qualification ──────────────────────────────────────────────
       if (currentStep === "qualification") {
         const qualifData = formatLeadPayload(form);
         let savedLead: any;
@@ -329,7 +356,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         return;
       }
 
-      // ── Onglet Offre Tech & Fin ───────────────────────────────────────────
       if (currentStep === "offre") {
         if (!currentLeadId) throw new Error("Veuillez d'abord sauvegarder la qualification.");
         if (!formTechFin.deviseId || !formTechFin.typeFacturationId)
@@ -341,7 +367,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           techno: { idTechno: technoId },
         }));
 
-        const techFinData = {
+        const techFinPayload = {
           idLeadTechFinDetails: techFinId,
           idLead: currentLeadId,
           budget: formTechFin.budget || 0,
@@ -356,7 +382,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           typeFacturation: { idTypeFacturation: Number(formTechFin.typeFacturationId) },
         };
 
-        await leadTechFinService.update(techFinData);
+        await leadTechFinService.update(techFinPayload);
 
         setShowLoadingMessage(false);
         setSuccessMessage("Offre technique & financière sauvegardée avec succès !");
@@ -370,7 +396,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
         return;
       }
 
-      // ── Onglet Étapes & Validations (JIRA) ───────────────────────────────
       if (currentStep === "etapes") {
         if (!currentLeadId) throw new Error("ID du lead manquant.");
 
@@ -413,7 +438,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           <Tab.Container
             activeKey={currentStep}
             onSelect={(k) => {
-              if (isNoGo && k !== "qualification") return;
+              if (isNoGo && !initialTab && k !== "qualification") return;
               setCurrentStep(k || "qualification");
             }}
           >
@@ -429,6 +454,11 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
               <Nav.Item>
                 <Nav.Link eventKey="etapes" disabled={!lead}>
                   Étapes & validations
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="projet" disabled={!lead}>
+                  Projet
                 </Nav.Link>
               </Nav.Item>
             </Nav>
@@ -457,7 +487,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
                   <p className="text-warning">
                     Vous devez d'abord créer la qualification avant de remplir l'offre technique & financière.
                   </p>
-                ) : isNoGo ? (
+                ) : isNoGo && !initialTab ? (
                   <p className="text-danger">
                     Impossible de modifier cet onglet pour un lead No Go.
                   </p>
@@ -478,7 +508,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
               <Tab.Pane eventKey="etapes">
                 {!lead ? (
                   <p className="text-warning">Sauvegardez d'abord le lead.</p>
-                ) : isNoGo ? (
+                ) : isNoGo && !initialTab ? (
                   <p className="text-danger">Impossible pour un lead No Go.</p>
                 ) : (
                   <FormJira
@@ -491,6 +521,28 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
                   />
                 )}
               </Tab.Pane>
+
+              <Tab.Pane eventKey="projet">
+                {!lead ? (
+                  <p className="text-warning">Sauvegardez d'abord le lead pour créer un projet.</p>
+                ) : isNoGo ? (
+                  <p className="text-danger">Impossible de créer un projet pour un lead No Go.</p>
+                ) : (
+                  <FormProjetInline
+                    lead={lead}
+                    onSuccess={(projet) => {
+                      setSuccessMessage(`Projet "${projet.nomProjet}" créé avec succès !`);
+                      setShowSuccessMessage(true);
+                      setTimeout(() => setShowSuccessMessage(false), 2000);
+                    }}
+                    onError={(msg) => {
+                      setErrorMessage(msg);
+                      setShowErrorMessage(true);
+                    }}
+                    onLoading={setShowLoadingMessage}
+                  />
+                )}
+              </Tab.Pane>
             </Tab.Content>
           </Tab.Container>
         </Modal.Body>
@@ -499,9 +551,11 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead }) =>
           <Button variant="secondary" onClick={onClose}>
             Annuler
           </Button>
-          <Button variant="primary" onClick={handleSave}>
-            {lead ? "Modifier" : "Créer"}
-          </Button>
+          {currentStep !== "projet" && (
+            <Button variant="primary" onClick={handleSave}>
+              {lead ? "Modifier" : "Créer"}
+            </Button>
+          )}
         </Modal.Footer>
       </Modal>
 

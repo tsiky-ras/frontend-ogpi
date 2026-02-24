@@ -8,12 +8,13 @@ import FilterBar from '../../../../components/filters/FilterBar.tsx';
 import Table from '../../../../components/table/Table.tsx';
 import StatCard from '../../../../components/stat/StatCard.tsx';
 import MenuListeProjet from '../menu/MenuListeProjet.tsx';
+import FormProjet from '../form/FormProjet.tsx';
+import ProjetDetails from '../form/details/ProjetDetails.tsx';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ListeProjet.css';
 import { ProjetService } from '../../../../services/projet/ProjetService.tsx';
 import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Projet } from '../../../../types/projet/Projet.tsx';
-import FormProjet from '../form/FormProjet.tsx';
 
 const ListeProjet: React.FC = () => {
   const { api } = useAuth();
@@ -21,7 +22,8 @@ const ListeProjet: React.FC = () => {
   const [projets, setProjets] = useState<Projet[]>([]);
   const [showFormProjet, setShowFormProjet] = useState(false);
   const [selectedProjet, setSelectedProjet] = useState<Projet | null>(null);
-  const [showDetailProjet, setShowDetailProjet] = useState(false);
+  const [showProjetDetails, setShowProjetDetails] = useState(false); // nouvel état pour détails
+  const [selectedProjetId, setSelectedProjetId] = useState<number | null>(null);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const projetService = new ProjetService(api);
 
@@ -62,6 +64,16 @@ const ListeProjet: React.FC = () => {
       render: (row: Projet) => row.dateAttribution ? new Date(row.dateAttribution).toLocaleDateString('fr-FR') : '-',
     },
     {
+      key: 'dateDebutPrevu',
+      label: "Date de début prévu",
+      render: (row: Projet) => row.dateDebutPrevu ? new Date(row.dateDebutPrevu).toLocaleDateString('fr-FR') : '-',
+    },
+    {
+      key: 'dateFinPrevu',
+      label: "Date de fin prévu",
+      render: (row: Projet) => row.dateFinPrevu ? new Date(row.dateFinPrevu).toLocaleDateString('fr-FR') : '-',
+    },
+    {
       key: 'userCp',
       label: 'Chef de projet',
       render: (row: Projet) => row.userCp?.username || '-',
@@ -86,45 +98,53 @@ const ListeProjet: React.FC = () => {
       ),
     },
     {
-      key: 'actions',
-      label: 'Actions',
-      render: (row: Projet) => (
+    key: 'actions',
+    label: 'Actions',
+    render: (row: Projet) => (
         <MenuListeProjet
-          onDetails={() => {
-            setSelectedProjet(row);
-            setShowDetailProjet(true);
-          }}
-          onEdit={() => {
+        onDetails={() => {
+            setSelectedProjet(row);     
+            setShowProjetDetails(true);  
+        }}
+        onEdit={() => {
             setSelectedProjet(row);
             setShowFormProjet(true);
-          }}
+        }}
         />
-      ),
-    },
+    ),
+    }
   ];
 
   const renderExpandedRow = (row: Projet) => (
     <div className="expanded-row-content p-4 bg-light">
       <div className="row g-3">
+        <div className="col-md-4">
+          <label className="expanded-label">Référence BC</label>
+          <p className="expanded-text">{row.refBC || '-'}</p>
+        </div>
+        <div className="col-md-4">
+          <label className="expanded-label">Référence Compte</label>
+          <p className="expanded-text">{row.refCompte || '-'}</p>
+        </div>
+        <div className="col-md-4">
+          <label className="expanded-label">Chef de projet</label>
+          <p className="expanded-text">{row.userCp?.username || '-'}</p>
+        </div>
+      </div>
+      <div className="row g-3 mt-3">
         <div className="col-md-6">
-          <div className="expanded-item">
-            <label className="expanded-label">Référence BC</label>
-            <p className="expanded-text">{row.refBC || '-'}</p>
-          </div>
+          <label className="expanded-label">Date de début prévu</label>
+          <p className="expanded-text">{row.dateDebutPrevu ? new Date(row.dateDebutPrevu).toLocaleDateString('fr-FR') : '-'}</p>
         </div>
         <div className="col-md-6">
-          <div className="expanded-item">
-            <label className="expanded-label">Référence Compte</label>
-            <p className="expanded-text">{row.refCompte || '-'}</p>
-          </div>
+          <label className="expanded-label">Date de fin prévu</label>
+          <p className="expanded-text">{row.dateFinPrevu ? new Date(row.dateFinPrevu).toLocaleDateString('fr-FR') : '-'}</p>
         </div>
       </div>
       <div className="row g-3 mt-3">
         <div className="col-12">
-          <div className="expanded-item">
-            <label className="expanded-label">Description</label>
-            <p className="expanded-text">{row.description || '-'}</p>
-          </div>
+          <label className="expanded-label">Description</label>
+          <p className="expanded-text">{row.description || '-'}</p>
         </div>
       </div>
     </div>
@@ -189,6 +209,16 @@ const ListeProjet: React.FC = () => {
         projet={selectedProjet}
         onSubmit={async () => { await loadProjets(); setShowFormProjet(false); setSelectedProjet(null); }}
       />
+
+      {/* Détails Projet */}
+        <ProjetDetails
+        show={showProjetDetails}
+        onClose={() => {
+            setShowProjetDetails(false);
+            setSelectedProjet(null);
+        }}
+        projet={selectedProjet} 
+        />
     </div>
   );
 };
