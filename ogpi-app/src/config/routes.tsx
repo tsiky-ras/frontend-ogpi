@@ -35,6 +35,11 @@ export const routes = [
     icon: <FaBriefcase />,
   },
   {
+    path : "/gestion-projets",
+    label: "Projets",
+    icon: <FaBriefcase />,
+  },
+  {
     path: "/gestion-taches",
     label: "Tâches",
     icon: <FaThList />, 

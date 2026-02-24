@@ -1,0 +1,191 @@
+import React, { useEffect, useState } from 'react';
+import Header from '../../../../components/header/Header.tsx';
+import Sidebar from '../../../../components/sidebar/Sidebar.tsx';
+import Title from '../../../../components/title/Title.tsx';
+import Button from '../../../../components/button/Button.tsx';
+import { FaPlus } from 'react-icons/fa';
+import FilterBar from '../../../../components/filters/FilterBar.tsx';
+import Table from '../../../../components/table/Table.tsx';
+import StatCard from '../../../../components/stat/StatCard.tsx';
+// import FormProjet from '../form/FormProjet.tsx';
+// import DetailsProjet from '../details/DetailsProjet.tsx';
+import MenuListeProjet from '../menu/MenuListeProjet.tsx';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './ListeProjet.css';
+import { ProjetService } from '../../../../services/projet/ProjetService.tsx';
+import { useAuth } from '../../../../context/AuthContext.tsx';
+import { Projet } from '../../../../types/projet/Projet.tsx';
+import FormProjet from '../form/FormProjet.tsx';
+
+/* ================= COMPONENT ================= */
+const ListeProjet: React.FC = () => {
+  const { api } = useAuth();
+  const [search, setSearch] = useState('');
+  const [projets, setProjets] = useState<Projet[]>([]);
+  const [showFormProjet, setShowFormProjet] = useState(false);
+  const [selectedProjet, setSelectedProjet] = useState<Projet | null>(null);
+  const [showDetailProjet, setShowDetailProjet] = useState(false);
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+  const projetService = new ProjetService(api);
+
+  const [kpis, setKpis] = useState({
+    totalProjets: 0,
+    totalCP: 0,
+    totalSuppleante: 0,
+  });
+
+  /* ================= DATA ================= */
+  const loadProjets = async () => {
+    try {
+      const data = await projetService.getAll();
+      console.log("Projets chargés", data);
+      setProjets(data);
+
+      // KPI simples
+      setKpis({
+        totalProjets: data.length,
+        totalCP: data.filter(p => p.userCp).length,
+        totalSuppleante: data.filter(p => p.userSuppleante).length,
+      });
+    } catch (error) {
+      console.error("Erreur chargement projets", error);
+    }
+  };
+
+  useEffect(() => {
+    loadProjets();
+  }, []);
+
+  /* ================= TABLE ================= */
+  const columns = [
+    { key: 'nomProjet', label: 'Nom du projet' },
+    { key: 'refBC', label: 'Réf BC' },
+    { key: 'refCompte', label: 'Réf Compte' },
+    {
+      key: 'dateAttribution',
+      label: 'Date d\'attribution',
+      render: (row: Projet) => row.dateAttribution ? new Date(row.dateAttribution).toLocaleDateString('fr-FR') : '-',
+    },
+    {
+      key: 'userCp',
+      label: 'Chef de projet',
+      render: (row: Projet) => row.userCp?.username || '-',
+    },
+    {
+      key: 'userSuppleante',
+      label: 'Suppléante',
+      render: (row: Projet) => row.userSuppleante?.username || '-',
+    },
+    {
+      key: 'typeFacturation',
+      label: 'Type de facturation',
+      render: (row: Projet) => row.typeFacturation?.nomTypeFacturation || '-',
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (row: Projet) => (
+        <MenuListeProjet
+          onDetails={() => {
+            setSelectedProjet(row);
+            setShowDetailProjet(true);
+          }}
+          onEdit={() => {
+            setSelectedProjet(row);
+            setShowFormProjet(true);
+          }}
+        />
+      ),
+    },
+  ];
+
+  const renderExpandedRow = (row: Projet) => (
+    <div className="expanded-row-content p-4 bg-light">
+      <div className="row g-3">
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Référence BC</label>
+            <p className="expanded-text">{row.refBC || '-'}</p>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="expanded-item">
+            <label className="expanded-label">Référence Compte</label>
+            <p className="expanded-text">{row.refCompte || '-'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  /* ================= RENDER ================= */
+  return (
+    <div className="liste-projet-layout">
+      <Header />
+      <div className="liste-projet-wrapper">
+        <main className="liste-projet-main">
+          <div className="container-fluid">
+            {/* Ligne filtres + créer */}
+            <div className="row align-items-center mb-4">
+              <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
+                <FilterBar
+                  filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]}
+                />
+              </div>
+              <div className="col-lg-4 col-md-12 text-lg-end">
+                <Button
+                  label="Créer un projet"
+                  icon={<FaPlus />}
+                  onClick={() => {
+                    setSelectedProjet(null);
+                    setShowFormProjet(true);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* KPI */}
+            <div className="row mb-4">
+              <div className="col-lg-4 col-md-6 mb-3">
+                <StatCard title="Total projets" value={kpis.totalProjets} subtitle="" variant={['tomato','charcoal']} />
+              </div>
+              <div className="col-lg-4 col-md-6 mb-3">
+                <StatCard title="Projets avec CP" value={kpis.totalCP} subtitle="" variant={['dim','linen']} />
+              </div>
+              <div className="col-lg-4 col-md-6 mb-3">
+                <StatCard title="Projets avec suppléante" value={kpis.totalSuppleante} subtitle="" variant={['tuscan','linen']} />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="table-responsive mt-3">
+              <Table
+                columns={columns}
+                data={projets}
+                expandedRowId={expandedRowId}
+                expandedRow={renderExpandedRow}
+              />
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* Formulaire Projet */}
+        <FormProjet
+            show={showFormProjet}
+            onClose={() => { setShowFormProjet(false); setSelectedProjet(null); }}
+            projet={selectedProjet}
+            onSubmit={async () => { await loadProjets(); setShowFormProjet(false); setSelectedProjet(null); }}
+        />
+
+      {/* Détails Projet */}
+      {/* <DetailsProjet
+        show={showDetailProjet}
+        onClose={() => { setShowDetailProjet(false); setSelectedProjet(null); }}
+        projet={selectedProjet}
+      /> */}
+    </div>
+  );
+};
+
+export default ListeProjet;
