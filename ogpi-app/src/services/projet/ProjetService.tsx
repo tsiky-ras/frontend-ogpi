@@ -14,6 +14,7 @@ export class ProjetService {
   async getAll(): Promise<Projet[]> {
     try {
       const response = await this.api.get('/projets/all');
+      console.log("Projets récupérés:", response.data);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des projets :', error);
@@ -27,6 +28,7 @@ export class ProjetService {
   async getById(id: number): Promise<Projet> {
     try {
       const response = await this.api.get(`/projets/${id}`);
+      console.log(`Projet ${id} récupéré:`, response.data);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération du projet ${id} :`, error);

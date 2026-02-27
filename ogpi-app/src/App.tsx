@@ -36,7 +36,6 @@ const App: React.FC = () => {
         <Route path="/gestion-taches" element={<TachePage />} />
         <Route path="/gestion-opportunites" element={<LeadPage />} /> 
         <Route path="/gestion-projets" element={<ProjetPage />} />
-        
         {/* Admin sécurisé */}
         <Route
           path="/admin"
