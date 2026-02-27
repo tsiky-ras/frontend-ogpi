@@ -4,11 +4,10 @@ import Sortable from "sortablejs";
 import Button from "../../../../components/button/Button.tsx";
 import {
   FaPlus, FaSpinner, FaEdit, FaTrash, FaCalendar,
-  FaChevronDown, FaChevronRight, FaUsers, FaColumns,
+  FaChevronDown, FaChevronRight, FaUsers,
 } from "react-icons/fa";
 import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
-// ── Services (URLs corrigées pour correspondre aux controllers Spring) ──────
 import { BacklogProjetService }       from "../../../../services/projet/backlog/BacklogProjetService.tsx";
 import { BacklogProjetLotService }    from "../../../../services/projet/backlog/BacklogProjetLotService.tsx";
 import { BacklogProjetPhaseService }  from "../../../../services/projet/backlog/BacklogProjetPhaseService.tsx";
@@ -21,7 +20,6 @@ import { BacklogProjetColumnService } from "../../../../services/projet/backlog/
 import { BacklogPlanningService }     from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 import { useProfilService }           from "../../../../services/profil/ProfilService.tsx";
 
-// ── Types ─────────────────────────────────────────────────────────────────
 import {
   Backlog,
   BacklogLot,
@@ -44,8 +42,6 @@ import BacklogForm  from "../../gestion-lead/backlog/BacklogForm.tsx";
 import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
 import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
 
-// ─────────────────────────────────────────────────────────────────────────
-
 interface BacklogProjetModalProps {
   show: boolean;
   onClose: () => void;
@@ -53,26 +49,24 @@ interface BacklogProjetModalProps {
   projetNom?: string;
 }
 
-/** Profil enrichi avec collaborateurs hydratés depuis profilsProjet */
 interface ProfilFull extends BacklogProjetProfil {
   collaborateurs: any[];
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   show, onClose, projetId, projetNom,
 }) => {
   const { api } = useAuth();
   const collaborateurService = useProfilService();
   const svc = useRef({
-    backlog : new BacklogProjetService(api),
-    lot : new BacklogProjetLotService(api),
-    phase : new BacklogProjetPhaseService(api),
-    profil : new BacklogProjetProfilService(api),
-    line : new BacklogProjetLineService(api),
+    backlog    : new BacklogProjetService(api),
+    lot        : new BacklogProjetLotService(api),
+    phase      : new BacklogProjetPhaseService(api),
+    profil     : new BacklogProjetProfilService(api),
+    line       : new BacklogProjetLineService(api),
     lineProfil : new BacklogProjetLineProfilService(api),
-    column : new BacklogProjetColumnService(api),
-    planning : new BacklogPlanningService(api),
+    column     : new BacklogProjetColumnService(api),
+    planning   : new BacklogPlanningService(api),
   }).current;
 
   // ── État principal ────────────────────────────────────────────────────
@@ -81,7 +75,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [error,       setError]       = useState<string | null>(null);
   const [saving,      setSaving]      = useState(false);
   const [showCreate,  setShowCreate]  = useState(false);
-  // ── Données hydratées depuis /full ────────────────────────────────────
+
   const [lots,        setLots]        = useState<BacklogLot[]>([]);
   const [profils,     setProfils]     = useState<ProfilFull[]>([]);
   const [lines,       setLines]       = useState<BacklogLine[]>([]);
@@ -92,11 +86,12 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [columns,      setColumns]      = useState<Map<number, BacklogColumn[]>>(new Map());
   const [colValues,    setColValues]    = useState<Map<number, BacklogLineColumnValue[]>>(new Map());
   const [allCollabs,   setAllCollabs]   = useState<any[]>([]);
-  const [fCollabId, setFCollabId] = useState<number | null>(null);
-  // ── UI ─────────────────────────────────────────────────────────────────
+  const [fCollabId,    setFCollabId]    = useState<number | null>(null);
+
   const [activeTab,       setActiveTab]       = useState("backlog");
   const [expandedPhases,  setExpandedPhases]  = useState<Set<number>>(new Set());
   const [expandedSprints, setExpandedSprints] = useState<Map<number, Set<number>>>(new Map());
+  const [expandedLines,   setExpandedLines]   = useState<Set<number>>(new Set());
   const deviseAbr = "€";
 
   // ── Modals ────────────────────────────────────────────────────────────
@@ -111,7 +106,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [showColModal,    setShowColModal]    = useState(false);
   const [showCellModal,   setShowCellModal]   = useState(false);
 
-  // ── Entités en édition ─────────────────────────────────────────────────
+  // ── Entités en édition ────────────────────────────────────────────────
   const [editLot,        setEditLot]        = useState<BacklogLot | null>(null);
   const [editPhase,      setEditPhase]      = useState<BacklogPhase | null>(null);
   const [editSprint,     setEditSprint]     = useState<BacklogSprint | null>(null);
@@ -123,7 +118,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [editCol,        setEditCol]        = useState<BacklogColumn | null>(null);
   const [editCell,       setEditCell]       = useState<{ lineId: number; columnId: number } | null>(null);
 
-  // ── IDs contexte ───────────────────────────────────────────────────────
+  // ── IDs contexte ─────────────────────────────────────────────────────
   const [ctxLotId,    setCtxLotId]    = useState<number | null>(null);
   const [ctxPhaseId,  setCtxPhaseId]  = useState<number | null>(null);
   const [ctxSprintId, setCtxSprintId] = useState<number | null>(null);
@@ -131,36 +126,22 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [ctxProfilId, setCtxProfilId] = useState<number | null>(null);
   const currentProfil = profils.find(p => p.id === ctxProfilId) ?? null;
 
-  const getSprintById = (phaseId: number | null, sprintId: number | null) => {
-    if (!phaseId || !sprintId) return null;
-    return (sprints.get(phaseId) ?? []).find(s => s.id === sprintId) ?? null;
-  };
-
-  const [expandedLines, setExpandedLines] = useState<Set<number>>(new Set());
-  const toggleLine = (id: number) =>
-    setExpandedLines(prev => {
-      const s = new Set(prev);
-      s.has(id) ? s.delete(id) : s.add(id);
-      return s;
-    });
-  // ── Formulaires ────────────────────────────────────────────────────────
+  // ── Formulaires ───────────────────────────────────────────────────────
   const [fLot,       setFLot]       = useState({ name: "", desc: "" });
   const [fPhase,     setFPhase]     = useState({ name: "" });
   const [fSprint,    setFSprint]    = useState({ name: "", startDate: "", endDate: "" });
   const [fDeliv,     setFDeliv]     = useState({ name: "", description: "", deliveryDate: "", sprintId: null as number | null });
   const [fProfil,    setFProfil]    = useState({ name: "", desc: "", tjm: 0 });
   const [fCollabIds, setFCollabIds] = useState<number[]>([]);
-  const [fLine, setFLine] = useState({
+  const [fLine,      setFLine]      = useState({
     epic: "", userStory: "", description: "", resultat: "",
-    lotId:    null as number | null,
-    phaseId:  null as number | null,
-    sprintId: null as number | null,
-  }); 
- const [fVolume,    setFVolume]    = useState(0);
-  const [fCol,       setFCol]       = useState({ name: "", type: "TEXT" as BacklogColumnType });
-  const [fCellVal,   setFCellVal]   = useState("");
+    lotId: null as number | null, phaseId: null as number | null, sprintId: null as number | null,
+  });
+  const [fVolume,  setFVolume]  = useState(0);
+  const [fCol,     setFCol]     = useState({ name: "", type: "TEXT" as BacklogColumnType });
+  const [fCellVal, setFCellVal] = useState("");
 
-  // ── Refs SortableJS ────────────────────────────────────────────────────
+  // ── Refs SortableJS ───────────────────────────────────────────────────
   const lineBodyRef    = useRef<HTMLTableSectionElement | null>(null);
   const lotsRef        = useRef<HTMLDivElement | null>(null);
   const profilsRef     = useRef<HTMLDivElement | null>(null);
@@ -168,17 +149,17 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const lotSortable    = useRef<Sortable | null>(null);
   const profilSortable = useRef<Sortable | null>(null);
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // Maps pour les sortables de phases (clé = lotId) et sprints (clé = phaseId)
+  const phaseSortableRefs  = useRef<Map<number, Sortable>>(new Map());
+  const sprintSortableRefs = useRef<Map<number, Sortable>>(new Map());
+
+  // ══════════════════════════════════════════════════════════════════════
   // CHARGEMENT
-  // Route utilisée : GET /api/projet/backlogs/projet/{projetId}/full
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
 
   const hydrateFromFull = useCallback((full: any) => {
     setBacklog(full);
-
-    const sortedLots: BacklogLot[] = (full.lots ?? []).sort(
-      (a: any, b: any) => a.order - b.order
-    );
+    const sortedLots: BacklogLot[] = (full.lots ?? []).sort((a: any, b: any) => a.order - b.order);
     setLots(sortedLots);
 
     const spMap  = new Map<number, BacklogSprint[]>();
@@ -187,13 +168,10 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       for (const phase of (lot.phases ?? []) as any[]) {
         const phaseSprints = (phase.sprints ?? []).sort((a: any, b: any) => a.order - b.order);
         spMap.set(phase.id, phaseSprints);
-
-        // Livrables : ceux de la phase + ceux dans chaque sprint
-        const phaseDelivs: any[] = (phase.deliverables ?? []);
+        const phaseDelivs: any[] = phase.deliverables ?? [];
         const sprintDelivs: any[] = phaseSprints.flatMap((s: any) =>
           (s.deliverables ?? []).map((d: any) => ({ ...d, sprintId: d.sprintId ?? s.id }))
         );
-        // Fusionner en dédupliquant par id
         const allDelivs = [...phaseDelivs, ...sprintDelivs].filter(
           (d, i, arr) => arr.findIndex(x => x.id === d.id) === i
         );
@@ -203,86 +181,52 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     setSprints(spMap);
     setDeliverables(dlvMap);
 
-    // profilsProjet contient les collaborateurs[]
     const rawProfils: any[] = full.profilsProjet ?? full.profils ?? [];
     setProfils(
       rawProfils
         .sort((a: any, b: any) => a.order - b.order)
         .map((p: any) => ({ ...p, collaborateurs: p.collaborateurs ?? [] }))
     );
-
-    setLines(
-      (full.lines ?? []).sort((a: any, b: any) => a.order - b.order)
-    );
+    setLines((full.lines ?? []).sort((a: any, b: any) => a.order - b.order));
   }, []);
 
   const loadColumnsAndValues = useCallback(async (full: any) => {
-    const allSprints: any[] = (full.lots ?? [])
-      .flatMap((l: any) => l.phases ?? [])
-      .flatMap((p: any) => p.sprints ?? []);
+    const allSprints: any[] = (full.lots ?? []).flatMap((l: any) => l.phases ?? []).flatMap((p: any) => p.sprints ?? []);
     const allLines: any[] = full.lines ?? [];
-
     const colMap = new Map<number, BacklogColumn[]>();
     const valMap = new Map<number, BacklogLineColumnValue[]>();
-
     await Promise.all([
       ...allSprints.map(async (s: any) => {
-        if (s.columns && Array.isArray(s.columns)) {
-          colMap.set(s.id, s.columns);
-        } else {
-          try {
-            const cols = await svc.column.getColumnsBySprintId(s.id);
-            colMap.set(s.id, cols);
-          } catch { colMap.set(s.id, []); }
-        }
+        if (s.columns && Array.isArray(s.columns)) { colMap.set(s.id, s.columns); }
+        else { try { colMap.set(s.id, await svc.column.getColumnsBySprintId(s.id)); } catch { colMap.set(s.id, []); } }
       }),
       ...allLines.map(async (l: any) => {
-        try {
-          const vals = await svc.column.getValuesByLineId(l.id);
-          valMap.set(l.id, vals);
-        } catch { valMap.set(l.id, []); }
+        try { valMap.set(l.id, await svc.column.getValuesByLineId(l.id)); } catch { valMap.set(l.id, []); }
       }),
     ]);
-
     setColumns(colMap);
     setColValues(valMap);
   }, []);
 
   const loadLineProfils = useCallback(async (backlogId: number) => {
-    try {
-      const lp = await svc.lineProfil.getAllByBacklogId(backlogId);
-      setLineProfils(lp);
-    } catch { setLineProfils([]); }
+    try { setLineProfils(await svc.lineProfil.getAllByBacklogId(backlogId)); }
+    catch { setLineProfils([]); }
   }, []);
 
   const loadAllCollabs = useCallback(async () => {
-    try {
-      const data = await collaborateurService.getAll(); 
-      setAllCollabs(Array.isArray(data) ? data : []);
-    } catch { setAllCollabs([]); }
+    try { const data = await collaborateurService.getAll(); setAllCollabs(Array.isArray(data) ? data : []); }
+    catch { setAllCollabs([]); }
   }, [collaborateurService]);
 
   const loadFull = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const full = await svc.backlog.getFullByProjetId(projetId);
-      console.log("🟢 Réponse API:", full);
-      if (!full) {
-        setShowCreate(true);
-        return;
-      }
+      if (!full) { setShowCreate(true); return; }
       hydrateFromFull(full);
-      await Promise.all([
-        loadLineProfils(full.id),
-        loadColumnsAndValues(full),
-        loadAllCollabs(),
-      ]);
-    } catch (err) {
-      setError("Impossible de charger le backlog.");
-    } finally {
-      setLoading(false);
-    }
+      await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full), loadAllCollabs()]);
+    } catch { setError("Impossible de charger le backlog."); }
+    finally { setLoading(false); }
   }, [projetId]);
 
   const reload = useCallback(async () => {
@@ -290,10 +234,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     setLoading(true);
     try {
       const full = await svc.backlog.getFullByProjetId(projetId);
-      if (full) {
-        hydrateFromFull(full);
-        await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full)]);
-      }
+      if (full) { hydrateFromFull(full); await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full)]); }
     } catch { setError("Impossible de recharger les données."); }
     finally { setLoading(false); }
   }, [projetId, backlog?.id]);
@@ -304,65 +245,47 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     setLineProfils([]); setSprints(new Map()); setDeliverables(new Map());
     setColumns(new Map()); setColValues(new Map()); setAllCollabs([]);
     setError(null); setShowCreate(false); setActiveTab("backlog");
-    setExpandedPhases(new Set()); setExpandedSprints(new Map());
+    setExpandedPhases(new Set()); setExpandedSprints(new Map()); setExpandedLines(new Set());
     loadFull();
   }, [show, projetId]);
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
   // HELPERS
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
 
-  const getAllPhases = (): BacklogPhase[] =>
-    lots.flatMap(l => (l.phases ?? []) as BacklogPhase[]);
-
+  const getAllPhases = (): BacklogPhase[] => lots.flatMap(l => (l.phases ?? []) as BacklogPhase[]);
   const getLotByPhaseId = (phaseId: number | null): BacklogLot | undefined =>
     lots.find(l => (l.phases ?? []).some((p: any) => p.id === phaseId));
-
   const getPhaseNameById = (id: number | null): string =>
     id ? getAllPhases().find(p => p.id === id)?.name ?? "—" : "—";
-
-// Remplacer getVolume par :
   const getLineProfil = (lineId: number, profilId: number) =>
-  lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId) ?? null;
+    lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId) ?? null;
 
-  const getVolume = (lineId: number, profilId: number): number =>
-  lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId)?.volume ?? 0;
-
-  const togglePhase = (id: number) =>
-    setExpandedPhases(prev => {
-      const s = new Set(prev);
-      s.has(id) ? s.delete(id) : s.add(id);
-      return s;
-    });
-
+  const toggleLine = (id: number) => setExpandedLines(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const togglePhase = (id: number) => setExpandedPhases(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const toggleSprint = (phaseId: number, sprintId: number) =>
     setExpandedSprints(prev => {
-      const m = new Map(prev);
-      const s = new Set(m.get(phaseId) ?? []);
+      const m = new Map(prev); const s = new Set(m.get(phaseId) ?? []);
       s.has(sprintId) ? s.delete(sprintId) : s.add(sprintId);
-      s.size ? m.set(phaseId, s) : m.delete(phaseId);
-      return m;
+      s.size ? m.set(phaseId, s) : m.delete(phaseId); return m;
     });
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
   // CRÉATION BACKLOG
-  // Route : POST /api/projet/backlogs/projet
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
 
   const handleCreateBacklog = async (item: CreateBacklogForProjetRequest) => {
     setSaving(true);
     try {
       const created = await svc.backlog.createForProjet({ name: item.name, desc: item.desc, projetId });
-      setBacklog(created);
-      setShowCreate(false);
-      await loadFull();
+      setBacklog(created); setShowCreate(false); await loadFull();
     } catch { setError("Impossible de créer le backlog."); }
     finally { setSaving(false); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // LOTS — /api/projet/backlog-lots
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // LOTS
+  // ══════════════════════════════════════════════════════════════════════
 
   const openAddLot  = () => { setEditLot(null); setFLot({ name: "", desc: "" }); setShowLotModal(true); };
   const openEditLot = (lot: BacklogLot) => { setEditLot(lot); setFLot({ name: lot.name, desc: lot.desc ?? "" }); setShowLotModal(true); };
@@ -394,9 +317,9 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     } catch { alert("Impossible de supprimer le lot."); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASES — /api/projet/backlog-phases
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // PHASES
+  // ══════════════════════════════════════════════════════════════════════
 
   const openAddPhase  = (lotId: number) => { setCtxLotId(lotId); setEditPhase(null); setFPhase({ name: "" }); setShowPhaseModal(true); };
   const openEditPhase = (p: BacklogPhase, lotId: number) => { setCtxLotId(lotId); setEditPhase(p); setFPhase({ name: p.name }); setShowPhaseModal(true); };
@@ -408,16 +331,14 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       if (editPhase) {
         const updated = await svc.phase.update(editPhase.id, { name: fPhase.name });
         setLots(prev => prev.map(l => l.id !== ctxLotId ? l : {
-          ...l,
-          phases: (l.phases ?? []).map((p: any) => p.id === editPhase.id ? { ...p, ...updated } : p),
+          ...l, phases: (l.phases ?? []).map((p: any) => p.id === editPhase.id ? { ...p, ...updated } : p),
         }));
       } else {
         const lot = lots.find(l => l.id === ctxLotId);
         const order = Math.max(0, ...((lot?.phases ?? []) as any[]).map(p => p.order)) + 1;
         const created = await svc.phase.create({ name: fPhase.name, order, lotId: ctxLotId });
         setLots(prev => prev.map(l => l.id !== ctxLotId ? l : {
-          ...l,
-          phases: [...(l.phases ?? []), { ...created, sprints: [], deliverables: [] }],
+          ...l, phases: [...(l.phases ?? []), { ...created, sprints: [], deliverables: [] }],
         }));
         setSprints(prev => new Map(prev).set(created.id, []));
         setDeliverables(prev => new Map(prev).set(created.id, []));
@@ -432,19 +353,16 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     try {
       await svc.phase.delete(phaseId);
       setLots(prev => prev.map(l => l.id !== lotId ? l : {
-        ...l,
-        phases: (l.phases ?? []).filter((p: any) => p.id !== phaseId).map((p: any, i: number) => ({ ...p, order: i + 1 })),
+        ...l, phases: (l.phases ?? []).filter((p: any) => p.id !== phaseId).map((p: any, i: number) => ({ ...p, order: i + 1 })),
       }));
       setSprints(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
       setDeliverables(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
     } catch { alert("Impossible de supprimer la phase."); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // SPRINTS — POST /api/projet/backlog-phases/{phaseId}/sprints
-  //           PUT  /api/projet/backlog-phases/sprints/{id}
-  //           DEL  /api/projet/backlog-phases/sprints/{id}
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // SPRINTS
+  // ══════════════════════════════════════════════════════════════════════
 
   const openAddSprint  = (phaseId: number) => { setCtxPhaseId(phaseId); setEditSprint(null); setFSprint({ name: "", startDate: "", endDate: "" }); setShowSprintModal(true); };
   const openEditSprint = (s: BacklogSprint, phaseId: number) => { setCtxPhaseId(phaseId); setEditSprint(s); setFSprint({ name: s.name, startDate: s.dateDebut ?? "", endDate: s.dateFin ?? "" }); setShowSprintModal(true); };
@@ -455,16 +373,11 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     try {
       const existing = sprints.get(ctxPhaseId) ?? [];
       if (editSprint) {
-        const updated = await svc.phase.updateSprint(editSprint.id, {
-          name: fSprint.name, startDate: fSprint.startDate, endDate: fSprint.endDate,
-        });
+        const updated = await svc.phase.updateSprint(editSprint.id, { name: fSprint.name, startDate: fSprint.startDate, endDate: fSprint.endDate });
         setSprints(prev => new Map(prev).set(ctxPhaseId, existing.map(s => s.id === editSprint.id ? { ...s, ...updated } : s)));
       } else {
         const order = Math.max(0, ...existing.map(s => s.order)) + 1;
-        const created = await svc.phase.createSprint({
-          name: fSprint.name, order, phaseId: ctxPhaseId,
-          startDate: fSprint.startDate, endDate: fSprint.endDate,
-        });
+        const created = await svc.phase.createSprint({ name: fSprint.name, order, phaseId: ctxPhaseId, startDate: fSprint.startDate, endDate: fSprint.endDate });
         setSprints(prev => new Map(prev).set(ctxPhaseId, [...existing, created]));
         setColumns(prev => new Map(prev).set(created.id, []));
       }
@@ -481,18 +394,15 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       setSprints(prev => new Map(prev).set(phaseId, updated));
       setDeliverables(prev => {
         const m = new Map(prev);
-        const dl = (m.get(phaseId) ?? []).map(d => (d as any).sprintId === sprintId ? { ...d, sprintId: null } : d);
-        m.set(phaseId, dl);
+        m.set(phaseId, (m.get(phaseId) ?? []).map(d => (d as any).sprintId === sprintId ? { ...d, sprintId: null } : d));
         return m;
       });
     } catch { alert("Impossible de supprimer le sprint."); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // LIVRABLES — POST /api/projet/backlog-phases/{phaseId}/livrables
-  //             PUT  /api/projet/backlog-phases/livrables/{id}
-  //             DEL  /api/projet/backlog-phases/livrables/{id}
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // LIVRABLES
+  // ══════════════════════════════════════════════════════════════════════
 
   const openAddDeliv  = (phaseId: number) => { setCtxPhaseId(phaseId); setEditDeliv(null); setFDeliv({ name: "", description: "", deliveryDate: "", sprintId: null }); setShowDelivModal(true); };
   const openEditDeliv = (d: BacklogDelivrableProjet, phaseId: number) => {
@@ -527,9 +437,9 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     } catch { alert("Impossible de supprimer le livrable."); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // PROFILS — /api/projet/backlog-profils
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // PROFILS
+  // ══════════════════════════════════════════════════════════════════════
 
   const openAddProfil   = () => { setEditProfil(null); setFProfil({ name: "", desc: "", tjm: 0 }); setFCollabIds([]); setShowProfilModal(true); };
   const openEditProfil  = (p: ProfilFull) => { setEditProfil(p); setFProfil({ name: p.name, desc: p.desc ?? "", tjm: p.tjm }); setFCollabIds(p.collaborateurs.map((c: any) => c.id)); setShowProfilModal(true); };
@@ -541,15 +451,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     try {
       if (editProfil) {
         await svc.profil.update(editProfil.id, fProfil);
-        // PUT /api/projet/backlog-profils/{id}/collaborateurs
         await svc.profil.replaceCollaborateurs(editProfil.id, fCollabIds);
       } else {
         const order = Math.max(0, ...profils.map(p => p.order)) + 1;
         const created = await svc.profil.create({ ...fProfil, order, backlogId: backlog.id });
         if (fCollabIds.length) await svc.profil.replaceCollaborateurs(created.id, fCollabIds);
       }
-      setShowProfilModal(false);
-      await reload();
+      setShowProfilModal(false); await reload();
     } catch { alert("Erreur lors de la sauvegarde du profil."); }
     finally { setSaving(false); }
   };
@@ -560,8 +468,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     try {
       await svc.profil.replaceCollaborateurs(collabProfil.id, fCollabIds);
       setProfils(prev => prev.map(p => p.id !== collabProfil.id ? p : {
-        ...p,
-        collaborateurs: allCollabs.filter(c => fCollabIds.includes(c.id)),
+        ...p, collaborateurs: allCollabs.filter(c => fCollabIds.includes(c.id)),
       }));
       setShowCollabModal(false);
     } catch { alert("Erreur lors de la mise à jour des collaborateurs."); }
@@ -578,10 +485,11 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     } catch { alert("Impossible de supprimer le profil."); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // LIGNES — /api/projet/backlog-lines
-  // ═══════════════════════════════════════════════════════════════════════
-  const openAddLine  = () => {
+  // ══════════════════════════════════════════════════════════════════════
+  // LIGNES
+  // ══════════════════════════════════════════════════════════════════════
+
+  const openAddLine = () => {
     setEditLine(null);
     setFLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null });
     setShowLineModal(true);
@@ -591,11 +499,10 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     setEditLine(l);
     const phaseId = (l as any).phaseId ?? null;
     const lot = getLotByPhaseId(phaseId);
-    const sprintId = (l as any).sprintId ?? null;
     setFLine({
       epic: l.epic ?? "", userStory: l.userStory ?? "",
       description: l.description ?? "", resultat: l.resultat ?? "",
-      lotId: lot?.id ?? null, phaseId, sprintId,
+      lotId: lot?.id ?? null, phaseId, sprintId: (l as any).sprintId ?? null,
     });
     setShowLineModal(true);
   };
@@ -604,13 +511,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     if (!fLine.phaseId) { alert("Veuillez sélectionner une phase."); return; }
     setSaving(true);
     try {
-      const payload = {
-        epic: fLine.epic, userStory: fLine.userStory,
-        description: fLine.description, resultat: fLine.resultat,
-        phaseId: fLine.phaseId,
-        sprintId: fLine.sprintId, 
-      };
-      console.log("Payload ligne à sauvegarder:", payload);
+      const payload = { epic: fLine.epic, userStory: fLine.userStory, description: fLine.description, resultat: fLine.resultat, phaseId: fLine.phaseId, sprintId: fLine.sprintId };
       if (editLine) {
         const updated = await svc.line.update(editLine.id, { ...payload, order: editLine.order });
         setLines(prev => prev.map(l => l.id === editLine.id ? { ...l, ...updated } : l));
@@ -633,24 +534,20 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       setLines(updated);
       setLineProfils(prev => prev.filter(lp => lp.lineId !== id));
       setColValues(prev => { const m = new Map(prev); m.delete(id); return m; });
-      // PATCH /api/projet/backlog-lines/{id}/order (en batch via le service)
       if (updated.length) await svc.line.updateOrder(updated.map(l => ({ id: l.id, order: l.order })));
     } catch { alert("Impossible de supprimer la ligne."); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // VOLUMES — /api/projet/backlog-line-profils
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // VOLUMES
+  // ══════════════════════════════════════════════════════════════════════
 
   const openVolModal = (lineId: number, profilId: number) => {
-    setCtxLineId(lineId);
-    setCtxProfilId(profilId);
-    const existing = lineProfils.find(
-      lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId
-    );
+    setCtxLineId(lineId); setCtxProfilId(profilId);
+    const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
     setEditLineProfil(existing ?? null);
     setFVolume(existing?.volume ?? 0);
-    setFCollabId((existing as any)?.collaborateur?.id ?? null); // ← ajout
+    setFCollabId((existing as any)?.collaborateur?.id ?? null);
     setShowVolModal(true);
   };
 
@@ -659,20 +556,10 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     setSaving(true);
     try {
       if (editLineProfil) {
-        const updated = await svc.lineProfil.update(editLineProfil.id, {
-          volume: fVolume,
-          lineId: ctxLineId,
-          profilId: ctxProfilId,
-          collaborateurId: fCollabId, // ← ajout
-        });
+        const updated = await svc.lineProfil.update(editLineProfil.id, { volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId, collaborateurId: fCollabId });
         setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
       } else {
-        const created = await svc.lineProfil.create({
-          volume: fVolume,
-          lineId: ctxLineId,
-          profilId: ctxProfilId,
-          collaborateurId: fCollabId, // ← ajout
-        });
+        const created = await svc.lineProfil.create({ volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId, collaborateurId: fCollabId });
         setLineProfils(prev => [...prev, created]);
       }
       setShowVolModal(false);
@@ -690,9 +577,9 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     finally { setCtxLineId(null); setCtxProfilId(null); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // COLONNES — /api/projet/backlog-columns
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // COLONNES
+  // ══════════════════════════════════════════════════════════════════════
 
   const openAddCol  = (sprintId: number) => { setCtxSprintId(sprintId); setEditCol(null); setFCol({ name: "", type: "TEXT" }); setShowColModal(true); };
   const openEditCol = (col: BacklogColumn) => { setCtxSprintId(col.sprintId); setEditCol(col); setFCol({ name: col.name, type: col.type }); setShowColModal(true); };
@@ -715,28 +602,28 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     if (!editCell) return;
     setSaving(true);
     try {
-      // PUT /api/projet/backlog-columns/values
       const saved = await svc.column.upsertValue({ value: fCellVal, lineId: editCell.lineId, columnId: editCell.columnId });
       setColValues(prev => {
         const m = new Map(prev);
         const vals = (m.get(editCell.lineId) ?? []).filter(v => (v.column as any)?.id !== editCell.columnId);
-        m.set(editCell.lineId, [...vals, saved]);
-        return m;
+        m.set(editCell.lineId, [...vals, saved]); return m;
       });
       setShowCellModal(false);
     } catch { alert("Erreur lors de la sauvegarde de la valeur."); }
     finally { setSaving(false); }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // SORTABLE
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // SORTABLE — LIGNES (une <tr> par ligne → drag fonctionne)
+  // ══════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
     if (!show || !lines.length || !lineBodyRef.current) return;
-    lineSortable.current?.destroy();
     lineSortable.current = Sortable.create(lineBodyRef.current, {
-      animation: 150, handle: ".drag-line", ghostClass: "sortable-ghost", filter: ".empty-row",
+      animation: 150,
+      handle: ".drag-line",
+      ghostClass: "sortable-ghost",
+      filter: ".empty-row",
       onEnd: async ({ oldIndex, newIndex }) => {
         if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
         const next = [...lines];
@@ -744,54 +631,61 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         next.splice(newIndex, 0, m);
         const reordered = next.map((l, i) => ({ ...l, order: i + 1 }));
         setLines(reordered);
-        // PATCH /api/projet/backlog-lines/{id}/order (en batch)
         try { await svc.line.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); } catch {}
       },
     });
-    return () => lineSortable.current?.destroy();
+    return () => { lineSortable.current?.destroy(); lineSortable.current = null; };
   }, [lines, show]);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SORTABLE — LOTS
+  // ══════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
     if (!show || !lots.length || !lotsRef.current) return;
-    lotSortable.current?.destroy();
     lotSortable.current = Sortable.create(lotsRef.current, {
-      animation: 150, handle: ".drag-lot", ghostClass: "sortable-ghost",
+      animation: 150,
+      handle: ".drag-lot",
+      ghostClass: "sortable-ghost",
       onEnd: async ({ oldIndex, newIndex }) => {
-        if (oldIndex === undefined || newIndex === undefined) return;
+        if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
         const next = [...lots];
         const [m] = next.splice(oldIndex, 1);
         next.splice(newIndex, 0, m);
         const reordered = next.map((l, i) => ({ ...l, order: i + 1 }));
         setLots(reordered);
-        // PATCH /api/projet/backlog-lots/reorder
         try { await svc.lot.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); } catch {}
       },
     });
-    return () => lotSortable.current?.destroy();
+    return () => { lotSortable.current?.destroy(); lotSortable.current = null; };
   }, [lots, show]);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SORTABLE — PROFILS
+  // ══════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
     if (!show || !profils.length || !profilsRef.current) return;
-    profilSortable.current?.destroy();
     profilSortable.current = Sortable.create(profilsRef.current, {
-      animation: 150, handle: ".drag-profil", ghostClass: "sortable-ghost",
+      animation: 150,
+      handle: ".drag-profil",
+      ghostClass: "sortable-ghost",
       onEnd: async ({ oldIndex, newIndex }) => {
-        if (oldIndex === undefined || newIndex === undefined) return;
+        if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
         const next = [...profils];
         const [m] = next.splice(oldIndex, 1);
         next.splice(newIndex, 0, m);
         const reordered = next.map((p, i) => ({ ...p, order: i + 1 }));
         setProfils(reordered);
-        // PUT /api/projet/backlog-profils/{id} unitaire via updateOrder
         try { await svc.profil.updateOrder(reordered.map(p => ({ id: p.id, order: p.order }))); } catch {}
       },
     });
-    return () => profilSortable.current?.destroy();
+    return () => { profilSortable.current?.destroy(); profilSortable.current = null; };
   }, [profils, show]);
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
   // TOTAUX
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
 
   const profilTotals = profils.map(p => {
     const vol = lineProfils.filter(lp => (lp.profil as any)?.id === p.id).reduce((s, lp) => s + lp.volume, 0);
@@ -800,9 +694,9 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const grandTotalVol = profilTotals.reduce((s, t) => s + t.vol, 0);
   const grandTotalAmt = profilTotals.reduce((s, t) => s + t.amount, 0);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // RENDU — Écran de création si pas de backlog existant
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // RENDU — écran création
+  // ══════════════════════════════════════════════════════════════════════
 
   if (showCreate) {
     return (
@@ -822,9 +716,9 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
   // RENDU PRINCIPAL
-  // ═══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
 
   return (
     <>
@@ -835,11 +729,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
 
         <Modal.Body style={{ backgroundColor: "#f8f9fa" }}>
           <div className="container-fluid">
-            {error && (
-              <Alert variant="danger" onClose={() => setError(null)} dismissible>
-                {error}
-              </Alert>
-            )}
+            {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
             {loading && (
               <div className="text-center py-5">
                 <FaSpinner className="fa-spin me-2" size={24} />
@@ -869,76 +759,89 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                             <th className="text-end">Montant</th>
                           </tr>
                         </thead>
-                          <tbody>
-                            {profilTotals.map(({ profil, vol, amount }) => {
-                              // Collecter tous les collaborateurs distincts assignés à ce profil
-                              const assignes = lineProfils
-                                .filter(lp => (lp.profil as any)?.id === profil.id && (lp as any)?.collaborateur)
-                                .map(lp => (lp as any).collaborateur)
-                                .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i); // déduplique
-
-                              return (
-                                <tr key={profil.id}>
-                                  <td>
-                                    <strong>{profil.name}</strong>
-                                    {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
-                                    {/* ← NOUVEAU : collaborateurs assignés */}
-                                    {assignes.length > 0 && (
-                                      <div className="mt-1 d-flex flex-wrap gap-1">
-                                        {assignes.map((c: any) => (
-                                          <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>
-                                            {c.nom} {c.prenom}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="text-end">{vol.toFixed(2)}</td>
-                                  <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
-                                  <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
+                        <tbody>
+                          {profilTotals.map(({ profil, vol, amount }) => {
+                            const assignes = lineProfils
+                              .filter(lp => (lp.profil as any)?.id === profil.id && (lp as any)?.collaborateur)
+                              .map(lp => (lp as any).collaborateur)
+                              .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
+                            return (
+                              <tr key={profil.id}>
+                                <td>
+                                  <strong>{profil.name}</strong>
+                                  {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
+                                  {assignes.length > 0 && (
+                                    <div className="mt-1 d-flex flex-wrap gap-1">
+                                      {assignes.map((c: any) => (
+                                        <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>
+                                          {c.nom} {c.prenom}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="text-end">{vol.toFixed(2)}</td>
+                                <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
+                                <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
                         <tfoot className="table-active">
                           <tr>
                             <td><strong>TOTAL</strong></td>
                             <td className="text-end fw-bold">{grandTotalVol.toFixed(2)}</td>
                             <td />
                             <td className="text-end fw-bold text-primary">{grandTotalAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                            <td />
                           </tr>
                         </tfoot>
                       </table>
                     </div>
                   </div>
 
-                  {/* Tableau des lignes */}
+                  {/* ── Tableau des lignes : UNE <tr> par BacklogLine ── */}
                   <div className="table-responsive shadow-sm rounded">
                     <table className="table table-bordered table-hover align-middle mb-0">
                       <thead className="table-dark">
                         <tr>
+                          {/* Poignée drag */}
                           <th style={{ width: 32 }} />
                           <th style={{ width: 40 }}>#</th>
-                          <th>Lot / Phase / Sprint</th>
+                          <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
                           <th>Epic</th>
                           <th>User Story</th>
                           <th>Description</th>
                           <th>Détails</th>
-                          <th>Profil / Assigné</th>
-                          <th className="text-center">JH</th>
-                          <th>Statut</th>
+                          {/* Une colonne par profil avec collaborateurs */}
+                          {profils.map(p => (
+                            <th key={p.id} className="text-center" style={{ minWidth: 110 }}>
+                              <div className="fw-bold">{p.name}</div>
+                              {p.collaborateurs.length > 0 && (
+                                <div className="d-flex flex-column gap-1 mt-1">
+                                  {p.collaborateurs.map((c: any) => (
+                                    <span
+                                      key={c.id}
+                                      className="badge bg-info text-dark fw-normal"
+                                      style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}
+                                    >
+                                      {c.prenom} {c.nom}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </th>
+                          ))}
                           <th style={{ width: 90 }} />
                         </tr>
                       </thead>
                       <tbody ref={lineBodyRef}>
                         {lines.length === 0 ? (
                           <tr className="empty-row">
-                            <td colSpan={11} className="text-center text-muted fst-italic py-4">
+                            <td colSpan={7 + profils.length + 1} className="text-center text-muted fst-italic py-4">
                               Aucune ligne — cliquez sur « Ajouter une ligne »
                             </td>
                           </tr>
-                        ) : lines.flatMap(line => {
+                        ) : lines.map(line => {
                           const lot        = getLotByPhaseId((line as any).phaseId);
                           const phaseName  = getPhaseNameById((line as any).phaseId);
                           const sprintId   = (line as any).sprintId;
@@ -946,105 +849,89 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                             ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null
                             : null;
 
-                          const rows = profils.map((p, pi) => {
-                            const lp     = getLineProfil(line.id, p.id);
-                            const vol    = lp?.volume ?? 0;
-                            const collab = (lp as any)?.collaborateur;
+                          return (
+                            <tr key={line.id}>
+                              {/* Poignée drag */}
+                              <td
+                                className="drag-line text-center text-muted"
+                                style={{ cursor: "grab", userSelect: "none" }}
+                                title="Glisser pour réordonner"
+                              >
+                                ⋮⋮
+                              </td>
 
-                            return (
-                              <tr key={`${line.id}-${p.id}`} style={pi > 0 ? { borderTop: "none" } : undefined}>
-                                  {pi === 0 ? (
-                                    <>
-                                      <td className="drag-line text-center text-muted" rowSpan={profils.length} style={{ cursor: "grab" }}>⋮⋮</td>
-                                      <td className="text-center text-muted" rowSpan={profils.length}>{line.order}</td>
+                              {/* Ordre */}
+                              <td className="text-center text-muted">{line.order}</td>
 
-                                      {/* ── Lot / Phase / Sprint déroulable ── */}
-                                      <td className="text-nowrap" rowSpan={profils.length} style={{ minWidth: 180 }}>
-                                        <div
-                                          className="d-flex align-items-center gap-1"
-                                          style={{ cursor: "pointer" }}
-                                          onClick={() => toggleLine(line.id)}
-                                        >
-                                          <span className="text-muted" style={{ fontSize: "0.7rem" }}>
-                                            {expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                          </span>
-                                          <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>
-                                            {lot?.name ?? "—"}
-                                          </span>
-                                        </div>
-
-                                        {expandedLines.has(line.id) && (
-                                          <div className="ms-3 mt-1" style={{ fontSize: "0.8rem", lineHeight: 1.6 }}>
-                                            <div>
-                                              <span className="text-muted">Phase :</span>{" "}
-                                              <span className="fw-semibold">{phaseName}</span>
-                                            </div>
-                                            {sprintName && (
-                                              <div>
-                                                <span className="text-muted">Sprint :</span>{" "}
-                                                <span className="fw-semibold">{sprintName}</span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        )}
-                                      </td>
-
-                                      <td rowSpan={profils.length}>{line.epic ?? "—"}</td>
-                                      <td rowSpan={profils.length}>{line.userStory ?? "—"}</td>
-                                      <td rowSpan={profils.length}>{line.description ?? "—"}</td>
-                                      <td rowSpan={profils.length}>{line.resultat ?? "—"}</td>
-                                    </>
-                                  ) : null}
-
-                                {/* Profil + collaborateur assigné à cette ligne uniquement */}
-                                <td>
-                                  <div className="fw-semibold small">{p.name}</div>
-                                  {collab && (
-                                    <small className="text-muted d-block" style={{ fontSize: "0.72rem", lineHeight: 1.2 }}>
-                                      {collab.nom} {collab.prenom}
-                                    </small>
-                                  )}
-                                </td>
-
-                                <td
-                                  className="text-center"
+                              {/* Lot / Phase / Sprint déroulable */}
+                              <td className="text-nowrap">
+                                <div
+                                  className="d-flex align-items-center gap-1"
                                   style={{ cursor: "pointer" }}
-                                  onClick={() => openVolModal(line.id, p.id)}
+                                  onClick={() => toggleLine(line.id)}
                                 >
-                                  {vol > 0
-                                    ? <span className="badge bg-primary">{vol}</span>
-                                    : <span className="text-muted">—</span>}
-                                </td>
-
-                                <td>
-                                  <Form.Select
-                                    size="sm"
-                                    defaultValue=""
-                                    disabled={!lp}
-                                    style={{ minWidth: 120, opacity: lp ? 1 : 0.4 }}
-                                  >
-                                    <option value="">—</option>
-                                    <option value="TODO">À faire</option>
-                                    <option value="IN_PROGRESS">En cours</option>
-                                    <option value="DONE">Terminé</option>
-                                    <option value="BLOCKED">Bloqué</option>
-                                  </Form.Select>
-                                </td>
-
-                                {pi === 0 ? (
-                                  <td rowSpan={profils.length}>
-                                    <div className="d-flex gap-1 justify-content-center">
-                                      <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLine(line)}><FaEdit /></button>
-                                      <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteLine(line.id)}><FaTrash /></button>
+                                  <span className="text-muted" style={{ fontSize: "0.7rem" }}>
+                                    {expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                  </span>
+                                  <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>
+                                    {lot?.name ?? "—"}
+                                  </span>
+                                </div>
+                                {expandedLines.has(line.id) && (
+                                  <div className="ms-3 mt-1" style={{ fontSize: "0.8rem", lineHeight: 1.6 }}>
+                                    <div>
+                                      <span className="text-muted">Phase :</span>{" "}
+                                      <span className="fw-semibold">{phaseName}</span>
                                     </div>
+                                    {sprintName && (
+                                      <div>
+                                        <span className="text-muted">Sprint :</span>{" "}
+                                        <span className="fw-semibold">{sprintName}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Champs texte */}
+                              <td>{line.epic ?? "—"}</td>
+                              <td>{line.userStory ?? "—"}</td>
+                              <td>{line.description ?? "—"}</td>
+                              <td>{line.resultat ?? "—"}</td>
+
+                              {/* Une cellule cliquable par profil */}
+                              {profils.map(p => {
+                                const lp     = getLineProfil(line.id, p.id);
+                                const vol    = lp?.volume ?? 0;
+                                const collab = (lp as any)?.collaborateur;
+                                return (
+                                  <td
+                                    key={p.id}
+                                    className="text-center"
+                                    style={{ cursor: "pointer" }}
+                                    onClick={() => openVolModal(line.id, p.id)}
+                                  >
+                                    {vol > 0
+                                      ? <span className="badge bg-primary">{vol}</span>
+                                      : <span className="text-muted small">—</span>}
+                                    {collab && (
+                                      <small className="d-block text-muted" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>
+                                        {collab.nom} {collab.prenom}
+                                      </small>
+                                    )}
                                   </td>
-                                ) : null}
+                                );
+                              })}
 
-                              </tr>
-                            );
-                          });
-
-                          return rows;
+                              {/* Actions */}
+                              <td>
+                                <div className="d-flex gap-1 justify-content-center">
+                                  <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLine(line)}><FaEdit /></button>
+                                  <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteLine(line.id)}><FaTrash /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
                         })}
                       </tbody>
                     </table>
@@ -1056,125 +943,161 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                   <div className="d-flex justify-content-end mb-3">
                     <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
                   </div>
+
+                  {/* Conteneur sortable des LOTS */}
                   <div ref={lotsRef}>
                     {lots.length === 0
                       ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
                       : lots.map(lot => (
                         <div key={lot.id} className="card mb-3 shadow-sm">
                           <div className="card-header d-flex align-items-center gap-2">
-                            <span className="drag-lot text-muted" style={{ cursor: "grab" }}>⋮⋮</span>
+                            {/* Poignée drag LOT */}
+                            <span
+                              className="drag-lot text-muted"
+                              style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}
+                              title="Glisser pour réordonner les lots"
+                            >⋮⋮</span>
                             <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
                             {lot.desc && <small className="text-muted me-2">{lot.desc}</small>}
                             <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
                             <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
                           </div>
+
                           <div className="card-body pt-2 pb-3">
                             <div className="d-flex justify-content-between align-items-center mb-2">
                               <span className="text-muted small fw-semibold">Phases</span>
                               <Button label="+ Phase" variant="secondary" onClick={() => openAddPhase(lot.id)} />
                             </div>
-                            {((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
-                              const phaseSprints = sprints.get(phase.id) ?? [];
-                              const phaseDeliv   = deliverables.get(phase.id) ?? [];
-                              const expanded     = expandedPhases.has(phase.id);
-                              return (
-                                <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
-                                  <div className="d-flex align-items-center gap-2 p-2">
-                                    <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>
-                                      {expanded ? <FaChevronDown /> : <FaChevronRight />}
-                                    </span>
-                                    <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>
-                                      {phase.order}. {phase.name}
-                                    </span>
-                                    <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
-                                    <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
-                                    <button className="btn btn-sm btn-warning"               onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
-                                    <button className="btn btn-sm btn-success ms-1"          onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
-                                    <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
-                                    <button className="btn btn-sm btn-outline-danger ms-1"   onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
-                                  </div>
 
-                                  {expanded && (
-                                    <div className="px-3 pb-2">
-                                      {phaseSprints.map(sprint => {
-                                        const sprintCols  = columns.get(sprint.id) ?? [];
-                                        const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
-                                        const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
-                                        return (
-                                          <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
-                                            <div className="d-flex align-items-center gap-2">
-                                              <span className="text-muted" style={{ cursor: "grab" }}>⋮⋮</span>
-                                              <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
-                                              {sprint.dateDebut && sprint.dateFin && (
-                                                <small className="text-muted">
-                                                  {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
-                                                </small>
-                                              )}
-                                              <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
-                                                {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
-                                              </button>
-                                              <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
-                                              <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
-                                            </div>
+                            {/* Conteneur sortable des PHASES du lot */}
+                            <div data-phases-lot-id={lot.id}>
+                              {((lot.phases ?? []) as BacklogPhase[])
+                                .sort((a, b) => a.order - b.order)
+                                .map(phase => {
+                                  const phaseSprints = sprints.get(phase.id) ?? [];
+                                  const phaseDeliv   = deliverables.get(phase.id) ?? [];
+                                  const expanded     = expandedPhases.has(phase.id);
 
-                                            {spExpanded && (
-                                              <div className="mt-2 ms-3">
-                                                {sprintCols.length > 0 && (
-                                                  <div className="mb-2">
-                                                    <strong className="small text-secondary">Colonnes :</strong>
-                                                    <div className="d-flex flex-wrap gap-1 mt-1">
-                                                      {sprintCols.map(col => (
-                                                        <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
-                                                          {col.name} <em className="text-light opacity-75 small">({col.type})</em>
-                                                          <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
-                                                          <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
-                                                        </span>
-                                                      ))}
-                                                    </div>
+                                  return (
+                                    <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
+                                      <div className="d-flex align-items-center gap-2 p-2">
+                                        {/* Poignée drag PHASE */}
+                                        <span
+                                          className="drag-phase text-muted"
+                                          style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}
+                                          title="Glisser pour réordonner les phases"
+                                        >⋮⋮</span>
+
+                                        <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>
+                                          {expanded ? <FaChevronDown /> : <FaChevronRight />}
+                                        </span>
+                                        <span
+                                          className="fw-semibold flex-grow-1"
+                                          style={{ cursor: "pointer" }}
+                                          onClick={() => togglePhase(phase.id)}
+                                        >
+                                          {phase.order}. {phase.name}
+                                        </span>
+                                        <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
+                                        <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
+                                        <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
+                                        <button className="btn btn-sm btn-success ms-1"           onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
+                                        <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
+                                        <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
+                                      </div>
+
+                                      {expanded && (
+                                        <div className="px-3 pb-2">
+                                          {/* Conteneur sortable des SPRINTS de la phase */}
+                                          <div data-sprints-phase-id={phase.id}>
+                                            {phaseSprints.map(sprint => {
+                                              const sprintCols  = columns.get(sprint.id) ?? [];
+                                              const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
+                                              const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
+
+                                              return (
+                                                <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
+                                                  <div className="d-flex align-items-center gap-2">
+                                                    {/* Poignée drag SPRINT */}
+                                                    <span
+                                                      className="drag-sprint text-muted"
+                                                      style={{ cursor: "grab", userSelect: "none" }}
+                                                      title="Glisser pour réordonner les sprints"
+                                                    >⋮⋮</span>
+
+                                                    <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
+                                                    {sprint.dateDebut && sprint.dateFin && (
+                                                      <small className="text-muted">
+                                                        {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
+                                                      </small>
+                                                    )}
+                                                    <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
+                                                      {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
+                                                    </button>
+                                                    <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
+                                                    <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
                                                   </div>
-                                                )}
-                                                {sprintDeliv.length > 0
-                                                  ? sprintDeliv.map(d => (
-                                                    <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
-                                                      <span>
-                                                        <strong>{d.name}</strong>
-                                                        {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
-                                                      </span>
-                                                      <div className="d-flex gap-1">
-                                                        <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                                        <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
-                                                      </div>
+
+                                                  {spExpanded && (
+                                                    <div className="mt-2 ms-3">
+                                                      {sprintCols.length > 0 && (
+                                                        <div className="mb-2">
+                                                          <strong className="small text-secondary">Colonnes :</strong>
+                                                          <div className="d-flex flex-wrap gap-1 mt-1">
+                                                            {sprintCols.map(col => (
+                                                              <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
+                                                                {col.name} <em className="text-light opacity-75 small">({col.type})</em>
+                                                                <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
+                                                                <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
+                                                              </span>
+                                                            ))}
+                                                          </div>
+                                                        </div>
+                                                      )}
+                                                      {sprintDeliv.length > 0
+                                                        ? sprintDeliv.map(d => (
+                                                          <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
+                                                            <span>
+                                                              <strong>{d.name}</strong>
+                                                              {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                                            </span>
+                                                            <div className="d-flex gap-1">
+                                                              <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                                              <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
+                                                            </div>
+                                                          </div>
+                                                        ))
+                                                        : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
                                                     </div>
-                                                  ))
-                                                  : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+
+                                          {/* Livrables hors sprint */}
+                                          {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
+                                            <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
+                                              <span>
+                                                <strong>{d.name}</strong>
+                                                {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                              </span>
+                                              <div className="d-flex gap-1">
+                                                <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                                <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                               </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
+                                            </div>
+                                          ))}
 
-                                      {/* Livrables hors sprint */}
-                                      {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
-                                        <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
-                                          <span>
-                                            <strong>{d.name}</strong>
-                                            {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
-                                          </span>
-                                          <div className="d-flex gap-1">
-                                            <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                            <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
-                                          </div>
+                                          {phaseSprints.length === 0 && phaseDeliv.length === 0 && (
+                                            <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>
+                                          )}
                                         </div>
-                                      ))}
-
-                                      {phaseSprints.length === 0 && phaseDeliv.length === 0 && (
-                                        <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>
                                       )}
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                  );
+                                })}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1192,7 +1115,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                       : profils.map(profil => (
                         <div key={profil.id} className="card mb-2 shadow-sm">
                           <div className="card-body d-flex align-items-start gap-3 py-2">
-                            <span className="drag-profil text-muted mt-1" style={{ cursor: "grab" }}>⋮⋮</span>
+                            <span className="drag-profil text-muted mt-1" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
                             <div className="flex-grow-1">
                               <div className="fw-bold">{profil.order}. {profil.name}</div>
                               {profil.desc && <small className="text-muted">{profil.desc}</small>}
@@ -1257,7 +1180,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* ═══════════════════════ MODAUX ════════════════════════════════════ */}
+      {/* ══════════════════════════ MODAUX ══════════════════════════════ */}
 
       {/* LOT */}
       <Modal show={showLotModal} onHide={() => !saving && setShowLotModal(false)} centered>
@@ -1395,9 +1318,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
           <Modal.Title><FaUsers className="me-2" />Collaborateurs — {collabProfil?.name}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="text-muted small mb-2">
-            Cochez les collaborateurs correspondant à ce profil.
-          </p>
+          <p className="text-muted small mb-2">Cochez les collaborateurs correspondant à ce profil.</p>
           <div className="border rounded p-2" style={{ maxHeight: 360, overflowY: "auto" }}>
             {allCollabs.length === 0
               ? <div className="text-muted fst-italic small">Aucun collaborateur disponible.</div>
@@ -1414,9 +1335,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                     </span>
                   }
                   checked={fCollabIds.includes(c.id)}
-                  onChange={e => setFCollabIds(prev =>
-                    e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id)
-                  )}
+                  onChange={e => setFCollabIds(prev => e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id))}
                   className="mb-2"
                   disabled={saving}
                 />
@@ -1436,59 +1355,40 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Header>
         <Modal.Body>
           <Form>
-            {/* ── Lot ── */}
             <Form.Group className="mb-3">
               <Form.Label>Lot *</Form.Label>
               <Form.Select
                 value={fLine.lotId ?? ""}
-                onChange={e => setFLine(f => ({
-                  ...f,
-                  lotId: e.target.value ? +e.target.value : null,
-                  phaseId: null,
-                  sprintId: null,
-                }))}
+                onChange={e => setFLine(f => ({ ...f, lotId: e.target.value ? +e.target.value : null, phaseId: null, sprintId: null }))}
                 disabled={saving}
               >
                 <option value="">— Sélectionner un lot —</option>
-                {lots.map(l => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
+                {lots.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </Form.Select>
             </Form.Group>
 
-            {/* ── Phase (filtrée par lot) ── */}
             {fLine.lotId && (
               <Form.Group className="mb-3">
                 <Form.Label>Phase *</Form.Label>
                 <Form.Select
                   value={fLine.phaseId ?? ""}
-                  onChange={e => setFLine(f => ({
-                    ...f,
-                    phaseId: e.target.value ? +e.target.value : null,
-                    sprintId: null,
-                  }))}
+                  onChange={e => setFLine(f => ({ ...f, phaseId: e.target.value ? +e.target.value : null, sprintId: null }))}
                   disabled={saving}
                 >
                   <option value="">— Sélectionner une phase —</option>
                   {((lots.find(l => l.id === fLine.lotId)?.phases ?? []) as BacklogPhase[])
                     .sort((a, b) => a.order - b.order)
-                    .map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
+                    .map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </Form.Select>
               </Form.Group>
             )}
 
-            {/* ── Sprint (filtré par phase, optionnel) ── */}
             {fLine.phaseId && (sprints.get(fLine.phaseId) ?? []).length > 0 && (
               <Form.Group className="mb-3">
                 <Form.Label>Sprint <small className="text-muted">(optionnel)</small></Form.Label>
                 <Form.Select
                   value={fLine.sprintId ?? ""}
-                  onChange={e => setFLine(f => ({
-                    ...f,
-                    sprintId: e.target.value ? +e.target.value : null,
-                  }))}
+                  onChange={e => setFLine(f => ({ ...f, sprintId: e.target.value ? +e.target.value : null }))}
                   disabled={saving}
                 >
                   <option value="">— Sans sprint —</option>
@@ -1532,66 +1432,74 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       {/* VOLUME JH */}
       <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>
-            Volume JH — {currentProfil?.name ?? "Profil"}
-          </Modal.Title>
+          <Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title>
         </Modal.Header>
-
         <Modal.Body>
           <Form.Group className="mb-3">
             <Form.Label>Jours-Homme *</Form.Label>
             <Form.Control
-              type="number"
-              step="0.5"
-              min="0"
-              value={fVolume}
-              onChange={e => setFVolume(+e.target.value || 0)}
-              disabled={saving}
-              autoFocus
+              type="number" step="0.5" min="0" value={fVolume}
+              onChange={e => setFVolume(+e.target.value || 0)} disabled={saving} autoFocus
             />
           </Form.Group>
 
-          {/* ← NOUVEAU : sélection collaborateur si le profil en a */}
           {currentProfil && (currentProfil.collaborateurs?.length ?? 0) > 0 && (
             <Form.Group className="mb-3">
               <Form.Label>Collaborateur assigné</Form.Label>
-              <Form.Select
-                value={fCollabId ?? ""}
-                onChange={e => setFCollabId(e.target.value ? +e.target.value : null)}
-                disabled={saving}
-              >
-                <option value="">— Non assigné —</option>
-                {currentProfil.collaborateurs!.map((c: any) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} {c.prenom}{c.appellation ? ` (${c.appellation})` : ""}
-                  </option>
-                ))}
-              </Form.Select>
+              {(() => {
+                const assigned = currentProfil.collaborateurs!.find((c: any) => c.id === fCollabId);
+                return assigned ? (
+                  <div
+                    className="d-flex align-items-center justify-content-between border rounded px-3 py-2"
+                    style={{ backgroundColor: "#f0f9ff", borderColor: "#90cdf4" }}
+                  >
+                    <div>
+                      <span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>
+                      {assigned.appellation && (
+                        <small className="text-muted ms-2">({assigned.appellation})</small>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-link text-danger p-0"
+                      onClick={() => setFCollabId(null)}
+                      disabled={saving}
+                      title="Retirer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="d-flex flex-wrap gap-2 border rounded p-2" style={{ backgroundColor: "#fafafa" }}>
+                    {currentProfil.collaborateurs!.map((c: any) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={() => setFCollabId(c.id)}
+                        disabled={saving}
+                      >
+                        {c.prenom} {c.nom}
+                        {c.appellation && <small className="text-muted ms-1">({c.appellation})</small>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </Form.Group>
           )}
 
           {currentProfil && (
             <div className="text-muted small">
-              TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}
-              <br />
-              Montant estimé :{" "}
-              {(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", {
-                maximumFractionDigits: 0,
-              })}{" "}
-              {deviseAbr}
+              TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />
+              Montant estimé : {(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}
             </div>
           )}
         </Modal.Body>
-
         <Modal.Footer>
-          {editLineProfil && (
-            <Button label="Supprimer" variant="outline" onClick={deleteVolume} />
-          )}
+          {editLineProfil && <Button label="Supprimer" variant="outline" onClick={deleteVolume} />}
           <Button label="Annuler" variant="outline" onClick={() => setShowVolModal(false)} />
-          <Button
-            label={saving ? "…" : editLineProfil ? "Mettre à jour" : "Ajouter"}
-            onClick={saveVolume}
-          />
+          <Button label={saving ? "…" : editLineProfil ? "Mettre à jour" : "Ajouter"} onClick={saveVolume} />
         </Modal.Footer>
       </Modal>
 
