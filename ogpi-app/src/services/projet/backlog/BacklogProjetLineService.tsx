@@ -79,23 +79,26 @@ export class BacklogProjetLineProfilService {
   }
 
   /** POST /projet/backlog-line-profils */
-  async create(payload: {
+    async create(payload: {
     volume: number;
     lineId: number;
     profilId: number;
-  }): Promise<BacklogProjetLineProfil> {
+    collaborateurId?: number | null; // ← ajout
+    }): Promise<BacklogProjetLineProfil> {
     const response = await this.api.post("/projet/backlog-line-profils", payload);
     return response.data;
-  }
+    }
 
   /** PUT /projet/backlog-line-profils/{id} */
-  async update(
-    id: number,
-    payload: { volume: number; lineId: number; profilId: number }
-  ): Promise<BacklogProjetLineProfil> {
+    async update(id: number, payload: {
+    volume: number;
+    lineId: number;
+    profilId: number;
+    collaborateurId?: number | null; // ← ajout
+    }): Promise<BacklogProjetLineProfil> {
     const response = await this.api.put(`/projet/backlog-line-profils/${id}`, payload);
     return response.data;
-  }
+    }
 
   /** DELETE /projet/backlog-line-profils/{id} */
   async delete(id: number): Promise<void> {

@@ -81,7 +81,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [error,       setError]       = useState<string | null>(null);
   const [saving,      setSaving]      = useState(false);
   const [showCreate,  setShowCreate]  = useState(false);
-
   // ── Données hydratées depuis /full ────────────────────────────────────
   const [lots,        setLots]        = useState<BacklogLot[]>([]);
   const [profils,     setProfils]     = useState<ProfilFull[]>([]);
@@ -93,7 +92,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [columns,      setColumns]      = useState<Map<number, BacklogColumn[]>>(new Map());
   const [colValues,    setColValues]    = useState<Map<number, BacklogLineColumnValue[]>>(new Map());
   const [allCollabs,   setAllCollabs]   = useState<any[]>([]);
-
+  const [fCollabId, setFCollabId] = useState<number | null>(null);
   // ── UI ─────────────────────────────────────────────────────────────────
   const [activeTab,       setActiveTab]       = useState("backlog");
   const [expandedPhases,  setExpandedPhases]  = useState<Set<number>>(new Set());
@@ -130,6 +129,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [ctxSprintId, setCtxSprintId] = useState<number | null>(null);
   const [ctxLineId,   setCtxLineId]   = useState<number | null>(null);
   const [ctxProfilId, setCtxProfilId] = useState<number | null>(null);
+  const currentProfil = profils.find(p => p.id === ctxProfilId) ?? null;
 
   // ── Formulaires ────────────────────────────────────────────────────────
   const [fLot,       setFLot]       = useState({ name: "", desc: "" });
@@ -589,10 +589,14 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   // ═══════════════════════════════════════════════════════════════════════
 
   const openVolModal = (lineId: number, profilId: number) => {
-    setCtxLineId(lineId); setCtxProfilId(profilId);
-    const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
+    setCtxLineId(lineId);
+    setCtxProfilId(profilId);
+    const existing = lineProfils.find(
+      lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId
+    );
     setEditLineProfil(existing ?? null);
     setFVolume(existing?.volume ?? 0);
+    setFCollabId((existing as any)?.collaborateur?.id ?? null); // ← ajout
     setShowVolModal(true);
   };
 
@@ -601,10 +605,20 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     setSaving(true);
     try {
       if (editLineProfil) {
-        const updated = await svc.lineProfil.update(editLineProfil.id, { volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId });
+        const updated = await svc.lineProfil.update(editLineProfil.id, {
+          volume: fVolume,
+          lineId: ctxLineId,
+          profilId: ctxProfilId,
+          collaborateurId: fCollabId, // ← ajout
+        });
         setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
       } else {
-        const created = await svc.lineProfil.create({ volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId });
+        const created = await svc.lineProfil.create({
+          volume: fVolume,
+          lineId: ctxLineId,
+          profilId: ctxProfilId,
+          collaborateurId: fCollabId, // ← ajout
+        });
         setLineProfils(prev => [...prev, created]);
       }
       setShowVolModal(false);
@@ -628,24 +642,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
 
   const openAddCol  = (sprintId: number) => { setCtxSprintId(sprintId); setEditCol(null); setFCol({ name: "", type: "TEXT" }); setShowColModal(true); };
   const openEditCol = (col: BacklogColumn) => { setCtxSprintId(col.sprintId); setEditCol(col); setFCol({ name: col.name, type: col.type }); setShowColModal(true); };
-
-  const saveColumn = async () => {
-    if (!fCol.name.trim() || ctxSprintId === null) return;
-    setSaving(true);
-    try {
-      const existing = columns.get(ctxSprintId) ?? [];
-      if (editCol) {
-        const updated = await svc.column.updateColumn(editCol.id, { name: fCol.name, order: editCol.order, type: fCol.type });
-        setColumns(prev => new Map(prev).set(ctxSprintId, existing.map(c => c.id === editCol.id ? updated : c)));
-      } else {
-        const order = Math.max(0, ...existing.map(c => c.order)) + 1;
-        const created = await svc.column.createColumn({ name: fCol.name, order, type: fCol.type, sprintId: ctxSprintId });
-        setColumns(prev => new Map(prev).set(ctxSprintId, [...existing, created]));
-      }
-      setShowColModal(false);
-    } catch { alert("Erreur lors de la sauvegarde de la colonne."); }
-    finally { setSaving(false); setCtxSprintId(null); }
-  };
 
   const deleteColumn = async (col: BacklogColumn) => {
     if (!window.confirm("Supprimer cette colonne ?")) return;
@@ -817,7 +813,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                             <th className="text-end">Volume JH</th>
                             <th className="text-end">TJM</th>
                             <th className="text-end">Montant</th>
-                            <th className="text-center">Collaborateurs</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -830,11 +825,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                               <td className="text-end">{vol.toFixed(2)}</td>
                               <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
                               <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                              <td className="text-center">
-                                {profil.collaborateurs.length > 0
-                                  ? <span className="badge bg-info text-dark"><FaUsers className="me-1" />{profil.collaborateurs.length}</span>
-                                  : <span className="text-muted">—</span>}
-                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -863,20 +853,25 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                           <th>User Story</th>
                           <th>Description</th>
                           <th>Détails</th>
-                          {profils.map(p => (
-                            <th
-                              key={p.id}
-                              className="text-center text-nowrap"
-                              title={p.collaborateurs.map((c: any) => `${c.nom} ${c.prenom}`).join(", ")}
-                            >
-                              {p.name}
-                              {p.collaborateurs.length > 0 && (
-                                <span className="ms-1 badge bg-info text-dark" style={{ fontSize: "0.6rem" }}>
-                                  {p.collaborateurs.length}
-                                </span>
-                              )}
-                            </th>
-                          ))}
+                            {profils.map((p) => (
+                              <th
+                                key={p.id}
+                                className="text-center"
+                                style={{ minWidth: 140 }}
+                              >
+                                <div className="fw-bold">{p.name}</div>
+
+                                {p.collaborateurs.length > 0 && (
+                                  <div className="mt-1" style={{ fontSize: "0.75rem", lineHeight: "1.1" }}>
+                                    {p.collaborateurs.map((c: any, index: number) => (
+                                      <div key={index}>
+                                        {c.nom} {c.prenom}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </th>
+                            ))}
                           <th style={{ width: 90 }} />
                         </tr>
                       </thead>
@@ -993,7 +988,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                                   {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
                                                 </small>
                                               )}
-                                              <button className="btn btn-sm btn-outline-info" title="Colonnes" onClick={() => openAddCol(sprint.id)}><FaColumns /></button>
                                               <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
                                                 {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
                                               </button>
@@ -1362,49 +1356,66 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       {/* VOLUME JH */}
       <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Volume JH — {profils.find(p => p.id === ctxProfilId)?.name ?? "Profil"}</Modal.Title>
+          <Modal.Title>
+            Volume JH — {currentProfil?.name ?? "Profil"}
+          </Modal.Title>
         </Modal.Header>
+
         <Modal.Body>
-          <Form.Group>
+          <Form.Group className="mb-3">
             <Form.Label>Jours-Homme *</Form.Label>
-            <Form.Control type="number" step="0.5" min="0" value={fVolume} onChange={e => setFVolume(+e.target.value || 0)} disabled={saving} autoFocus />
+            <Form.Control
+              type="number"
+              step="0.5"
+              min="0"
+              value={fVolume}
+              onChange={e => setFVolume(+e.target.value || 0)}
+              disabled={saving}
+              autoFocus
+            />
           </Form.Group>
-          {ctxProfilId !== null && (
-            <div className="mt-2 text-muted small">
-              Montant estimé : {(fVolume * (profils.find(p => p.id === ctxProfilId)?.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}
+
+          {/* ← NOUVEAU : sélection collaborateur si le profil en a */}
+          {currentProfil && (currentProfil.collaborateurs?.length ?? 0) > 0 && (
+            <Form.Group className="mb-3">
+              <Form.Label>Collaborateur assigné</Form.Label>
+              <Form.Select
+                value={fCollabId ?? ""}
+                onChange={e => setFCollabId(e.target.value ? +e.target.value : null)}
+                disabled={saving}
+              >
+                <option value="">— Non assigné —</option>
+                {currentProfil.collaborateurs!.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom} {c.prenom}{c.appellation ? ` (${c.appellation})` : ""}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+          )}
+
+          {currentProfil && (
+            <div className="text-muted small">
+              TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}
+              <br />
+              Montant estimé :{" "}
+              {(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", {
+                maximumFractionDigits: 0,
+              })}{" "}
+              {deviseAbr}
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          {editLineProfil && <Button label="Supprimer" variant="outline" onClick={deleteVolume} />}
-          <Button label="Annuler" variant="outline" onClick={() => setShowVolModal(false)} />
-          <Button label={saving ? "…" : editLineProfil ? "Mettre à jour" : "Ajouter"} onClick={saveVolume} />
-        </Modal.Footer>
-      </Modal>
 
-      {/* COLONNE */}
-      <Modal show={showColModal} onHide={() => !saving && setShowColModal(false)} centered>
-        <Modal.Header closeButton><Modal.Title>{editCol ? "Modifier la colonne" : "Nouvelle colonne"}</Modal.Title></Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Nom *</Form.Label>
-              <Form.Control value={fCol.name} onChange={e => setFCol(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>Type</Form.Label>
-              <Form.Select value={fCol.type} onChange={e => setFCol(f => ({ ...f, type: e.target.value as BacklogColumnType }))} disabled={saving}>
-                <option value="TEXT">Texte</option>
-                <option value="NUMBER">Nombre</option>
-                <option value="DATE">Date</option>
-              </Form.Select>
-            </Form.Group>
-          </Form>
-        </Modal.Body>
         <Modal.Footer>
-          {editCol && <Button label="Supprimer" variant="outline" onClick={() => deleteColumn(editCol)} />}
-          <Button label="Annuler" variant="outline" onClick={() => setShowColModal(false)} />
-          <Button label={saving ? "…" : editCol ? "Enregistrer" : "Créer"} onClick={saveColumn} />
+          {editLineProfil && (
+            <Button label="Supprimer" variant="outline" onClick={deleteVolume} />
+          )}
+          <Button label="Annuler" variant="outline" onClick={() => setShowVolModal(false)} />
+          <Button
+            label={saving ? "…" : editLineProfil ? "Mettre à jour" : "Ajouter"}
+            onClick={saveVolume}
+          />
         </Modal.Footer>
       </Modal>
 
