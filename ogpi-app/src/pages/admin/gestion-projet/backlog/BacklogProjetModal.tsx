@@ -131,6 +131,18 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [ctxProfilId, setCtxProfilId] = useState<number | null>(null);
   const currentProfil = profils.find(p => p.id === ctxProfilId) ?? null;
 
+  const getSprintById = (phaseId: number | null, sprintId: number | null) => {
+    if (!phaseId || !sprintId) return null;
+    return (sprints.get(phaseId) ?? []).find(s => s.id === sprintId) ?? null;
+  };
+
+  const [expandedLines, setExpandedLines] = useState<Set<number>>(new Set());
+  const toggleLine = (id: number) =>
+    setExpandedLines(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
   // ── Formulaires ────────────────────────────────────────────────────────
   const [fLot,       setFLot]       = useState({ name: "", desc: "" });
   const [fPhase,     setFPhase]     = useState({ name: "" });
@@ -138,8 +150,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [fDeliv,     setFDeliv]     = useState({ name: "", description: "", deliveryDate: "", sprintId: null as number | null });
   const [fProfil,    setFProfil]    = useState({ name: "", desc: "", tjm: 0 });
   const [fCollabIds, setFCollabIds] = useState<number[]>([]);
-  const [fLine,      setFLine]      = useState({ epic: "", userStory: "", description: "", resultat: "", phaseId: null as number | null });
-  const [fVolume,    setFVolume]    = useState(0);
+  const [fLine, setFLine] = useState({
+    epic: "", userStory: "", description: "", resultat: "",
+    lotId:    null as number | null,
+    phaseId:  null as number | null,
+    sprintId: null as number | null,
+  }); 
+ const [fVolume,    setFVolume]    = useState(0);
   const [fCol,       setFCol]       = useState({ name: "", type: "TEXT" as BacklogColumnType });
   const [fCellVal,   setFCellVal]   = useState("");
 
@@ -168,8 +185,19 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     const dlvMap = new Map<number, BacklogDelivrableProjet[]>();
     for (const lot of sortedLots) {
       for (const phase of (lot.phases ?? []) as any[]) {
-        spMap.set(phase.id,  (phase.sprints      ?? []).sort((a: any, b: any) => a.order - b.order));
-        dlvMap.set(phase.id, (phase.deliverables ?? []).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)));
+        const phaseSprints = (phase.sprints ?? []).sort((a: any, b: any) => a.order - b.order);
+        spMap.set(phase.id, phaseSprints);
+
+        // Livrables : ceux de la phase + ceux dans chaque sprint
+        const phaseDelivs: any[] = (phase.deliverables ?? []);
+        const sprintDelivs: any[] = phaseSprints.flatMap((s: any) =>
+          (s.deliverables ?? []).map((d: any) => ({ ...d, sprintId: d.sprintId ?? s.id }))
+        );
+        // Fusionner en dédupliquant par id
+        const allDelivs = [...phaseDelivs, ...sprintDelivs].filter(
+          (d, i, arr) => arr.findIndex(x => x.id === d.id) === i
+        );
+        dlvMap.set(phase.id, allDelivs.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)));
       }
     }
     setSprints(spMap);
@@ -293,8 +321,12 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const getPhaseNameById = (id: number | null): string =>
     id ? getAllPhases().find(p => p.id === id)?.name ?? "—" : "—";
 
+// Remplacer getVolume par :
+  const getLineProfil = (lineId: number, profilId: number) =>
+  lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId) ?? null;
+
   const getVolume = (lineId: number, profilId: number): number =>
-    lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId)?.volume ?? 0;
+  lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId)?.volume ?? 0;
 
   const togglePhase = (id: number) =>
     setExpandedPhases(prev => {
@@ -549,20 +581,42 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   // ═══════════════════════════════════════════════════════════════════════
   // LIGNES — /api/projet/backlog-lines
   // ═══════════════════════════════════════════════════════════════════════
+  const openAddLine  = () => {
+    setEditLine(null);
+    setFLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null });
+    setShowLineModal(true);
+  };
 
-  const openAddLine  = () => { setEditLine(null); setFLine({ epic: "", userStory: "", description: "", resultat: "", phaseId: null }); setShowLineModal(true); };
-  const openEditLine = (l: BacklogLine) => { setEditLine(l); setFLine({ epic: l.epic ?? "", userStory: l.userStory ?? "", description: l.description ?? "", resultat: l.resultat ?? "", phaseId: (l as any).phaseId ?? null }); setShowLineModal(true); };
+  const openEditLine = (l: BacklogLine) => {
+    setEditLine(l);
+    const phaseId = (l as any).phaseId ?? null;
+    const lot = getLotByPhaseId(phaseId);
+    const sprintId = (l as any).sprintId ?? null;
+    setFLine({
+      epic: l.epic ?? "", userStory: l.userStory ?? "",
+      description: l.description ?? "", resultat: l.resultat ?? "",
+      lotId: lot?.id ?? null, phaseId, sprintId,
+    });
+    setShowLineModal(true);
+  };
 
   const saveLine = async () => {
     if (!fLine.phaseId) { alert("Veuillez sélectionner une phase."); return; }
     setSaving(true);
     try {
+      const payload = {
+        epic: fLine.epic, userStory: fLine.userStory,
+        description: fLine.description, resultat: fLine.resultat,
+        phaseId: fLine.phaseId,
+        sprintId: fLine.sprintId, 
+      };
+      console.log("Payload ligne à sauvegarder:", payload);
       if (editLine) {
-        const updated = await svc.line.update(editLine.id, { ...fLine, phaseId: fLine.phaseId!, order: editLine.order });
+        const updated = await svc.line.update(editLine.id, { ...payload, order: editLine.order });
         setLines(prev => prev.map(l => l.id === editLine.id ? { ...l, ...updated } : l));
       } else {
         const order = Math.max(0, ...lines.map(l => l.order)) + 1;
-        const created = await svc.line.create({ ...fLine, phaseId: fLine.phaseId!, order });
+        const created = await svc.line.create({ ...payload, order });
         setLines(prev => [...prev, created]);
         setColValues(prev => new Map(prev).set(created.id, []));
       }
@@ -815,19 +869,37 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                             <th className="text-end">Montant</th>
                           </tr>
                         </thead>
-                        <tbody>
-                          {profilTotals.map(({ profil, vol, amount }) => (
-                            <tr key={profil.id}>
-                              <td>
-                                <strong>{profil.name}</strong>
-                                {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
-                              </td>
-                              <td className="text-end">{vol.toFixed(2)}</td>
-                              <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
-                              <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                            </tr>
-                          ))}
-                        </tbody>
+                          <tbody>
+                            {profilTotals.map(({ profil, vol, amount }) => {
+                              // Collecter tous les collaborateurs distincts assignés à ce profil
+                              const assignes = lineProfils
+                                .filter(lp => (lp.profil as any)?.id === profil.id && (lp as any)?.collaborateur)
+                                .map(lp => (lp as any).collaborateur)
+                                .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i); // déduplique
+
+                              return (
+                                <tr key={profil.id}>
+                                  <td>
+                                    <strong>{profil.name}</strong>
+                                    {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
+                                    {/* ← NOUVEAU : collaborateurs assignés */}
+                                    {assignes.length > 0 && (
+                                      <div className="mt-1 d-flex flex-wrap gap-1">
+                                        {assignes.map((c: any) => (
+                                          <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>
+                                            {c.nom} {c.prenom}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="text-end">{vol.toFixed(2)}</td>
+                                  <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
+                                  <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
                         <tfoot className="table-active">
                           <tr>
                             <td><strong>TOTAL</strong></td>
@@ -848,82 +920,132 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                         <tr>
                           <th style={{ width: 32 }} />
                           <th style={{ width: 40 }}>#</th>
-                          <th>Lot / Phase</th>
+                          <th>Lot / Phase / Sprint</th>
                           <th>Epic</th>
                           <th>User Story</th>
                           <th>Description</th>
                           <th>Détails</th>
-                            {profils.map((p) => (
-                              <th
-                                key={p.id}
-                                className="text-center"
-                                style={{ minWidth: 140 }}
-                              >
-                                <div className="fw-bold">{p.name}</div>
-
-                                {p.collaborateurs.length > 0 && (
-                                  <div className="mt-1" style={{ fontSize: "0.75rem", lineHeight: "1.1" }}>
-                                    {p.collaborateurs.map((c: any, index: number) => (
-                                      <div key={index}>
-                                        {c.nom} {c.prenom}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </th>
-                            ))}
+                          <th>Profil / Assigné</th>
+                          <th className="text-center">JH</th>
+                          <th>Statut</th>
                           <th style={{ width: 90 }} />
                         </tr>
                       </thead>
                       <tbody ref={lineBodyRef}>
-                        {lines.length === 0
-                          ? (
-                            <tr className="empty-row">
-                              <td colSpan={8 + profils.length} className="text-center text-muted fst-italic py-4">
-                                Aucune ligne — cliquez sur « Ajouter une ligne »
-                              </td>
-                            </tr>
-                          )
-                          : lines.map(line => {
-                              const lot       = getLotByPhaseId((line as any).phaseId);
-                              const phaseName = getPhaseNameById((line as any).phaseId);
-                              return (
-                                <tr key={line.id}>
-                                  <td className="drag-line text-center text-muted" style={{ cursor: "grab" }}>⋮⋮</td>
-                                  <td className="text-center text-muted">{line.order}</td>
-                                  <td className="text-nowrap">
-                                    <small className="text-muted">{lot?.name ?? "—"}</small>
-                                    <br />
-                                    <span>{phaseName}</span>
-                                  </td>
-                                  <td>{line.epic ?? "—"}</td>
-                                  <td>{line.userStory ?? "—"}</td>
-                                  <td>{line.description ?? "—"}</td>
-                                  <td>{line.resultat ?? "—"}</td>
-                                  {profils.map(p => {
-                                    const vol = getVolume(line.id, p.id);
-                                    return (
-                                      <td
-                                        key={p.id}
-                                        className="text-center"
-                                        style={{ cursor: "pointer" }}
-                                        onClick={() => openVolModal(line.id, p.id)}
-                                      >
-                                        {vol > 0
-                                          ? <span className="badge bg-primary">{vol}</span>
-                                          : <span className="text-muted">—</span>}
+                        {lines.length === 0 ? (
+                          <tr className="empty-row">
+                            <td colSpan={11} className="text-center text-muted fst-italic py-4">
+                              Aucune ligne — cliquez sur « Ajouter une ligne »
+                            </td>
+                          </tr>
+                        ) : lines.flatMap(line => {
+                          const lot        = getLotByPhaseId((line as any).phaseId);
+                          const phaseName  = getPhaseNameById((line as any).phaseId);
+                          const sprintId   = (line as any).sprintId;
+                          const sprintName = sprintId
+                            ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null
+                            : null;
+
+                          const rows = profils.map((p, pi) => {
+                            const lp     = getLineProfil(line.id, p.id);
+                            const vol    = lp?.volume ?? 0;
+                            const collab = (lp as any)?.collaborateur;
+
+                            return (
+                              <tr key={`${line.id}-${p.id}`} style={pi > 0 ? { borderTop: "none" } : undefined}>
+                                  {pi === 0 ? (
+                                    <>
+                                      <td className="drag-line text-center text-muted" rowSpan={profils.length} style={{ cursor: "grab" }}>⋮⋮</td>
+                                      <td className="text-center text-muted" rowSpan={profils.length}>{line.order}</td>
+
+                                      {/* ── Lot / Phase / Sprint déroulable ── */}
+                                      <td className="text-nowrap" rowSpan={profils.length} style={{ minWidth: 180 }}>
+                                        <div
+                                          className="d-flex align-items-center gap-1"
+                                          style={{ cursor: "pointer" }}
+                                          onClick={() => toggleLine(line.id)}
+                                        >
+                                          <span className="text-muted" style={{ fontSize: "0.7rem" }}>
+                                            {expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                          </span>
+                                          <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>
+                                            {lot?.name ?? "—"}
+                                          </span>
+                                        </div>
+
+                                        {expandedLines.has(line.id) && (
+                                          <div className="ms-3 mt-1" style={{ fontSize: "0.8rem", lineHeight: 1.6 }}>
+                                            <div>
+                                              <span className="text-muted">Phase :</span>{" "}
+                                              <span className="fw-semibold">{phaseName}</span>
+                                            </div>
+                                            {sprintName && (
+                                              <div>
+                                                <span className="text-muted">Sprint :</span>{" "}
+                                                <span className="fw-semibold">{sprintName}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
                                       </td>
-                                    );
-                                  })}
-                                  <td>
+
+                                      <td rowSpan={profils.length}>{line.epic ?? "—"}</td>
+                                      <td rowSpan={profils.length}>{line.userStory ?? "—"}</td>
+                                      <td rowSpan={profils.length}>{line.description ?? "—"}</td>
+                                      <td rowSpan={profils.length}>{line.resultat ?? "—"}</td>
+                                    </>
+                                  ) : null}
+
+                                {/* Profil + collaborateur assigné à cette ligne uniquement */}
+                                <td>
+                                  <div className="fw-semibold small">{p.name}</div>
+                                  {collab && (
+                                    <small className="text-muted d-block" style={{ fontSize: "0.72rem", lineHeight: 1.2 }}>
+                                      {collab.nom} {collab.prenom}
+                                    </small>
+                                  )}
+                                </td>
+
+                                <td
+                                  className="text-center"
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() => openVolModal(line.id, p.id)}
+                                >
+                                  {vol > 0
+                                    ? <span className="badge bg-primary">{vol}</span>
+                                    : <span className="text-muted">—</span>}
+                                </td>
+
+                                <td>
+                                  <Form.Select
+                                    size="sm"
+                                    defaultValue=""
+                                    disabled={!lp}
+                                    style={{ minWidth: 120, opacity: lp ? 1 : 0.4 }}
+                                  >
+                                    <option value="">—</option>
+                                    <option value="TODO">À faire</option>
+                                    <option value="IN_PROGRESS">En cours</option>
+                                    <option value="DONE">Terminé</option>
+                                    <option value="BLOCKED">Bloqué</option>
+                                  </Form.Select>
+                                </td>
+
+                                {pi === 0 ? (
+                                  <td rowSpan={profils.length}>
                                     <div className="d-flex gap-1 justify-content-center">
                                       <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLine(line)}><FaEdit /></button>
                                       <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteLine(line.id)}><FaTrash /></button>
                                     </div>
                                   </td>
-                                </tr>
-                              );
-                            })}
+                                ) : null}
+
+                              </tr>
+                            );
+                          });
+
+                          return rows;
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1035,7 +1157,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                       {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
                                         <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
                                           <span>
-                                            📦 <strong>{d.name}</strong>
+                                            <strong>{d.name}</strong>
                                             {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
                                           </span>
                                           <div className="d-flex gap-1">
@@ -1309,20 +1431,74 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
 
       {/* LIGNE */}
       <Modal show={showLineModal} onHide={() => !saving && setShowLineModal(false)} centered size="lg">
-        <Modal.Header closeButton><Modal.Title>{editLine ? "Modifier la ligne" : "Nouvelle ligne"}</Modal.Title></Modal.Header>
+        <Modal.Header closeButton>
+          <Modal.Title>{editLine ? "Modifier la ligne" : "Nouvelle ligne"}</Modal.Title>
+        </Modal.Header>
         <Modal.Body>
           <Form>
+            {/* ── Lot ── */}
             <Form.Group className="mb-3">
-              <Form.Label>Phase *</Form.Label>
-              <Form.Select value={fLine.phaseId ?? ""} onChange={e => setFLine(f => ({ ...f, phaseId: e.target.value ? +e.target.value : null }))} disabled={saving}>
-                <option value="">— Sélectionner une phase —</option>
-                {lots.flatMap(lot =>
-                  ((lot.phases ?? []) as BacklogPhase[]).map(p => (
-                    <option key={p.id} value={p.id}>{lot.name} › {p.name}</option>
-                  ))
-                )}
+              <Form.Label>Lot *</Form.Label>
+              <Form.Select
+                value={fLine.lotId ?? ""}
+                onChange={e => setFLine(f => ({
+                  ...f,
+                  lotId: e.target.value ? +e.target.value : null,
+                  phaseId: null,
+                  sprintId: null,
+                }))}
+                disabled={saving}
+              >
+                <option value="">— Sélectionner un lot —</option>
+                {lots.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
               </Form.Select>
             </Form.Group>
+
+            {/* ── Phase (filtrée par lot) ── */}
+            {fLine.lotId && (
+              <Form.Group className="mb-3">
+                <Form.Label>Phase *</Form.Label>
+                <Form.Select
+                  value={fLine.phaseId ?? ""}
+                  onChange={e => setFLine(f => ({
+                    ...f,
+                    phaseId: e.target.value ? +e.target.value : null,
+                    sprintId: null,
+                  }))}
+                  disabled={saving}
+                >
+                  <option value="">— Sélectionner une phase —</option>
+                  {((lots.find(l => l.id === fLine.lotId)?.phases ?? []) as BacklogPhase[])
+                    .sort((a, b) => a.order - b.order)
+                    .map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </Form.Select>
+              </Form.Group>
+            )}
+
+            {/* ── Sprint (filtré par phase, optionnel) ── */}
+            {fLine.phaseId && (sprints.get(fLine.phaseId) ?? []).length > 0 && (
+              <Form.Group className="mb-3">
+                <Form.Label>Sprint <small className="text-muted">(optionnel)</small></Form.Label>
+                <Form.Select
+                  value={fLine.sprintId ?? ""}
+                  onChange={e => setFLine(f => ({
+                    ...f,
+                    sprintId: e.target.value ? +e.target.value : null,
+                  }))}
+                  disabled={saving}
+                >
+                  <option value="">— Sans sprint —</option>
+                  {(sprints.get(fLine.phaseId) ?? []).map(s => (
+                    <option key={s.id} value={s.id}>Sprint {s.order} — {s.name}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            )}
+
             <div className="row g-2">
               <div className="col-md-6">
                 <Form.Group>
