@@ -983,7 +983,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                                 <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
                                                   {isLotOpen ? <FaChevronDown /> : <FaChevronRight />}
                                                 </span>
-                                                <strong>📦 {lot.name}</strong>
+                                                <strong>{lot.name}</strong>
                                               </td>
                                               <td className="text-end fw-bold">{fmtJH(lVol)}</td>
                                               <td className="text-end">{(lVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
@@ -993,7 +993,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                               return (
                                                 <React.Fragment key={phase.id}>
                                                   <tr style={{ backgroundColor: "#f8f9ff" }}>
-                                                    <td className="ps-4 text-muted">🔷 {phase.name}</td>
+                                                    <td className="ps-4 text-muted">{phase.name}</td>
                                                     <td className="text-end small">{fmtJH(phVol)}</td>
                                                     <td className="text-end small">{(phVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                                   </tr>
@@ -1002,7 +1002,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                                     if (spVol === 0) return null;
                                                     return (
                                                       <tr key={sprint.id} style={{ backgroundColor: "#fcfcff" }}>
-                                                        <td className="ps-5 text-muted small">🏃 Sprint {sprint.order} : {sprint.name}</td>
+                                                        <td className="ps-5 text-muted small"> Sprint {sprint.order} : {sprint.name}</td>
                                                         <td className="text-end small text-muted">{fmtJH(spVol)}</td>
                                                         <td className="text-end small text-muted">{(spVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                                       </tr>
