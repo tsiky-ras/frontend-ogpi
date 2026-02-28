@@ -6,7 +6,6 @@ import {
   UpdateBacklogSprintRequest,
   CreateBacklogDelivrableRequest,
   UpdateBacklogDelivrableRequest,
-  OrderUpdateItem,
 } from "../../../types/projet/backlog/BacklogProjet.tsx";
 
 /**
@@ -57,13 +56,15 @@ export class BacklogProjetPhaseService {
     return response.data;
   }
 
-  /**
-   * GET /projet/backlog-phases/{id}/full
-   * Retourne la phase complète : lignes + sprints (avec colonnes) + livrables.
-   */
+  /** GET /projet/backlog-phases/{id}/full */
   async getFullById(id: number): Promise<BacklogPhase> {
     const response = await this.api.get(`/projet/backlog-phases/${id}/full`);
     return response.data;
+  }
+
+  /** PATCH /projet/backlog-phases/{id}/order */
+  async updatePhaseOrder(id: number, order: number): Promise<void> {
+    await this.api.patch(`/projet/backlog-phases/${id}/order`, { order });
   }
 
   // ─────────────────────────────────────────────
@@ -90,11 +91,16 @@ export class BacklogProjetPhaseService {
     await this.api.delete(`/projet/backlog-phases/sprints/${id}`);
   }
 
+  /** PATCH /projet/backlog-phases/sprints/{id}/order */
+  async updateSprintOrder(id: number, order: number): Promise<void> {
+    await this.api.patch(`/projet/backlog-phases/sprints/${id}/order`, { order });
+  }
+
   // ─────────────────────────────────────────────
   // LIVRABLES
   // ─────────────────────────────────────────────
 
-  /** GET /projet/backlog-phases/{phaseId}/livrables (via BacklogProjetDeliverableController) */
+  /** GET /projet/backlog-livrables/phase/{phaseId} */
   async getDeliverablesByPhaseId(phaseId: number): Promise<BacklogDelivrableProjet[]> {
     const response = await this.api.get(`/projet/backlog-livrables/phase/${phaseId}`);
     return response.data;

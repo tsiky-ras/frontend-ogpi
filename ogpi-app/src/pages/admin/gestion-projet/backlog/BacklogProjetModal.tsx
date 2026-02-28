@@ -617,6 +617,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   // SORTABLE — LIGNES (une <tr> par ligne → drag fonctionne)
   // ══════════════════════════════════════════════════════════════════════
 
+  // ── Helper SortableJS ────────────────────────────────────────────────
+  const safeDestroy = (s: Sortable | null) => { if (!s) return; try { s.destroy(); } catch { /* élément DOM déjà détaché */ } };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SORTABLE — LIGNES (une <tr> par ligne → drag fonctionne)
+  // ══════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     if (!show || !lines.length || !lineBodyRef.current) return;
     lineSortable.current = Sortable.create(lineBodyRef.current, {
@@ -634,7 +641,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         try { await svc.line.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); } catch {}
       },
     });
-    return () => { lineSortable.current?.destroy(); lineSortable.current = null; };
+    return () => { safeDestroy(lineSortable.current); lineSortable.current = null; };
   }, [lines, show]);
 
   // ══════════════════════════════════════════════════════════════════════
@@ -657,8 +664,121 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         try { await svc.lot.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); } catch {}
       },
     });
-    return () => { lotSortable.current?.destroy(); lotSortable.current = null; };
+    return () => { safeDestroy(lotSortable.current); lotSortable.current = null; };
   }, [lots, show]);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SORTABLE — PHASES (une instance par lot, via data-phases-lot-id)
+  // ══════════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (!show) return;
+
+    phaseSortableRefs.current.forEach(s => safeDestroy(s));
+    phaseSortableRefs.current.clear();
+
+    // Créer une instance Sortable par lot
+    lots.forEach(lot => {
+      if (!lot.phases?.length) return;
+      const el = document.querySelector(`[data-phases-lot-id="${lot.id}"]`) as HTMLElement | null;
+      if (!el) return;
+
+      const sortable = Sortable.create(el, {
+        animation: 150,
+        handle: ".drag-phase",
+        ghostClass: "sortable-ghost",
+        onEnd: async ({ oldIndex, newIndex }) => {
+          if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
+
+          setLots(prevLots => {
+            const lotData = prevLots.find(l => l.id === lot.id);
+            if (!lotData?.phases) return prevLots;
+
+            const sorted = [...lotData.phases].sort((a: any, b: any) => a.order - b.order);
+            const [moved] = sorted.splice(oldIndex, 1);
+            sorted.splice(newIndex, 0, moved);
+            const reordered = sorted.map((p: any, i: number) => ({ ...p, order: i + 1 }));
+
+            // Appel API en arrière-plan
+            Promise.all(
+              reordered.map((p: any) =>
+                svc.phase.updatePhaseOrder(p.id, p.order).catch(() => {})
+              )
+            );
+
+            return prevLots.map(l => l.id !== lot.id ? l : { ...l, phases: reordered });
+          });
+        },
+      });
+
+      phaseSortableRefs.current.set(lot.id, sortable);
+    });
+
+    return () => {
+      phaseSortableRefs.current.forEach(safeDestroy);
+      phaseSortableRefs.current.clear();
+    };
+  }, [lots, show]);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SORTABLE — SPRINTS (une instance par phase étendue, via data-sprints-phase-id)
+  // ══════════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (!show) return;
+
+    // Détruire les instances dont la phase n'est plus étendue
+    sprintSortableRefs.current.forEach((s, phaseId) => {
+      if (!expandedPhases.has(phaseId)) {
+        safeDestroy(s);
+        sprintSortableRefs.current.delete(phaseId);
+      }
+    });
+
+    // Créer une instance pour chaque phase étendue
+    expandedPhases.forEach(phaseId => {
+      if (sprintSortableRefs.current.has(phaseId)) return; // déjà créée
+      const phaseSprints = sprints.get(phaseId);
+      if (!phaseSprints?.length) return;
+
+      const el = document.querySelector(`[data-sprints-phase-id="${phaseId}"]`) as HTMLElement | null;
+      if (!el) return;
+
+      const sortable = Sortable.create(el, {
+        animation: 150,
+        handle: ".drag-sprint",
+        ghostClass: "sortable-ghost",
+        onEnd: async ({ oldIndex, newIndex }) => {
+          if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
+
+          setSprints(prevSprints => {
+            const current = [...(prevSprints.get(phaseId) ?? [])].sort((a, b) => a.order - b.order);
+            const [moved] = current.splice(oldIndex, 1);
+            current.splice(newIndex, 0, moved);
+            const reordered = current.map((s, i) => ({ ...s, order: i + 1 }));
+
+            // Appel API en arrière-plan
+            Promise.all(
+              reordered.map(s =>
+                svc.phase.updateSprintOrder(s.id, s.order).catch(() => {})
+              )
+            );
+
+            const newMap = new Map(prevSprints);
+            newMap.set(phaseId, reordered);
+            return newMap;
+          });
+        },
+      });
+
+      sprintSortableRefs.current.set(phaseId, sortable);
+    });
+
+    return () => {
+      sprintSortableRefs.current.forEach(safeDestroy);
+      sprintSortableRefs.current.clear();
+    };
+  }, [sprints, expandedPhases, show]);
 
   // ══════════════════════════════════════════════════════════════════════
   // SORTABLE — PROFILS
@@ -680,7 +800,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         try { await svc.profil.updateOrder(reordered.map(p => ({ id: p.id, order: p.order }))); } catch {}
       },
     });
-    return () => { profilSortable.current?.destroy(); profilSortable.current = null; };
+    return () => { safeDestroy(profilSortable.current); profilSortable.current = null; };
   }, [profils, show]);
 
   // ══════════════════════════════════════════════════════════════════════
