@@ -665,7 +665,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       },
     });
     return () => { safeDestroy(lotSortable.current); lotSortable.current = null; };
-  }, [lots, show]);
+  }, [lots, show, activeTab]);
 
   // ══════════════════════════════════════════════════════════════════════
   // SORTABLE — PHASES (une instance par lot, via data-phases-lot-id)
@@ -718,7 +718,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       phaseSortableRefs.current.forEach(safeDestroy);
       phaseSortableRefs.current.clear();
     };
-  }, [lots, show]);
+  }, [lots, show, activeTab]);
 
   // ══════════════════════════════════════════════════════════════════════
   // SORTABLE — SPRINTS (une instance par phase étendue, via data-sprints-phase-id)
