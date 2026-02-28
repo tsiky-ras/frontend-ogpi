@@ -4,7 +4,7 @@ import Sortable from "sortablejs";
 import Button from "../../../../components/button/Button.tsx";
 import {
   FaPlus, FaSpinner, FaEdit, FaTrash, FaCalendar,
-  FaChevronDown, FaChevronRight, FaUsers,
+  FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash,
 } from "react-icons/fa";
 import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
@@ -94,6 +94,15 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [expandedLines,   setExpandedLines]   = useState<Set<number>>(new Set());
   const deviseAbr = "€";
 
+  // ── Toggle colonnes profils ───────────────────────────────────────────
+  const [showProfilCols, setShowProfilCols] = useState(true);
+
+  // ── Récap expand states ───────────────────────────────────────────────
+  const [expandedRecapLots,   setExpandedRecapLots]   = useState<Set<number>>(new Set());
+  const [expandedRecapPhases, setExpandedRecapPhases] = useState<Set<number>>(new Set());
+  const [expandedProfilRecap, setExpandedProfilRecap] = useState<Set<number>>(new Set());
+  const [expandedProfilLots,  setExpandedProfilLots]  = useState<Map<number, Set<number>>>(new Map());
+
   // ── Modals ────────────────────────────────────────────────────────────
   const [showLotModal,    setShowLotModal]    = useState(false);
   const [showPhaseModal,  setShowPhaseModal]  = useState(false);
@@ -149,7 +158,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const lotSortable    = useRef<Sortable | null>(null);
   const profilSortable = useRef<Sortable | null>(null);
 
-  // Maps pour les sortables de phases (clé = lotId) et sprints (clé = phaseId)
   const phaseSortableRefs  = useRef<Map<number, Sortable>>(new Map());
   const sprintSortableRefs = useRef<Map<number, Sortable>>(new Map());
 
@@ -260,15 +268,65 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     id ? getAllPhases().find(p => p.id === id)?.name ?? "—" : "—";
   const getLineProfil = (lineId: number, profilId: number) =>
     lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId) ?? null;
+  const getLineJH = (lineId: number) =>
+    lineProfils.filter(lp => lp.lineId === lineId).reduce((s, lp) => s + lp.volume, 0);
 
-  const toggleLine = (id: number) => setExpandedLines(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
-  const togglePhase = (id: number) => setExpandedPhases(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const fmtJH = (v: number) => v.toFixed(v % 1 === 0 ? 0 : 1);
+
+  const toggleLine   = (id: number) => setExpandedLines(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const togglePhase  = (id: number) => setExpandedPhases(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const toggleSprint = (phaseId: number, sprintId: number) =>
     setExpandedSprints(prev => {
       const m = new Map(prev); const s = new Set(m.get(phaseId) ?? []);
       s.has(sprintId) ? s.delete(sprintId) : s.add(sprintId);
       s.size ? m.set(phaseId, s) : m.delete(phaseId); return m;
     });
+
+  const toggleRecapLot    = (id: number) => setExpandedRecapLots(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleRecapPhase  = (id: number) => setExpandedRecapPhases(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleProfilRecap = (pid: number) => setExpandedProfilRecap(prev => { const s = new Set(prev); s.has(pid) ? s.delete(pid) : s.add(pid); return s; });
+  const toggleProfilLot   = (profilId: number, lotId: number) =>
+    setExpandedProfilLots(prev => {
+      const m = new Map(prev); const s = new Set(m.get(profilId) ?? []);
+      s.has(lotId) ? s.delete(lotId) : s.add(lotId);
+      s.size ? m.set(profilId, s) : m.delete(profilId); return m;
+    });
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CALCULS RÉCAPITULATIFS
+  // ══════════════════════════════════════════════════════════════════════
+
+  const getJhForIds = (lineIds: Set<number>, profilId?: number) =>
+    lineProfils
+      .filter(lp => lineIds.has(lp.lineId) && (profilId == null || (lp.profil as any)?.id === profilId))
+      .reduce((s, lp) => s + lp.volume, 0);
+
+  const lotRecap = lots.map(lot => {
+    const phaseIds = new Set((lot.phases ?? []).map((p: any) => p.id));
+    const lotLineIds = new Set(lines.filter(l => phaseIds.has((l as any).phaseId)).map(l => l.id));
+    const lotVol = getJhForIds(lotLineIds);
+    const byProfil = profils.map(p => ({ profil: p, vol: getJhForIds(lotLineIds, p.id) }));
+
+    const phasesData = ((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
+      const phLineIds = new Set(lines.filter(l => (l as any).phaseId === phase.id).map(l => l.id));
+      const phVol = getJhForIds(phLineIds);
+      const phByProfil = profils.map(p => ({ profil: p, vol: getJhForIds(phLineIds, p.id) }));
+
+      const phaseSpr = sprints.get(phase.id) ?? [];
+      const sprintsData = phaseSpr.map(sp => {
+        const spLineIds = new Set(lines.filter(l => (l as any).sprintId === sp.id).map(l => l.id));
+        const spVol = getJhForIds(spLineIds);
+        const spByProfil = profils.map(p => ({ profil: p, vol: getJhForIds(spLineIds, p.id) }));
+        return { sprint: sp, vol: spVol, byProfil: spByProfil };
+      });
+
+      return { phase, vol: phVol, byProfil: phByProfil, sprints: sprintsData };
+    });
+
+    return { lot, vol: lotVol, byProfil, phases: phasesData };
+  });
+
+  const tableGrandJH = lineProfils.reduce((s, lp) => s + lp.volume, 0);
 
   // ══════════════════════════════════════════════════════════════════════
   // CRÉATION BACKLOG
@@ -613,29 +671,16 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     finally { setSaving(false); }
   };
 
-  // ══════════════════════════════════════════════════════════════════════
-  // SORTABLE — LIGNES (une <tr> par ligne → drag fonctionne)
-  // ══════════════════════════════════════════════════════════════════════
-
   // ── Helper SortableJS ────────────────────────────────────────────────
-  const safeDestroy = (s: Sortable | null) => { if (!s) return; try { s.destroy(); } catch { /* élément DOM déjà détaché */ } };
-
-  // ══════════════════════════════════════════════════════════════════════
-  // SORTABLE — LIGNES (une <tr> par ligne → drag fonctionne)
-  // ══════════════════════════════════════════════════════════════════════
+  const safeDestroy = (s: Sortable | null) => { if (!s) return; try { s.destroy(); } catch { /* DOM déjà détaché */ } };
 
   useEffect(() => {
     if (!show || !lines.length || !lineBodyRef.current) return;
     lineSortable.current = Sortable.create(lineBodyRef.current, {
-      animation: 150,
-      handle: ".drag-line",
-      ghostClass: "sortable-ghost",
-      filter: ".empty-row",
+      animation: 150, handle: ".drag-line", ghostClass: "sortable-ghost", filter: ".empty-row",
       onEnd: async ({ oldIndex, newIndex }) => {
         if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
-        const next = [...lines];
-        const [m] = next.splice(oldIndex, 1);
-        next.splice(newIndex, 0, m);
+        const next = [...lines]; const [m] = next.splice(oldIndex, 1); next.splice(newIndex, 0, m);
         const reordered = next.map((l, i) => ({ ...l, order: i + 1 }));
         setLines(reordered);
         try { await svc.line.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); } catch {}
@@ -644,21 +689,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     return () => { safeDestroy(lineSortable.current); lineSortable.current = null; };
   }, [lines, show]);
 
-  // ══════════════════════════════════════════════════════════════════════
-  // SORTABLE — LOTS
-  // ══════════════════════════════════════════════════════════════════════
-
   useEffect(() => {
     if (!show || !lots.length || !lotsRef.current) return;
     lotSortable.current = Sortable.create(lotsRef.current, {
-      animation: 150,
-      handle: ".drag-lot",
-      ghostClass: "sortable-ghost",
+      animation: 150, handle: ".drag-lot", ghostClass: "sortable-ghost",
       onEnd: async ({ oldIndex, newIndex }) => {
         if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
-        const next = [...lots];
-        const [m] = next.splice(oldIndex, 1);
-        next.splice(newIndex, 0, m);
+        const next = [...lots]; const [m] = next.splice(oldIndex, 1); next.splice(newIndex, 0, m);
         const reordered = next.map((l, i) => ({ ...l, order: i + 1 }));
         setLots(reordered);
         try { await svc.lot.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); } catch {}
@@ -667,134 +704,70 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     return () => { safeDestroy(lotSortable.current); lotSortable.current = null; };
   }, [lots, show, activeTab]);
 
-  // ══════════════════════════════════════════════════════════════════════
-  // SORTABLE — PHASES (une instance par lot, via data-phases-lot-id)
-  // ══════════════════════════════════════════════════════════════════════
-
   useEffect(() => {
     if (!show) return;
-
     phaseSortableRefs.current.forEach(s => safeDestroy(s));
     phaseSortableRefs.current.clear();
-
-    // Créer une instance Sortable par lot
     lots.forEach(lot => {
       if (!lot.phases?.length) return;
       const el = document.querySelector(`[data-phases-lot-id="${lot.id}"]`) as HTMLElement | null;
       if (!el) return;
-
       const sortable = Sortable.create(el, {
-        animation: 150,
-        handle: ".drag-phase",
-        ghostClass: "sortable-ghost",
+        animation: 150, handle: ".drag-phase", ghostClass: "sortable-ghost",
         onEnd: async ({ oldIndex, newIndex }) => {
           if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
-
           setLots(prevLots => {
             const lotData = prevLots.find(l => l.id === lot.id);
             if (!lotData?.phases) return prevLots;
-
             const sorted = [...lotData.phases].sort((a: any, b: any) => a.order - b.order);
-            const [moved] = sorted.splice(oldIndex, 1);
-            sorted.splice(newIndex, 0, moved);
+            const [moved] = sorted.splice(oldIndex, 1); sorted.splice(newIndex, 0, moved);
             const reordered = sorted.map((p: any, i: number) => ({ ...p, order: i + 1 }));
-
-            // Appel API en arrière-plan
-            Promise.all(
-              reordered.map((p: any) =>
-                svc.phase.updatePhaseOrder(p.id, p.order).catch(() => {})
-              )
-            );
-
+            Promise.all(reordered.map((p: any) => svc.phase.updatePhaseOrder(p.id, p.order).catch(() => {})));
             return prevLots.map(l => l.id !== lot.id ? l : { ...l, phases: reordered });
           });
         },
       });
-
       phaseSortableRefs.current.set(lot.id, sortable);
     });
-
-    return () => {
-      phaseSortableRefs.current.forEach(safeDestroy);
-      phaseSortableRefs.current.clear();
-    };
+    return () => { phaseSortableRefs.current.forEach(safeDestroy); phaseSortableRefs.current.clear(); };
   }, [lots, show, activeTab]);
-
-  // ══════════════════════════════════════════════════════════════════════
-  // SORTABLE — SPRINTS (une instance par phase étendue, via data-sprints-phase-id)
-  // ══════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
     if (!show) return;
-
-    // Détruire les instances dont la phase n'est plus étendue
     sprintSortableRefs.current.forEach((s, phaseId) => {
-      if (!expandedPhases.has(phaseId)) {
-        safeDestroy(s);
-        sprintSortableRefs.current.delete(phaseId);
-      }
+      if (!expandedPhases.has(phaseId)) { safeDestroy(s); sprintSortableRefs.current.delete(phaseId); }
     });
-
-    // Créer une instance pour chaque phase étendue
     expandedPhases.forEach(phaseId => {
-      if (sprintSortableRefs.current.has(phaseId)) return; // déjà créée
+      if (sprintSortableRefs.current.has(phaseId)) return;
       const phaseSprints = sprints.get(phaseId);
       if (!phaseSprints?.length) return;
-
       const el = document.querySelector(`[data-sprints-phase-id="${phaseId}"]`) as HTMLElement | null;
       if (!el) return;
-
       const sortable = Sortable.create(el, {
-        animation: 150,
-        handle: ".drag-sprint",
-        ghostClass: "sortable-ghost",
+        animation: 150, handle: ".drag-sprint", ghostClass: "sortable-ghost",
         onEnd: async ({ oldIndex, newIndex }) => {
           if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
-
           setSprints(prevSprints => {
             const current = [...(prevSprints.get(phaseId) ?? [])].sort((a, b) => a.order - b.order);
-            const [moved] = current.splice(oldIndex, 1);
-            current.splice(newIndex, 0, moved);
+            const [moved] = current.splice(oldIndex, 1); current.splice(newIndex, 0, moved);
             const reordered = current.map((s, i) => ({ ...s, order: i + 1 }));
-
-            // Appel API en arrière-plan
-            Promise.all(
-              reordered.map(s =>
-                svc.phase.updateSprintOrder(s.id, s.order).catch(() => {})
-              )
-            );
-
-            const newMap = new Map(prevSprints);
-            newMap.set(phaseId, reordered);
-            return newMap;
+            Promise.all(reordered.map(s => svc.phase.updateSprintOrder(s.id, s.order).catch(() => {})));
+            const newMap = new Map(prevSprints); newMap.set(phaseId, reordered); return newMap;
           });
         },
       });
-
       sprintSortableRefs.current.set(phaseId, sortable);
     });
-
-    return () => {
-      sprintSortableRefs.current.forEach(safeDestroy);
-      sprintSortableRefs.current.clear();
-    };
+    return () => { sprintSortableRefs.current.forEach(safeDestroy); sprintSortableRefs.current.clear(); };
   }, [sprints, expandedPhases, show]);
-
-  // ══════════════════════════════════════════════════════════════════════
-  // SORTABLE — PROFILS
-  // ══════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
     if (!show || !profils.length || !profilsRef.current) return;
     profilSortable.current = Sortable.create(profilsRef.current, {
-      animation: 150,
-      handle: ".drag-profil",
-      ghostClass: "sortable-ghost",
+      animation: 150, handle: ".drag-profil", ghostClass: "sortable-ghost",
       onEnd: async ({ oldIndex, newIndex }) => {
         if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
-        const next = [...profils];
-        const [m] = next.splice(oldIndex, 1);
-        next.splice(newIndex, 0, m);
+        const next = [...profils]; const [m] = next.splice(oldIndex, 1); next.splice(newIndex, 0, m);
         const reordered = next.map((p, i) => ({ ...p, order: i + 1 }));
         setProfils(reordered);
         try { await svc.profil.updateOrder(reordered.map(p => ({ id: p.id, order: p.order }))); } catch {}
@@ -804,7 +777,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   }, [profils, show]);
 
   // ══════════════════════════════════════════════════════════════════════
-  // TOTAUX
+  // TOTAUX PAR PROFIL
   // ══════════════════════════════════════════════════════════════════════
 
   const profilTotals = profils.map(p => {
@@ -821,24 +794,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   if (showCreate) {
     return (
       <Modal show={show} onHide={onClose} size="lg" centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Créer le backlog — {projetNom}</Modal.Title>
-        </Modal.Header>
+        <Modal.Header closeButton><Modal.Title>Créer le backlog — {projetNom}</Modal.Title></Modal.Header>
         <Modal.Body>
-          <BacklogForm
-            show={showCreate}
-            onClose={() => { setShowCreate(false); onClose(); }}
-            onSubmit={handleCreateBacklog as any}
-            projetId={projetId}
-          />
+          <BacklogForm show={showCreate} onClose={() => { setShowCreate(false); onClose(); }} onSubmit={handleCreateBacklog as any} projetId={projetId} />
         </Modal.Body>
       </Modal>
     );
   }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // RENDU PRINCIPAL
-  // ══════════════════════════════════════════════════════════════════════
 
   return (
     <>
@@ -852,8 +814,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
             {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
             {loading && (
               <div className="text-center py-5">
-                <FaSpinner className="fa-spin me-2" size={24} />
-                <span>Chargement du backlog…</span>
+                <FaSpinner className="fa-spin me-2" size={24} /><span>Chargement du backlog…</span>
               </div>
             )}
 
@@ -862,12 +823,9 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
 
                 {/* ══════════ TAB BACKLOG ══════════════════════════════ */}
                 <Tab eventKey="backlog" title="Backlog">
-                  <div className="d-flex justify-content-end mb-3">
-                    <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
-                  </div>
 
-                  {/* Récap profils */}
-                  <div className="card shadow-sm mb-4">
+                  {/* ── Récap par profil ── */}
+                  <div className="card shadow-sm mb-3">
                     <div className="card-header fw-bold">Récapitulatif par profil</div>
                     <div className="card-body p-0">
                       <table className="table table-sm table-bordered mb-0">
@@ -893,9 +851,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                   {assignes.length > 0 && (
                                     <div className="mt-1 d-flex flex-wrap gap-1">
                                       {assignes.map((c: any) => (
-                                        <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>
-                                          {c.nom} {c.prenom}
-                                        </span>
+                                        <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>{c.nom} {c.prenom}</span>
                                       ))}
                                     </div>
                                   )}
@@ -919,12 +875,174 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                     </div>
                   </div>
 
-                  {/* ── Tableau des lignes : UNE <tr> par BacklogLine ── */}
+                  {/* ── Récap JH par Lot / Phase / Sprint (global) ── */}
+                  <div className="card shadow-sm mb-3">
+                    <div className="card-header fw-bold d-flex justify-content-between align-items-center">
+                      <span>Récapitulatif JH par Lot / Phase / Sprint</span>
+                      <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH total</span>
+                    </div>
+                    <div className="card-body p-0">
+                      <table className="table table-sm table-bordered mb-0">
+                        <thead className="table-light">
+                          <tr>
+                            <th>Niveau</th>
+                            <th className="text-end" style={{ width: 90 }}>JH</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lotRecap.map(({ lot, vol: lotVol, phases }) => (
+                            <React.Fragment key={lot.id}>
+                              <tr style={{ cursor: "pointer", backgroundColor: "#e8eaf6" }} onClick={() => toggleRecapLot(lot.id)}>
+                                <td>
+                                  <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
+                                    {expandedRecapLots.has(lot.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                  </span>
+                                  <strong>{lot.name}</strong>
+                                </td>
+                                <td className="text-end fw-bold">{fmtJH(lotVol)}</td>
+                              </tr>
+                              {expandedRecapLots.has(lot.id) && phases.map(({ phase, vol: phVol, sprints: spData }) => (
+                                <React.Fragment key={phase.id}>
+                                  <tr style={{ cursor: "pointer", backgroundColor: "#f3f4fb" }} onClick={() => toggleRecapPhase(phase.id)}>
+                                    <td className="ps-4">
+                                      <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
+                                        {expandedRecapPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                      </span>
+                                      {phase.name}
+                                    </td>
+                                    <td className="text-end">{fmtJH(phVol)}</td>
+                                  </tr>
+                                  {expandedRecapPhases.has(phase.id) && spData.map(({ sprint, vol: spVol }) => spVol > 0 && (
+                                    <tr key={sprint.id} style={{ backgroundColor: "#fafbff" }}>
+                                      <td className="ps-5 text-muted small">Sprint {sprint.order} : {sprint.name}</td>
+                                      <td className="text-end small">{fmtJH(spVol)}</td>
+                                    </tr>
+                                  ))}
+                                </React.Fragment>
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* ── Récap par profil → Lot / Phase / Sprint ── */}
+                  {profils.length > 0 && (
+                    <div className="card shadow-sm mb-4">
+                      <div className="card-header fw-bold">Récapitulatif JH par profil — détail Lot / Phase / Sprint</div>
+                      <div className="card-body p-0">
+                        {profils.map(profil => {
+                          const profilTot = profilTotals.find(t => t.profil.id === profil.id);
+                          const profilVol = profilTot?.vol ?? 0;
+                          const profilAmt = profilTot?.amount ?? 0;
+                          const isOpen = expandedProfilRecap.has(profil.id);
+                          return (
+                            <div key={profil.id} className="border-bottom">
+                              <div
+                                className="d-flex align-items-center justify-content-between px-3 py-2"
+                                style={{ cursor: "pointer", backgroundColor: isOpen ? "#fff8e1" : "white" }}
+                                onClick={() => toggleProfilRecap(profil.id)}
+                              >
+                                <div className="d-flex align-items-center gap-2">
+                                  <span className="text-muted" style={{ fontSize: "0.75rem" }}>
+                                    {isOpen ? <FaChevronDown /> : <FaChevronRight />}
+                                  </span>
+                                  <strong>{profil.name}</strong>
+                                  {profil.desc && <small className="text-muted">— {profil.desc}</small>}
+                                </div>
+                                <div className="d-flex align-items-center gap-2">
+                                  <span className="badge bg-warning text-dark">{profil.tjm.toFixed(0)} {deviseAbr}/j</span>
+                                  <span className="badge bg-primary">{fmtJH(profilVol)} JH</span>
+                                  <span className="badge bg-success">{profilAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</span>
+                                </div>
+                              </div>
+
+                              {isOpen && (
+                                <div className="px-3 pb-2 pt-1" style={{ backgroundColor: "#fffde7" }}>
+                                  <table className="table table-sm table-bordered mb-0 bg-white">
+                                    <thead className="table-light">
+                                      <tr>
+                                        <th>Niveau</th>
+                                        <th className="text-end" style={{ width: 75 }}>JH</th>
+                                        <th className="text-end" style={{ width: 110 }}>Montant</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {lotRecap.map(({ lot, phases, byProfil: lotByProfil }) => {
+                                        const lVol = lotByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                        if (lVol === 0 && !expandedProfilLots.get(profil.id)?.has(lot.id)) return null;
+                                        const isLotOpen = expandedProfilLots.get(profil.id)?.has(lot.id) ?? false;
+                                        return (
+                                          <React.Fragment key={lot.id}>
+                                            <tr
+                                              style={{ cursor: "pointer", backgroundColor: "#f0f2ff" }}
+                                              onClick={() => toggleProfilLot(profil.id, lot.id)}
+                                            >
+                                              <td>
+                                                <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
+                                                  {isLotOpen ? <FaChevronDown /> : <FaChevronRight />}
+                                                </span>
+                                                <strong>📦 {lot.name}</strong>
+                                              </td>
+                                              <td className="text-end fw-bold">{fmtJH(lVol)}</td>
+                                              <td className="text-end">{(lVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                            </tr>
+                                            {isLotOpen && phases.map(({ phase, byProfil: phByProfil, sprints: phSprints }) => {
+                                              const phVol = phByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                              return (
+                                                <React.Fragment key={phase.id}>
+                                                  <tr style={{ backgroundColor: "#f8f9ff" }}>
+                                                    <td className="ps-4 text-muted">🔷 {phase.name}</td>
+                                                    <td className="text-end small">{fmtJH(phVol)}</td>
+                                                    <td className="text-end small">{(phVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                                  </tr>
+                                                  {phSprints.map(({ sprint, byProfil: spByProfil }) => {
+                                                    const spVol = spByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                                    if (spVol === 0) return null;
+                                                    return (
+                                                      <tr key={sprint.id} style={{ backgroundColor: "#fcfcff" }}>
+                                                        <td className="ps-5 text-muted small">🏃 Sprint {sprint.order} : {sprint.name}</td>
+                                                        <td className="text-end small text-muted">{fmtJH(spVol)}</td>
+                                                        <td className="text-end small text-muted">{(spVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                                      </tr>
+                                                    );
+                                                  })}
+                                                </React.Fragment>
+                                              );
+                                            })}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Tableau des lignes ── */}
+                  {/* ── Barre d'outils ── */}
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <button
+                      className={`btn btn-sm d-flex align-items-center gap-2 ${showProfilCols ? "btn-outline-secondary" : "btn-warning"}`}
+                      onClick={() => setShowProfilCols(v => !v)}
+                    >
+                      {showProfilCols ? <FaEyeSlash /> : <FaEye />}
+                      {showProfilCols ? "Masquer" : "Afficher"} colonnes profils
+                      <span className="badge bg-secondary">{profils.length}</span>
+                    </button>
+                    <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
+                  </div>
+
                   <div className="table-responsive shadow-sm rounded">
                     <table className="table table-bordered table-hover align-middle mb-0">
                       <thead className="table-dark">
                         <tr>
-                          {/* Poignée drag */}
                           <th style={{ width: 32 }} />
                           <th style={{ width: 40 }}>#</th>
                           <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
@@ -932,18 +1050,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                           <th>User Story</th>
                           <th>Description</th>
                           <th>Détails</th>
-                          {/* Une colonne par profil avec collaborateurs */}
-                          {profils.map(p => (
+                          {showProfilCols && profils.map(p => (
                             <th key={p.id} className="text-center" style={{ minWidth: 110 }}>
                               <div className="fw-bold">{p.name}</div>
                               {p.collaborateurs.length > 0 && (
                                 <div className="d-flex flex-column gap-1 mt-1">
                                   {p.collaborateurs.map((c: any) => (
-                                    <span
-                                      key={c.id}
-                                      className="badge bg-info text-dark fw-normal"
-                                      style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}
-                                    >
+                                    <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>
                                       {c.prenom} {c.nom}
                                     </span>
                                   ))}
@@ -951,99 +1064,70 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                               )}
                             </th>
                           ))}
+                          <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}>
+                            <div className="fw-bold text-warning">Total JH</div>
+                          </th>
                           <th style={{ width: 90 }} />
                         </tr>
                       </thead>
                       <tbody ref={lineBodyRef}>
                         {lines.length === 0 ? (
                           <tr className="empty-row">
-                            <td colSpan={7 + profils.length + 1} className="text-center text-muted fst-italic py-4">
+                            <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
                               Aucune ligne — cliquez sur « Ajouter une ligne »
                             </td>
                           </tr>
                         ) : lines.map(line => {
-                          const lot        = getLotByPhaseId((line as any).phaseId);
-                          const phaseName  = getPhaseNameById((line as any).phaseId);
-                          const sprintId   = (line as any).sprintId;
-                          const sprintName = sprintId
-                            ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null
-                            : null;
+                          const lot       = getLotByPhaseId((line as any).phaseId);
+                          const phaseName = getPhaseNameById((line as any).phaseId);
+                          const sprintId  = (line as any).sprintId;
+                          const sprintName = sprintId ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null : null;
+                          const lineJH    = getLineJH(line.id);
 
                           return (
                             <tr key={line.id}>
-                              {/* Poignée drag */}
-                              <td
-                                className="drag-line text-center text-muted"
-                                style={{ cursor: "grab", userSelect: "none" }}
-                                title="Glisser pour réordonner"
-                              >
-                                ⋮⋮
-                              </td>
-
-                              {/* Ordre */}
+                              <td className="drag-line text-center text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</td>
                               <td className="text-center text-muted">{line.order}</td>
 
-                              {/* Lot / Phase / Sprint déroulable */}
                               <td className="text-nowrap">
-                                <div
-                                  className="d-flex align-items-center gap-1"
-                                  style={{ cursor: "pointer" }}
-                                  onClick={() => toggleLine(line.id)}
-                                >
+                                <div className="d-flex align-items-center gap-1" style={{ cursor: "pointer" }} onClick={() => toggleLine(line.id)}>
                                   <span className="text-muted" style={{ fontSize: "0.7rem" }}>
                                     {expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}
                                   </span>
-                                  <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>
-                                    {lot?.name ?? "—"}
-                                  </span>
+                                  <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>{lot?.name ?? "—"}</span>
                                 </div>
                                 {expandedLines.has(line.id) && (
                                   <div className="ms-3 mt-1" style={{ fontSize: "0.8rem", lineHeight: 1.6 }}>
-                                    <div>
-                                      <span className="text-muted">Phase :</span>{" "}
-                                      <span className="fw-semibold">{phaseName}</span>
-                                    </div>
-                                    {sprintName && (
-                                      <div>
-                                        <span className="text-muted">Sprint :</span>{" "}
-                                        <span className="fw-semibold">{sprintName}</span>
-                                      </div>
-                                    )}
+                                    <div><span className="text-muted">Phase :</span> <span className="fw-semibold">{phaseName}</span></div>
+                                    {sprintName && <div><span className="text-muted">Sprint :</span> <span className="fw-semibold">{sprintName}</span></div>}
                                   </div>
                                 )}
                               </td>
 
-                              {/* Champs texte */}
                               <td>{line.epic ?? "—"}</td>
                               <td>{line.userStory ?? "—"}</td>
                               <td>{line.description ?? "—"}</td>
                               <td>{line.resultat ?? "—"}</td>
 
-                              {/* Une cellule cliquable par profil */}
-                              {profils.map(p => {
+                              {showProfilCols && profils.map(p => {
                                 const lp     = getLineProfil(line.id, p.id);
                                 const vol    = lp?.volume ?? 0;
                                 const collab = (lp as any)?.collaborateur;
                                 return (
-                                  <td
-                                    key={p.id}
-                                    className="text-center"
-                                    style={{ cursor: "pointer" }}
-                                    onClick={() => openVolModal(line.id, p.id)}
-                                  >
-                                    {vol > 0
-                                      ? <span className="badge bg-primary">{vol}</span>
-                                      : <span className="text-muted small">—</span>}
-                                    {collab && (
-                                      <small className="d-block text-muted" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>
-                                        {collab.nom} {collab.prenom}
-                                      </small>
-                                    )}
+                                  <td key={p.id} className="text-center" style={{ cursor: "pointer" }} onClick={() => openVolModal(line.id, p.id)}>
+                                    {vol > 0 ? <span className="badge bg-primary">{vol}</span> : <span className="text-muted small">—</span>}
+                                    {collab && <small className="d-block text-muted" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>{collab.nom} {collab.prenom}</small>}
                                   </td>
                                 );
                               })}
 
-                              {/* Actions */}
+                              {/* Total JH par ligne */}
+                              <td className="text-center" style={{ backgroundColor: "#fffbea" }}>
+                                {lineJH > 0
+                                  ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span>
+                                  : <span className="text-muted small">—</span>}
+                              </td>
+
                               <td>
                                 <div className="d-flex gap-1 justify-content-center">
                                   <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLine(line)}><FaEdit /></button>
@@ -1054,6 +1138,23 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                           );
                         })}
                       </tbody>
+
+                      {/* Pied de tableau — totaux */}
+                      {lines.length > 0 && (
+                        <tfoot>
+                          <tr className="table-warning fw-bold">
+                            <td colSpan={7} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
+                            {showProfilCols && profils.map(p => {
+                              const pVol = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
+                              return <td key={p.id} className="text-center">{pVol > 0 ? fmtJH(pVol) : "—"}</td>;
+                            })}
+                            <td className="text-center">
+                              <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span>
+                            </td>
+                            <td />
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
                   </div>
                 </Tab>
@@ -1064,159 +1165,122 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                     <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
                   </div>
 
-                  {/* Conteneur sortable des LOTS */}
                   <div ref={lotsRef}>
                     {lots.length === 0
                       ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
                       : lots.map(lot => (
                         <div key={lot.id} className="card mb-3 shadow-sm">
                           <div className="card-header d-flex align-items-center gap-2">
-                            {/* Poignée drag LOT */}
-                            <span
-                              className="drag-lot text-muted"
-                              style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}
-                              title="Glisser pour réordonner les lots"
-                            >⋮⋮</span>
+                            <span className="drag-lot text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}>⋮⋮</span>
                             <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
                             {lot.desc && <small className="text-muted me-2">{lot.desc}</small>}
                             <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
                             <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
                           </div>
-
                           <div className="card-body pt-2 pb-3">
                             <div className="d-flex justify-content-between align-items-center mb-2">
                               <span className="text-muted small fw-semibold">Phases</span>
                               <Button label="+ Phase" variant="secondary" onClick={() => openAddPhase(lot.id)} />
                             </div>
-
-                            {/* Conteneur sortable des PHASES du lot */}
                             <div data-phases-lot-id={lot.id}>
-                              {((lot.phases ?? []) as BacklogPhase[])
-                                .sort((a, b) => a.order - b.order)
-                                .map(phase => {
-                                  const phaseSprints = sprints.get(phase.id) ?? [];
-                                  const phaseDeliv   = deliverables.get(phase.id) ?? [];
-                                  const expanded     = expandedPhases.has(phase.id);
+                              {((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
+                                const phaseSprints = sprints.get(phase.id) ?? [];
+                                const phaseDeliv   = deliverables.get(phase.id) ?? [];
+                                const expanded     = expandedPhases.has(phase.id);
+                                return (
+                                  <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
+                                    <div className="d-flex align-items-center gap-2 p-2">
+                                      <span className="drag-phase text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}>⋮⋮</span>
+                                      <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{expanded ? <FaChevronDown /> : <FaChevronRight />}</span>
+                                      <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{phase.order}. {phase.name}</span>
+                                      <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
+                                      <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
+                                      <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
+                                      <button className="btn btn-sm btn-success ms-1"           onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
+                                      <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
+                                      <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
+                                    </div>
 
-                                  return (
-                                    <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
-                                      <div className="d-flex align-items-center gap-2 p-2">
-                                        {/* Poignée drag PHASE */}
-                                        <span
-                                          className="drag-phase text-muted"
-                                          style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}
-                                          title="Glisser pour réordonner les phases"
-                                        >⋮⋮</span>
-
-                                        <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>
-                                          {expanded ? <FaChevronDown /> : <FaChevronRight />}
-                                        </span>
-                                        <span
-                                          className="fw-semibold flex-grow-1"
-                                          style={{ cursor: "pointer" }}
-                                          onClick={() => togglePhase(phase.id)}
-                                        >
-                                          {phase.order}. {phase.name}
-                                        </span>
-                                        <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
-                                        <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
-                                        <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
-                                        <button className="btn btn-sm btn-success ms-1"           onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
-                                        <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
-                                        <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
-                                      </div>
-
-                                      {expanded && (
-                                        <div className="px-3 pb-2">
-                                          {/* Conteneur sortable des SPRINTS de la phase */}
-                                          <div data-sprints-phase-id={phase.id}>
-                                            {phaseSprints.map(sprint => {
-                                              const sprintCols  = columns.get(sprint.id) ?? [];
-                                              const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
-                                              const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
-
-                                              return (
-                                                <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
-                                                  <div className="d-flex align-items-center gap-2">
-                                                    {/* Poignée drag SPRINT */}
-                                                    <span
-                                                      className="drag-sprint text-muted"
-                                                      style={{ cursor: "grab", userSelect: "none" }}
-                                                      title="Glisser pour réordonner les sprints"
-                                                    >⋮⋮</span>
-
-                                                    <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
-                                                    {sprint.dateDebut && sprint.dateFin && (
-                                                      <small className="text-muted">
-                                                        {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
-                                                      </small>
+                                    {expanded && (
+                                      <div className="px-3 pb-2">
+                                        <div data-sprints-phase-id={phase.id}>
+                                          {phaseSprints.map(sprint => {
+                                            const sprintCols  = columns.get(sprint.id) ?? [];
+                                            const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
+                                            const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
+                                            return (
+                                              <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
+                                                <div className="d-flex align-items-center gap-2">
+                                                  <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
+                                                  <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
+                                                  {sprint.dateDebut && sprint.dateFin && (
+                                                    <small className="text-muted">
+                                                      {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
+                                                    </small>
+                                                  )}
+                                                  <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
+                                                    {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
+                                                  </button>
+                                                  <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
+                                                  <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
+                                                </div>
+                                                {spExpanded && (
+                                                  <div className="mt-2 ms-3">
+                                                    {sprintCols.length > 0 && (
+                                                      <div className="mb-2">
+                                                        <strong className="small text-secondary">Colonnes :</strong>
+                                                        <div className="d-flex flex-wrap gap-1 mt-1">
+                                                          {sprintCols.map(col => (
+                                                            <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
+                                                              {col.name} <em className="text-light opacity-75 small">({col.type})</em>
+                                                              <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
+                                                              <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
+                                                            </span>
+                                                          ))}
+                                                        </div>
+                                                      </div>
                                                     )}
-                                                    <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
-                                                      {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
-                                                    </button>
-                                                    <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
-                                                    <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
-                                                  </div>
-
-                                                  {spExpanded && (
-                                                    <div className="mt-2 ms-3">
-                                                      {sprintCols.length > 0 && (
-                                                        <div className="mb-2">
-                                                          <strong className="small text-secondary">Colonnes :</strong>
-                                                          <div className="d-flex flex-wrap gap-1 mt-1">
-                                                            {sprintCols.map(col => (
-                                                              <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
-                                                                {col.name} <em className="text-light opacity-75 small">({col.type})</em>
-                                                                <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
-                                                                <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
-                                                              </span>
-                                                            ))}
+                                                    {sprintDeliv.length > 0
+                                                      ? sprintDeliv.map(d => (
+                                                        <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
+                                                          <span>
+                                                            <strong>{d.name}</strong>
+                                                            {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                                          </span>
+                                                          <div className="d-flex gap-1">
+                                                            <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                                            <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                                           </div>
                                                         </div>
-                                                      )}
-                                                      {sprintDeliv.length > 0
-                                                        ? sprintDeliv.map(d => (
-                                                          <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
-                                                            <span>
-                                                              <strong>{d.name}</strong>
-                                                              {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
-                                                            </span>
-                                                            <div className="d-flex gap-1">
-                                                              <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                                              <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
-                                                            </div>
-                                                          </div>
-                                                        ))
-                                                        : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-
-                                          {/* Livrables hors sprint */}
-                                          {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
-                                            <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
-                                              <span>
-                                                <strong>{d.name}</strong>
-                                                {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
-                                              </span>
-                                              <div className="d-flex gap-1">
-                                                <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                                <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
+                                                      ))
+                                                      : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
+                                                  </div>
+                                                )}
                                               </div>
-                                            </div>
-                                          ))}
-
-                                          {phaseSprints.length === 0 && phaseDeliv.length === 0 && (
-                                            <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>
-                                          )}
+                                            );
+                                          })}
                                         </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
+
+                                        {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
+                                          <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
+                                            <span>
+                                              <strong>{d.name}</strong>
+                                              {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                            </span>
+                                            <div className="d-flex gap-1">
+                                              <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                              <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                        {phaseSprints.length === 0 && phaseDeliv.length === 0 && (
+                                          <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -1266,28 +1330,12 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                   </div>
                 </Tab>
 
-                {/* ══════════ TAB PLANNING ═════════════════════════════ */}
                 <Tab eventKey="planning" title="Planning">
-                  <PlanningTab
-                    lots={lots}
-                    lines={lines}
-                    lineProfils={lineProfils as any}
-                    deliverables={deliverables as any}
-                    selectedBacklogId={backlog?.id ?? null}
-                    planningService={svc.planning}
-                  />
+                  <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils as any} deliverables={deliverables as any} selectedBacklogId={backlog?.id ?? null} planningService={svc.planning} />
                 </Tab>
 
-                {/* ══════════ TAB BUDGET ═══════════════════════════════ */}
                 <Tab eventKey="budget" title="Budget">
-                  <BudgetTab
-                    lots={lots}
-                    profils={profils as any}
-                    lines={lines}
-                    lineProfils={lineProfils as any}
-                    selectedBacklogId={backlog?.id ?? null}
-                    deviseAbr={deviseAbr}
-                  />
+                  <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} deviseAbr={deviseAbr} />
                 </Tab>
 
               </Tabs>
@@ -1302,7 +1350,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
 
       {/* ══════════════════════════ MODAUX ══════════════════════════════ */}
 
-      {/* LOT */}
       <Modal show={showLotModal} onHide={() => !saving && setShowLotModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editLot ? "Modifier le lot" : "Nouveau lot"}</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -1323,7 +1370,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* PHASE */}
       <Modal show={showPhaseModal} onHide={() => !saving && setShowPhaseModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editPhase ? "Modifier la phase" : "Nouvelle phase"}</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -1340,7 +1386,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* SPRINT */}
       <Modal show={showSprintModal} onHide={() => !saving && setShowSprintModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editSprint ? "Modifier le sprint" : "Nouveau sprint"}</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -1371,7 +1416,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* LIVRABLE */}
       <Modal show={showDelivModal} onHide={() => !saving && setShowDelivModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editDeliv ? "Modifier le livrable" : "Nouveau livrable"}</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -1385,9 +1429,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                 <Form.Label>Sprint associé</Form.Label>
                 <Form.Select value={fDeliv.sprintId ?? ""} onChange={e => setFDeliv(f => ({ ...f, sprintId: e.target.value ? +e.target.value : null }))} disabled={saving}>
                   <option value="">Sans sprint</option>
-                  {(sprints.get(ctxPhaseId) ?? []).map(s => (
-                    <option key={s.id} value={s.id}>Sprint {s.order} — {s.name}</option>
-                  ))}
+                  {(sprints.get(ctxPhaseId) ?? []).map(s => <option key={s.id} value={s.id}>Sprint {s.order} — {s.name}</option>)}
                 </Form.Select>
               </Form.Group>
             )}
@@ -1407,7 +1449,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* PROFIL */}
       <Modal show={showProfilModal} onHide={() => !saving && setShowProfilModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editProfil ? "Modifier le profil" : "Nouveau profil"}</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -1432,7 +1473,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* COLLABORATEURS */}
       <Modal show={showCollabModal} onHide={() => !saving && setShowCollabModal(false)} centered size="md">
         <Modal.Header closeButton>
           <Modal.Title><FaUsers className="me-2" />Collaborateurs — {collabProfil?.name}</Modal.Title>
@@ -1444,20 +1484,11 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
               ? <div className="text-muted fst-italic small">Aucun collaborateur disponible.</div>
               : allCollabs.map((c: any) => (
                 <Form.Check
-                  key={c.id}
-                  type="checkbox"
-                  id={`collab-${c.id}`}
-                  label={
-                    <span>
-                      <strong>{c.nom} {c.prenom}</strong>
-                      {c.appellation && <span className="text-muted ms-1 small">({c.appellation})</span>}
-                      {c.emailPro    && <span className="text-muted ms-2 small">{c.emailPro}</span>}
-                    </span>
-                  }
+                  key={c.id} type="checkbox" id={`collab-${c.id}`}
+                  label={<span><strong>{c.nom} {c.prenom}</strong>{c.appellation && <span className="text-muted ms-1 small">({c.appellation})</span>}{c.emailPro && <span className="text-muted ms-2 small">{c.emailPro}</span>}</span>}
                   checked={fCollabIds.includes(c.id)}
                   onChange={e => setFCollabIds(prev => e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id))}
-                  className="mb-2"
-                  disabled={saving}
+                  className="mb-2" disabled={saving}
                 />
               ))}
           </div>
@@ -1468,57 +1499,35 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* LIGNE */}
       <Modal show={showLineModal} onHide={() => !saving && setShowLineModal(false)} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>{editLine ? "Modifier la ligne" : "Nouvelle ligne"}</Modal.Title>
-        </Modal.Header>
+        <Modal.Header closeButton><Modal.Title>{editLine ? "Modifier la ligne" : "Nouvelle ligne"}</Modal.Title></Modal.Header>
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>Lot *</Form.Label>
-              <Form.Select
-                value={fLine.lotId ?? ""}
-                onChange={e => setFLine(f => ({ ...f, lotId: e.target.value ? +e.target.value : null, phaseId: null, sprintId: null }))}
-                disabled={saving}
-              >
+              <Form.Select value={fLine.lotId ?? ""} onChange={e => setFLine(f => ({ ...f, lotId: e.target.value ? +e.target.value : null, phaseId: null, sprintId: null }))} disabled={saving}>
                 <option value="">— Sélectionner un lot —</option>
                 {lots.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </Form.Select>
             </Form.Group>
-
             {fLine.lotId && (
               <Form.Group className="mb-3">
                 <Form.Label>Phase *</Form.Label>
-                <Form.Select
-                  value={fLine.phaseId ?? ""}
-                  onChange={e => setFLine(f => ({ ...f, phaseId: e.target.value ? +e.target.value : null, sprintId: null }))}
-                  disabled={saving}
-                >
+                <Form.Select value={fLine.phaseId ?? ""} onChange={e => setFLine(f => ({ ...f, phaseId: e.target.value ? +e.target.value : null, sprintId: null }))} disabled={saving}>
                   <option value="">— Sélectionner une phase —</option>
-                  {((lots.find(l => l.id === fLine.lotId)?.phases ?? []) as BacklogPhase[])
-                    .sort((a, b) => a.order - b.order)
-                    .map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {((lots.find(l => l.id === fLine.lotId)?.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </Form.Select>
               </Form.Group>
             )}
-
             {fLine.phaseId && (sprints.get(fLine.phaseId) ?? []).length > 0 && (
               <Form.Group className="mb-3">
                 <Form.Label>Sprint <small className="text-muted">(optionnel)</small></Form.Label>
-                <Form.Select
-                  value={fLine.sprintId ?? ""}
-                  onChange={e => setFLine(f => ({ ...f, sprintId: e.target.value ? +e.target.value : null }))}
-                  disabled={saving}
-                >
+                <Form.Select value={fLine.sprintId ?? ""} onChange={e => setFLine(f => ({ ...f, sprintId: e.target.value ? +e.target.value : null }))} disabled={saving}>
                   <option value="">— Sans sprint —</option>
-                  {(sprints.get(fLine.phaseId) ?? []).map(s => (
-                    <option key={s.id} value={s.id}>Sprint {s.order} — {s.name}</option>
-                  ))}
+                  {(sprints.get(fLine.phaseId) ?? []).map(s => <option key={s.id} value={s.id}>Sprint {s.order} — {s.name}</option>)}
                 </Form.Select>
               </Form.Group>
             )}
-
             <div className="row g-2">
               <div className="col-md-6">
                 <Form.Group>
@@ -1549,7 +1558,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* VOLUME JH */}
       <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title>
@@ -1557,50 +1565,26 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         <Modal.Body>
           <Form.Group className="mb-3">
             <Form.Label>Jours-Homme *</Form.Label>
-            <Form.Control
-              type="number" step="0.5" min="0" value={fVolume}
-              onChange={e => setFVolume(+e.target.value || 0)} disabled={saving} autoFocus
-            />
+            <Form.Control type="number" step="0.5" min="0" value={fVolume} onChange={e => setFVolume(+e.target.value || 0)} disabled={saving} autoFocus />
           </Form.Group>
-
           {currentProfil && (currentProfil.collaborateurs?.length ?? 0) > 0 && (
             <Form.Group className="mb-3">
               <Form.Label>Collaborateur assigné</Form.Label>
               {(() => {
                 const assigned = currentProfil.collaborateurs!.find((c: any) => c.id === fCollabId);
                 return assigned ? (
-                  <div
-                    className="d-flex align-items-center justify-content-between border rounded px-3 py-2"
-                    style={{ backgroundColor: "#f0f9ff", borderColor: "#90cdf4" }}
-                  >
+                  <div className="d-flex align-items-center justify-content-between border rounded px-3 py-2" style={{ backgroundColor: "#f0f9ff", borderColor: "#90cdf4" }}>
                     <div>
                       <span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>
-                      {assigned.appellation && (
-                        <small className="text-muted ms-2">({assigned.appellation})</small>
-                      )}
+                      {assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-link text-danger p-0"
-                      onClick={() => setFCollabId(null)}
-                      disabled={saving}
-                      title="Retirer"
-                    >
-                      ✕
-                    </button>
+                    <button type="button" className="btn btn-sm btn-link text-danger p-0" onClick={() => setFCollabId(null)} disabled={saving}>✕</button>
                   </div>
                 ) : (
                   <div className="d-flex flex-wrap gap-2 border rounded p-2" style={{ backgroundColor: "#fafafa" }}>
                     {currentProfil.collaborateurs!.map((c: any) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="btn btn-sm btn-outline-secondary"
-                        onClick={() => setFCollabId(c.id)}
-                        disabled={saving}
-                      >
-                        {c.prenom} {c.nom}
-                        {c.appellation && <small className="text-muted ms-1">({c.appellation})</small>}
+                      <button key={c.id} type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setFCollabId(c.id)} disabled={saving}>
+                        {c.prenom} {c.nom}{c.appellation && <small className="text-muted ms-1">({c.appellation})</small>}
                       </button>
                     ))}
                   </div>
@@ -1608,7 +1592,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
               })()}
             </Form.Group>
           )}
-
           {currentProfil && (
             <div className="text-muted small">
               TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />
@@ -1623,7 +1606,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* VALEUR CELLULE */}
       <Modal show={showCellModal} onHide={() => !saving && setShowCellModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>Valeur de cellule</Modal.Title></Modal.Header>
         <Modal.Body>
