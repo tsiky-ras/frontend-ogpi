@@ -167,11 +167,18 @@ export interface Backlog {
   phases?: BacklogPhase[];
 }
 
+export type BacklogType = 0 | 1; 
+// 0 = LEAD
+// 1 = PROJET
+
 export interface CreateBacklogRequest {
   name: string;
-  leadId: number;
-  desc?: string; 
+  leadId?: number | null;
+  projetId?: number | null;
+  desc?: string;
+  type: BacklogType;
 }
+
 export interface BacklogDeliverable {
   id: number;
   name: string;

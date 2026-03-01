@@ -126,7 +126,11 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     if (!leadId) return;
     try {
       const created = await backlogService.createBacklog({
-        name: item.name, desc: item.desc, leadId: item.leadId,
+        name:     item.name,
+        desc:     item.desc,
+        leadId:   item.leadId,
+        projetId: null,
+        type:     item.type,   // ← transmettre le type choisi dans le formulaire
       });
       setBacklogs(prev => [...prev, created]);
       setSelectedBacklogId(created.id);

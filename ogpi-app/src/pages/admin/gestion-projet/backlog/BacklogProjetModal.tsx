@@ -38,7 +38,7 @@ import {
 } from "../../../../types/projet/backlog/BacklogProjet.tsx";
 
 import { useAuth }  from "../../../../context/AuthContext.tsx";
-import BacklogForm  from "../../gestion-lead/backlog/BacklogForm.tsx";
+import BacklogFormProjet from "./BacklogFormProjet.tsx";
 import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
 import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
 
@@ -47,6 +47,7 @@ interface BacklogProjetModalProps {
   onClose: () => void;
   projetId: number;
   projetNom?: string;
+  leadId?: number | null;
 }
 
 interface ProfilFull extends BacklogProjetProfil {
@@ -54,7 +55,7 @@ interface ProfilFull extends BacklogProjetProfil {
 }
 
 const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
-  show, onClose, projetId, projetNom,
+  show, onClose, projetId, projetNom,leadId,
 }) => {
   const { api } = useAuth();
   const collaborateurService = useProfilService();
@@ -74,7 +75,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [saving,      setSaving]      = useState(false);
-  const [showCreate,  setShowCreate]  = useState(false);
+
+  // ── Gestion liste / sélection / création ─────────────────────────────
+  const [loadingBacklogs,   setLoadingBacklogs]   = useState(false);
+  const [selectedBacklogId, setSelectedBacklogId] = useState<number | null>(null);
+  const [showBacklogForm,   setShowBacklogForm]   = useState(false);
+  // Comme l'API ne gère qu'un backlog par projet, on stocke juste l'en-tête
+  const [backlogHeader,     setBacklogHeader]     = useState<Backlog | null>(null);
 
   const [lots,        setLots]        = useState<BacklogLot[]>([]);
   const [profils,     setProfils]     = useState<ProfilFull[]>([]);
@@ -226,36 +233,108 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     catch { setAllCollabs([]); }
   }, [collaborateurService]);
 
+  // ── Vérification existence backlog pour ce projet ─────────────────────
+  const fetchBacklogHeader = useCallback(async () => {
+    setLoadingBacklogs(true);
+    setError(null);
+    try {
+      // Étape 1 : chercher un backlog déjà rattaché au projet
+      const existingHeader = await svc.backlog.getHeaderByProjetId(projetId);
+
+      if (existingHeader?.id) {
+        // Backlog déjà attaché au projet (tous cas confondus)
+        setBacklogHeader(existingHeader);
+        setSelectedBacklogId(existingHeader.id);
+        return;
+      }
+
+      // Étape 2 : pas encore de backlog projet → chercher depuis le lead
+      if (leadId) {
+        const leadBacklog = await svc.backlog.getHeaderByLeadId(leadId);
+        if (leadBacklog?.id) {
+          // Attacher le backlog du lead à ce projet
+          await svc.backlog.attachToProjet(leadBacklog.id, projetId);
+          // Recharger l'en-tête maintenant que l'attachement est fait
+          const attached = await svc.backlog.getHeaderByProjetId(projetId);
+          setBacklogHeader(attached);
+          if (attached?.id) setSelectedBacklogId(attached.id);
+        } else {
+          // Lead sans backlog (cas rare) → permettre la création
+          setBacklogHeader(null);
+        }
+      } else {
+        // Projet indépendant sans backlog → afficher le bouton "Créer"
+        setBacklogHeader(null);
+      }
+    } catch {
+      setError("Impossible de charger le backlog.");
+    } finally {
+      setLoadingBacklogs(false);
+    }
+  }, [projetId, leadId]);
+
+  // ── Chargement du backlog complet (par son ID direct) ───────────────
   const loadFull = useCallback(async () => {
+    if (!selectedBacklogId) return;
     setLoading(true); setError(null);
     try {
-      const full = await svc.backlog.getFullByProjetId(projetId);
-      if (!full) { setShowCreate(true); return; }
+      const full = await svc.backlog.getFullById(selectedBacklogId);
+      if (!full) return;
       hydrateFromFull(full);
-      await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full), loadAllCollabs()]);
-    } catch { setError("Impossible de charger le backlog."); }
-    finally { setLoading(false); }
-  }, [projetId]);
+      await Promise.all([
+        loadLineProfils(full.id),
+        loadColumnsAndValues(full),
+        loadAllCollabs(),
+      ]);
+    } catch {
+      setError("Impossible de charger le backlog.");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBacklogId]);
 
   const reload = useCallback(async () => {
-    if (!backlog?.id) { await loadFull(); return; }
+    if (!selectedBacklogId) return;
     setLoading(true);
     try {
-      const full = await svc.backlog.getFullByProjetId(projetId);
-      if (full) { hydrateFromFull(full); await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full)]); }
-    } catch { setError("Impossible de recharger les données."); }
-    finally { setLoading(false); }
-  }, [projetId, backlog?.id]);
+      const full = await svc.backlog.getFullById(selectedBacklogId);
+      if (full) {
+        hydrateFromFull(full);
+        await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full)]);
+      }
+    } catch {
+      setError("Impossible de recharger les données.");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBacklogId]);
 
+  // ── Reset complet à l'ouverture ───────────────────────────────────────
   useEffect(() => {
     if (!show || !projetId) return;
-    setBacklog(null); setLots([]); setProfils([]); setLines([]);
+    setBacklog(null); setBacklogHeader(null); setLots([]); setProfils([]); setLines([]);
     setLineProfils([]); setSprints(new Map()); setDeliverables(new Map());
     setColumns(new Map()); setColValues(new Map()); setAllCollabs([]);
-    setError(null); setShowCreate(false); setActiveTab("backlog");
+    setError(null); setShowBacklogForm(false); setActiveTab("backlog");
+    setSelectedBacklogId(null);
     setExpandedPhases(new Set()); setExpandedSprints(new Map()); setExpandedLines(new Set());
-    loadFull();
+    fetchBacklogHeader();
   }, [show, projetId]);
+
+  // ── Chargement complet quand un backlog est sélectionné ───────────────
+  useEffect(() => {
+    if (selectedBacklogId) loadFull();
+  }, [selectedBacklogId]);
+
+  // ── Retour à l'écran d'accueil (inutile ici car 1 seul backlog possible,
+  //    mais conservé pour cohérence et évolution future) ─────────────────
+  const handleBackToList = () => {
+    setSelectedBacklogId(null);
+    setBacklog(null); setLots([]); setProfils([]); setLines([]);
+    setLineProfils([]); setSprints(new Map()); setDeliverables(new Map());
+    setColumns(new Map()); setColValues(new Map());
+    setExpandedPhases(new Set()); setExpandedSprints(new Map()); setExpandedLines(new Set());
+  };
 
   // ══════════════════════════════════════════════════════════════════════
   // HELPERS
@@ -331,14 +410,24 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   // ══════════════════════════════════════════════════════════════════════
   // CRÉATION BACKLOG
   // ══════════════════════════════════════════════════════════════════════
-
   const handleCreateBacklog = async (item: CreateBacklogForProjetRequest) => {
     setSaving(true);
     try {
-      const created = await svc.backlog.createForProjet({ name: item.name, desc: item.desc, projetId });
-      setBacklog(created); setShowCreate(false); await loadFull();
-    } catch { setError("Impossible de créer le backlog."); }
-    finally { setSaving(false); }
+      const created = await svc.backlog.createForProjet({
+        name:     item.name,
+        desc:     item.desc,
+        projetId,
+        leadId:   leadId ?? null, 
+        type:     item.type,
+      });
+      setBacklogHeader(created);
+      setSelectedBacklogId(created.id);
+      setShowBacklogForm(false);
+    } catch {
+      setError("Impossible de créer le backlog.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ══════════════════════════════════════════════════════════════════════
@@ -788,15 +877,21 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const grandTotalAmt = profilTotals.reduce((s, t) => s + t.amount, 0);
 
   // ══════════════════════════════════════════════════════════════════════
-  // RENDU — écran création
+  // RENDU
   // ══════════════════════════════════════════════════════════════════════
 
-  if (showCreate) {
+  // Chargement initial
+  if (loadingBacklogs) {
     return (
-      <Modal show={show} onHide={onClose} size="lg" centered>
-        <Modal.Header closeButton><Modal.Title>Créer le backlog — {projetNom}</Modal.Title></Modal.Header>
+      <Modal show={show} onHide={onClose} size="xl" fullscreen>
+        <Modal.Header closeButton>
+          <Modal.Title>Backlog — {projetNom ?? `Projet #${projetId}`}</Modal.Title>
+        </Modal.Header>
         <Modal.Body>
-          <BacklogForm show={showCreate} onClose={() => { setShowCreate(false); onClose(); }} onSubmit={handleCreateBacklog as any} projetId={projetId} />
+          <div className="d-flex justify-content-center align-items-center" style={{ height: "50vh" }}>
+            <FaSpinner className="fa-spin me-2" size={24} />
+            <span>Chargement…</span>
+          </div>
         </Modal.Body>
       </Modal>
     );
@@ -806,539 +901,606 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     <>
       <Modal show={show} onHide={onClose} size="xl" fullscreen>
         <Modal.Header closeButton>
-          <Modal.Title>Backlog — {projetNom ?? `Projet #${projetId}`}</Modal.Title>
+          <Modal.Title>
+            Backlog — {projetNom ?? `Projet #${projetId}`}
+          </Modal.Title>
         </Modal.Header>
 
         <Modal.Body style={{ backgroundColor: "#f8f9fa" }}>
           <div className="container-fluid">
             {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
-            {loading && (
-              <div className="text-center py-5">
-                <FaSpinner className="fa-spin me-2" size={24} /><span>Chargement du backlog…</span>
+
+            {/* ══════════════════════════════════════════════════════════
+                ÉCRAN D'ACCUEIL : aucun backlog sélectionné
+                → soit création inline (aucun backlog existant),
+                → soit affichage de la carte du backlog existant
+            ══════════════════════════════════════════════════════════ */}
+            {!selectedBacklogId && (
+              <div className="py-4">
+                {backlogHeader ? (
+                  /* Backlog existant → carte "ouvrir" */
+                  <div className="row justify-content-center">
+                    <div className="col-md-6 col-lg-4">
+                      <div
+                        className="card shadow-sm h-100"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setSelectedBacklogId(backlogHeader.id)}
+                      >
+                        <div className="card-body">
+                          <h5 className="card-title">{backlogHeader.name}</h5>
+                          {(backlogHeader as any).desc && (
+                            <p className="card-text text-muted small">{(backlogHeader as any).desc}</p>
+                          )}
+                          {/* Badge pour distinguer l'origine */}
+                          <div className="mt-2">
+                            {leadId
+                              ? <span className="badge bg-info text-dark">Issu du lead</span>
+                              : <span className="badge bg-secondary">Projet indépendant</span>
+                            }
+                          </div>
+                          <div className="d-flex justify-content-end mt-3">
+                            <small className="text-primary">Cliquez pour ouvrir →</small>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Aucun backlog → création (projet indépendant ou lead sans backlog) */
+                  <>
+                    <BacklogFormProjet
+                      show={showBacklogForm}
+                      onClose={() => setShowBacklogForm(false)}
+                      onSubmit={handleCreateBacklog}
+                      projetId={projetId}
+                    />
+                    <Button
+                      label="Créer un backlog"
+                      icon={<FaPlus />}
+                      onClick={() => setShowBacklogForm(true)}
+                      className="mb-3"
+                    />
+                    <div className="text-center text-muted py-5">
+                      <p>Aucun backlog pour ce projet.</p>
+                      <p className="small">Cliquez sur "Créer un backlog" pour commencer.</p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {!loading && (
-              <Tabs activeKey={activeTab} onSelect={k => setActiveTab(k ?? "backlog")} className="mb-4">
-
-                {/* ══════════ TAB BACKLOG ══════════════════════════════ */}
-                <Tab eventKey="backlog" title="Backlog">
-
-                  {/* ── Récap par profil ── */}
-                  <div className="card shadow-sm mb-3">
-                    <div className="card-header fw-bold">Récapitulatif par profil</div>
-                    <div className="card-body p-0">
-                      <table className="table table-sm table-bordered mb-0">
-                        <thead className="table-light">
-                          <tr>
-                            <th>Profil</th>
-                            <th className="text-end">Volume JH</th>
-                            <th className="text-end">TJM</th>
-                            <th className="text-end">Montant</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {profilTotals.map(({ profil, vol, amount }) => {
-                            const assignes = lineProfils
-                              .filter(lp => (lp.profil as any)?.id === profil.id && (lp as any)?.collaborateur)
-                              .map(lp => (lp as any).collaborateur)
-                              .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
-                            return (
-                              <tr key={profil.id}>
-                                <td>
-                                  <strong>{profil.name}</strong>
-                                  {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
-                                  {assignes.length > 0 && (
-                                    <div className="mt-1 d-flex flex-wrap gap-1">
-                                      {assignes.map((c: any) => (
-                                        <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>{c.nom} {c.prenom}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="text-end">{vol.toFixed(2)}</td>
-                                <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
-                                <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                        <tfoot className="table-active">
-                          <tr>
-                            <td><strong>TOTAL</strong></td>
-                            <td className="text-end fw-bold">{grandTotalVol.toFixed(2)}</td>
-                            <td />
-                            <td className="text-end fw-bold text-primary">{grandTotalAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
+            {/* ══════════════════════════════════════════════════════════
+                CONTENU DU BACKLOG SÉLECTIONNÉ
+            ══════════════════════════════════════════════════════════ */}
+            {selectedBacklogId && (
+              <>
+                {loading && (
+                  <div className="text-center py-5">
+                    <FaSpinner className="fa-spin me-2" size={24} />
+                    <span>Chargement du backlog…</span>
                   </div>
+                )}
 
-                  {/* ── Récap JH par Lot / Phase / Sprint (global) ── */}
-                  <div className="card shadow-sm mb-3">
-                    <div className="card-header fw-bold d-flex justify-content-between align-items-center">
-                      <span>Récapitulatif JH par Lot / Phase / Sprint</span>
-                      <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH total</span>
-                    </div>
-                    <div className="card-body p-0">
-                      <table className="table table-sm table-bordered mb-0">
-                        <thead className="table-light">
-                          <tr>
-                            <th>Niveau</th>
-                            <th className="text-end" style={{ width: 90 }}>JH</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {lotRecap.map(({ lot, vol: lotVol, phases }) => (
-                            <React.Fragment key={lot.id}>
-                              <tr style={{ cursor: "pointer", backgroundColor: "#e8eaf6" }} onClick={() => toggleRecapLot(lot.id)}>
-                                <td>
-                                  <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
-                                    {expandedRecapLots.has(lot.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                  </span>
-                                  <strong>{lot.name}</strong>
-                                </td>
-                                <td className="text-end fw-bold">{fmtJH(lotVol)}</td>
+                {!loading && (
+                  <Tabs activeKey={activeTab} onSelect={k => setActiveTab(k ?? "backlog")} className="mb-4">
+
+                    {/* ══════════ TAB BACKLOG ══════════════════════════ */}
+                    <Tab eventKey="backlog" title="Backlog">
+
+                      {/* ── Récap par profil ── */}
+                      <div className="card shadow-sm mb-3">
+                        <div className="card-header fw-bold">Récapitulatif par profil</div>
+                        <div className="card-body p-0">
+                          <table className="table table-sm table-bordered mb-0">
+                            <thead className="table-light">
+                              <tr>
+                                <th>Profil</th>
+                                <th className="text-end">Volume JH</th>
+                                <th className="text-end">TJM</th>
+                                <th className="text-end">Montant</th>
                               </tr>
-                              {expandedRecapLots.has(lot.id) && phases.map(({ phase, vol: phVol, sprints: spData }) => (
-                                <React.Fragment key={phase.id}>
-                                  <tr style={{ cursor: "pointer", backgroundColor: "#f3f4fb" }} onClick={() => toggleRecapPhase(phase.id)}>
-                                    <td className="ps-4">
-                                      <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
-                                        {expandedRecapPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                      </span>
-                                      {phase.name}
+                            </thead>
+                            <tbody>
+                              {profilTotals.map(({ profil, vol, amount }) => {
+                                const assignes = lineProfils
+                                  .filter(lp => (lp.profil as any)?.id === profil.id && (lp as any)?.collaborateur)
+                                  .map(lp => (lp as any).collaborateur)
+                                  .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
+                                return (
+                                  <tr key={profil.id}>
+                                    <td>
+                                      <strong>{profil.name}</strong>
+                                      {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
+                                      {assignes.length > 0 && (
+                                        <div className="mt-1 d-flex flex-wrap gap-1">
+                                          {assignes.map((c: any) => (
+                                            <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>{c.nom} {c.prenom}</span>
+                                          ))}
+                                        </div>
+                                      )}
                                     </td>
-                                    <td className="text-end">{fmtJH(phVol)}</td>
+                                    <td className="text-end">{vol.toFixed(2)}</td>
+                                    <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
+                                    <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                   </tr>
-                                  {expandedRecapPhases.has(phase.id) && spData.map(({ sprint, vol: spVol }) => spVol > 0 && (
-                                    <tr key={sprint.id} style={{ backgroundColor: "#fafbff" }}>
-                                      <td className="ps-5 text-muted small">Sprint {sprint.order} : {sprint.name}</td>
-                                      <td className="text-end small">{fmtJH(spVol)}</td>
-                                    </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot className="table-active">
+                              <tr>
+                                <td><strong>TOTAL</strong></td>
+                                <td className="text-end fw-bold">{grandTotalVol.toFixed(2)}</td>
+                                <td />
+                                <td className="text-end fw-bold text-primary">{grandTotalAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* ── Récap JH par Lot / Phase / Sprint ── */}
+                      <div className="card shadow-sm mb-3">
+                        <div className="card-header fw-bold d-flex justify-content-between align-items-center">
+                          <span>Récapitulatif JH par Lot / Phase / Sprint</span>
+                          <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH total</span>
+                        </div>
+                        <div className="card-body p-0">
+                          <table className="table table-sm table-bordered mb-0">
+                            <thead className="table-light">
+                              <tr>
+                                <th>Niveau</th>
+                                <th className="text-end" style={{ width: 90 }}>JH</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lotRecap.map(({ lot, vol: lotVol, phases }) => (
+                                <React.Fragment key={lot.id}>
+                                  <tr style={{ cursor: "pointer", backgroundColor: "#e8eaf6" }} onClick={() => toggleRecapLot(lot.id)}>
+                                    <td>
+                                      <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
+                                        {expandedRecapLots.has(lot.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                      </span>
+                                      <strong>{lot.name}</strong>
+                                    </td>
+                                    <td className="text-end fw-bold">{fmtJH(lotVol)}</td>
+                                  </tr>
+                                  {expandedRecapLots.has(lot.id) && phases.map(({ phase, vol: phVol, sprints: spData }) => (
+                                    <React.Fragment key={phase.id}>
+                                      <tr style={{ cursor: "pointer", backgroundColor: "#f3f4fb" }} onClick={() => toggleRecapPhase(phase.id)}>
+                                        <td className="ps-4">
+                                          <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
+                                            {expandedRecapPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                          </span>
+                                          {phase.name}
+                                        </td>
+                                        <td className="text-end">{fmtJH(phVol)}</td>
+                                      </tr>
+                                      {expandedRecapPhases.has(phase.id) && spData.map(({ sprint, vol: spVol }) => spVol > 0 && (
+                                        <tr key={sprint.id} style={{ backgroundColor: "#fafbff" }}>
+                                          <td className="ps-5 text-muted small">Sprint {sprint.order} : {sprint.name}</td>
+                                          <td className="text-end small">{fmtJH(spVol)}</td>
+                                        </tr>
+                                      ))}
+                                    </React.Fragment>
                                   ))}
                                 </React.Fragment>
                               ))}
-                            </React.Fragment>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* ── Récap par profil → Lot / Phase / Sprint ── */}
-                  {profils.length > 0 && (
-                    <div className="card shadow-sm mb-4">
-                      <div className="card-header fw-bold">Récapitulatif JH par profil — détail Lot / Phase / Sprint</div>
-                      <div className="card-body p-0">
-                        {profils.map(profil => {
-                          const profilTot = profilTotals.find(t => t.profil.id === profil.id);
-                          const profilVol = profilTot?.vol ?? 0;
-                          const profilAmt = profilTot?.amount ?? 0;
-                          const isOpen = expandedProfilRecap.has(profil.id);
-                          return (
-                            <div key={profil.id} className="border-bottom">
-                              <div
-                                className="d-flex align-items-center justify-content-between px-3 py-2"
-                                style={{ cursor: "pointer", backgroundColor: isOpen ? "#fff8e1" : "white" }}
-                                onClick={() => toggleProfilRecap(profil.id)}
-                              >
-                                <div className="d-flex align-items-center gap-2">
-                                  <span className="text-muted" style={{ fontSize: "0.75rem" }}>
-                                    {isOpen ? <FaChevronDown /> : <FaChevronRight />}
-                                  </span>
-                                  <strong>{profil.name}</strong>
-                                  {profil.desc && <small className="text-muted">— {profil.desc}</small>}
-                                </div>
-                                <div className="d-flex align-items-center gap-2">
-                                  <span className="badge bg-warning text-dark">{profil.tjm.toFixed(0)} {deviseAbr}/j</span>
-                                  <span className="badge bg-primary">{fmtJH(profilVol)} JH</span>
-                                  <span className="badge bg-success">{profilAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</span>
-                                </div>
-                              </div>
-
-                              {isOpen && (
-                                <div className="px-3 pb-2 pt-1" style={{ backgroundColor: "#fffde7" }}>
-                                  <table className="table table-sm table-bordered mb-0 bg-white">
-                                    <thead className="table-light">
-                                      <tr>
-                                        <th>Niveau</th>
-                                        <th className="text-end" style={{ width: 75 }}>JH</th>
-                                        <th className="text-end" style={{ width: 110 }}>Montant</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {lotRecap.map(({ lot, phases, byProfil: lotByProfil }) => {
-                                        const lVol = lotByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
-                                        if (lVol === 0 && !expandedProfilLots.get(profil.id)?.has(lot.id)) return null;
-                                        const isLotOpen = expandedProfilLots.get(profil.id)?.has(lot.id) ?? false;
-                                        return (
-                                          <React.Fragment key={lot.id}>
-                                            <tr
-                                              style={{ cursor: "pointer", backgroundColor: "#f0f2ff" }}
-                                              onClick={() => toggleProfilLot(profil.id, lot.id)}
-                                            >
-                                              <td>
-                                                <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
-                                                  {isLotOpen ? <FaChevronDown /> : <FaChevronRight />}
-                                                </span>
-                                                <strong>{lot.name}</strong>
-                                              </td>
-                                              <td className="text-end fw-bold">{fmtJH(lVol)}</td>
-                                              <td className="text-end">{(lVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                                            </tr>
-                                            {isLotOpen && phases.map(({ phase, byProfil: phByProfil, sprints: phSprints }) => {
-                                              const phVol = phByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
-                                              return (
-                                                <React.Fragment key={phase.id}>
-                                                  <tr style={{ backgroundColor: "#f8f9ff" }}>
-                                                    <td className="ps-4 text-muted">{phase.name}</td>
-                                                    <td className="text-end small">{fmtJH(phVol)}</td>
-                                                    <td className="text-end small">{(phVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                                                  </tr>
-                                                  {phSprints.map(({ sprint, byProfil: spByProfil }) => {
-                                                    const spVol = spByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
-                                                    if (spVol === 0) return null;
-                                                    return (
-                                                      <tr key={sprint.id} style={{ backgroundColor: "#fcfcff" }}>
-                                                        <td className="ps-5 text-muted small"> Sprint {sprint.order} : {sprint.name}</td>
-                                                        <td className="text-end small text-muted">{fmtJH(spVol)}</td>
-                                                        <td className="text-end small text-muted">{(spVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                                                      </tr>
-                                                    );
-                                                  })}
-                                                </React.Fragment>
-                                              );
-                                            })}
-                                          </React.Fragment>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* ── Tableau des lignes ── */}
-                  {/* ── Barre d'outils ── */}
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <button
-                      className={`btn btn-sm d-flex align-items-center gap-2 ${showProfilCols ? "btn-outline-secondary" : "btn-warning"}`}
-                      onClick={() => setShowProfilCols(v => !v)}
-                    >
-                      {showProfilCols ? <FaEyeSlash /> : <FaEye />}
-                      {showProfilCols ? "Masquer" : "Afficher"} colonnes profils
-                      <span className="badge bg-secondary">{profils.length}</span>
-                    </button>
-                    <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
-                  </div>
-
-                  <div className="table-responsive shadow-sm rounded">
-                    <table className="table table-bordered table-hover align-middle mb-0">
-                      <thead className="table-dark">
-                        <tr>
-                          <th style={{ width: 32 }} />
-                          <th style={{ width: 40 }}>#</th>
-                          <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
-                          <th>Epic</th>
-                          <th>User Story</th>
-                          <th>Description</th>
-                          <th>Détails</th>
-                          {showProfilCols && profils.map(p => (
-                            <th key={p.id} className="text-center" style={{ minWidth: 110 }}>
-                              <div className="fw-bold">{p.name}</div>
-                              {p.collaborateurs.length > 0 && (
-                                <div className="d-flex flex-column gap-1 mt-1">
-                                  {p.collaborateurs.map((c: any) => (
-                                    <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>
-                                      {c.prenom} {c.nom}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </th>
-                          ))}
-                          <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}>
-                            <div className="fw-bold text-warning">Total JH</div>
-                          </th>
-                          <th style={{ width: 90 }} />
-                        </tr>
-                      </thead>
-                      <tbody ref={lineBodyRef}>
-                        {lines.length === 0 ? (
-                          <tr className="empty-row">
-                            <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
-                              Aucune ligne — cliquez sur « Ajouter une ligne »
-                            </td>
-                          </tr>
-                        ) : lines.map(line => {
-                          const lot       = getLotByPhaseId((line as any).phaseId);
-                          const phaseName = getPhaseNameById((line as any).phaseId);
-                          const sprintId  = (line as any).sprintId;
-                          const sprintName = sprintId ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null : null;
-                          const lineJH    = getLineJH(line.id);
-
-                          return (
-                            <tr key={line.id}>
-                              <td className="drag-line text-center text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</td>
-                              <td className="text-center text-muted">{line.order}</td>
-
-                              <td className="text-nowrap">
-                                <div className="d-flex align-items-center gap-1" style={{ cursor: "pointer" }} onClick={() => toggleLine(line.id)}>
-                                  <span className="text-muted" style={{ fontSize: "0.7rem" }}>
-                                    {expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                  </span>
-                                  <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>{lot?.name ?? "—"}</span>
-                                </div>
-                                {expandedLines.has(line.id) && (
-                                  <div className="ms-3 mt-1" style={{ fontSize: "0.8rem", lineHeight: 1.6 }}>
-                                    <div><span className="text-muted">Phase :</span> <span className="fw-semibold">{phaseName}</span></div>
-                                    {sprintName && <div><span className="text-muted">Sprint :</span> <span className="fw-semibold">{sprintName}</span></div>}
-                                  </div>
-                                )}
-                              </td>
-
-                              <td>{line.epic ?? "—"}</td>
-                              <td>{line.userStory ?? "—"}</td>
-                              <td>{line.description ?? "—"}</td>
-                              <td>{line.resultat ?? "—"}</td>
-
-                              {showProfilCols && profils.map(p => {
-                                const lp     = getLineProfil(line.id, p.id);
-                                const vol    = lp?.volume ?? 0;
-                                const collab = (lp as any)?.collaborateur;
-                                return (
-                                  <td key={p.id} className="text-center" style={{ cursor: "pointer" }} onClick={() => openVolModal(line.id, p.id)}>
-                                    {vol > 0 ? <span className="badge bg-primary">{vol}</span> : <span className="text-muted small">—</span>}
-                                    {collab && <small className="d-block text-muted" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>{collab.nom} {collab.prenom}</small>}
-                                  </td>
-                                );
-                              })}
-
-                              {/* Total JH par ligne */}
-                              <td className="text-center" style={{ backgroundColor: "#fffbea" }}>
-                                {lineJH > 0
-                                  ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span>
-                                  : <span className="text-muted small">—</span>}
-                              </td>
-
-                              <td>
-                                <div className="d-flex gap-1 justify-content-center">
-                                  <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLine(line)}><FaEdit /></button>
-                                  <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteLine(line.id)}><FaTrash /></button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-
-                      {/* Pied de tableau — totaux */}
-                      {lines.length > 0 && (
-                        <tfoot>
-                          <tr className="table-warning fw-bold">
-                            <td colSpan={7} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
-                            {showProfilCols && profils.map(p => {
-                              const pVol = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
-                              return <td key={p.id} className="text-center">{pVol > 0 ? fmtJH(pVol) : "—"}</td>;
-                            })}
-                            <td className="text-center">
-                              <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span>
-                            </td>
-                            <td />
-                          </tr>
-                        </tfoot>
-                      )}
-                    </table>
-                  </div>
-                </Tab>
-
-                {/* ══════════ TAB LOTS & PHASES ════════════════════════ */}
-                <Tab eventKey="lots" title="Lots & Phases">
-                  <div className="d-flex justify-content-end mb-3">
-                    <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
-                  </div>
-
-                  <div ref={lotsRef}>
-                    {lots.length === 0
-                      ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
-                      : lots.map(lot => (
-                        <div key={lot.id} className="card mb-3 shadow-sm">
-                          <div className="card-header d-flex align-items-center gap-2">
-                            <span className="drag-lot text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}>⋮⋮</span>
-                            <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
-                            {lot.desc && <small className="text-muted me-2">{lot.desc}</small>}
-                            <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
-                            <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
-                          </div>
-                          <div className="card-body pt-2 pb-3">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="text-muted small fw-semibold">Phases</span>
-                              <Button label="+ Phase" variant="secondary" onClick={() => openAddPhase(lot.id)} />
-                            </div>
-                            <div data-phases-lot-id={lot.id}>
-                              {((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
-                                const phaseSprints = sprints.get(phase.id) ?? [];
-                                const phaseDeliv   = deliverables.get(phase.id) ?? [];
-                                const expanded     = expandedPhases.has(phase.id);
-                                return (
-                                  <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
-                                    <div className="d-flex align-items-center gap-2 p-2">
-                                      <span className="drag-phase text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}>⋮⋮</span>
-                                      <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{expanded ? <FaChevronDown /> : <FaChevronRight />}</span>
-                                      <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{phase.order}. {phase.name}</span>
-                                      <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
-                                      <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
-                                      <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
-                                      <button className="btn btn-sm btn-success ms-1"           onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
-                                      <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
-                                      <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
+                      {/* ── Récap par profil → Lot / Phase / Sprint ── */}
+                      {profils.length > 0 && (
+                        <div className="card shadow-sm mb-4">
+                          <div className="card-header fw-bold">Récapitulatif JH par profil — détail Lot / Phase / Sprint</div>
+                          <div className="card-body p-0">
+                            {profils.map(profil => {
+                              const profilTot = profilTotals.find(t => t.profil.id === profil.id);
+                              const profilVol = profilTot?.vol ?? 0;
+                              const profilAmt = profilTot?.amount ?? 0;
+                              const isOpen = expandedProfilRecap.has(profil.id);
+                              return (
+                                <div key={profil.id} className="border-bottom">
+                                  <div
+                                    className="d-flex align-items-center justify-content-between px-3 py-2"
+                                    style={{ cursor: "pointer", backgroundColor: isOpen ? "#fff8e1" : "white" }}
+                                    onClick={() => toggleProfilRecap(profil.id)}
+                                  >
+                                    <div className="d-flex align-items-center gap-2">
+                                      <span className="text-muted" style={{ fontSize: "0.75rem" }}>
+                                        {isOpen ? <FaChevronDown /> : <FaChevronRight />}
+                                      </span>
+                                      <strong>{profil.name}</strong>
+                                      {profil.desc && <small className="text-muted">— {profil.desc}</small>}
                                     </div>
+                                    <div className="d-flex align-items-center gap-2">
+                                      <span className="badge bg-warning text-dark">{profil.tjm.toFixed(0)} {deviseAbr}/j</span>
+                                      <span className="badge bg-primary">{fmtJH(profilVol)} JH</span>
+                                      <span className="badge bg-success">{profilAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</span>
+                                    </div>
+                                  </div>
 
-                                    {expanded && (
-                                      <div className="px-3 pb-2">
-                                        <div data-sprints-phase-id={phase.id}>
-                                          {phaseSprints.map(sprint => {
-                                            const sprintCols  = columns.get(sprint.id) ?? [];
-                                            const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
-                                            const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
+                                  {isOpen && (
+                                    <div className="px-3 pb-2 pt-1" style={{ backgroundColor: "#fffde7" }}>
+                                      <table className="table table-sm table-bordered mb-0 bg-white">
+                                        <thead className="table-light">
+                                          <tr>
+                                            <th>Niveau</th>
+                                            <th className="text-end" style={{ width: 75 }}>JH</th>
+                                            <th className="text-end" style={{ width: 110 }}>Montant</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {lotRecap.map(({ lot, phases, byProfil: lotByProfil }) => {
+                                            const lVol = lotByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                            if (lVol === 0 && !expandedProfilLots.get(profil.id)?.has(lot.id)) return null;
+                                            const isLotOpen = expandedProfilLots.get(profil.id)?.has(lot.id) ?? false;
                                             return (
-                                              <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
-                                                <div className="d-flex align-items-center gap-2">
-                                                  <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
-                                                  <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
-                                                  {sprint.dateDebut && sprint.dateFin && (
-                                                    <small className="text-muted">
-                                                      {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
-                                                    </small>
-                                                  )}
-                                                  <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
-                                                    {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
-                                                  </button>
-                                                  <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
-                                                  <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
-                                                </div>
-                                                {spExpanded && (
-                                                  <div className="mt-2 ms-3">
-                                                    {sprintCols.length > 0 && (
-                                                      <div className="mb-2">
-                                                        <strong className="small text-secondary">Colonnes :</strong>
-                                                        <div className="d-flex flex-wrap gap-1 mt-1">
-                                                          {sprintCols.map(col => (
-                                                            <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
-                                                              {col.name} <em className="text-light opacity-75 small">({col.type})</em>
-                                                              <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
-                                                              <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
-                                                            </span>
-                                                          ))}
-                                                        </div>
-                                                      </div>
-                                                    )}
-                                                    {sprintDeliv.length > 0
-                                                      ? sprintDeliv.map(d => (
-                                                        <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
-                                                          <span>
-                                                            <strong>{d.name}</strong>
-                                                            {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
-                                                          </span>
-                                                          <div className="d-flex gap-1">
-                                                            <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                                            <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
-                                                          </div>
-                                                        </div>
-                                                      ))
-                                                      : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
-                                                  </div>
-                                                )}
-                                              </div>
+                                              <React.Fragment key={lot.id}>
+                                                <tr
+                                                  style={{ cursor: "pointer", backgroundColor: "#f0f2ff" }}
+                                                  onClick={() => toggleProfilLot(profil.id, lot.id)}
+                                                >
+                                                  <td>
+                                                    <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
+                                                      {isLotOpen ? <FaChevronDown /> : <FaChevronRight />}
+                                                    </span>
+                                                    <strong>{lot.name}</strong>
+                                                  </td>
+                                                  <td className="text-end fw-bold">{fmtJH(lVol)}</td>
+                                                  <td className="text-end">{(lVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                                </tr>
+                                                {isLotOpen && phases.map(({ phase, byProfil: phByProfil, sprints: phSprints }) => {
+                                                  const phVol = phByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                                  return (
+                                                    <React.Fragment key={phase.id}>
+                                                      <tr style={{ backgroundColor: "#f8f9ff" }}>
+                                                        <td className="ps-4 text-muted">{phase.name}</td>
+                                                        <td className="text-end small">{fmtJH(phVol)}</td>
+                                                        <td className="text-end small">{(phVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                                      </tr>
+                                                      {phSprints.map(({ sprint, byProfil: spByProfil }) => {
+                                                        const spVol = spByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                                        if (spVol === 0) return null;
+                                                        return (
+                                                          <tr key={sprint.id} style={{ backgroundColor: "#fcfcff" }}>
+                                                            <td className="ps-5 text-muted small">Sprint {sprint.order} : {sprint.name}</td>
+                                                            <td className="text-end small text-muted">{fmtJH(spVol)}</td>
+                                                            <td className="text-end small text-muted">{(spVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                                          </tr>
+                                                        );
+                                                      })}
+                                                    </React.Fragment>
+                                                  );
+                                                })}
+                                              </React.Fragment>
                                             );
                                           })}
-                                        </div>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
-                                        {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
-                                          <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
-                                            <span>
-                                              <strong>{d.name}</strong>
-                                              {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
-                                            </span>
-                                            <div className="d-flex gap-1">
-                                              <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                              <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                        {phaseSprints.length === 0 && phaseDeliv.length === 0 && (
-                                          <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>
-                                        )}
+                      {/* ── Barre d'outils + tableau des lignes ── */}
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <button
+                          className={`btn btn-sm d-flex align-items-center gap-2 ${showProfilCols ? "btn-outline-secondary" : "btn-warning"}`}
+                          onClick={() => setShowProfilCols(v => !v)}
+                        >
+                          {showProfilCols ? <FaEyeSlash /> : <FaEye />}
+                          {showProfilCols ? "Masquer" : "Afficher"} colonnes profils
+                          <span className="badge bg-secondary">{profils.length}</span>
+                        </button>
+                        <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
+                      </div>
+
+                      <div className="table-responsive shadow-sm rounded">
+                        <table className="table table-bordered table-hover align-middle mb-0">
+                          <thead className="table-dark">
+                            <tr>
+                              <th style={{ width: 32 }} />
+                              <th style={{ width: 40 }}>#</th>
+                              <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
+                              <th>Epic</th>
+                              <th>User Story</th>
+                              <th>Description</th>
+                              <th>Détails</th>
+                              {showProfilCols && profils.map(p => (
+                                <th key={p.id} className="text-center" style={{ minWidth: 110 }}>
+                                  <div className="fw-bold">{p.name}</div>
+                                  {p.collaborateurs.length > 0 && (
+                                    <div className="d-flex flex-column gap-1 mt-1">
+                                      {p.collaborateurs.map((c: any) => (
+                                        <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>
+                                          {c.prenom} {c.nom}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </th>
+                              ))}
+                              <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}>
+                                <div className="fw-bold text-warning">Total JH</div>
+                              </th>
+                              <th style={{ width: 90 }} />
+                            </tr>
+                          </thead>
+                          <tbody ref={lineBodyRef}>
+                            {lines.length === 0 ? (
+                              <tr className="empty-row">
+                                <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
+                                  Aucune ligne — cliquez sur « Ajouter une ligne »
+                                </td>
+                              </tr>
+                            ) : lines.map(line => {
+                              const lot       = getLotByPhaseId((line as any).phaseId);
+                              const phaseName = getPhaseNameById((line as any).phaseId);
+                              const sprintId  = (line as any).sprintId;
+                              const sprintName = sprintId ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null : null;
+                              const lineJH    = getLineJH(line.id);
+
+                              return (
+                                <tr key={line.id}>
+                                  <td className="drag-line text-center text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</td>
+                                  <td className="text-center text-muted">{line.order}</td>
+
+                                  <td className="text-nowrap">
+                                    <div className="d-flex align-items-center gap-1" style={{ cursor: "pointer" }} onClick={() => toggleLine(line.id)}>
+                                      <span className="text-muted" style={{ fontSize: "0.7rem" }}>
+                                        {expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                      </span>
+                                      <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>{lot?.name ?? "—"}</span>
+                                    </div>
+                                    {expandedLines.has(line.id) && (
+                                      <div className="ms-3 mt-1" style={{ fontSize: "0.8rem", lineHeight: 1.6 }}>
+                                        <div><span className="text-muted">Phase :</span> <span className="fw-semibold">{phaseName}</span></div>
+                                        {sprintName && <div><span className="text-muted">Sprint :</span> <span className="fw-semibold">{sprintName}</span></div>}
                                       </div>
                                     )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </Tab>
+                                  </td>
 
-                {/* ══════════ TAB PROFILS ══════════════════════════════ */}
-                <Tab eventKey="profils" title="Profils">
-                  <div className="d-flex justify-content-end mb-3">
-                    <Button label="Ajouter un profil" icon={<FaPlus />} onClick={openAddProfil} />
-                  </div>
-                  <div ref={profilsRef}>
-                    {profils.length === 0
-                      ? <div className="text-center text-muted py-4 fst-italic">Aucun profil. Cliquez sur « Ajouter un profil ».</div>
-                      : profils.map(profil => (
-                        <div key={profil.id} className="card mb-2 shadow-sm">
-                          <div className="card-body d-flex align-items-start gap-3 py-2">
-                            <span className="drag-profil text-muted mt-1" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
-                            <div className="flex-grow-1">
-                              <div className="fw-bold">{profil.order}. {profil.name}</div>
-                              {profil.desc && <small className="text-muted">{profil.desc}</small>}
-                              <div className="mt-1">
-                                <span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span>
+                                  <td>{line.epic ?? "—"}</td>
+                                  <td>{line.userStory ?? "—"}</td>
+                                  <td>{line.description ?? "—"}</td>
+                                  <td>{line.resultat ?? "—"}</td>
+
+                                  {showProfilCols && profils.map(p => {
+                                    const lp     = getLineProfil(line.id, p.id);
+                                    const vol    = lp?.volume ?? 0;
+                                    const collab = (lp as any)?.collaborateur;
+                                    return (
+                                      <td key={p.id} className="text-center" style={{ cursor: "pointer" }} onClick={() => openVolModal(line.id, p.id)}>
+                                        {vol > 0 ? <span className="badge bg-primary">{vol}</span> : <span className="text-muted small">—</span>}
+                                        {collab && <small className="d-block text-muted" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>{collab.nom} {collab.prenom}</small>}
+                                      </td>
+                                    );
+                                  })}
+
+                                  <td className="text-center" style={{ backgroundColor: "#fffbea" }}>
+                                    {lineJH > 0
+                                      ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span>
+                                      : <span className="text-muted small">—</span>}
+                                  </td>
+
+                                  <td>
+                                    <div className="d-flex gap-1 justify-content-center">
+                                      <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLine(line)}><FaEdit /></button>
+                                      <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteLine(line.id)}><FaTrash /></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+
+                          {lines.length > 0 && (
+                            <tfoot>
+                              <tr className="table-warning fw-bold">
+                                <td colSpan={7} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
+                                {showProfilCols && profils.map(p => {
+                                  const pVol = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
+                                  return <td key={p.id} className="text-center">{pVol > 0 ? fmtJH(pVol) : "—"}</td>;
+                                })}
+                                <td className="text-center">
+                                  <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span>
+                                </td>
+                                <td />
+                              </tr>
+                            </tfoot>
+                          )}
+                        </table>
+                      </div>
+                    </Tab>
+
+                    {/* ══════════ TAB LOTS & PHASES ════════════════════ */}
+                    <Tab eventKey="lots" title="Lots & Phases">
+                      <div className="d-flex justify-content-end mb-3">
+                        <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
+                      </div>
+
+                      <div ref={lotsRef}>
+                        {lots.length === 0
+                          ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
+                          : lots.map(lot => (
+                            <div key={lot.id} className="card mb-3 shadow-sm">
+                              <div className="card-header d-flex align-items-center gap-2">
+                                <span className="drag-lot text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}>⋮⋮</span>
+                                <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
+                                {lot.desc && <small className="text-muted me-2">{lot.desc}</small>}
+                                <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
+                                <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
                               </div>
-                              {profil.collaborateurs.length > 0 && (
-                                <div className="mt-2 d-flex flex-wrap gap-1">
-                                  {profil.collaborateurs.map((c: any) => (
-                                    <span key={c.id} className="badge bg-info text-dark">
-                                      {c.nom} {c.prenom}
-                                      {c.appellation && <em className="ms-1 opacity-75">({c.appellation})</em>}
-                                    </span>
-                                  ))}
+                              <div className="card-body pt-2 pb-3">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <span className="text-muted small fw-semibold">Phases</span>
+                                  <Button label="+ Phase" variant="secondary" onClick={() => openAddPhase(lot.id)} />
                                 </div>
-                              )}
+                                <div data-phases-lot-id={lot.id}>
+                                  {((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
+                                    const phaseSprints = sprints.get(phase.id) ?? [];
+                                    const phaseDeliv   = deliverables.get(phase.id) ?? [];
+                                    const expanded     = expandedPhases.has(phase.id);
+                                    return (
+                                      <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
+                                        <div className="d-flex align-items-center gap-2 p-2">
+                                          <span className="drag-phase text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}>⋮⋮</span>
+                                          <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{expanded ? <FaChevronDown /> : <FaChevronRight />}</span>
+                                          <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{phase.order}. {phase.name}</span>
+                                          <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
+                                          <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
+                                          <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
+                                          <button className="btn btn-sm btn-success ms-1"           onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
+                                          <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
+                                          <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
+                                        </div>
+
+                                        {expanded && (
+                                          <div className="px-3 pb-2">
+                                            <div data-sprints-phase-id={phase.id}>
+                                              {phaseSprints.map(sprint => {
+                                                const sprintCols  = columns.get(sprint.id) ?? [];
+                                                const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
+                                                const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
+                                                return (
+                                                  <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
+                                                    <div className="d-flex align-items-center gap-2">
+                                                      <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
+                                                      <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
+                                                      {sprint.dateDebut && sprint.dateFin && (
+                                                        <small className="text-muted">
+                                                          {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
+                                                        </small>
+                                                      )}
+                                                      <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
+                                                        {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
+                                                      </button>
+                                                      <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
+                                                      <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
+                                                    </div>
+                                                    {spExpanded && (
+                                                      <div className="mt-2 ms-3">
+                                                        {sprintCols.length > 0 && (
+                                                          <div className="mb-2">
+                                                            <strong className="small text-secondary">Colonnes :</strong>
+                                                            <div className="d-flex flex-wrap gap-1 mt-1">
+                                                              {sprintCols.map(col => (
+                                                                <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
+                                                                  {col.name} <em className="text-light opacity-75 small">({col.type})</em>
+                                                                  <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
+                                                                  <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
+                                                                </span>
+                                                              ))}
+                                                            </div>
+                                                          </div>
+                                                        )}
+                                                        {sprintDeliv.length > 0
+                                                          ? sprintDeliv.map(d => (
+                                                            <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
+                                                              <span>
+                                                                <strong>{d.name}</strong>
+                                                                {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                                              </span>
+                                                              <div className="d-flex gap-1">
+                                                                <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                                                <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
+                                                              </div>
+                                                            </div>
+                                                          ))
+                                                          : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+
+                                            {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
+                                              <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
+                                                <span>
+                                                  <strong>{d.name}</strong>
+                                                  {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                                </span>
+                                                <div className="d-flex gap-1">
+                                                  <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                                  <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                            {phaseSprints.length === 0 && phaseDeliv.length === 0 && (
+                                              <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             </div>
-                            <div className="d-flex gap-2 align-items-center">
-                              <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openCollabModal(profil)}>
-                                <FaUsers /><span className="d-none d-md-inline">Collaborateurs</span>
-                              </button>
-                              <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditProfil(profil)}><FaEdit /></button>
-                              <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteProfil(profil.id)}><FaTrash /></button>
+                          ))}
+                      </div>
+                    </Tab>
+
+                    {/* ══════════ TAB PROFILS ══════════════════════════ */}
+                    <Tab eventKey="profils" title="Profils">
+                      <div className="d-flex justify-content-end mb-3">
+                        <Button label="Ajouter un profil" icon={<FaPlus />} onClick={openAddProfil} />
+                      </div>
+                      <div ref={profilsRef}>
+                        {profils.length === 0
+                          ? <div className="text-center text-muted py-4 fst-italic">Aucun profil. Cliquez sur « Ajouter un profil ».</div>
+                          : profils.map(profil => (
+                            <div key={profil.id} className="card mb-2 shadow-sm">
+                              <div className="card-body d-flex align-items-start gap-3 py-2">
+                                <span className="drag-profil text-muted mt-1" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
+                                <div className="flex-grow-1">
+                                  <div className="fw-bold">{profil.order}. {profil.name}</div>
+                                  {profil.desc && <small className="text-muted">{profil.desc}</small>}
+                                  <div className="mt-1">
+                                    <span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span>
+                                  </div>
+                                  {profil.collaborateurs.length > 0 && (
+                                    <div className="mt-2 d-flex flex-wrap gap-1">
+                                      {profil.collaborateurs.map((c: any) => (
+                                        <span key={c.id} className="badge bg-info text-dark">
+                                          {c.nom} {c.prenom}
+                                          {c.appellation && <em className="ms-1 opacity-75">({c.appellation})</em>}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="d-flex gap-2 align-items-center">
+                                  <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openCollabModal(profil)}>
+                                    <FaUsers /><span className="d-none d-md-inline">Collaborateurs</span>
+                                  </button>
+                                  <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditProfil(profil)}><FaEdit /></button>
+                                  <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteProfil(profil.id)}><FaTrash /></button>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </Tab>
+                          ))}
+                      </div>
+                    </Tab>
 
-                <Tab eventKey="planning" title="Planning">
-                  <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils as any} deliverables={deliverables as any} selectedBacklogId={backlog?.id ?? null} planningService={svc.planning} />
-                </Tab>
+                    <Tab eventKey="planning" title="Planning">
+                      <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils as any} deliverables={deliverables as any} selectedBacklogId={backlog?.id ?? null} planningService={svc.planning} />
+                    </Tab>
 
-                <Tab eventKey="budget" title="Budget">
-                  <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} deviseAbr={deviseAbr} />
-                </Tab>
+                    <Tab eventKey="budget" title="Budget">
+                      <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} deviseAbr={deviseAbr} />
+                    </Tab>
 
-              </Tabs>
+                  </Tabs>
+                )}
+              </>
             )}
           </div>
         </Modal.Body>
@@ -1348,7 +1510,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* ══════════════════════════ MODAUX ══════════════════════════════ */}
+      {/* ══════════════════════════ MODAUX MÉTIER ═══════════════════════ */}
 
       <Modal show={showLotModal} onHide={() => !saving && setShowLotModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editLot ? "Modifier le lot" : "Nouveau lot"}</Modal.Title></Modal.Header>

@@ -3,6 +3,7 @@
 // Correspond aux modèles Java : mg.BUC.OGPI.model.projet.backlog.*
 // ============================================================
 
+import { BacklogType } from "../../lead/Backlog/Backlog.tsx";
 import { Profil } from "../../profil/Profil.tsx";
 
 // ─────────────────────────────────────────────────────────────
@@ -160,4 +161,6 @@ export interface CreateBacklogForProjetRequest {
   name: string;
   desc?: string;
   projetId: number;
+  leadId?: number | null; 
+  type: BacklogType;
 }
