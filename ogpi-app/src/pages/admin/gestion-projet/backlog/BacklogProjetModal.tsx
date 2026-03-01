@@ -121,6 +121,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [showVolModal,    setShowVolModal]    = useState(false);
   const [showColModal,    setShowColModal]    = useState(false);
   const [showCellModal,   setShowCellModal]   = useState(false);
+  const [collabSearch, setCollabSearch] = useState("");
 
   // ── Entités en édition ────────────────────────────────────────────────
   const [editLot,        setEditLot]        = useState<BacklogLot | null>(null);
@@ -147,8 +148,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [fPhase,     setFPhase]     = useState({ name: "" });
   const [fSprint,    setFSprint]    = useState({ name: "", startDate: "", endDate: "" });
   const [fDeliv,     setFDeliv]     = useState({ name: "", description: "", deliveryDate: "", sprintId: null as number | null });
-  const [fProfil,    setFProfil]    = useState({ name: "", desc: "", tjm: 0 });
-  const [fCollabIds, setFCollabIds] = useState<number[]>([]);
+  const [fProfil, setFProfil] = useState({ name: "", desc: "", tjm: 0, order: 0 });  const [fCollabIds, setFCollabIds] = useState<number[]>([]);
   const [fLine,      setFLine]      = useState({
     epic: "", userStory: "", description: "", resultat: "",
     lotId: null as number | null, phaseId: null as number | null, sprintId: null as number | null,
@@ -234,45 +234,29 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   }, [collaborateurService]);
 
   // ── Vérification existence backlog pour ce projet ─────────────────────
-  const fetchBacklogHeader = useCallback(async () => {
-    setLoadingBacklogs(true);
-    setError(null);
-    try {
-      // Étape 1 : chercher un backlog déjà rattaché au projet
-      const existingHeader = await svc.backlog.getHeaderByProjetId(projetId);
+const fetchBacklogHeader = useCallback(async () => {
+  setLoadingBacklogs(true);
+  setError(null);
+  try {
+    // Chercher uniquement un backlog projet existant
+    const existingHeader = await svc.backlog.getHeaderByProjetId(projetId);
 
-      if (existingHeader?.id) {
-        // Backlog déjà attaché au projet (tous cas confondus)
-        setBacklogHeader(existingHeader);
-        setSelectedBacklogId(existingHeader.id);
-        return;
-      }
-
-      // Étape 2 : pas encore de backlog projet → chercher depuis le lead
-      if (leadId) {
-        const leadBacklog = await svc.backlog.getHeaderByLeadId(leadId);
-        if (leadBacklog?.id) {
-          // Attacher le backlog du lead à ce projet
-          await svc.backlog.attachToProjet(leadBacklog.id, projetId);
-          // Recharger l'en-tête maintenant que l'attachement est fait
-          const attached = await svc.backlog.getHeaderByProjetId(projetId);
-          setBacklogHeader(attached);
-          if (attached?.id) setSelectedBacklogId(attached.id);
-        } else {
-          // Lead sans backlog (cas rare) → permettre la création
-          setBacklogHeader(null);
-        }
-      } else {
-        // Projet indépendant sans backlog → afficher le bouton "Créer"
-        setBacklogHeader(null);
-      }
-    } catch {
-      setError("Impossible de charger le backlog.");
-    } finally {
-      setLoadingBacklogs(false);
+    if (existingHeader?.id) {
+      setBacklogHeader(existingHeader);
+      setSelectedBacklogId(existingHeader.id);
+      return;
     }
-  }, [projetId, leadId]);
 
+    // Pas de backlog projet → afficher le bouton "Créer"
+    // Le clone depuis le lead se fait uniquement à la création (handleCreateBacklog)
+    setBacklogHeader(null);
+
+  } catch {
+    setError("Impossible de charger le backlog.");
+  } finally {
+    setLoadingBacklogs(false);
+  }
+}, [projetId]);
   // ── Chargement du backlog complet (par son ID direct) ───────────────
   const loadFull = useCallback(async () => {
     if (!selectedBacklogId) return;
@@ -417,7 +401,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         name:     item.name,
         desc:     item.desc,
         projetId,
-        leadId:   leadId ?? null, 
+        leadId:   leadId ?? null,
         type:     item.type,
       });
       setBacklogHeader(created);
@@ -589,27 +573,54 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   // ══════════════════════════════════════════════════════════════════════
 
   const openAddProfil   = () => { setEditProfil(null); setFProfil({ name: "", desc: "", tjm: 0 }); setFCollabIds([]); setShowProfilModal(true); };
-  const openEditProfil  = (p: ProfilFull) => { setEditProfil(p); setFProfil({ name: p.name, desc: p.desc ?? "", tjm: p.tjm }); setFCollabIds(p.collaborateurs.map((c: any) => c.id)); setShowProfilModal(true); };
-  const openCollabModal = (p: ProfilFull) => { setCollabProfil(p); setFCollabIds(p.collaborateurs.map((c: any) => c.id)); setShowCollabModal(true); };
+  const openEditProfil = (p: ProfilFull) => {
+    setEditProfil(p);
+    setFProfil({ name: p.name, desc: p.desc ?? "", tjm: p.tjm, order: p.order })
+    setFCollabIds(p.collaborateurs.map((c: any) => c.id));
+    setShowProfilModal(true);
+  };  
 
-  const saveProfil = async () => {
-    if (!fProfil.name.trim() || !backlog?.id) return;
-    setSaving(true);
-    try {
-      if (editProfil) {
-        await svc.profil.update(editProfil.id, fProfil);
-        await svc.profil.replaceCollaborateurs(editProfil.id, fCollabIds);
-      } else {
-        const order = Math.max(0, ...profils.map(p => p.order)) + 1;
-        const created = await svc.profil.create({ ...fProfil, order, backlogId: backlog.id });
-        if (fCollabIds.length) await svc.profil.replaceCollaborateurs(created.id, fCollabIds);
-      }
-      setShowProfilModal(false); await reload();
-    } catch { alert("Erreur lors de la sauvegarde du profil."); }
-    finally { setSaving(false); }
+  const openCollabModal = (p: ProfilFull) => {
+    setCollabProfil(p);
+    setFCollabIds(p.collaborateurs.map((c: any) => c.id));
+    setCollabSearch(""); 
+    setShowCollabModal(true);
   };
 
-  const saveCollabs = async () => {
+const saveProfil = async () => {
+  if (!fProfil.name.trim() || !backlog?.id) return;
+  setSaving(true);
+  try {
+    if (editProfil) {
+      await svc.profil.update(editProfil.id, {
+        name:  fProfil.name,
+        desc:  fProfil.desc,
+        tjm:   fProfil.tjm,
+        order: editProfil.order,
+      });
+      // Mise à jour locale — on préserve les collaborateurs existants
+      setProfils(prev => prev.map(p =>
+        p.id !== editProfil.id ? p : {
+          ...p,
+          name: fProfil.name,
+          desc: fProfil.desc,
+          tjm:  fProfil.tjm,
+          // collaborateurs inchangés ← c'est ça le fix
+        }
+      ));
+    } else {
+      const order = Math.max(0, ...profils.map(p => p.order)) + 1;
+      const created = await svc.profil.create({ ...fProfil, order, backlogId: backlog.id });
+      if (fCollabIds.length) await svc.profil.replaceCollaborateurs(created.id, fCollabIds);
+      // Pour la création, reload est nécessaire pour hydrater les collaborateurs
+      await reload();
+    }
+    setShowProfilModal(false);
+  } catch { alert("Erreur lors de la sauvegarde du profil."); }
+  finally { setSaving(false); }
+};
+
+const saveCollabs = async () => {
     if (!collabProfil) return;
     setSaving(true);
     try {
@@ -1640,23 +1651,81 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
           <Modal.Title><FaUsers className="me-2" />Collaborateurs — {collabProfil?.name}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="text-muted small mb-2">Cochez les collaborateurs correspondant à ce profil.</p>
-          <div className="border rounded p-2" style={{ maxHeight: 360, overflowY: "auto" }}>
-            {allCollabs.length === 0
-              ? <div className="text-muted fst-italic small">Aucun collaborateur disponible.</div>
-              : allCollabs.map((c: any) => (
-                <Form.Check
-                  key={c.id} type="checkbox" id={`collab-${c.id}`}
-                  label={<span><strong>{c.nom} {c.prenom}</strong>{c.appellation && <span className="text-muted ms-1 small">({c.appellation})</span>}{c.emailPro && <span className="text-muted ms-2 small">{c.emailPro}</span>}</span>}
-                  checked={fCollabIds.includes(c.id)}
-                  onChange={e => setFCollabIds(prev => e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id))}
-                  className="mb-2" disabled={saving}
-                />
-              ))}
+          {/* Barre de recherche autocomplete */}
+          <div className="position-relative mb-3">
+            <Form.Control
+              placeholder="Rechercher un collaborateur…"
+              value={collabSearch}
+              onChange={e => setCollabSearch(e.target.value)}
+              disabled={saving}
+              autoFocus
+            />
+            {collabSearch.trim() && (
+              <div
+                className="border rounded bg-white shadow-sm position-absolute w-100"
+                style={{ zIndex: 1000, maxHeight: 220, overflowY: "auto" }}
+              >
+                {allCollabs
+                  .filter(c =>
+                    !fCollabIds.includes(c.id) &&
+                    `${c.nom} ${c.prenom} ${c.appellation ?? ""}`
+                      .toLowerCase()
+                      .includes(collabSearch.toLowerCase())
+                  )
+                  .map((c: any) => (
+                    <div
+                      key={c.id}
+                      className="px-3 py-2 d-flex align-items-center gap-2"
+                      style={{ cursor: "pointer" }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#f0f4ff")}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "")}
+                      onClick={() => {
+                        setFCollabIds(prev => [...prev, c.id]);
+                        setCollabSearch("");
+                      }}
+                    >
+                      <span className="fw-semibold">{c.nom} {c.prenom}</span>
+                      {c.appellation && <small className="text-muted">({c.appellation})</small>}
+                      {c.emailPro && <small className="text-muted ms-auto">{c.emailPro}</small>}
+                    </div>
+                  ))}
+                {allCollabs.filter(c =>
+                  !fCollabIds.includes(c.id) &&
+                  `${c.nom} ${c.prenom} ${c.appellation ?? ""}`.toLowerCase().includes(collabSearch.toLowerCase())
+                ).length === 0 && (
+                  <div className="px-3 py-2 text-muted fst-italic small">Aucun résultat</div>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Collaborateurs sélectionnés (badges avec ✕) */}
+          {fCollabIds.length > 0 ? (
+            <div className="d-flex flex-wrap gap-2">
+              {fCollabIds.map(id => {
+                const c = allCollabs.find((x: any) => x.id === id);
+                if (!c) return null;
+                return (
+                  <span key={id} className="badge bg-info text-dark d-flex align-items-center gap-1 px-2 py-1" style={{ fontSize: "0.85rem" }}>
+                    {c.nom} {c.prenom}
+                    {c.appellation && <em className="opacity-75 small">({c.appellation})</em>}
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 ms-1 text-dark"
+                      style={{ fontSize: "0.75rem", lineHeight: 1 }}
+                      onClick={() => setFCollabIds(prev => prev.filter(x => x !== id))}
+                      disabled={saving}
+                    >✕</button>
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-muted fst-italic small">Aucun collaborateur sélectionné.</div>
+          )}
         </Modal.Body>
         <Modal.Footer>
-          <Button label="Annuler" variant="outline" onClick={() => setShowCollabModal(false)} />
+          <Button label="Annuler" variant="outline" onClick={() => { setShowCollabModal(false); setCollabSearch(""); }} />
           <Button label={saving ? "…" : "Enregistrer"} onClick={saveCollabs} />
         </Modal.Footer>
       </Modal>
