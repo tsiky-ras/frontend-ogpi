@@ -153,8 +153,9 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       setLoadingBacklogs(true);
       setError(null);
       const fetchedBacklogs = await backlogService.getByLeadId(leadId);
-      setBacklogs(fetchedBacklogs);
-      if (fetchedBacklogs.length === 1) setSelectedBacklogId(fetchedBacklogs[0].id);
+      const filtered = fetchedBacklogs.filter(b => b.type !== 1); 
+      setBacklogs(filtered);
+      if (filtered.length === 1) setSelectedBacklogId(filtered[0].id);
     } catch (err) {
       console.error("Erreur lors du chargement des backlogs:", err);
       setError("Impossible de charger les backlogs. Veuillez réessayer.");

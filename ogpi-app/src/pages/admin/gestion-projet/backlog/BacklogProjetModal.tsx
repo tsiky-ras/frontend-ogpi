@@ -263,6 +263,7 @@ const fetchBacklogHeader = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const full = await svc.backlog.getFullById(selectedBacklogId);
+      console.log("Backlog complet chargé :", full);
       if (!full) return;
       hydrateFromFull(full);
       await Promise.all([
@@ -1022,13 +1023,6 @@ const saveCollabs = async () => {
                                     <td>
                                       <strong>{profil.name}</strong>
                                       {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
-                                      {assignes.length > 0 && (
-                                        <div className="mt-1 d-flex flex-wrap gap-1">
-                                          {assignes.map((c: any) => (
-                                            <span key={c.id} className="badge bg-info text-dark" style={{ fontSize: "0.7rem" }}>{c.nom} {c.prenom}</span>
-                                          ))}
-                                        </div>
-                                      )}
                                     </td>
                                     <td className="text-end">{vol.toFixed(2)}</td>
                                     <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
