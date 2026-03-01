@@ -54,7 +54,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     statutProduction: "",
     userCp: null,
     userSuppleante: null,
-    typeFacturation: { idTypeFacturation: 1, libelle: "Interne" },
+    typeFacturation: null,
     description: "",
   });
 
@@ -105,6 +105,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
           userService.getAll(),
           typeFactService.getAll(),
         ]);
+        console.log("typeFactService.getAll()", factList);
         setUsers(userList);
         setTypeFacturations(factList);
       } catch (err) {
@@ -230,7 +231,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
       statutProduction: "",
       userCp: null,
       userSuppleante: null,
-      typeFacturation: { idTypeFacturation: 1, libelle: "Interne" },
+      typeFacturation: null,
       description: "",
     });
   };
@@ -249,7 +250,18 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     setShowLoadingMessage(true);
     try {
       let savedProjet;
-      const payload: any = { ...form };
+      const payload: any = {
+        ...form,
+        typeFacturation: form.typeFacturation?.idTypeFacturation
+          ? { idTypeFacturation: Number(form.typeFacturation.idTypeFacturation) }
+          : null,
+        userCp: form.userCp?.userId
+          ? { userId: form.userCp.userId }
+          : null,
+        userSuppleante: form.userSuppleante?.userId
+          ? { userId: form.userSuppleante.userId }
+          : null,
+      };
       if (selectedLead) {
         payload.lead = { leadId: selectedLead.leadId || selectedLead.id };
       }
@@ -259,9 +271,11 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
         savedProjet = await projetService.create(payload);
       }
       setShowLoadingMessage(false);
-      setSuccessMessage("Projet sauvegardé avec succès !");
+      setSuccessMessage(projet ? "Projet modifié avec succès !" : "Projet créé avec succès !");
       setShowSuccessMessage(true);
-      onSubmit(savedProjet);
+
+      await onSubmit(savedProjet); // ← attendre le reload parent
+
       setTimeout(() => {
         setShowSuccessMessage(false);
         onClose();
@@ -272,7 +286,6 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
       setShowErrorMessage(true);
     }
   };
-
   // ─── Rendu ────────────────────────────────────────────────────────────────
   return (
     <>
@@ -497,28 +510,29 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
                         ))}
                       </Form.Select>
                     </Form.Group>
-
                     <Form.Group className="mb-3">
                       <Form.Label>Type de facturation</Form.Label>
                       <Form.Select
                         name="typeFacturation"
                         value={form.typeFacturation?.idTypeFacturation || ""}
                         onChange={(e) => {
-                          const type = typeFacturations.find(
-                            (t) => t.idTypeFacturation === Number(e.target.value)
-                          );
+                          const type = e.target.value
+                            ? typeFacturations.find(
+                                (t) => t.idTypeFacturation === Number(e.target.value)
+                              ) || null
+                            : null;
                           setForm((prev) => ({ ...prev, typeFacturation: type }));
                         }}
                       >
+                        <option value="">— Sélectionnez —</option>
                         {typeFacturations.map((t) => (
                           <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
                             {t.nomTypeFacturation}
                           </option>
                         ))}
                       </Form.Select>
-                    </Form.Group>
-                  </Col>
-
+                    </Form.Group>                  
+                    </Col>
                   {/* Colonne de droite */}
                   <Col md={6}>
                     <Form.Group className="mb-3">

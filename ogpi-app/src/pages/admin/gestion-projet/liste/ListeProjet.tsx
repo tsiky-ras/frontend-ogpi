@@ -273,8 +273,6 @@ const ListeProjet: React.FC = () => {
         projet={selectedProjet}
         onSubmit={async () => {
           await loadProjets();
-          setShowFormProjet(false);
-          setSelectedProjet(null);
         }}
       />
 

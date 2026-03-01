@@ -104,7 +104,9 @@ const safeNum = (v: number, fallback = 0): number =>
 const jhToH = (jh: number, profils: number): number =>
   Math.max(
     HOURS_PER_DAY,
-    safeNum((jh / Math.max(1, profils)) * HOURS_PER_DAY, HOURS_PER_DAY),
+    safeNum((jh / (Math.max(1, profils) * HOURS_PER_DAY)) * HOURS_PER_DAY, HOURS_PER_DAY),
+    // simplifié : jh / profils
+    // 72 / (3 * 8) * 8 = 72 / 3 = 24h ✓
   );
 
 const unitH = (u: TimeUnit): number =>
@@ -231,11 +233,12 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     (phaseId: number): number => {
       const lineIds = lines.filter(l => l.phaseId === phaseId).map(l => l.id);
       const jh = getJH(lineIds);
+      if (jh === 0) return 0;
       return jhToH(jh, activeProfilCount);
     },
     [lines, getJH, activeProfilCount],
   );
-
+  
   const getEffH = useCallback(
     (key: string, autoH: number): number => {
       if (liveOv?.rowId === key && isFinite(liveOv.h) && liveOv.h > 0)
