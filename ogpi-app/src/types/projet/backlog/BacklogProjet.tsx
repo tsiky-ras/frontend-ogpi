@@ -1,8 +1,3 @@
-// ============================================================
-// Types Backlog Projet
-// Correspond aux modèles Java : mg.BUC.OGPI.model.projet.backlog.*
-// ============================================================
-
 import { BacklogType } from "../../lead/Backlog/Backlog.tsx";
 import { Profil } from "../../profil/Profil.tsx";
 
