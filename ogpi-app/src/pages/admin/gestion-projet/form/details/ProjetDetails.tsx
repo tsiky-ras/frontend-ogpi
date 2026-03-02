@@ -6,6 +6,8 @@ import StructureTab from "../../tabs/StructureTab.tsx";
 import EquipeTab from "../../tabs/EquipeTab.tsx";
 import BudgetTab from "../../../gestion-lead/backlog/BudgetTab.tsx";
 import PlanningTab from "../../../gestion-lead/backlog/PlanningTab.tsx";
+import DetailsQualif from "../../../gestion-lead/details/qualif/DetailsQualif.tsx";
+import DetailsOffreTech from "../../../gestion-lead/details/offre-tech/DetailsOffreTech.tsx";
 import "./ProjetDetails.css";
 import { Projet } from "../../../../../types/projet/Projet.tsx";
 import { useAuth } from "../../../../../context/AuthContext.tsx";
@@ -14,6 +16,7 @@ import { BacklogProjetProfilService } from "../../../../../services/projet/backl
 import { BacklogProjetLineProfilService } from "../../../../../services/projet/backlog/BacklogProjetLineService.tsx";
 import { BacklogPlanningService } from "../../../../../services/lead/backlog/BacklogPlanningService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
+import { LeadService } from "../../../../../services/lead/LeadService.tsx";
 
 type ProjetDetailsProps = {
   show: boolean;
@@ -26,114 +29,86 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
   const leadTechFinService = useLeadTechFinDetailsService();
 
   const [svc] = useState(() => ({
-    backlog: new BacklogProjetService(api),
-    profil: new BacklogProjetProfilService(api),
+    backlog:    new BacklogProjetService(api),
+    profil:     new BacklogProjetProfilService(api),
     lineProfil: new BacklogProjetLineProfilService(api),
-    planning: new BacklogPlanningService(api),
+    planning:   new BacklogPlanningService(api),
+    lead:       new LeadService(api),
   }));
 
   const [loadingData, setLoadingData] = useState(false);
-  const [backlogId, setBacklogId] = useState<number | null>(null);
-  const [lots, setLots] = useState<any[]>([]);
-  const [lines, setLines] = useState<any[]>([]);
+  const [backlogId,   setBacklogId]   = useState<number | null>(null);
+  const [lots,        setLots]        = useState<any[]>([]);
+  const [lines,       setLines]       = useState<any[]>([]);
   const [lineProfils, setLineProfils] = useState<any[]>([]);
-  const [deliverables, setDeliverables] = useState<Map<number, any[]>>(new Map());
-  const [profils, setProfils] = useState<any[]>([]);
-  const [deviseAbr, setDeviseAbr] = useState<string>("€");
+  const [deliverables,setDeliverables]= useState<Map<number, any[]>>(new Map());
+  const [profils,     setProfils]     = useState<any[]>([]);
+  const [deviseAbr,   setDeviseAbr]   = useState<string>("€");
+  const [leadData,    setLeadData]    = useState<any | null>(null);
 
   const loadBacklogData = useCallback(async () => {
     if (!projet?.idProjet) return;
-
     setLoadingData(true);
-
     try {
       const header = await svc.backlog.getHeaderByProjetId(projet.idProjet);
       if (!header?.id) return;
-
       setBacklogId(header.id);
 
       const full = await svc.backlog.getFullById(header.id);
       if (!full) return;
 
-      const sortedLots = (full.lots ?? [])
-        .slice()
-        .sort((a: any, b: any) => a.order - b.order);
-
+      const sortedLots = (full.lots ?? []).slice().sort((a: any, b: any) => a.order - b.order);
       setLots(sortedLots);
-
-      setLines(
-        (full.lines ?? [])
-          .slice()
-          .sort((a: any, b: any) => a.order - b.order)
-      );
+      setLines((full.lines ?? []).slice().sort((a: any, b: any) => a.order - b.order));
 
       const rawProfils: any[] = full.profilsProjet ?? full.profils ?? [];
-
       setProfils(
-        rawProfils
-          .slice()
-          .sort((a: any, b: any) => a.order - b.order)
-          .map((p: any) => ({
-            ...p,
-            collaborateurs: p.collaborateurs ?? [],
-          }))
+        rawProfils.slice().sort((a: any, b: any) => a.order - b.order)
+          .map((p: any) => ({ ...p, collaborateurs: p.collaborateurs ?? [] }))
       );
 
       try {
         const lps = await svc.lineProfil.getAllByBacklogId(header.id);
         setLineProfils(Array.isArray(lps) ? lps : []);
-      } catch {
-        setLineProfils([]);
-      }
+      } catch { setLineProfils([]); }
 
-      // Construction deliverables map
       const dlvMap = new Map<number, any[]>();
-
       sortedLots.forEach((lot: any) => {
         (lot.phases ?? []).forEach((phase: any) => {
           const phaseDelivs: any[] = phase.deliverables ?? [];
-
           const sprintDelivs: any[] = (phase.sprints ?? []).flatMap((s: any) =>
-            (s.deliverables ?? []).map((d: any) => ({
-              ...d,
-              sprintId: d.sprintId ?? s.id,
-            }))
+            (s.deliverables ?? []).map((d: any) => ({ ...d, sprintId: d.sprintId ?? s.id }))
           );
-
           const all = [...phaseDelivs, ...sprintDelivs].filter(
             (d, i, arr) => arr.findIndex(x => x.id === d.id) === i
           );
-
-          dlvMap.set(
-            phase.id,
-            all.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
-          );
+          dlvMap.set(phase.id, all.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)));
         });
       });
-
       setDeliverables(dlvMap);
 
-      // 🔹 Chargement devise depuis LeadTechFinDetails
+      // Chargement devise + données lead si projet lié à un lead
       if (projet.lead?.leadId) {
         try {
-          const techFin = await leadTechFinService.getByLeadId(
-            projet.lead.leadId
-          );
+          const [techFin, fullLead] = await Promise.all([
+            leadTechFinService.getByLeadId(projet.lead.leadId),
+            svc.lead.getById(projet.lead.leadId),
+          ]);
 
-          const abrDevise =
-            techFin?.devise?.abrDevise ??
-            techFin?.devise?.nomDevise ??
-            "€";
+          // Devise
+          setDeviseAbr(techFin?.devise?.abrDevise ?? techFin?.devise?.nomDevise ?? "€");
 
-          setDeviseAbr(abrDevise);
-        } catch (error) {
-          console.error("Erreur chargement devise :", error);
+          // On attache techFinDetails au lead comme dans DetailsLead
+          setLeadData(fullLead ? { ...fullLead, techFinDetails: techFin ?? null } : null);
+
+        } catch {
           setDeviseAbr("€");
+          setLeadData(null);
         }
       } else {
         setDeviseAbr("€");
+        setLeadData(null);
       }
-
     } catch (err) {
       console.error("Erreur chargement backlog projet details:", err);
     } finally {
@@ -143,14 +118,8 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
 
   useEffect(() => {
     if (!show || !projet) return;
-
-    setBacklogId(null);
-    setLots([]);
-    setLines([]);
-    setLineProfils([]);
-    setDeliverables(new Map());
-    setProfils([]);
-
+    setBacklogId(null); setLots([]); setLines([]); setLineProfils([]);
+    setDeliverables(new Map()); setProfils([]); setLeadData(null);
     loadBacklogData();
   }, [show, projet?.idProjet]);
 
@@ -166,24 +135,10 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Modal.Title style={{ color: "white" }}>
               {projet.nomProjet || "Projet sans nom"}
             </Modal.Title>
-            <p
-              style={{
-                margin: 0,
-                color: "rgba(255,255,255,0.7)",
-                fontSize: "0.85rem",
-              }}
-            >
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.7)", fontSize: "0.85rem" }}>
               {projet.refBC || "---"}
               {leadId && (
-                <span
-                  className="ms-3"
-                  style={{
-                    background: "rgba(255,255,255,0.15)",
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                    fontSize: "0.75rem",
-                  }}
-                >
+                <span className="ms-3" style={{ background: "rgba(255,255,255,0.15)", padding: "2px 8px", borderRadius: 4, fontSize: "0.75rem" }}>
                   Lead associé
                 </span>
               )}
@@ -198,6 +153,19 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Nav.Item>
               <Nav.Link eventKey="infoGeneral">Informations générales</Nav.Link>
             </Nav.Item>
+
+            {/* Onglets lead — uniquement si le projet est lié à un lead */}
+            {leadData && (
+              <>
+                <Nav.Item>
+                  <Nav.Link eventKey="qualification">Qualification</Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link eventKey="offre">Offre technique & financière</Nav.Link>
+                </Nav.Item>
+              </>
+            )}
+
             <Nav.Item>
               <Nav.Link eventKey="structure">Lots / Phases / Sprints</Nav.Link>
             </Nav.Item>
@@ -219,66 +187,47 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
               </div>
             </Tab.Pane>
 
+            {/* Contenu onglets lead */}
+            {leadData && (
+              <>
+                <Tab.Pane eventKey="qualification">
+                  <DetailsQualif lead={leadData} />
+                </Tab.Pane>
+                <Tab.Pane eventKey="offre">
+                  <DetailsOffreTech lead={leadData} />
+                </Tab.Pane>
+              </>
+            )}
+
             <Tab.Pane eventKey="structure">
               <div className="details-section details-section--full">
-                {loadingData ? (
-                  <div className="details-tab-loading">
-                    <FaSpinner className="fa-spin me-2" /> Chargement...
-                  </div>
-                ) : (
-                  <StructureTab lots={lots} />
-                )}
+                {loadingData
+                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
+                  : <StructureTab lots={lots} />}
               </div>
             </Tab.Pane>
 
             <Tab.Pane eventKey="equipe">
               <div className="details-section details-section--full">
-                {loadingData ? (
-                  <div className="details-tab-loading">
-                    <FaSpinner className="fa-spin me-2" /> Chargement...
-                  </div>
-                ) : (
-                  <EquipeTab profils={profils} deviseAbr={deviseAbr} />
-                )}
+                {loadingData
+                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
+                  : <EquipeTab profils={profils} deviseAbr={deviseAbr} />}
               </div>
             </Tab.Pane>
 
             <Tab.Pane eventKey="planning">
               <div className="details-section details-section--full">
-                {loadingData ? (
-                  <div className="details-tab-loading">
-                    <FaSpinner className="fa-spin me-2" /> Chargement...
-                  </div>
-                ) : (
-                  <PlanningTab
-                    lots={lots}
-                    lines={lines}
-                    lineProfils={lineProfils}
-                    deliverables={deliverables}
-                    selectedBacklogId={backlogId}
-                    planningService={svc.planning}
-                  />
-                )}
+                {loadingData
+                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
+                  : <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} selectedBacklogId={backlogId} planningService={svc.planning} />}
               </div>
             </Tab.Pane>
 
             <Tab.Pane eventKey="budget">
               <div className="details-section details-section--full">
-                {loadingData ? (
-                  <div className="details-tab-loading">
-                    <FaSpinner className="fa-spin me-2" /> Chargement...
-                  </div>
-                ) : (
-                  <BudgetTab
-                    lots={lots}
-                    profils={profils}
-                    lines={lines}
-                    lineProfils={lineProfils}
-                    selectedBacklogId={backlogId}
-                    leadId={leadId}
-                    deviseAbr={deviseAbr}
-                  />
-                )}
+                {loadingData
+                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
+                  : <BudgetTab lots={lots} profils={profils} lines={lines} lineProfils={lineProfils} selectedBacklogId={backlogId} leadId={leadId} deviseAbr={deviseAbr} />}
               </div>
             </Tab.Pane>
           </Tab.Content>
