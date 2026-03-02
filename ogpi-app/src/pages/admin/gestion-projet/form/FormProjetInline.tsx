@@ -175,25 +175,25 @@ const FormProjetInline: React.FC<FormProjetInlineProps> = ({
                 ))}
               </Form.Select>
             </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Type de facturation</Form.Label>
-              <Form.Select
-                value={form.typeFacturation?.idTypeFacturation || ""}
-                onChange={(e) => {
-                  const type = typeFacturations.find(
-                    (t) => t.idTypeFacturation === Number(e.target.value)
-                  );
-                  setForm((p) => ({ ...p, typeFacturation: type }));
-                }}
-              >
-                {typeFacturations.map((t) => (
-                  <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
-                    {t.nomTypeFacturation}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Type de facturation</Form.Label>
+                <Form.Select
+                  name="typeFacturation"
+                  value={form.typeFacturation?.idTypeFacturation || ""}
+                  onChange={(e) => {
+                    const type =
+                      typeFacturations.find((t) => t.idTypeFacturation === Number(e.target.value)) || null;
+                    setForm((prev) => ({ ...prev, typeFacturation: type }));
+                  }}
+                >
+                  <option value="">— Sélectionnez —</option>
+                  {typeFacturations.map((t) => (
+                    <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
+                      {t.nomTypeFacturation}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group> 
           </Col>
 
           <Col md={6}>
