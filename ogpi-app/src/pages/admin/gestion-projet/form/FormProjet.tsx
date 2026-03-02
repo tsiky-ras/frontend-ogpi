@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Button, Form, Row, Col, Nav, Tab, ListGroup, Spinner } from "react-bootstrap";
+import { Modal, Button, Form, Row, Col, ListGroup, Spinner } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 
 import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
@@ -11,6 +11,9 @@ import { useUserService } from "../../../../services/user/UserService.tsx";
 import { useTypeFacturationService } from "../../../../services/lead/tech-fin/TypeFacturationService.tsx";
 import { LeadService } from "../../../../services/lead/LeadService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
+import { useProjetTechFinDetailsService } from "../../../../services/projet/tech-fin/ProjetTechFinDetailsService.tsx";
+import { useProjetTechnoService } from "../../../../services/projet/tech-fin/ProjetTechnoService.tsx";
+import { useTechnoService } from "../../../../services/lead/tech-fin/TechnoService.tsx";
 import { Projet } from "../../../../types/projet/Projet.tsx";
 import FormLead from "../../gestion-lead/form/FormLead.tsx";
 
@@ -21,27 +24,34 @@ type FormProjetProps = {
   projet?: Projet | null;
 };
 
-// ─── Étape 1 : choix du mode de création ────────────────────────────────────
 type CreationMode = "choice" | "from-lead" | "new";
 
 const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet }) => {
   const { api } = useAuth();
-  const projetService = new ProjetService(api);
-  const userService = useUserService();
-  const typeFactService = useTypeFacturationService();
-  const leadService = new LeadService(api);
-  const leadTechFinService = useLeadTechFinDetailsService();
+  const projetService        = new ProjetService(api);
+  const userService          = useUserService();
+  const typeFactService      = useTypeFacturationService();
+  const leadService          = new LeadService(api);
+  const leadTechFinService   = useLeadTechFinDetailsService();
+  const projetTechFinService = useProjetTechFinDetailsService();
+  const projetTechnoService  = useProjetTechnoService();
+  const technoService        = useTechnoService();
 
   // ── Mode sélection ──────────────────────────────────────────────────────
   const [creationMode, setCreationMode] = useState<CreationMode>("choice");
 
   // ── Recherche de lead ───────────────────────────────────────────────────
-  const [leadSearch, setLeadSearch] = useState("");
-  const [leadResults, setLeadResults] = useState<any[]>([]);
+  const [leadSearch,        setLeadSearch]        = useState("");
+  const [leadResults,       setLeadResults]       = useState<any[]>([]);
   const [leadSearchLoading, setLeadSearchLoading] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<any | null>(null);
-  // ── Ouverture du FormLead sur l'onglet Projet après sélection ──────────
-  const [showFormLead, setShowFormLead] = useState(false);
+  const [selectedLead,      setSelectedLead]      = useState<any | null>(null);
+  const [showFormLead,      setShowFormLead]       = useState(false);
+  const [allLeads,          setAllLeads]           = useState<any[]>([]);
+
+  // ── Technos ─────────────────────────────────────────────────────────────
+  const [allTechnos,      setAllTechnos]      = useState<any[]>([]);
+  const [selectedTechnos, setSelectedTechnos] = useState<any[]>([]);
+  const [technoSearch,    setTechnoSearch]    = useState("");
 
   // ── Formulaire projet ───────────────────────────────────────────────────
   const [form, setForm] = useState<Projet>({
@@ -58,56 +68,74 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     description: "",
   });
 
-  const [users, setUsers] = useState<any[]>([]);
+  const [users,            setUsers]            = useState<any[]>([]);
   const [typeFacturations, setTypeFacturations] = useState<any[]>([]);
 
-  /* Messages */
+  // ── Messages ────────────────────────────────────────────────────────────
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [showErrorMessage, setShowErrorMessage] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage,     setSuccessMessage]     = useState("");
+  const [showErrorMessage,   setShowErrorMessage]   = useState(false);
+  const [errorMessage,       setErrorMessage]       = useState("");
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
 
   // ── Reset à l'ouverture ─────────────────────────────────────────────────
   useEffect(() => {
     if (!show) return;
+
     if (projet) {
-      // Mode édition : on saute le choix
       setCreationMode("new");
       setForm({
-        nomProjet: projet.nomProjet || "",
-        dateAttribution: projet.dateAttribution || "",
-        dateDebutPrevu: projet.dateDebutPrevu || "",
-        dateFinPrevu: projet.dateFinPrevu || "",
-        refBC: projet.refBC || "",
-        refCompte: projet.refCompte || "",
+        nomProjet:        projet.nomProjet || "",
+        dateAttribution:  projet.dateAttribution || "",
+        dateDebutPrevu:   projet.dateDebutPrevu || "",
+        dateFinPrevu:     projet.dateFinPrevu || "",
+        refBC:            projet.refBC || "",
+        refCompte:        projet.refCompte || "",
         statutProduction: projet.statutProduction || "",
-        userCp: projet.userCp || null,
-        userSuppleante: projet.userSuppleante || null,
-        typeFacturation: projet.typeFacturation || { idTypeFacturation: 1, libelle: "Interne" },
-        description: projet.description || "",
+        userCp:           projet.userCp || null,
+        userSuppleante:   projet.userSuppleante || null,
+        typeFacturation:  projet.typeFacturation || { idTypeFacturation: 1, libelle: "Interne" },
+        description:      projet.description || "",
       });
+
+      // Charger les technos existantes en mode édition (uniquement si pas de lead)
+      if (projet.idProjet && !projet.lead?.leadId) {
+        projetTechFinService.getByProjetId(projet.idProjet)
+          .then(details => {
+            if (details?.idProjetTechFinDetails) {
+              return projetTechnoService.getByDetailsId(details.idProjetTechFinDetails);
+            }
+            return [];
+          })
+          .then(technos => setSelectedTechnos((technos ?? []).map((t: any) => t.techno ?? t)))
+          .catch(() => setSelectedTechnos([]));
+      } else {
+        setSelectedTechnos([]);
+      }
     } else {
       setCreationMode("choice");
       setLeadSearch("");
       setLeadResults([]);
       setSelectedLead(null);
+      setSelectedTechnos([]);
+      setTechnoSearch("");
       resetForm();
     }
   }, [show, projet]);
 
-  // ── Chargement des listes ───────────────────────────────────────────────
+  // ── Chargement des listes (users, typeFacturation, technos dispo) ────────
   useEffect(() => {
     if (!show) return;
     const fetchData = async () => {
       try {
-        const [userList, factList] = await Promise.all([
+        const [userList, factList, technoList] = await Promise.all([
           userService.getAll(),
           typeFactService.getAll(),
+          technoService.getAll(),
         ]);
-        console.log("typeFactService.getAll()", factList);
         setUsers(userList);
         setTypeFacturations(factList);
+        setAllTechnos(technoList ?? []);
       } catch (err) {
         console.error(err);
       }
@@ -115,9 +143,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     fetchData();
   }, [show]);
 
-  // ── Chargement de tous les leads au montage ────────────────────────────
-  const [allLeads, setAllLeads] = useState<any[]>([]);
-
+  // ── Chargement de tous les leads ────────────────────────────────────────
   useEffect(() => {
     if (!show) return;
     const fetchLeads = async () => {
@@ -135,34 +161,26 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     fetchLeads();
   }, [show]);
 
-  // ── Filtrage local sur nom ou ref ───────────────────────────────────────
+  // ── Filtrage local leads ─────────────────────────────────────────────────
   useEffect(() => {
     const query = leadSearch.trim().toLowerCase();
-    if (!query) {
-      setLeadResults([]);
-      return;
-    }
-    const filtered = allLeads.filter(
-      (lead) =>
+    if (!query) { setLeadResults([]); return; }
+    setLeadResults(
+      allLeads.filter(lead =>
         lead.leadName?.toLowerCase().includes(query) ||
         lead.leadRef?.toLowerCase().includes(query)
+      )
     );
-    setLeadResults(filtered);
   }, [leadSearch, allLeads]);
 
-  // ── Chargement complet du lead + TechFin (même logique que ListeLead.loadFullLeadDetails) ──
+  // ── Sélection d'un lead ──────────────────────────────────────────────────
   const handleSelectLead = async (lead: any) => {
     setLeadSearch(`${lead.leadRef || ""} – ${lead.leadName || ""}`);
     setLeadResults([]);
     setLeadSearchLoading(true);
-
     try {
       const leadId = lead.leadId || lead.id;
-
-      // 1. Lead complet avec partenaires et historiques
       const fullLead = await leadService.getById(leadId);
-
-      // 2. Données TechFin séparées
       let techFinDetails: any = null;
       try {
         techFinDetails = await leadTechFinService.getByLeadId(leadId);
@@ -170,45 +188,39 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
         console.warn("Pas de données TechFin pour ce lead :", err);
       }
 
-      // 3. Fusion identique à loadFullLeadDetails dans ListeLead
       const completeLead = {
         ...fullLead,
-        id: fullLead.leadId || fullLead.id,
-        leadId: fullLead.leadId || fullLead.id,
-        name: fullLead.leadName || fullLead.name,
-
-        client: fullLead.client || null,
-        createdByUser: fullLead.createdByUser || null,
-        partenaires: fullLead.leadPartenaires?.map((lp: any) => lp.partenaire) || [],
-        leadPartenaires: fullLead.leadPartenaires || [],
+        id:      fullLead.leadId || fullLead.id,
+        leadId:  fullLead.leadId || fullLead.id,
+        name:    fullLead.leadName || fullLead.name,
+        client:           fullLead.client || null,
+        createdByUser:    fullLead.createdByUser || null,
+        partenaires:      fullLead.leadPartenaires?.map((lp: any) => lp.partenaire) || [],
+        leadPartenaires:  fullLead.leadPartenaires || [],
         leadStatusHistories: fullLead.leadStatusHistories || [],
-        leadStepHistories: fullLead.leadStepHistories || [],
-
-        // TechFin — objet structuré pour DetailsLead
+        leadStepHistories:   fullLead.leadStepHistories || [],
         techFinDetails: {
           idLeadTechFinDetails: techFinDetails?.idLeadTechFinDetails || null,
-          technos: techFinDetails?.technos || [],
-          devise: techFinDetails?.devise || null,
-          typeFacturation: techFinDetails?.typeFacturation || null,
-          volumeJHVendu: techFinDetails?.volumeJHVendu ?? 0,
-          tauxDeChange: techFinDetails?.tauxDeChange ?? 1,
-          impots: techFinDetails?.impots ?? 0,
-          montantOffre: techFinDetails?.montantOffre ?? 0,
-          budget: techFinDetails?.montantOffre ?? 0,
-          dateAttribution: techFinDetails?.dateAttribution || null,
+          technos:              techFinDetails?.technos || [],
+          devise:               techFinDetails?.devise || null,
+          typeFacturation:      techFinDetails?.typeFacturation || null,
+          volumeJHVendu:        techFinDetails?.volumeJHVendu ?? 0,
+          tauxDeChange:         techFinDetails?.tauxDeChange ?? 1,
+          impots:               techFinDetails?.impots ?? 0,
+          montantOffre:         techFinDetails?.montantOffre ?? 0,
+          budget:               techFinDetails?.montantOffre ?? 0,
+          dateAttribution:      techFinDetails?.dateAttribution || null,
           volumeJHVenduEtMontant: techFinDetails?.volumeJHVenduEtMontant || [],
         },
-
-        // TechFin — champs plats pour FormLead (mapLeadToTechFinForm + fetchAll)
-        technos: techFinDetails?.technos || [],
-        volumeJHVendu: techFinDetails?.volumeJHVendu || 0,
-        devise: techFinDetails?.devise || null,
-        tauxDeChange: techFinDetails?.tauxDeChange || 1,
+        technos:         techFinDetails?.technos || [],
+        volumeJHVendu:   techFinDetails?.volumeJHVendu || 0,
+        devise:          techFinDetails?.devise || null,
+        tauxDeChange:    techFinDetails?.tauxDeChange || 1,
         typeFacturation: techFinDetails?.typeFacturation || null,
-        impots: techFinDetails?.impots || 0,
+        impots:          techFinDetails?.impots || 0,
         dateAttribution: techFinDetails?.dateAttribution || "",
-        montantOffre: techFinDetails?.montantOffre || 0,
-        budget: techFinDetails?.montantOffre || 0,
+        montantOffre:    techFinDetails?.montantOffre || 0,
+        budget:          techFinDetails?.montantOffre || 0,
       };
 
       setSelectedLead(completeLead);
@@ -222,17 +234,9 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
 
   const resetForm = () => {
     setForm({
-      nomProjet: "",
-      dateAttribution: "",
-      dateDebutPrevu: "",
-      dateFinPrevu: "",
-      refBC: "",
-      refCompte: "",
-      statutProduction: "",
-      userCp: null,
-      userSuppleante: null,
-      typeFacturation: null,
-      description: "",
+      nomProjet: "", dateAttribution: "", dateDebutPrevu: "", dateFinPrevu: "",
+      refBC: "", refCompte: "", statutProduction: "",
+      userCp: null, userSuppleante: null, typeFacturation: null, description: "",
     });
   };
 
@@ -241,6 +245,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     setForm((prev: any) => ({ ...prev, [name]: value }));
   };
 
+  // ── Sauvegarde ───────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!form.nomProjet || !form.dateDebutPrevu) {
       setErrorMessage("Veuillez remplir tous les champs obligatoires.");
@@ -249,29 +254,52 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     }
     setShowLoadingMessage(true);
     try {
-      let savedProjet;
       const idFact = form.typeFacturation?.idTypeFacturation;
       const payload: any = {
         ...form,
-        typeFacturation: idFact && Number(idFact) > 0
-          ? { idTypeFacturation: Number(idFact) }
-          : undefined, 
-        userCp: form.userCp?.userId ? { userId: form.userCp.userId } : undefined,
-        userSuppleante: form.userSuppleante?.userId ? { userId: form.userSuppleante.userId } : undefined,
+        typeFacturation: idFact && Number(idFact) > 0 ? { idTypeFacturation: Number(idFact) } : undefined,
+        userCp:          form.userCp?.userId          ? { userId: form.userCp.userId }          : undefined,
+        userSuppleante:  form.userSuppleante?.userId  ? { userId: form.userSuppleante.userId }  : undefined,
       };
       if (selectedLead) {
         payload.lead = { leadId: selectedLead.leadId || selectedLead.id };
       }
+
+      let savedProjet: any;
       if (projet?.idProjet) {
         savedProjet = await projetService.update(projet.idProjet, payload);
       } else {
         savedProjet = await projetService.create(payload);
       }
+
+      // ── Sauvegarde des technos (uniquement pour projets sans lead) ──────
+      if (!selectedLead && savedProjet?.idProjet) {
+        try {
+          let details: any;
+          try {
+            details = await projetTechFinService.getByProjetId(savedProjet.idProjet);
+          } catch {
+            details = await projetTechFinService.create({ idProjet: savedProjet.idProjet });
+          }
+          const detailsId = details?.idProjetTechFinDetails;
+          if (detailsId) {
+            await projetTechnoService.deleteByDetailsId(detailsId);
+            await Promise.all(
+              selectedTechnos.map(t =>
+                projetTechnoService.create({ idProjetTechFinDetails: detailsId, techno: { id: t.id } })
+              )
+            );
+          }
+        } catch (err) {
+          console.error("Erreur sauvegarde technos :", err);
+        }
+      }
+
       setShowLoadingMessage(false);
       setSuccessMessage(projet ? "Projet modifié avec succès !" : "Projet créé avec succès !");
       setShowSuccessMessage(true);
 
-      await onSubmit(savedProjet); // ← attendre le reload parent
+      await onSubmit(savedProjet);
 
       setTimeout(() => {
         setShowSuccessMessage(false);
@@ -283,10 +311,10 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
       setShowErrorMessage(true);
     }
   };
+
   // ─── Rendu ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* ── FormLead complet ouvert sur l'onglet Projet après sélection d'un lead ── */}
       {showFormLead && selectedLead && (
         <FormLead
           show={showFormLead}
@@ -297,9 +325,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
             setCreationMode("choice");
             onClose();
           }}
-          onSubmit={(data) => {
-            // Remonte l'info si besoin (ex: lead mis à jour)
-          }}
+          onSubmit={() => {}}
           lead={selectedLead}
           initialTab="projet"
         />
@@ -310,33 +336,22 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
           <Modal.Title>
             {projet
               ? `Modifier le projet : ${projet.nomProjet}`
-              : creationMode === "choice"
-              ? "Créer un projet"
-              : creationMode === "from-lead"
-              ? "Créer un projet depuis une opportunité"
+              : creationMode === "choice"   ? "Créer un projet"
+              : creationMode === "from-lead" ? "Créer un projet depuis une opportunité"
               : "Créer un nouveau projet"}
           </Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
+
           {/* ── Étape 0 : choix du mode ── */}
           {!projet && creationMode === "choice" && (
             <div className="d-flex flex-column align-items-center gap-3 mt-5">
               <h5 className="mb-4 text-center">Comment souhaitez-vous créer le projet ?</h5>
-              <Button
-                variant="primary"
-                size="lg"
-                style={{ width: 320 }}
-                onClick={() => setCreationMode("from-lead")}
-              >
+              <Button variant="primary" size="lg" style={{ width: 320 }} onClick={() => setCreationMode("from-lead")}>
                 Depuis une opportunité existante
               </Button>
-              <Button
-                variant="outline-secondary"
-                size="lg"
-                style={{ width: 320 }}
-                onClick={() => setCreationMode("new")}
-              >
+              <Button variant="outline-secondary" size="lg" style={{ width: 320 }} onClick={() => setCreationMode("new")}>
                 Nouveau projet interne
               </Button>
             </div>
@@ -346,37 +361,24 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
           {!projet && creationMode === "from-lead" && (
             <div className="mb-4">
               <Form.Group className="mb-2">
-                <Form.Label>
-                  <strong>Rechercher une opportunité</strong> (par référence ou nom)
-                </Form.Label>
+                <Form.Label><strong>Rechercher une opportunité</strong> (par référence ou nom)</Form.Label>
                 <div className="position-relative">
                   <Form.Control
                     type="text"
                     placeholder="Ex : OPP-2024-001 ou Nom du projet..."
                     value={leadSearch}
-                    onChange={(e) => {
+                    onChange={e => {
                       setLeadSearch(e.target.value);
-                      if (selectedLead) {
-                        setSelectedLead(null);
-                        resetForm();
-                      }
+                      if (selectedLead) { setSelectedLead(null); resetForm(); }
                     }}
                     autoFocus
                   />
                   {leadSearchLoading && (
-                    <Spinner
-                      animation="border"
-                      size="sm"
-                      className="position-absolute"
-                      style={{ right: 10, top: 10 }}
-                    />
+                    <Spinner animation="border" size="sm" className="position-absolute" style={{ right: 10, top: 10 }} />
                   )}
                 </div>
                 {leadResults.length > 0 && (
-                  <ListGroup
-                    className="position-absolute shadow"
-                    style={{ zIndex: 1050, width: "calc(100% - 3rem)", maxHeight: 260, overflowY: "auto" }}
-                  >
+                  <ListGroup className="position-absolute shadow" style={{ zIndex: 1050, width: "calc(100% - 3rem)", maxHeight: 260, overflowY: "auto" }}>
                     {leadResults.map((lead: any) => (
                       <ListGroup.Item
                         key={lead.leadId || lead.id}
@@ -384,12 +386,8 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
                         onClick={() => handleSelectLead(lead)}
                         className="d-flex justify-content-between align-items-center"
                       >
-                        <span>
-                          <strong>{lead.leadRef}</strong> – {lead.leadName}
-                        </span>
-                        <small className="text-muted">
-                          {lead.businessUnit?.name || ""}
-                        </small>
+                        <span><strong>{lead.leadRef}</strong> – {lead.leadName}</span>
+                        <small className="text-muted">{lead.businessUnit?.name || ""}</small>
                       </ListGroup.Item>
                     ))}
                   </ListGroup>
@@ -398,215 +396,180 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
 
               {selectedLead && (
                 <div className="alert alert-info py-2 mt-2">
-                  Lead sélectionné :{" "}
-                  <strong>
-                    {selectedLead.leadRef} – {selectedLead.leadName}
-                  </strong>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="ms-3 p-0 text-danger"
-                    onClick={() => {
-                      setSelectedLead(null);
-                      setLeadSearch("");
-                      resetForm();
-                    }}
-                  >
+                  Lead sélectionné : <strong>{selectedLead.leadRef} – {selectedLead.leadName}</strong>
+                  <Button variant="link" size="sm" className="ms-3 p-0 text-danger"
+                    onClick={() => { setSelectedLead(null); setLeadSearch(""); resetForm(); }}>
                     Changer
                   </Button>
                 </div>
               )}
 
-              <Button
-                variant="link"
-                size="sm"
-                className="text-muted"
-                onClick={() => {
-                  setCreationMode("choice");
-                  setLeadSearch("");
-                  setLeadResults([]);
-                  setSelectedLead(null);
-                  resetForm();
-                }}
-              >
+              <Button variant="link" size="sm" className="text-muted"
+                onClick={() => { setCreationMode("choice"); setLeadSearch(""); setLeadResults([]); setSelectedLead(null); resetForm(); }}>
                 ← Retour au choix
               </Button>
             </div>
           )}
 
-          {/* ── Formulaire projet (affiché si mode new, ou si lead sélectionné) ── */}
-          {((!projet && (creationMode === "new" || (creationMode === "from-lead" && selectedLead))) ||
-            projet) && (
+          {/* ── Formulaire projet ── */}
+          {((!projet && (creationMode === "new" || (creationMode === "from-lead" && selectedLead))) || projet) && (
             <>
               {!projet && creationMode === "new" && (
                 <div className="mb-3">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="text-muted p-0"
-                    onClick={() => {
-                      setCreationMode("choice");
-                      resetForm();
-                    }}
-                  >
+                  <Button variant="link" size="sm" className="text-muted p-0"
+                    onClick={() => { setCreationMode("choice"); resetForm(); }}>
                     ← Retour au choix
                   </Button>
                 </div>
               )}
+
               <Form>
                 <Row>
-                  {/* Colonne de gauche */}
+                  {/* Colonne gauche */}
                   <Col md={6}>
                     <Form.Group className="mb-3">
                       <Form.Label>Nom du projet *</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="nomProjet"
-                        value={form.nomProjet}
-                        onChange={handleChange}
-                        required
-                      />
+                      <Form.Control type="text" name="nomProjet" value={form.nomProjet} onChange={handleChange} required />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Date d'attribution</Form.Label>
-                      <Form.Control
-                        type="date"
-                        name="dateAttribution"
-                        value={form.dateAttribution}
-                        onChange={handleChange}
-                      />
+                      <Form.Control type="date" name="dateAttribution" value={form.dateAttribution} onChange={handleChange} />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Ref Compte</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="refCompte"
-                        value={form.refCompte}
-                        onChange={handleChange}
-                      />
+                      <Form.Control type="text" name="refCompte" value={form.refCompte} onChange={handleChange} />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Chef de projet</Form.Label>
-                      <Form.Select
-                        name="userCp"
-                        value={form.userCp?.userId || ""}
-                        onChange={(e) => {
-                          const user =
-                            users.find((u) => u.userId === Number(e.target.value)) || null;
-                          setForm((prev) => ({ ...prev, userCp: user }));
-                        }}
-                      >
+                      <Form.Select name="userCp" value={form.userCp?.userId || ""}
+                        onChange={e => setForm(prev => ({ ...prev, userCp: users.find(u => u.userId === Number(e.target.value)) || null }))}>
                         <option value="">Sélectionnez</option>
-                        {users.map((u) => (
-                          <option key={u.userId} value={u.userId}>
-                            {u.nom} {u.username}
-                          </option>
-                        ))}
+                        {users.map(u => <option key={u.userId} value={u.userId}>{u.nom} {u.username}</option>)}
                       </Form.Select>
                     </Form.Group>
+
                     <Form.Group className="mb-3">
                       <Form.Label>Type de facturation</Form.Label>
-                      <Form.Select
-                        name="typeFacturation"
-                        value={form.typeFacturation?.idTypeFacturation || ""}
-                        onChange={(e) => {
-                          const type =
-                            typeFacturations.find((t) => t.idTypeFacturation === Number(e.target.value)) || null;
-                          setForm((prev) => ({ ...prev, typeFacturation: type }));
-                        }}
-                      >
+                      <Form.Select name="typeFacturation" value={form.typeFacturation?.idTypeFacturation || ""}
+                        onChange={e => setForm(prev => ({ ...prev, typeFacturation: typeFacturations.find(t => t.idTypeFacturation === Number(e.target.value)) || null }))}>
                         <option value="">— Sélectionnez —</option>
-                        {typeFacturations.map((t) => (
-                          <option key={t.idTypeFacturation} value={t.idTypeFacturation}>
-                            {t.nomTypeFacturation}
-                          </option>
-                        ))}
+                        {typeFacturations.map(t => <option key={t.idTypeFacturation} value={t.idTypeFacturation}>{t.nomTypeFacturation}</option>)}
                       </Form.Select>
-                    </Form.Group>             
-                    </Col>
-                  {/* Colonne de droite */}
+                    </Form.Group>
+                  </Col>
+
+                  {/* Colonne droite */}
                   <Col md={6}>
                     <Form.Group className="mb-3">
                       <Form.Label>Date de début prévu *</Form.Label>
-                      <Form.Control
-                        type="date"
-                        name="dateDebutPrevu"
-                        value={form.dateDebutPrevu}
-                        onChange={handleChange}
-                        required
-                      />
+                      <Form.Control type="date" name="dateDebutPrevu" value={form.dateDebutPrevu} onChange={handleChange} required />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Date de fin prévu</Form.Label>
-                      <Form.Control
-                        type="date"
-                        name="dateFinPrevu"
-                        value={form.dateFinPrevu}
-                        onChange={handleChange}
-                      />
+                      <Form.Control type="date" name="dateFinPrevu" value={form.dateFinPrevu} onChange={handleChange} />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Ref BC</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="refBC"
-                        value={form.refBC}
-                        onChange={handleChange}
-                      />
+                      <Form.Control type="text" name="refBC" value={form.refBC} onChange={handleChange} />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Suppléant(e)</Form.Label>
-                      <Form.Select
-                        name="userSuppleante"
-                        value={form.userSuppleante?.userId || ""}
-                        onChange={(e) => {
-                          const user =
-                            users.find((u) => u.userId === Number(e.target.value)) || null;
-                          setForm((prev) => ({ ...prev, userSuppleante: user }));
-                        }}
-                      >
+                      <Form.Select name="userSuppleante" value={form.userSuppleante?.userId || ""}
+                        onChange={e => setForm(prev => ({ ...prev, userSuppleante: users.find(u => u.userId === Number(e.target.value)) || null }))}>
                         <option value="">Sélectionnez</option>
-                        {users.map((u) => (
-                          <option key={u.userId} value={u.userId}>
-                            {u.nom} {u.username}
-                          </option>
-                        ))}
+                        {users.map(u => <option key={u.userId} value={u.userId}>{u.nom} {u.username}</option>)}
                       </Form.Select>
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Description</Form.Label>
-                      <Form.Control
-                        as="textarea"
-                        rows={4}
-                        name="description"
-                        value={form.description}
-                        onChange={handleChange}
-                        placeholder="Ajouter une description du projet"
-                      />
+                      <Form.Control as="textarea" rows={4} name="description" value={form.description} onChange={handleChange} placeholder="Ajouter une description du projet" />
                     </Form.Group>
                   </Col>
                 </Row>
+
+                {/* ── Technologies — uniquement pour projets sans lead ── */}
+                {!selectedLead && (
+                  <Row className="mt-2">
+                    <Col md={12}>
+                      <Form.Group>
+                        <Form.Label><strong>Technologies</strong></Form.Label>
+
+                        {/* Barre de recherche autocomplete */}
+                        <div className="position-relative mb-2">
+                          <Form.Control
+                            placeholder="Rechercher une technologie…"
+                            value={technoSearch}
+                            onChange={e => setTechnoSearch(e.target.value)}
+                          />
+                          {technoSearch.trim() && (
+                            <div
+                              className="border rounded bg-white shadow-sm position-absolute w-100"
+                              style={{ zIndex: 1000, maxHeight: 200, overflowY: "auto" }}
+                            >
+                              {allTechnos
+                                .filter(t =>
+                                  !selectedTechnos.find(s => s.id === t.id) &&
+                                  t.nomTechno?.toLowerCase().includes(technoSearch.toLowerCase())
+                                )
+                                .map(t => (
+                                  <div
+                                    key={t.id}
+                                    className="px-3 py-2"
+                                    style={{ cursor: "pointer" }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = "#f0f4ff")}
+                                    onMouseLeave={e => (e.currentTarget.style.background = "")}
+                                    onClick={() => { setSelectedTechnos(prev => [...prev, t]); setTechnoSearch(""); }}
+                                  >
+                                    {t.nomTechno}
+                                  </div>
+                                ))}
+                              {allTechnos.filter(t =>
+                                !selectedTechnos.find(s => s.id === t.id) &&
+                                t.nomTechno?.toLowerCase().includes(technoSearch.toLowerCase())
+                              ).length === 0 && (
+                                <div className="px-3 py-2 text-muted fst-italic small">Aucun résultat</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Badges des technos sélectionnées */}
+                        {selectedTechnos.length > 0 ? (
+                          <div className="d-flex flex-wrap gap-2">
+                            {selectedTechnos.map(t => (
+                              <span key={t.id} className="badge bg-secondary d-flex align-items-center gap-1 px-2 py-1" style={{ fontSize: "0.85rem" }}>
+                                {t.nomTechno}
+                                <button
+                                  type="button"
+                                  className="btn btn-link p-0 ms-1 text-white"
+                                  style={{ fontSize: "0.75rem", lineHeight: 1 }}
+                                  onClick={() => setSelectedTechnos(prev => prev.filter(x => x.id !== t.id))}
+                                >✕</button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <small className="text-muted fst-italic">Aucune technologie sélectionnée.</small>
+                        )}
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                )}
               </Form>
             </>
           )}
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="secondary" onClick={onClose}>
-            Annuler
-          </Button>
-          {/* Bouton Sauvegarder uniquement si le formulaire est visible */}
-          {((!projet &&
-            (creationMode === "new" ||
-              (creationMode === "from-lead" && selectedLead))) ||
-            projet) && (
+          <Button variant="secondary" onClick={onClose}>Annuler</Button>
+          {((!projet && (creationMode === "new" || (creationMode === "from-lead" && selectedLead))) || projet) && (
             <Button variant="primary" onClick={handleSave}>
               {projet ? "Modifier" : "Créer"}
             </Button>
@@ -616,9 +579,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
 
       {showLoadingMessage && <CollecteLoadingMessage />}
       {showSuccessMessage && <CollecteSuccessMessage message={successMessage} />}
-      {showErrorMessage && (
-        <CollecteErrorMessage message={errorMessage} />
-      )}
+      {showErrorMessage   && <CollecteErrorMessage   message={errorMessage} />}
     </>
   );
 };
