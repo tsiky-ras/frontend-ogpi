@@ -19,6 +19,7 @@ import {
 import { BacklogProjetColumnService } from "../../../../services/projet/backlog/BacklogProjetColumnService.tsx";
 import { BacklogPlanningService }     from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 import { useProfilService }           from "../../../../services/profil/ProfilService.tsx";
+import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 
 import {
   Backlog,
@@ -99,8 +100,8 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [expandedPhases,  setExpandedPhases]  = useState<Set<number>>(new Set());
   const [expandedSprints, setExpandedSprints] = useState<Map<number, Set<number>>>(new Map());
   const [expandedLines,   setExpandedLines]   = useState<Set<number>>(new Set());
-  const deviseAbr = "€";
-
+  const leadTechFinService = useLeadTechFinDetailsService();
+  const [deviseAbr, setDeviseAbr] = useState<string>("€");
   // ── Toggle colonnes profils ───────────────────────────────────────────
   const [showProfilCols, setShowProfilCols] = useState(true);
 
@@ -290,7 +291,23 @@ const fetchBacklogHeader = useCallback(async () => {
       setLoading(false);
     }
   }, [selectedBacklogId]);
-
+  
+    useEffect(() => {
+    if (!leadId) {
+      setDeviseAbr("€");
+      return;
+    }
+    const fetchDevise = async () => {
+      try {
+        const techFin = await leadTechFinService.getByLeadId(leadId);
+        const abr = (techFin && techFin.devise?.abrDevise) || "€";
+        setDeviseAbr(abr);
+      } catch {
+        setDeviseAbr("€");
+      }
+    };
+    fetchDevise();
+  }, [leadId]);
   // ── Reset complet à l'ouverture ───────────────────────────────────────
   useEffect(() => {
     if (!show || !projetId) return;
@@ -1507,7 +1524,15 @@ const saveCollabs = async () => {
                     </Tab>
 
                     <Tab eventKey="budget" title="Budget">
-                      <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} deviseAbr={deviseAbr} />
+                      <BudgetTab
+                        lots={lots}
+                        profils={profils as any}
+                        lines={lines}
+                        lineProfils={lineProfils as any}
+                        selectedBacklogId={backlog?.id ?? null}
+                        leadId={leadId ?? null}
+                        deviseAbr={deviseAbr}
+                      />
                     </Tab>
 
                   </Tabs>

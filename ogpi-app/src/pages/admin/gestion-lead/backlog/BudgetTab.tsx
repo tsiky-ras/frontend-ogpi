@@ -12,6 +12,7 @@ interface BudgetTabProps {
   lines: BacklogLine[];
   lineProfils: BacklogLineProfil[];
   selectedBacklogId: number | null;
+  leadId?: number | null;     
   deviseAbr?: string | null;
 }
 
@@ -26,51 +27,49 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
   selectedBacklogId,
   deviseAbr,
 }) => {
-  // Profils actifs (ayant au moins un volume)
   const activeProfils = useMemo(() => {
-    const activeIds = new Set(
-      lineProfils.filter((lp) => lp.volume > 0).map((lp) => lp.profil.id)
+    const safeProfils = Array.isArray(profils)    ? profils    : [];
+    const safeLP      = Array.isArray(lineProfils) ? lineProfils : [];
+    const activeIds   = new Set(
+      safeLP.filter((lp) => lp.volume > 0).map((lp) => lp.profil?.id)
     );
-    return profils.filter((p) => activeIds.has(p.id));
+    return safeProfils.filter((p) => activeIds.has(p.id));
   }, [profils, lineProfils]);
 
-  // Données budgétaires structurées par lot → phase → profil
   const budgetData = useMemo(() => {
-    return lots.map((lot) => {
-      const phases = (lot.phases || []).sort((a, b) => a.order - b.order);
+    const safeLots  = Array.isArray(lots)        ? lots        : [];
+    const safeLines = Array.isArray(lines)       ? lines       : [];
+    const safeLP    = Array.isArray(lineProfils) ? lineProfils : [];
 
-      const phaseData = phases.map((phase) => {
-        const phaseLines = lines.filter((l) => l.phaseId === phase.id);
-        const phaseLineIds = phaseLines.map((l) => l.id);
-
+    return safeLots.map((lot) => {
+      const phases = (lot.phases ?? []).slice().sort((a: any, b: any) => a.order - b.order);
+      const phaseData = phases.map((phase: any) => {
+        const phaseLineIds = safeLines.filter((l) => l.phaseId === phase.id).map((l) => l.id);
         const profilBreakdown = activeProfils.map((profil) => {
-          const volume = lineProfils
-            .filter((lp) => phaseLineIds.includes(lp.lineId) && lp.profil.id === profil.id)
-            .reduce((sum, lp) => sum + lp.volume, 0);
-          const amount = volume * profil.tjm;
-          return { profil, volume, amount };
+          const volume = safeLP
+            .filter((lp) => phaseLineIds.includes(lp.lineId) && lp.profil?.id === profil.id)
+            .reduce((sum: number, lp: any) => sum + lp.volume, 0);
+          return { profil, volume, amount: volume * (profil.tjm ?? 0) };
         });
-
         const totalVolume = profilBreakdown.reduce((s, p) => s + p.volume, 0);
         const totalAmount = profilBreakdown.reduce((s, p) => s + p.amount, 0);
-
         return { phase, profilBreakdown, totalVolume, totalAmount };
       });
-
-      const lotTotalVolume = phaseData.reduce((s, p) => s + p.totalVolume, 0);
-      const lotTotalAmount = phaseData.reduce((s, p) => s + p.totalAmount, 0);
-
-      return { lot, phaseData, lotTotalVolume, lotTotalAmount };
+      return {
+        lot, phaseData,
+        lotTotalVolume: phaseData.reduce((s: number, p: any) => s + p.totalVolume, 0),
+        lotTotalAmount: phaseData.reduce((s: number, p: any) => s + p.totalAmount, 0),
+      };
     });
   }, [lots, lines, lineProfils, activeProfils]);
 
-  // Totaux généraux par profil
   const globalProfilTotals = useMemo(() => {
+    const safeLP = Array.isArray(lineProfils) ? lineProfils : [];
     return activeProfils.map((profil) => {
-      const volume = lineProfils
-        .filter((lp) => lp.profil.id === profil.id)
-        .reduce((s, lp) => s + lp.volume, 0);
-      return { profil, volume, amount: volume * profil.tjm };
+      const volume = safeLP
+        .filter((lp) => lp.profil?.id === profil.id)
+        .reduce((s: number, lp: any) => s + lp.volume, 0);
+      return { profil, volume, amount: volume * (profil.tjm ?? 0) };
     });
   }, [activeProfils, lineProfils]);
 
