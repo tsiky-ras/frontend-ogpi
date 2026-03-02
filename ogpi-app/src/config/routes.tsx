@@ -16,6 +16,7 @@ import {
   FaThList,
   FaHandshake,
   FaMoneyBillWave,
+  FaProjectDiagram,
 } from "react-icons/fa";
 
 export const routes = [
@@ -35,9 +36,9 @@ export const routes = [
     icon: <FaBriefcase />,
   },
   {
-    path : "/gestion-projets",
+    path: "/gestion-projets",
     label: "Projets",
-    icon: <FaBriefcase />,
+    icon: <FaProjectDiagram />,
   },
   {
     path: "/gestion-taches",
