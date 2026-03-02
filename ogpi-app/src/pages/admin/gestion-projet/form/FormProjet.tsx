@@ -15,9 +15,9 @@ import { Projet } from "../../../../types/projet/Projet.tsx";
 import FormLead from "../../gestion-lead/form/FormLead.tsx";
 
 type FormProjetProps = {
+  onSubmit: (projet: Projet) => void | Promise<void>;
   show: boolean;
   onClose: () => void;
-  onSubmit: (projet: Projet) => void;
   projet?: Projet | null;
 };
 
@@ -250,17 +250,14 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     setShowLoadingMessage(true);
     try {
       let savedProjet;
+      const idFact = form.typeFacturation?.idTypeFacturation;
       const payload: any = {
         ...form,
-        typeFacturation: form.typeFacturation?.idTypeFacturation
-          ? { idTypeFacturation: Number(form.typeFacturation.idTypeFacturation) }
-          : null,
-        userCp: form.userCp?.userId
-          ? { userId: form.userCp.userId }
-          : null,
-        userSuppleante: form.userSuppleante?.userId
-          ? { userId: form.userSuppleante.userId }
-          : null,
+        typeFacturation: idFact && Number(idFact) > 0
+          ? { idTypeFacturation: Number(idFact) }
+          : undefined, 
+        userCp: form.userCp?.userId ? { userId: form.userCp.userId } : undefined,
+        userSuppleante: form.userSuppleante?.userId ? { userId: form.userSuppleante.userId } : undefined,
       };
       if (selectedLead) {
         payload.lead = { leadId: selectedLead.leadId || selectedLead.id };
@@ -516,11 +513,8 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
                         name="typeFacturation"
                         value={form.typeFacturation?.idTypeFacturation || ""}
                         onChange={(e) => {
-                          const type = e.target.value
-                            ? typeFacturations.find(
-                                (t) => t.idTypeFacturation === Number(e.target.value)
-                              ) || null
-                            : null;
+                          const type =
+                            typeFacturations.find((t) => t.idTypeFacturation === Number(e.target.value)) || null;
                           setForm((prev) => ({ ...prev, typeFacturation: type }));
                         }}
                       >
@@ -531,7 +525,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
                           </option>
                         ))}
                       </Form.Select>
-                    </Form.Group>                  
+                    </Form.Group>             
                     </Col>
                   {/* Colonne de droite */}
                   <Col md={6}>

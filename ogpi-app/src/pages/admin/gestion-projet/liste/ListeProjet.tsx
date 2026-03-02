@@ -271,7 +271,7 @@ const ListeProjet: React.FC = () => {
           setSelectedProjet(null);
         }}
         projet={selectedProjet}
-        onSubmit={async () => {
+        onSubmit={async (_savedProjet) => {
           await loadProjets();
         }}
       />
