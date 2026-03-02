@@ -246,9 +246,6 @@ const fetchBacklogHeader = useCallback(async () => {
       setSelectedBacklogId(existingHeader.id);
       return;
     }
-
-    // Pas de backlog projet → afficher le bouton "Créer"
-    // Le clone depuis le lead se fait uniquement à la création (handleCreateBacklog)
     setBacklogHeader(null);
 
   } catch {
@@ -392,19 +389,28 @@ const fetchBacklogHeader = useCallback(async () => {
 
   const tableGrandJH = lineProfils.reduce((s, lp) => s + lp.volume, 0);
 
+  const leadIdRef = useRef(leadId);
+  useEffect(() => {
+    leadIdRef.current = leadId;
+  }, [leadId]);
+
   // ══════════════════════════════════════════════════════════════════════
   // CRÉATION BACKLOG
   // ══════════════════════════════════════════════════════════════════════
   const handleCreateBacklog = async (item: CreateBacklogForProjetRequest) => {
+      console.log("=== handleCreateBacklog ===");
+      console.log("leadId (prop):", leadId);
+      console.log("leadIdRef.current:", leadIdRef.current);
     setSaving(true);
     try {
       const created = await svc.backlog.createForProjet({
         name:     item.name,
         desc:     item.desc,
         projetId,
-        leadId:   leadId ?? null,
+        leadId:   leadIdRef.current,
         type:     item.type,
       });
+      console.log("Backlog créé :", created);
       setBacklogHeader(created);
       setSelectedBacklogId(created.id);
       setShowBacklogForm(false);
@@ -965,6 +971,7 @@ const saveCollabs = async () => {
                       onClose={() => setShowBacklogForm(false)}
                       onSubmit={handleCreateBacklog}
                       projetId={projetId}
+                      leadId={leadId}
                     />
                     <Button
                       label="Créer un backlog"

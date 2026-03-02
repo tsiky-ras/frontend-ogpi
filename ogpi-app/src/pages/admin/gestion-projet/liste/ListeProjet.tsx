@@ -56,10 +56,11 @@ const ListeProjet: React.FC = () => {
   }, []);
 
   /* ================= HANDLERS BACKLOG ================= */
-  const handleOpenBacklog = (row: Projet) => {
-    // Les deux setState sont batchés en React 18 :
-    // le modal reçoit show=true ET projetId valide dans le même rendu.
-    setSelectedProjetForBacklog(row);
+  const handleOpenBacklog = (projet: any) => {
+    console.log("selectedProjetForBacklog :", projet);
+    console.log("lead :", projet?.lead);
+    console.log("leadId :", projet?.lead?.leadId);
+    setSelectedProjetForBacklog(projet);
     setShowBacklogModal(true);
   };
 
@@ -290,8 +291,7 @@ const ListeProjet: React.FC = () => {
       onClose={handleCloseBacklog}
       projetId={selectedProjetForBacklog?.idProjet ?? 0}
       projetNom={selectedProjetForBacklog?.nomProjet}
-      leadId={selectedProjetForBacklog?.lead?.leadId ?? null}   
-    />
+      leadId={selectedProjetForBacklog?.lead?.leadId ?? null}    />
     </div>
   );
 };
