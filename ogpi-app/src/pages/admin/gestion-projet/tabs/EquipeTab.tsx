@@ -48,10 +48,6 @@ const EquipeTab: React.FC<EquipeTabProps> = ({ profils, deviseAbr = "€", loadi
           <div className="equipe-stat-value">{profils.length}</div>
           <div className="equipe-stat-label">Profil{profils.length !== 1 ? "s" : ""} définis</div>
         </div>
-        <div className={`equipe-stat-card ${nonPourvus > 0 ? "equipe-stat-card--warn" : ""}`}>
-          <div className="equipe-stat-value">{nonPourvus}</div>
-          <div className="equipe-stat-label">Non pourvu{nonPourvus !== 1 ? "s" : ""}</div>
-        </div>
       </div>
 
       {/* Profils */}

@@ -17,6 +17,8 @@ import { BacklogProjetLineProfilService } from "../../../../../services/projet/b
 import { BacklogPlanningService } from "../../../../../services/lead/backlog/BacklogPlanningService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 import { LeadService } from "../../../../../services/lead/LeadService.tsx";
+import { useProjetTechFinDetailsService } from "../../../../../services/projet/tech-fin/ProjetTechFinDetailsService.tsx";
+import { useProjetTechnoService } from "../../../../../services/projet/tech-fin/ProjetTechnoService.tsx";
 
 type ProjetDetailsProps = {
   show: boolean;
@@ -26,7 +28,9 @@ type ProjetDetailsProps = {
 
 const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) => {
   const { api } = useAuth();
-  const leadTechFinService = useLeadTechFinDetailsService();
+  const leadTechFinService      = useLeadTechFinDetailsService();
+  const projetTechFinService    = useProjetTechFinDetailsService();
+  const projetTechnoService     = useProjetTechnoService();
 
   const [svc] = useState(() => ({
     backlog:    new BacklogProjetService(api),
@@ -45,6 +49,7 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
   const [profils,     setProfils]     = useState<any[]>([]);
   const [deviseAbr,   setDeviseAbr]   = useState<string>("€");
   const [leadData,    setLeadData]    = useState<any | null>(null);
+  const [projetTechnos, setProjetTechnos] = useState<any[]>([]);
 
   const loadBacklogData = useCallback(async () => {
     if (!projet?.idProjet) return;
@@ -87,27 +92,35 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
       });
       setDeliverables(dlvMap);
 
-      // Chargement devise + données lead si projet lié à un lead
       if (projet.lead?.leadId) {
+        // Projet lié à un lead : charger devise + données lead
         try {
           const [techFin, fullLead] = await Promise.all([
             leadTechFinService.getByLeadId(projet.lead.leadId),
             svc.lead.getById(projet.lead.leadId),
           ]);
-
-          // Devise
           setDeviseAbr(techFin?.devise?.abrDevise ?? techFin?.devise?.nomDevise ?? "€");
-
-          // On attache techFinDetails au lead comme dans DetailsLead
           setLeadData(fullLead ? { ...fullLead, techFinDetails: techFin ?? null } : null);
-
         } catch {
           setDeviseAbr("€");
           setLeadData(null);
         }
+        setProjetTechnos([]);
       } else {
+        // Projet sans lead : charger les technos propres au projet
         setDeviseAbr("€");
         setLeadData(null);
+        try {
+          const details = await projetTechFinService.getByProjetId(projet.idProjet);
+          if (details?.idProjetTechFinDetails) {
+            const technos = await projetTechnoService.getByDetailsId(details.idProjetTechFinDetails);
+            setProjetTechnos(technos ?? []);
+          } else {
+            setProjetTechnos([]);
+          }
+        } catch {
+          setProjetTechnos([]);
+        }
       }
     } catch (err) {
       console.error("Erreur chargement backlog projet details:", err);
@@ -119,7 +132,7 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
   useEffect(() => {
     if (!show || !projet) return;
     setBacklogId(null); setLots([]); setLines([]); setLineProfils([]);
-    setDeliverables(new Map()); setProfils([]); setLeadData(null);
+    setDeliverables(new Map()); setProfils([]); setLeadData(null); setProjetTechnos([]);
     loadBacklogData();
   }, [show, projet?.idProjet]);
 
@@ -153,8 +166,6 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Nav.Item>
               <Nav.Link eventKey="infoGeneral">Informations générales</Nav.Link>
             </Nav.Item>
-
-            {/* Onglets lead — uniquement si le projet est lié à un lead */}
             {leadData && (
               <>
                 <Nav.Item>
@@ -165,29 +176,20 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
                 </Nav.Item>
               </>
             )}
-
-            <Nav.Item>
-              <Nav.Link eventKey="structure">Lots / Phases / Sprints</Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="equipe">Équipe</Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="planning">Planning</Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="budget">Budget</Nav.Link>
-            </Nav.Item>
+            <Nav.Item><Nav.Link eventKey="structure">Lots / Phases / Sprints</Nav.Link></Nav.Item>
+            <Nav.Item><Nav.Link eventKey="equipe">Équipe</Nav.Link></Nav.Item>
+            <Nav.Item><Nav.Link eventKey="planning">Planning</Nav.Link></Nav.Item>
+            <Nav.Item><Nav.Link eventKey="budget">Budget</Nav.Link></Nav.Item>
           </Nav>
 
           <Tab.Content>
             <Tab.Pane eventKey="infoGeneral">
               <div className="details-section">
-                <InfoGeneral projet={projet} />
+                {/* technos passé uniquement pour projets sans lead */}
+                <InfoGeneral projet={projet} technos={!leadId ? projetTechnos : undefined} />
               </div>
             </Tab.Pane>
 
-            {/* Contenu onglets lead */}
             {leadData && (
               <>
                 <Tab.Pane eventKey="qualification">
@@ -201,32 +203,26 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
 
             <Tab.Pane eventKey="structure">
               <div className="details-section details-section--full">
-                {loadingData
-                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
-                  : <StructureTab lots={lots} />}
+                {loadingData ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div> : <StructureTab lots={lots} />}
               </div>
             </Tab.Pane>
 
             <Tab.Pane eventKey="equipe">
               <div className="details-section details-section--full">
-                {loadingData
-                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
-                  : <EquipeTab profils={profils} deviseAbr={deviseAbr} />}
+                {loadingData ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div> : <EquipeTab profils={profils} deviseAbr={deviseAbr} />}
               </div>
             </Tab.Pane>
 
             <Tab.Pane eventKey="planning">
               <div className="details-section details-section--full">
-                {loadingData
-                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
+                {loadingData ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
                   : <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} selectedBacklogId={backlogId} planningService={svc.planning} />}
               </div>
             </Tab.Pane>
 
             <Tab.Pane eventKey="budget">
               <div className="details-section details-section--full">
-                {loadingData
-                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
+                {loadingData ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
                   : <BudgetTab lots={lots} profils={profils} lines={lines} lineProfils={lineProfils} selectedBacklogId={backlogId} leadId={leadId} deviseAbr={deviseAbr} />}
               </div>
             </Tab.Pane>

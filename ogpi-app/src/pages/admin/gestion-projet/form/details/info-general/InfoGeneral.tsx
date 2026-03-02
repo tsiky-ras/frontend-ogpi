@@ -4,9 +4,15 @@ import "./InfoGeneral.css";
 
 type InfoGeneralProps = {
   projet: Projet;
+  technos?: { techno?: { id: number; nomTechno: string }; nomTechno?: string }[];
 };
 
-const InfoGeneral: React.FC<InfoGeneralProps> = ({ projet }) => {
+const InfoGeneral: React.FC<InfoGeneralProps> = ({ projet, technos }) => {
+  const technoNames = (technos ?? [])
+    .map(t => t.techno?.nomTechno ?? t.nomTechno)
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div className="info-general-grid">
       <div className="info-item">
@@ -53,6 +59,14 @@ const InfoGeneral: React.FC<InfoGeneralProps> = ({ projet }) => {
         <label>Type de facturation</label>
         <p>{projet.typeFacturation?.nomTypeFacturation || "-"}</p>
       </div>
+
+      {/* Technologies — uniquement pour les projets sans lead */}
+      {!projet.lead?.leadId && (
+        <div className="info-item">
+          <label>Technologies</label>
+          <p>{technoNames || "-"}</p>
+        </div>
+      )}
 
       <div className="info-item">
         <label>Description</label>
