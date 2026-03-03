@@ -286,12 +286,15 @@ const ListeProjet: React.FC = () => {
         }}
         projet={selectedProjet}
       />
-    <BacklogProjetModal
-      show={showBacklogModal}
-      onClose={handleCloseBacklog}
-      projetId={selectedProjetForBacklog?.idProjet ?? 0}
-      projetNom={selectedProjetForBacklog?.nomProjet}
-      leadId={selectedProjetForBacklog?.lead?.leadId ?? null}    />
+      <BacklogProjetModal
+        show={showBacklogModal}
+        onClose={handleCloseBacklog}
+        projetId={selectedProjetForBacklog?.idProjet ?? 0}
+        projetNom={selectedProjetForBacklog?.nomProjet}
+        leadId={selectedProjetForBacklog?.lead?.leadId ?? null}
+        projectStartDate={selectedProjetForBacklog?.dateDebutPrevu ?? null}  
+        projectEndDate={selectedProjetForBacklog?.dateFinPrevu ?? null}       
+      />
     </div>
   );
 };

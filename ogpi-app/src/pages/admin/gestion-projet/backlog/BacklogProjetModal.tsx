@@ -42,13 +42,16 @@ import { useAuth }  from "../../../../context/AuthContext.tsx";
 import BacklogFormProjet from "./BacklogFormProjet.tsx";
 import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
 import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
+import { ProjetService } from "../../../../services/projet/ProjetService.tsx";
 
 interface BacklogProjetModalProps {
-  show: boolean;
-  onClose: () => void;
-  projetId: number;
-  projetNom?: string;
-  leadId?: number | null;
+  show:             boolean;
+  onClose:          () => void;
+  projetId:         number;
+  projetNom?:       string;
+  leadId:           number | null;
+  projectStartDate?: string | null;  
+  projectEndDate?:   string | null;  
 }
 
 interface ProfilFull extends BacklogProjetProfil {
@@ -56,10 +59,11 @@ interface ProfilFull extends BacklogProjetProfil {
 }
 
 const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
-  show, onClose, projetId, projetNom,leadId,
+  show, onClose, projetId, projetNom,leadId,projectStartDate, projectEndDate,
 }) => {
   const { api } = useAuth();
   const collaborateurService = useProfilService();
+  const projetService = new ProjetService(api);
   const svc = useRef({
     backlog    : new BacklogProjetService(api),
     lot        : new BacklogProjetLotService(api),
@@ -1520,9 +1524,21 @@ const saveCollabs = async () => {
                     </Tab>
 
                     <Tab eventKey="planning" title="Planning">
-                      <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils as any} deliverables={deliverables as any} selectedBacklogId={backlog?.id ?? null} planningService={svc.planning} />
+                      <PlanningTab
+                        lots={lots}
+                        lines={lines}
+                        lineProfils={lineProfils}
+                        deliverables={deliverables}
+                        selectedBacklogId={selectedBacklogId}
+                        planningService={svc.planning}
+                        projectStartDate={projectStartDate}   
+                        projectEndDate={projectEndDate}  
+                        onUpdateProjectDates={async (newStart, newEnd) => {
+                          await projetService.updateDates(projetId, newStart, newEnd);
+                          // Optionnel : rafraîchir le projet parent
+                        }}
+                      />
                     </Tab>
-
                     <Tab eventKey="budget" title="Budget">
                       <BudgetTab
                         lots={lots}

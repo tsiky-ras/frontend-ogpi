@@ -216,7 +216,16 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Tab.Pane eventKey="planning">
               <div className="details-section details-section--full">
                 {loadingData ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
-                  : <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} selectedBacklogId={backlogId} planningService={svc.planning} />}
+                  : 
+                <PlanningTab
+                  lots={lots}
+                  lines={lines}
+                  lineProfils={lineProfils}
+                  deliverables={deliverables}
+                  selectedBacklogId={backlogId}
+                  planningService={svc.planning}
+                  projectStartDate={projet.dateDebutPrevu ?? null} 
+                />}
               </div>
             </Tab.Pane>
 
