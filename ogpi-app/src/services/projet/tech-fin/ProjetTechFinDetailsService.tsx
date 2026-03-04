@@ -27,34 +27,29 @@ export const useProjetTechFinDetailsService = () => {
     return res.data;
   };
 
-  /**
-   * GET /api/projet-tech-fin-details/projet/{projetId}
-   */
+ 
   const getByProjetId = async (
     projetId: number
   ): Promise<ProjetTechFinDetails> => {
-    const res = await api.get(`${base}/projet/${projetId}`);
+    const res = await api.get(`${base}/by-projet/${projetId}`);
     return res.data;
   };
 
   /**
-   * PUT /api/projet-tech-fin-details/{id}
+   * PUT /api/projet-tech-fin-details
    */
   const update = async (
     data: ProjetTechFinDetails
   ): Promise<ProjetTechFinDetails> => {
-    const res = await api.put(
-      `${base}/${data.idProjetTechFinDetails}`,
-      data
-    );
+    const res = await api.put(base, data);
     return res.data;
   };
 
   /**
-   * DELETE
+   * DELETE /api/projet-tech-fin-details/by-projet/{id}
    */
   const remove = async (id: number): Promise<void> => {
-    await api.delete(`${base}/${id}`);
+    await api.delete(`${base}/by-projet/${id}`);
   };
 
   return {

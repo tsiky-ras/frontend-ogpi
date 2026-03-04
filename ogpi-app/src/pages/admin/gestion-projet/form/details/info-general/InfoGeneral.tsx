@@ -2,16 +2,28 @@ import React from "react";
 import { Projet } from "../../../../../../types/projet/Projet.tsx";
 import "./InfoGeneral.css";
 
+type TechnoItem = {
+  techno?: { idTechno?: number; id?: number; nomTechno?: string };
+  nomTechno?: string;
+  idTechno?: number;
+  id?: number;
+};
+
 type InfoGeneralProps = {
   projet: Projet;
-  technos?: { techno?: { id: number; nomTechno: string }; nomTechno?: string }[];
+  technos?: TechnoItem[];
+};
+
+const resolveTechnoName = (t: TechnoItem): string | undefined => {
+  if (t.techno?.nomTechno) return t.techno.nomTechno; // forme Java : { techno: { nomTechno } }
+  if (t.nomTechno)         return t.nomTechno;         // forme plate : { nomTechno }
+  return undefined;
 };
 
 const InfoGeneral: React.FC<InfoGeneralProps> = ({ projet, technos }) => {
-  const technoNames = (technos ?? [])
-    .map(t => t.techno?.nomTechno ?? t.nomTechno)
-    .filter(Boolean)
-    .join(", ");
+  const technoList = (technos ?? [])
+    .map(resolveTechnoName)
+    .filter((name): name is string => !!name);
 
   return (
     <div className="info-general-grid">
@@ -64,7 +76,21 @@ const InfoGeneral: React.FC<InfoGeneralProps> = ({ projet, technos }) => {
       {!projet.lead?.leadId && (
         <div className="info-item">
           <label>Technologies</label>
-          <p>{technoNames || "-"}</p>
+          {technoList.length > 0 ? (
+            <div className="d-flex flex-wrap gap-1 mt-1">
+              {technoList.map((name, i) => (
+                <span
+                  key={i}
+                  className="badge bg-secondary"
+                  style={{ fontSize: "0.8rem", fontWeight: 400 }}
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p>-</p>
+          )}
         </div>
       )}
 
