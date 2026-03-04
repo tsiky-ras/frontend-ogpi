@@ -207,8 +207,6 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
           : { id: 0, label: "" },
       })) || [],
     }));
-
-    console.log("Profil chargé :", profil);
   }, [profil]);
 
   const handleChange = (e: React.ChangeEvent<any>) => {
@@ -332,7 +330,6 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
     try {
       setShowLoadingMessage(true);
       const payload = formatFormForBackend(form, profil?.id);
-      console.log("Payload à envoyer :", payload);
       if (profil && profil.id) {
         await update(payload);
         setShowLoadingMessage(false);

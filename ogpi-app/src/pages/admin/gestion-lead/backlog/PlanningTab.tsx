@@ -271,7 +271,7 @@ const PlanningTab:React.FC<PlanningTabProps>=({
       }
     return Math.ceil(sn(maxH / unitH(unit), 1)) + 2;
   }, [maxH, unit]);
-console.log("UNIT:", unit);
+  
   // ── Largeur de la zone scrollable (sans LABEL_W) ──────────────────────────
   const scrollW = useMemo(() => {
     return nCols * colW;

@@ -24,8 +24,6 @@ export class BacklogService {
    * Récupérer un profil par son ID
    */
   async getCompleteById(id: number): Promise<Backlog> {
-    console.log("IDSAD"+id)
-
     const response = await this.api.get(`/backlogs/${id}/complete`);
     return response.data;
   }

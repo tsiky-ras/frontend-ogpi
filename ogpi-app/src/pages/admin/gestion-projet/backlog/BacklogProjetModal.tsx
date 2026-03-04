@@ -4,7 +4,7 @@ import Sortable from "sortablejs";
 import Button from "../../../../components/button/Button.tsx";
 import {
   FaPlus, FaSpinner, FaEdit, FaTrash, FaCalendar,
-  FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash,
+  FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash, FaCheckCircle,
 } from "react-icons/fa";
 import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
@@ -763,6 +763,16 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     } catch { alert("Impossible de supprimer le livrable."); }
   };
 
+  const deliverLivrable = async (delivId: number, phaseId: number) => {
+    try {
+      await svc.phase.deliverDeliverable(delivId);
+      setDeliverables(prev => new Map(prev).set(
+        phaseId,
+        (prev.get(phaseId) ?? []).map(d => d.id === delivId ? { ...d, isDelivered: true } : d)
+      ));
+    } catch { alert({delivId}+"Impossible de marquer le livrable comme livré."); }
+  };
+
   // ══════════════════════════════════════════════════════════════════════
   // PROFILS
   // ══════════════════════════════════════════════════════════════════════
@@ -1488,12 +1498,25 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                                         )}
                                                         {sprintDeliv.length > 0
                                                           ? sprintDeliv.map(d => (
-                                                            <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
-                                                              <span>
-                                                                <strong>{d.name}</strong>
-                                                                {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                                            <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small${(d as any).isDelivered ? " opacity-75" : ""}`}
+                                                              style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                              <span className="d-flex align-items-center gap-2">
+                                                                {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
+                                                                <span>
+                                                                  <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
+                                                                  {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
+                                                                  {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
+                                                                </span>
                                                               </span>
-                                                              <div className="d-flex gap-1">
+                                                              <div className="d-flex gap-1 align-items-center">
+                                                                {!(d as any).isDelivered && (
+                                                                  <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
+                                                                    style={{ fontSize: "0.7rem" }}
+                                                                    title="Marquer comme livré"
+                                                                    onClick={() => deliverLivrable(d.id!, phase.id)}>
+                                                                    <FaCheckCircle size={10} /> Livrer
+                                                                  </button>
+                                                                )}
                                                                 <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
                                                                 <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                                               </div>
@@ -1508,12 +1531,26 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                             </div>
 
                                             {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
-                                              <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
-                                                <span>
-                                                  <strong>{d.name}</strong>
-                                                  {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                              <div key={d.id}
+                                                className={`d-flex justify-content-between align-items-center border-bottom py-1 small ps-1${(d as any).isDelivered ? " opacity-75" : ""}`}
+                                                style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                <span className="d-flex align-items-center gap-2">
+                                                  {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
+                                                  <span>
+                                                    <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
+                                                    {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
+                                                    {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
+                                                  </span>
                                                 </span>
-                                                <div className="d-flex gap-1">
+                                                <div className="d-flex gap-1 align-items-center">
+                                                  {!(d as any).isDelivered && (
+                                                    <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
+                                                      style={{ fontSize: "0.7rem" }}
+                                                      title="Marquer comme livré"
+                                                      onClick={() => deliverLivrable(d.id!, phase.id)}>
+                                                      <FaCheckCircle size={10} /> Livrer
+                                                    </button>
+                                                  )}
                                                   <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
                                                   <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                                 </div>

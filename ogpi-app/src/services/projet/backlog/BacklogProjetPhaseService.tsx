@@ -86,8 +86,7 @@ export class BacklogProjetPhaseService {
     return response.data;
   }
 
-
-  /** PUT /projet/backlog-phases/sprints/{id} */
+  /** PUT /projet/backlog-sprints/{id} */
   async updateSprint(id: number, payload: { name: string; startDate?: string; endDate?: string }): Promise<BacklogSprint> {
     const response = await this.api.put(
       `/projet/backlog-sprints/${id}`,
@@ -147,5 +146,14 @@ export class BacklogProjetPhaseService {
   /** DELETE /projet/backlog-phases/livrables/{id} */
   async deleteDeliverable(id: number): Promise<void> {
     await this.api.delete(`/projet/backlog-phases/livrables/${id}`);
+  }
+
+  /**
+   * PATCH /projet/backlog-livrables/{id}/deliver
+   * Marque le livrable comme livré (is_delivered = true) — action irréversible.
+   * Correspond à BacklogProjetDeliverableController.deliver()
+   */
+  async deliverDeliverable(id: number): Promise<void> {
+    await this.api.patch(`/projet/backlog-livrables/${id}/deliver`);
   }
 }

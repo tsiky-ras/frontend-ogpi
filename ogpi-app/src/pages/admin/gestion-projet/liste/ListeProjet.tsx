@@ -57,9 +57,6 @@ const ListeProjet: React.FC = () => {
 
   /* ================= HANDLERS BACKLOG ================= */
   const handleOpenBacklog = (projet: any) => {
-    console.log("selectedProjetForBacklog :", projet);
-    console.log("lead :", projet?.lead);
-    console.log("leadId :", projet?.lead?.leadId);
     setSelectedProjetForBacklog(projet);
     setShowBacklogModal(true);
   };

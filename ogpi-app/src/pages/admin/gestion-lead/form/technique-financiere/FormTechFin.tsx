@@ -58,9 +58,6 @@ const FormTechFin: React.FC<Props> = ({
 
   /* ================= Debug ================= */
   useEffect(() => {
-    console.log("=== DEBUG FormTechFin ===");
-    console.log("form.technos:", form.technos);
-    console.log("Normalisé:", normalizeTechnos(form.technos));
   }, [form.technos]);
 
   /* ================= Render ================= */
