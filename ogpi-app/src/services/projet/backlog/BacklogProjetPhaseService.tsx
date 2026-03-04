@@ -72,7 +72,13 @@ export class BacklogProjetPhaseService {
   // ─────────────────────────────────────────────
 
   /** POST /projet/backlog-phases/{phaseId}/sprints */
-  async createSprint(payload: CreateBacklogSprintRequest): Promise<BacklogSprint> {
+  async createSprint(payload: {
+    name: string;
+    order: number;
+    phaseId: number;
+    dateDebut?: string;
+    dateFin?: string;
+  }): Promise<BacklogSprint> {
     const response = await this.api.post(
       `/projet/backlog-phases/${payload.phaseId}/sprints`,
       payload
@@ -80,9 +86,17 @@ export class BacklogProjetPhaseService {
     return response.data;
   }
 
+
   /** PUT /projet/backlog-phases/sprints/{id} */
-  async updateSprint(id: number, payload: UpdateBacklogSprintRequest): Promise<BacklogSprint> {
-    const response = await this.api.put(`/projet/backlog-phases/sprints/${id}`, payload);
+  async updateSprint(id: number, payload: { name: string; startDate?: string; endDate?: string }): Promise<BacklogSprint> {
+    const response = await this.api.put(
+      `/projet/backlog-sprints/${id}`,
+      {
+        name: payload.name,
+        dateDebut: payload.startDate,
+        dateFin: payload.endDate,
+      }
+    );
     return response.data;
   }
 

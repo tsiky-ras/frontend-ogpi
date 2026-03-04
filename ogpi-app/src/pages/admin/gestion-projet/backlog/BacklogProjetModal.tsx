@@ -536,10 +536,22 @@ const fetchBacklogHeader = useCallback(async () => {
         setSprints(prev => new Map(prev).set(ctxPhaseId, existing.map(s => s.id === editSprint.id ? { ...s, ...updated } : s)));
       } else {
         const order = Math.max(0, ...existing.map(s => s.order)) + 1;
-        const created = await svc.phase.createSprint({ name: fSprint.name, order, phaseId: ctxPhaseId, startDate: fSprint.startDate, endDate: fSprint.endDate });
-        setSprints(prev => new Map(prev).set(ctxPhaseId, [...existing, created]));
-        setColumns(prev => new Map(prev).set(created.id, []));
-      }
+        const sprintPayload = {
+          name: fSprint.name,
+          order,
+          phaseId: ctxPhaseId,
+          dateDebut: fSprint.startDate,
+          dateFin: fSprint.endDate,
+        };
+        console.log("Payload envoyé :", sprintPayload);
+        const created = await svc.phase.createSprint(sprintPayload);
+        const createdWithDates: BacklogSprint = {
+          ...created,
+          dateDebut: created.dateDebut ?? (fSprint.startDate || null),
+          dateFin:   created.dateFin   ?? (fSprint.endDate   || null),
+        };
+        setSprints(prev => new Map(prev).set(ctxPhaseId, [...existing, createdWithDates]));
+        setColumns(prev => new Map(prev).set(createdWithDates.id, []));      }
       setShowSprintModal(false);
     } catch { alert("Erreur lors de la sauvegarde du sprint."); }
     finally { setSaving(false); setCtxPhaseId(null); }
@@ -1535,7 +1547,6 @@ const saveCollabs = async () => {
                         projectEndDate={projectEndDate}  
                         onUpdateProjectDates={async (newStart, newEnd) => {
                           await projetService.updateDates(projetId, newStart, newEnd);
-                          // Optionnel : rafraîchir le projet parent
                         }}
                       />
                     </Tab>
