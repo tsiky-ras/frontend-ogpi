@@ -1,5 +1,16 @@
 import { useAuth } from "../../../context/AuthContext.tsx";
-import { Techno } from "../../../types/lead/tech-fin/LeadTechFin.tsx";
+
+// Type réel retourné par le controller Java :
+// { idProjetTechno, idProjetTechFinDetails, techno: { idTechno, nomTechno, descTechno } }
+export type ProjetTechnoItem = {
+  idProjetTechno?: number;
+  idProjetTechFinDetails?: number;
+  techno?: {
+    idTechno: number;
+    nomTechno: string;
+    descTechno?: string;
+  };
+};
 
 export const useProjetTechnoService = () => {
   const { api } = useAuth();
@@ -7,28 +18,27 @@ export const useProjetTechnoService = () => {
   const base = "/projet-technos";
 
   /**
-   * GET technos par details
+   * GET /api/projet-technos/by-details/{id}
+   * Retourne des ProjetTechnoItem[] (et non Techno[])
    */
   const getByDetailsId = async (
     id: number
-  ): Promise<Techno[]> => {
+  ): Promise<ProjetTechnoItem[]> => {
     const res = await api.get(`${base}/by-details/${id}`);
     return res.data;
   };
 
-  /**
-   * CREATE
-   */
+
   const create = async (data: {
     idProjetTechFinDetails: number;
-    techno: { id: number };
+    techno: { idTechno: number };
   }) => {
     const res = await api.post(base, data);
     return res.data;
   };
 
   /**
-   * DELETE by details
+   * DELETE /api/projet-technos/by-details/{id}
    */
   const deleteByDetailsId = async (
     id: number

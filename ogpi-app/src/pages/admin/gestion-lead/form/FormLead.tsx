@@ -231,12 +231,10 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
               montantOffre: lead.montantOffre || lead.budget || 0,
               budget: lead.montantOffre || lead.budget || 0,
             };
-            console.log("=== TechFin depuis le lead pré-chargé ===", techFinData);
           } else {
             // Fallback : charger depuis l'API
             try {
               techFinData = await leadTechFinService.getByLeadId(currentLeadId);
-              console.log("=== TechFin chargé depuis l'API ===", JSON.stringify(techFinData, null, 2));
             } catch (err) {
               console.warn("TechFin non trouvé, fallback sur lead brut :", err);
             }

@@ -57,9 +57,6 @@ const ListeProjet: React.FC = () => {
 
   /* ================= HANDLERS BACKLOG ================= */
   const handleOpenBacklog = (projet: any) => {
-    console.log("selectedProjetForBacklog :", projet);
-    console.log("lead :", projet?.lead);
-    console.log("leadId :", projet?.lead?.leadId);
     setSelectedProjetForBacklog(projet);
     setShowBacklogModal(true);
   };
@@ -286,12 +283,15 @@ const ListeProjet: React.FC = () => {
         }}
         projet={selectedProjet}
       />
-    <BacklogProjetModal
-      show={showBacklogModal}
-      onClose={handleCloseBacklog}
-      projetId={selectedProjetForBacklog?.idProjet ?? 0}
-      projetNom={selectedProjetForBacklog?.nomProjet}
-      leadId={selectedProjetForBacklog?.lead?.leadId ?? null}    />
+      <BacklogProjetModal
+        show={showBacklogModal}
+        onClose={handleCloseBacklog}
+        projetId={selectedProjetForBacklog?.idProjet ?? 0}
+        projetNom={selectedProjetForBacklog?.nomProjet}
+        leadId={selectedProjetForBacklog?.lead?.leadId ?? null}
+        projectStartDate={selectedProjetForBacklog?.dateDebutPrevu ?? null}  
+        projectEndDate={selectedProjetForBacklog?.dateFinPrevu ?? null}       
+      />
     </div>
   );
 };

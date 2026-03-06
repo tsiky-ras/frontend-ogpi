@@ -80,7 +80,6 @@ const ListeProfils: React.FC = () => {
   const fetchProfils = async () => {
     try {
       const data = await getAll();
-      console.log("Data profils fetched:", data);
       setProfils(data);
     } catch (err) {
       console.error("Erreur chargement profils", err);

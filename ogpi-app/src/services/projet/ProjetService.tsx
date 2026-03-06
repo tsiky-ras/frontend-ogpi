@@ -8,13 +8,9 @@ export class ProjetService {
     this.api = api;
   }
 
-  /**
-   * Récupère tous les projets
-   */
   async getAll(): Promise<Projet[]> {
     try {
       const response = await this.api.get('/projets/all');
-      console.log("Projets récupérés:", response.data);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des projets :', error);
@@ -22,13 +18,9 @@ export class ProjetService {
     }
   }
 
-  /**
-   * Récupère un projet par ID
-   */
   async getById(id: number): Promise<Projet> {
     try {
       const response = await this.api.get(`/projets/${id}`);
-      console.log(`Projet ${id} récupéré:`, response.data);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération du projet ${id} :`, error);
@@ -36,9 +28,6 @@ export class ProjetService {
     }
   }
 
-  /**
-   * Crée un nouveau projet
-   */
   async create(data: Projet): Promise<Projet> {
     try {
       const response = await this.api.post('/projets', data);
@@ -49,9 +38,6 @@ export class ProjetService {
     }
   }
 
-  /**
-   * Met à jour un projet existant
-   */
   async update(id: number, data: Projet): Promise<Projet> {
     try {
       const response = await this.api.put(`/projets/${id}`, data);
@@ -62,9 +48,19 @@ export class ProjetService {
     }
   }
 
-  /**
-   * Supprime un projet
-   */
+  async updateDates(id: number, dateDebutPrevu: string, dateFinPrevu: string): Promise<Projet> {
+    try {
+      const response = await this.api.patch(`/projets/${id}/dates`, {
+        dateDebutPrevu,
+        dateFinPrevu,
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors de la mise à jour des dates du projet ${id} :`, error);
+      throw error;
+    }
+  }
+
   async delete(id: number): Promise<void> {
     try {
       await this.api.delete(`/projets/${id}`);

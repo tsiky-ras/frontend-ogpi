@@ -18,7 +18,6 @@ export class BacklogProfilService {
    */
   async getById(id: number): Promise<BacklogProfil> {
     const response = await this.api.get(`/backlog-profils/${id}`);
-    console.log(response.data);
     return response.data;
   }
 

@@ -114,7 +114,6 @@ export class BacklogInfoService {
   async getFullByProjetId(projetId: number): Promise<BacklogInfo | null> {
     try {
       const res = await this.api.get<BacklogInfo>(`${this.BASE}/projet/${1}/full`);
-      console.log(`Backlog complet pour projet ${projetId} récupéré:`, res.data);   
       return res.data;
     } catch (err: any) {
       if (err?.response?.status === 404) return null;

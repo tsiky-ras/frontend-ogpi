@@ -47,15 +47,9 @@ const ListeLead: React.FC = () => {
   });
 
   const loadFullLeadDetails = async (leadId: number) => {
-    try {
-      console.log("=== Chargement complet du lead:", leadId);
-      
+    try {      
       const fullLead = await leadService.getById(leadId);
-      console.log("Lead complet récupéré:", fullLead);
-
       const techFinDetails = await leadTechFinService.getByLeadId(leadId);
-      console.log("Tech & Fin récupérés:", techFinDetails);
-
       const completeLead = {
         ...fullLead,
         id: fullLead.leadId || fullLead.id,
@@ -104,8 +98,6 @@ const ListeLead: React.FC = () => {
         montantOffre: techFinDetails?.montantOffre || 0,
         budget: techFinDetails?.montantOffre || 0,
       };
-
-      console.log("Lead complet normalisé:", completeLead);
       return completeLead;
 
     } catch (error) {

@@ -4,7 +4,7 @@ import Sortable from "sortablejs";
 import Button from "../../../../components/button/Button.tsx";
 import {
   FaPlus, FaSpinner, FaEdit, FaTrash, FaCalendar,
-  FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash,
+  FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash, FaCheckCircle,
 } from "react-icons/fa";
 import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
@@ -42,24 +42,52 @@ import { useAuth }  from "../../../../context/AuthContext.tsx";
 import BacklogFormProjet from "./BacklogFormProjet.tsx";
 import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
 import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
+import { ProjetService } from "../../../../services/projet/ProjetService.tsx";
 
 interface BacklogProjetModalProps {
-  show: boolean;
-  onClose: () => void;
-  projetId: number;
-  projetNom?: string;
-  leadId?: number | null;
+  show:             boolean;
+  onClose:          () => void;
+  projetId:         number;
+  projetNom?:       string;
+  leadId:           number | null;
+  projectStartDate?: string | null;
+  projectEndDate?:   string | null;
 }
 
 interface ProfilFull extends BacklogProjetProfil {
   collaborateurs: any[];
 }
 
+// ── [DATES] Helper : formate une date ISO en "jj/mm/aaaa" ───────────────────
+const fmtDate = (iso: string | null | undefined): string => {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }); }
+  catch { return iso; }
+};
+
+// ── [DATES] Badge dates inline ───────────────────────────────────────────────
+const DateBadge: React.FC<{ debut?: string | null; fin?: string | null; style?: React.CSSProperties }> = ({ debut, fin, style }) => {
+  if (!debut && !fin) return null;
+  return (
+    <span
+      style={{
+        fontSize: "0.7rem", color: "#555", background: "#e8f4fd",
+        border: "1px solid #b8d9f0", borderRadius: 4, padding: "1px 6px",
+        whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 3,
+        ...style,
+      }}
+    >
+      {fmtDate(debut)}{fin && fin !== debut ? ` → ${fmtDate(fin)}` : ""}
+    </span>
+  );
+};
+
 const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
-  show, onClose, projetId, projetNom,leadId,
+  show, onClose, projetId, projetNom, leadId, projectStartDate, projectEndDate,
 }) => {
   const { api } = useAuth();
   const collaborateurService = useProfilService();
+  const projetService = new ProjetService(api);
   const svc = useRef({
     backlog    : new BacklogProjetService(api),
     lot        : new BacklogProjetLotService(api),
@@ -77,11 +105,9 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [error,       setError]       = useState<string | null>(null);
   const [saving,      setSaving]      = useState(false);
 
-  // ── Gestion liste / sélection / création ─────────────────────────────
   const [loadingBacklogs,   setLoadingBacklogs]   = useState(false);
   const [selectedBacklogId, setSelectedBacklogId] = useState<number | null>(null);
   const [showBacklogForm,   setShowBacklogForm]   = useState(false);
-  // Comme l'API ne gère qu'un backlog par projet, on stocke juste l'en-tête
   const [backlogHeader,     setBacklogHeader]     = useState<Backlog | null>(null);
 
   const [lots,        setLots]        = useState<BacklogLot[]>([]);
@@ -102,16 +128,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [expandedLines,   setExpandedLines]   = useState<Set<number>>(new Set());
   const leadTechFinService = useLeadTechFinDetailsService();
   const [deviseAbr, setDeviseAbr] = useState<string>("€");
-  // ── Toggle colonnes profils ───────────────────────────────────────────
   const [showProfilCols, setShowProfilCols] = useState(true);
 
-  // ── Récap expand states ───────────────────────────────────────────────
   const [expandedRecapLots,   setExpandedRecapLots]   = useState<Set<number>>(new Set());
   const [expandedRecapPhases, setExpandedRecapPhases] = useState<Set<number>>(new Set());
   const [expandedProfilRecap, setExpandedProfilRecap] = useState<Set<number>>(new Set());
   const [expandedProfilLots,  setExpandedProfilLots]  = useState<Map<number, Set<number>>>(new Map());
 
-  // ── Modals ────────────────────────────────────────────────────────────
   const [showLotModal,    setShowLotModal]    = useState(false);
   const [showPhaseModal,  setShowPhaseModal]  = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
@@ -122,9 +145,8 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [showVolModal,    setShowVolModal]    = useState(false);
   const [showColModal,    setShowColModal]    = useState(false);
   const [showCellModal,   setShowCellModal]   = useState(false);
-  const [collabSearch, setCollabSearch] = useState("");
+  const [collabSearch,    setCollabSearch]    = useState("");
 
-  // ── Entités en édition ────────────────────────────────────────────────
   const [editLot,        setEditLot]        = useState<BacklogLot | null>(null);
   const [editPhase,      setEditPhase]      = useState<BacklogPhase | null>(null);
   const [editSprint,     setEditSprint]     = useState<BacklogSprint | null>(null);
@@ -136,7 +158,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [editCol,        setEditCol]        = useState<BacklogColumn | null>(null);
   const [editCell,       setEditCell]       = useState<{ lineId: number; columnId: number } | null>(null);
 
-  // ── IDs contexte ─────────────────────────────────────────────────────
   const [ctxLotId,    setCtxLotId]    = useState<number | null>(null);
   const [ctxPhaseId,  setCtxPhaseId]  = useState<number | null>(null);
   const [ctxSprintId, setCtxSprintId] = useState<number | null>(null);
@@ -144,12 +165,12 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [ctxProfilId, setCtxProfilId] = useState<number | null>(null);
   const currentProfil = profils.find(p => p.id === ctxProfilId) ?? null;
 
-  // ── Formulaires ───────────────────────────────────────────────────────
   const [fLot,       setFLot]       = useState({ name: "", desc: "" });
   const [fPhase,     setFPhase]     = useState({ name: "" });
   const [fSprint,    setFSprint]    = useState({ name: "", startDate: "", endDate: "" });
   const [fDeliv,     setFDeliv]     = useState({ name: "", description: "", deliveryDate: "", sprintId: null as number | null });
-  const [fProfil, setFProfil] = useState({ name: "", desc: "", tjm: 0, order: 0 });  const [fCollabIds, setFCollabIds] = useState<number[]>([]);
+  const [fProfil,    setFProfil]    = useState({ name: "", desc: "", tjm: 0, order: 0 });
+  const [fCollabIds, setFCollabIds] = useState<number[]>([]);
   const [fLine,      setFLine]      = useState({
     epic: "", userStory: "", description: "", resultat: "",
     lotId: null as number | null, phaseId: null as number | null, sprintId: null as number | null,
@@ -158,14 +179,12 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const [fCol,     setFCol]     = useState({ name: "", type: "TEXT" as BacklogColumnType });
   const [fCellVal, setFCellVal] = useState("");
 
-  // ── Refs SortableJS ───────────────────────────────────────────────────
   const lineBodyRef    = useRef<HTMLTableSectionElement | null>(null);
   const lotsRef        = useRef<HTMLDivElement | null>(null);
   const profilsRef     = useRef<HTMLDivElement | null>(null);
   const lineSortable   = useRef<Sortable | null>(null);
   const lotSortable    = useRef<Sortable | null>(null);
   const profilSortable = useRef<Sortable | null>(null);
-
   const phaseSortableRefs  = useRef<Map<number, Sortable>>(new Map());
   const sprintSortableRefs = useRef<Map<number, Sortable>>(new Map());
 
@@ -234,34 +253,29 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     catch { setAllCollabs([]); }
   }, [collaborateurService]);
 
-  // ── Vérification existence backlog pour ce projet ─────────────────────
-const fetchBacklogHeader = useCallback(async () => {
-  setLoadingBacklogs(true);
-  setError(null);
-  try {
-    // Chercher uniquement un backlog projet existant
-    const existingHeader = await svc.backlog.getHeaderByProjetId(projetId);
-
-    if (existingHeader?.id) {
-      setBacklogHeader(existingHeader);
-      setSelectedBacklogId(existingHeader.id);
-      return;
+  const fetchBacklogHeader = useCallback(async () => {
+    setLoadingBacklogs(true);
+    setError(null);
+    try {
+      const existingHeader = await svc.backlog.getHeaderByProjetId(projetId);
+      if (existingHeader?.id) {
+        setBacklogHeader(existingHeader);
+        setSelectedBacklogId(existingHeader.id);
+        return;
+      }
+      setBacklogHeader(null);
+    } catch {
+      setError("Impossible de charger le backlog.");
+    } finally {
+      setLoadingBacklogs(false);
     }
-    setBacklogHeader(null);
+  }, [projetId]);
 
-  } catch {
-    setError("Impossible de charger le backlog.");
-  } finally {
-    setLoadingBacklogs(false);
-  }
-}, [projetId]);
-  // ── Chargement du backlog complet (par son ID direct) ───────────────
   const loadFull = useCallback(async () => {
     if (!selectedBacklogId) return;
     setLoading(true); setError(null);
     try {
       const full = await svc.backlog.getFullById(selectedBacklogId);
-      console.log("Backlog complet chargé :", full);
       if (!full) return;
       hydrateFromFull(full);
       await Promise.all([
@@ -291,24 +305,17 @@ const fetchBacklogHeader = useCallback(async () => {
       setLoading(false);
     }
   }, [selectedBacklogId]);
-  
-    useEffect(() => {
-    if (!leadId) {
-      setDeviseAbr("€");
-      return;
-    }
-    const fetchDevise = async () => {
+
+  useEffect(() => {
+    if (!leadId) { setDeviseAbr("€"); return; }
+    (async () => {
       try {
         const techFin = await leadTechFinService.getByLeadId(leadId);
-        const abr = (techFin && techFin.devise?.abrDevise) || "€";
-        setDeviseAbr(abr);
-      } catch {
-        setDeviseAbr("€");
-      }
-    };
-    fetchDevise();
+        setDeviseAbr((techFin && techFin.devise?.abrDevise) || "€");
+      } catch { setDeviseAbr("€"); }
+    })();
   }, [leadId]);
-  // ── Reset complet à l'ouverture ───────────────────────────────────────
+
   useEffect(() => {
     if (!show || !projetId) return;
     setBacklog(null); setBacklogHeader(null); setLots([]); setProfils([]); setLines([]);
@@ -320,13 +327,10 @@ const fetchBacklogHeader = useCallback(async () => {
     fetchBacklogHeader();
   }, [show, projetId]);
 
-  // ── Chargement complet quand un backlog est sélectionné ───────────────
   useEffect(() => {
     if (selectedBacklogId) loadFull();
   }, [selectedBacklogId]);
 
-  // ── Retour à l'écran d'accueil (inutile ici car 1 seul backlog possible,
-  //    mais conservé pour cohérence et évolution future) ─────────────────
   const handleBackToList = () => {
     setSelectedBacklogId(null);
     setBacklog(null); setLots([]); setProfils([]); setLines([]);
@@ -348,6 +352,22 @@ const fetchBacklogHeader = useCallback(async () => {
     lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId) ?? null;
   const getLineJH = (lineId: number) =>
     lineProfils.filter(lp => lp.lineId === lineId).reduce((s, lp) => s + lp.volume, 0);
+
+  // ── Dates calculées du lot depuis ses phases (sans dépendance backend) ──
+  const getLotDates = (lot: BacklogLot): { debut: string | null; fin: string | null } => {
+    const phases = (lot.phases ?? []) as any[];
+    return phases.reduce<{ debut: string | null; fin: string | null }>(
+      (acc, p) => ({
+        debut: !acc.debut ? (p.dateDebut ?? null)
+          : !p.dateDebut ? acc.debut
+          : p.dateDebut < acc.debut ? p.dateDebut : acc.debut,
+        fin: !acc.fin ? (p.dateFin ?? null)
+          : !p.dateFin ? acc.fin
+          : p.dateFin > acc.fin ? p.dateFin : acc.fin,
+      }),
+      { debut: null, fin: null }
+    );
+  };
 
   const fmtJH = (v: number) => v.toFixed(v % 1 === 0 ? 0 : 1);
 
@@ -384,12 +404,10 @@ const fetchBacklogHeader = useCallback(async () => {
     const lotLineIds = new Set(lines.filter(l => phaseIds.has((l as any).phaseId)).map(l => l.id));
     const lotVol = getJhForIds(lotLineIds);
     const byProfil = profils.map(p => ({ profil: p, vol: getJhForIds(lotLineIds, p.id) }));
-
     const phasesData = ((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
       const phLineIds = new Set(lines.filter(l => (l as any).phaseId === phase.id).map(l => l.id));
       const phVol = getJhForIds(phLineIds);
       const phByProfil = profils.map(p => ({ profil: p, vol: getJhForIds(phLineIds, p.id) }));
-
       const phaseSpr = sprints.get(phase.id) ?? [];
       const sprintsData = phaseSpr.map(sp => {
         const spLineIds = new Set(lines.filter(l => (l as any).sprintId === sp.id).map(l => l.id));
@@ -397,37 +415,27 @@ const fetchBacklogHeader = useCallback(async () => {
         const spByProfil = profils.map(p => ({ profil: p, vol: getJhForIds(spLineIds, p.id) }));
         return { sprint: sp, vol: spVol, byProfil: spByProfil };
       });
-
       return { phase, vol: phVol, byProfil: phByProfil, sprints: sprintsData };
     });
-
     return { lot, vol: lotVol, byProfil, phases: phasesData };
   });
 
   const tableGrandJH = lineProfils.reduce((s, lp) => s + lp.volume, 0);
 
   const leadIdRef = useRef(leadId);
-  useEffect(() => {
-    leadIdRef.current = leadId;
-  }, [leadId]);
+  useEffect(() => { leadIdRef.current = leadId; }, [leadId]);
 
   // ══════════════════════════════════════════════════════════════════════
   // CRÉATION BACKLOG
   // ══════════════════════════════════════════════════════════════════════
+
   const handleCreateBacklog = async (item: CreateBacklogForProjetRequest) => {
-      console.log("=== handleCreateBacklog ===");
-      console.log("leadId (prop):", leadId);
-      console.log("leadIdRef.current:", leadIdRef.current);
     setSaving(true);
     try {
       const created = await svc.backlog.createForProjet({
-        name:     item.name,
-        desc:     item.desc,
-        projetId,
-        leadId:   leadIdRef.current,
-        type:     item.type,
+        name: item.name, desc: item.desc, projetId,
+        leadId: leadIdRef.current, type: item.type,
       });
-      console.log("Backlog créé :", created);
       setBacklogHeader(created);
       setSelectedBacklogId(created.id);
       setShowBacklogForm(false);
@@ -503,55 +511,218 @@ const fetchBacklogHeader = useCallback(async () => {
     finally { setSaving(false); setCtxLotId(null); }
   };
 
+  // ── [DATES] deletePhase : propager les dates du lot après suppression ──
   const deletePhase = async (phaseId: number, lotId: number) => {
     if (!window.confirm("Supprimer cette phase et tout son contenu ?")) return;
     try {
       await svc.phase.delete(phaseId);
       setLots(prev => prev.map(l => l.id !== lotId ? l : {
-        ...l, phases: (l.phases ?? []).filter((p: any) => p.id !== phaseId).map((p: any, i: number) => ({ ...p, order: i + 1 })),
+        ...l, phases: (l.phases ?? []).filter((p: any) => p.id !== phaseId)
+                                       .map((p: any, i: number) => ({ ...p, order: i + 1 })),
       }));
       setSprints(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
       setDeliverables(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
+
+      // Propagation dates lot depuis ses phases restantes
+      try { await propagateDatesFromLot(lotId); } catch(e) { console.warn(e); }
     } catch { alert("Impossible de supprimer la phase."); }
   };
 
   // ══════════════════════════════════════════════════════════════════════
-  // SPRINTS
+  // SPRINTS — create / update / delete avec propagation automatique dates
   // ══════════════════════════════════════════════════════════════════════
 
-  const openAddSprint  = (phaseId: number) => { setCtxPhaseId(phaseId); setEditSprint(null); setFSprint({ name: "", startDate: "", endDate: "" }); setShowSprintModal(true); };
-  const openEditSprint = (s: BacklogSprint, phaseId: number) => { setCtxPhaseId(phaseId); setEditSprint(s); setFSprint({ name: s.name, startDate: s.dateDebut ?? "", endDate: s.dateFin ?? "" }); setShowSprintModal(true); };
+  // ══════════════════════════════════════════════════════════════════════
+  // PROPAGATION DATES — 100% frontend, sans appel réseau externe
+  // Règles : Phase.dates = MIN/MAX(sprints)  Lot.dates = MIN/MAX(phases)
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Calcule dateDebut=MIN / dateFin=MAX depuis une liste de sprints,
+   * met à jour la phase en BDD via svc.phase.update,
+   * puis propage au lot parent.
+   */
+  const propagateDatesFromPhase = async (
+    phaseId: number,
+    phaseSprints: BacklogSprint[]
+  ) => {
+    const dates = phaseSprints
+      .filter(s => s.dateDebut || s.dateFin)
+      .reduce<{ debut: string | null; fin: string | null }>(
+        (acc, s) => ({
+          debut: !acc.debut ? (s.dateDebut ?? null)
+            : !s.dateDebut ? acc.debut
+            : s.dateDebut < acc.debut ? s.dateDebut : acc.debut,
+          fin: !acc.fin ? (s.dateFin ?? null)
+            : !s.dateFin ? acc.fin
+            : s.dateFin > acc.fin ? s.dateFin : acc.fin,
+        }),
+        { debut: null, fin: null }
+      );
+
+    // Mise à jour en BDD de la phase
+    await svc.phase.update(phaseId, {
+      dateDebut: dates.debut ?? undefined,
+      dateFin:   dates.fin   ?? undefined,
+    });
+
+    // Mise à jour locale immédiate de la phase
+    setLots(prev => prev.map(lot => ({
+      ...lot,
+      phases: (lot.phases ?? []).map((p: any) =>
+        p.id === phaseId
+          ? { ...p, dateDebut: dates.debut, dateFin: dates.fin }
+          : p
+      ),
+    })));
+
+    // Propager au lot parent
+    const parentLot = lots.find(l =>
+      (l.phases ?? []).some((p: any) => p.id === phaseId)
+    );
+    if (parentLot) {
+      await propagateDatesFromLot(parentLot.id, phaseId, dates);
+    }
+  };
+
+  /**
+   * Recalcule dateDebut=MIN / dateFin=MAX du lot depuis toutes ses phases,
+   * en tenant compte de la mise à jour d'une phase si fournie,
+   * puis met à jour le lot en BDD et dans le state.
+   */
+  const propagateDatesFromLot = async (
+    lotId: number,
+    updatedPhaseId?: number,
+    updatedPhaseDates?: { debut: string | null; fin: string | null }
+  ) => {
+    const lot = lots.find(l => l.id === lotId);
+    if (!lot) return;
+
+    const phases = (lot.phases ?? []) as any[];
+    const lotDates = phases.reduce<{ debut: string | null; fin: string | null }>(
+      (acc, p) => {
+        // Utilise les dates fraîches pour la phase qu'on vient de modifier
+        const pd = p.id === updatedPhaseId && updatedPhaseDates
+          ? updatedPhaseDates.debut
+          : (p.dateDebut ?? null);
+        const pf = p.id === updatedPhaseId && updatedPhaseDates
+          ? updatedPhaseDates.fin
+          : (p.dateFin ?? null);
+        return {
+          debut: !acc.debut ? pd : !pd ? acc.debut : pd < acc.debut ? pd : acc.debut,
+          fin:   !acc.fin   ? pf : !pf ? acc.fin   : pf > acc.fin   ? pf : acc.fin,
+        };
+      },
+      { debut: null, fin: null }
+    );
+
+    // Mise à jour en BDD du lot
+    await svc.lot.update(lotId, {
+      dateDebut: lotDates.debut ?? undefined,
+      dateFin:   lotDates.fin   ?? undefined,
+    });
+
+    // Mise à jour locale immédiate du lot
+    setLots(prev => prev.map(l =>
+      l.id === lotId
+        ? { ...l, dateDebut: lotDates.debut, dateFin: lotDates.fin }
+        : l
+    ));
+  };
+
+  const openAddSprint  = (phaseId: number) => {
+    setCtxPhaseId(phaseId);
+    setEditSprint(null);
+    setFSprint({ name: "", startDate: "", endDate: "" });
+    setShowSprintModal(true);
+  };
+  const openEditSprint = (s: BacklogSprint, phaseId: number) => {
+    setCtxPhaseId(phaseId);
+    setEditSprint(s);
+    setFSprint({ name: s.name, startDate: s.dateDebut ?? "", endDate: s.dateFin ?? "" });
+    setShowSprintModal(true);
+  };
 
   const saveSprint = async () => {
     if (!fSprint.name.trim() || ctxPhaseId === null) return;
     setSaving(true);
+
+    // ── 1. Sauvegarde du sprint ──────────────────────────────────────────
+    let updatedSprints: BacklogSprint[] = [];
     try {
       const existing = sprints.get(ctxPhaseId) ?? [];
+
       if (editSprint) {
-        const updated = await svc.phase.updateSprint(editSprint.id, { name: fSprint.name, startDate: fSprint.startDate, endDate: fSprint.endDate });
-        setSprints(prev => new Map(prev).set(ctxPhaseId, existing.map(s => s.id === editSprint.id ? { ...s, ...updated } : s)));
+        const updated = await svc.phase.updateSprint(editSprint.id, {
+          name:      fSprint.name,
+          startDate: fSprint.startDate,
+          endDate:   fSprint.endDate,
+        });
+        updatedSprints = existing.map(s => s.id === editSprint.id
+          ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null }
+          : s
+        );
+        setSprints(prev => new Map(prev).set(ctxPhaseId, updatedSprints));
       } else {
         const order = Math.max(0, ...existing.map(s => s.order)) + 1;
-        const created = await svc.phase.createSprint({ name: fSprint.name, order, phaseId: ctxPhaseId, startDate: fSprint.startDate, endDate: fSprint.endDate });
-        setSprints(prev => new Map(prev).set(ctxPhaseId, [...existing, created]));
-        setColumns(prev => new Map(prev).set(created.id, []));
+        const created = await svc.phase.createSprint({
+          name:      fSprint.name,
+          order,
+          phaseId:   ctxPhaseId,
+          dateDebut: fSprint.startDate,
+          dateFin:   fSprint.endDate,
+        });
+        const createdWithDates: BacklogSprint = {
+          ...created,
+          dateDebut: created.dateDebut ?? (fSprint.startDate || null),
+          dateFin:   created.dateFin   ?? (fSprint.endDate   || null),
+        };
+        updatedSprints = [...existing, createdWithDates];
+        setSprints(prev => new Map(prev).set(ctxPhaseId, updatedSprints));
+        setColumns(prev => new Map(prev).set(createdWithDates.id, []));
       }
       setShowSprintModal(false);
-    } catch { alert("Erreur lors de la sauvegarde du sprint."); }
-    finally { setSaving(false); setCtxPhaseId(null); }
+    } catch (err) {
+      console.error("Erreur sauvegarde sprint:", err);
+      alert("Erreur lors de la sauvegarde du sprint.");
+      setSaving(false);
+      setCtxPhaseId(null);
+      return;
+    }
+
+    // ── 2. Propagation dates locale Sprint → Phase → Lot ─────────────────
+    // Calcul 100% frontend : pas d'appel réseau supplémentaire
+    if (fSprint.startDate || fSprint.endDate) {
+      try {
+        await propagateDatesFromPhase(ctxPhaseId, updatedSprints);
+      } catch (err) {
+        console.warn("Propagation dates échouée (sprint sauvegardé):", err);
+      }
+    }
+
+    setSaving(false);
+    setCtxPhaseId(null);
   };
 
+  // ── [DATES] deleteSprint : propagation depuis la phase ────────────────
   const deleteSprint = async (sprintId: number, phaseId: number) => {
     if (!window.confirm("Supprimer ce sprint ?")) return;
     try {
       await svc.phase.deleteSprint(sprintId);
-      const updated = (sprints.get(phaseId) ?? []).filter(s => s.id !== sprintId).map((s, i) => ({ ...s, order: i + 1 }));
+      const updated = (sprints.get(phaseId) ?? [])
+        .filter(s => s.id !== sprintId)
+        .map((s, i) => ({ ...s, order: i + 1 }));
       setSprints(prev => new Map(prev).set(phaseId, updated));
       setDeliverables(prev => {
         const m = new Map(prev);
-        m.set(phaseId, (m.get(phaseId) ?? []).map(d => (d as any).sprintId === sprintId ? { ...d, sprintId: null } : d));
+        m.set(phaseId, (m.get(phaseId) ?? []).map(d =>
+          (d as any).sprintId === sprintId ? { ...d, sprintId: null } : d
+        ));
         return m;
       });
+
+      // Propagation dates locale
+      try { await propagateDatesFromPhase(phaseId, updated); } catch(e) { console.warn(e); }
     } catch { alert("Impossible de supprimer le sprint."); }
   };
 
@@ -592,59 +763,54 @@ const fetchBacklogHeader = useCallback(async () => {
     } catch { alert("Impossible de supprimer le livrable."); }
   };
 
+  const deliverLivrable = async (delivId: number, phaseId: number) => {
+    try {
+      await svc.phase.deliverDeliverable(delivId);
+      setDeliverables(prev => new Map(prev).set(
+        phaseId,
+        (prev.get(phaseId) ?? []).map(d => d.id === delivId ? { ...d, isDelivered: true } : d)
+      ));
+    } catch { alert({delivId}+"Impossible de marquer le livrable comme livré."); }
+  };
+
   // ══════════════════════════════════════════════════════════════════════
   // PROFILS
   // ══════════════════════════════════════════════════════════════════════
 
-  const openAddProfil   = () => { setEditProfil(null); setFProfil({ name: "", desc: "", tjm: 0 }); setFCollabIds([]); setShowProfilModal(true); };
+  const openAddProfil  = () => { setEditProfil(null); setFProfil({ name: "", desc: "", tjm: 0, order: 0 }); setFCollabIds([]); setShowProfilModal(true); };
   const openEditProfil = (p: ProfilFull) => {
     setEditProfil(p);
-    setFProfil({ name: p.name, desc: p.desc ?? "", tjm: p.tjm, order: p.order })
+    setFProfil({ name: p.name, desc: p.desc ?? "", tjm: p.tjm, order: p.order });
     setFCollabIds(p.collaborateurs.map((c: any) => c.id));
     setShowProfilModal(true);
-  };  
+  };
 
   const openCollabModal = (p: ProfilFull) => {
     setCollabProfil(p);
     setFCollabIds(p.collaborateurs.map((c: any) => c.id));
-    setCollabSearch(""); 
+    setCollabSearch("");
     setShowCollabModal(true);
   };
 
-const saveProfil = async () => {
-  if (!fProfil.name.trim() || !backlog?.id) return;
-  setSaving(true);
-  try {
-    if (editProfil) {
-      await svc.profil.update(editProfil.id, {
-        name:  fProfil.name,
-        desc:  fProfil.desc,
-        tjm:   fProfil.tjm,
-        order: editProfil.order,
-      });
-      // Mise à jour locale — on préserve les collaborateurs existants
-      setProfils(prev => prev.map(p =>
-        p.id !== editProfil.id ? p : {
-          ...p,
-          name: fProfil.name,
-          desc: fProfil.desc,
-          tjm:  fProfil.tjm,
-          // collaborateurs inchangés ← c'est ça le fix
-        }
-      ));
-    } else {
-      const order = Math.max(0, ...profils.map(p => p.order)) + 1;
-      const created = await svc.profil.create({ ...fProfil, order, backlogId: backlog.id });
-      if (fCollabIds.length) await svc.profil.replaceCollaborateurs(created.id, fCollabIds);
-      // Pour la création, reload est nécessaire pour hydrater les collaborateurs
-      await reload();
-    }
-    setShowProfilModal(false);
-  } catch { alert("Erreur lors de la sauvegarde du profil."); }
-  finally { setSaving(false); }
-};
+  const saveProfil = async () => {
+    if (!fProfil.name.trim() || !backlog?.id) return;
+    setSaving(true);
+    try {
+      if (editProfil) {
+        await svc.profil.update(editProfil.id, { name: fProfil.name, desc: fProfil.desc, tjm: fProfil.tjm, order: editProfil.order });
+        setProfils(prev => prev.map(p => p.id !== editProfil.id ? p : { ...p, name: fProfil.name, desc: fProfil.desc, tjm: fProfil.tjm }));
+      } else {
+        const order = Math.max(0, ...profils.map(p => p.order)) + 1;
+        const created = await svc.profil.create({ ...fProfil, order, backlogId: backlog.id });
+        if (fCollabIds.length) await svc.profil.replaceCollaborateurs(created.id, fCollabIds);
+        await reload();
+      }
+      setShowProfilModal(false);
+    } catch { alert("Erreur lors de la sauvegarde du profil."); }
+    finally { setSaving(false); }
+  };
 
-const saveCollabs = async () => {
+  const saveCollabs = async () => {
     if (!collabProfil) return;
     setSaving(true);
     try {
@@ -795,8 +961,8 @@ const saveCollabs = async () => {
     finally { setSaving(false); }
   };
 
-  // ── Helper SortableJS ────────────────────────────────────────────────
-  const safeDestroy = (s: Sortable | null) => { if (!s) return; try { s.destroy(); } catch { /* DOM déjà détaché */ } };
+  // ── SortableJS ────────────────────────────────────────────────────────
+  const safeDestroy = (s: Sortable | null) => { if (!s) return; try { s.destroy(); } catch {} };
 
   useEffect(() => {
     if (!show || !lines.length || !lineBodyRef.current) return;
@@ -915,7 +1081,6 @@ const saveCollabs = async () => {
   // RENDU
   // ══════════════════════════════════════════════════════════════════════
 
-  // Chargement initial
   if (loadingBacklogs) {
     return (
       <Modal show={show} onHide={onClose} size="xl" fullscreen>
@@ -924,8 +1089,7 @@ const saveCollabs = async () => {
         </Modal.Header>
         <Modal.Body>
           <div className="d-flex justify-content-center align-items-center" style={{ height: "50vh" }}>
-            <FaSpinner className="fa-spin me-2" size={24} />
-            <span>Chargement…</span>
+            <FaSpinner className="fa-spin me-2" size={24} /><span>Chargement…</span>
           </div>
         </Modal.Body>
       </Modal>
@@ -936,42 +1100,24 @@ const saveCollabs = async () => {
     <>
       <Modal show={show} onHide={onClose} size="xl" fullscreen>
         <Modal.Header closeButton>
-          <Modal.Title>
-            Backlog — {projetNom ?? `Projet #${projetId}`}
-          </Modal.Title>
+          <Modal.Title>Backlog — {projetNom ?? `Projet #${projetId}`}</Modal.Title>
         </Modal.Header>
 
         <Modal.Body style={{ backgroundColor: "#f8f9fa" }}>
           <div className="container-fluid">
             {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
 
-            {/* ══════════════════════════════════════════════════════════
-                ÉCRAN D'ACCUEIL : aucun backlog sélectionné
-                → soit création inline (aucun backlog existant),
-                → soit affichage de la carte du backlog existant
-            ══════════════════════════════════════════════════════════ */}
             {!selectedBacklogId && (
               <div className="py-4">
                 {backlogHeader ? (
-                  /* Backlog existant → carte "ouvrir" */
                   <div className="row justify-content-center">
                     <div className="col-md-6 col-lg-4">
-                      <div
-                        className="card shadow-sm h-100"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => setSelectedBacklogId(backlogHeader.id)}
-                      >
+                      <div className="card shadow-sm h-100" style={{ cursor: "pointer" }} onClick={() => setSelectedBacklogId(backlogHeader.id)}>
                         <div className="card-body">
                           <h5 className="card-title">{backlogHeader.name}</h5>
-                          {(backlogHeader as any).desc && (
-                            <p className="card-text text-muted small">{(backlogHeader as any).desc}</p>
-                          )}
-                          {/* Badge pour distinguer l'origine */}
+                          {(backlogHeader as any).desc && <p className="card-text text-muted small">{(backlogHeader as any).desc}</p>}
                           <div className="mt-2">
-                            {leadId
-                              ? <span className="badge bg-info text-dark">Issu du lead</span>
-                              : <span className="badge bg-secondary">Projet indépendant</span>
-                            }
+                            {leadId ? <span className="badge bg-info text-dark">Issu du lead</span> : <span className="badge bg-secondary">Projet indépendant</span>}
                           </div>
                           <div className="d-flex justify-content-end mt-3">
                             <small className="text-primary">Cliquez pour ouvrir →</small>
@@ -981,21 +1127,9 @@ const saveCollabs = async () => {
                     </div>
                   </div>
                 ) : (
-                  /* Aucun backlog → création (projet indépendant ou lead sans backlog) */
                   <>
-                    <BacklogFormProjet
-                      show={showBacklogForm}
-                      onClose={() => setShowBacklogForm(false)}
-                      onSubmit={handleCreateBacklog}
-                      projetId={projetId}
-                      leadId={leadId}
-                    />
-                    <Button
-                      label="Créer un backlog"
-                      icon={<FaPlus />}
-                      onClick={() => setShowBacklogForm(true)}
-                      className="mb-3"
-                    />
+                    <BacklogFormProjet show={showBacklogForm} onClose={() => setShowBacklogForm(false)} onSubmit={handleCreateBacklog} projetId={projetId} leadId={leadId} />
+                    <Button label="Créer un backlog" icon={<FaPlus />} onClick={() => setShowBacklogForm(true)} className="mb-3" />
                     <div className="text-center text-muted py-5">
                       <p>Aucun backlog pour ce projet.</p>
                       <p className="small">Cliquez sur "Créer un backlog" pour commencer.</p>
@@ -1005,15 +1139,11 @@ const saveCollabs = async () => {
               </div>
             )}
 
-            {/* ══════════════════════════════════════════════════════════
-                CONTENU DU BACKLOG SÉLECTIONNÉ
-            ══════════════════════════════════════════════════════════ */}
             {selectedBacklogId && (
               <>
                 {loading && (
                   <div className="text-center py-5">
-                    <FaSpinner className="fa-spin me-2" size={24} />
-                    <span>Chargement du backlog…</span>
+                    <FaSpinner className="fa-spin me-2" size={24} /><span>Chargement…</span>
                   </div>
                 )}
 
@@ -1022,38 +1152,23 @@ const saveCollabs = async () => {
 
                     {/* ══════════ TAB BACKLOG ══════════════════════════ */}
                     <Tab eventKey="backlog" title="Backlog">
-
-                      {/* ── Récap par profil ── */}
+                      {/* Récap profil */}
                       <div className="card shadow-sm mb-3">
                         <div className="card-header fw-bold">Récapitulatif par profil</div>
                         <div className="card-body p-0">
                           <table className="table table-sm table-bordered mb-0">
                             <thead className="table-light">
-                              <tr>
-                                <th>Profil</th>
-                                <th className="text-end">Volume JH</th>
-                                <th className="text-end">TJM</th>
-                                <th className="text-end">Montant</th>
-                              </tr>
+                              <tr><th>Profil</th><th className="text-end">Volume JH</th><th className="text-end">TJM</th><th className="text-end">Montant</th></tr>
                             </thead>
                             <tbody>
-                              {profilTotals.map(({ profil, vol, amount }) => {
-                                const assignes = lineProfils
-                                  .filter(lp => (lp.profil as any)?.id === profil.id && (lp as any)?.collaborateur)
-                                  .map(lp => (lp as any).collaborateur)
-                                  .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
-                                return (
-                                  <tr key={profil.id}>
-                                    <td>
-                                      <strong>{profil.name}</strong>
-                                      {profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}
-                                    </td>
-                                    <td className="text-end">{vol.toFixed(2)}</td>
-                                    <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
-                                    <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                                  </tr>
-                                );
-                              })}
+                              {profilTotals.map(({ profil, vol, amount }) => (
+                                <tr key={profil.id}>
+                                  <td><strong>{profil.name}</strong>{profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}</td>
+                                  <td className="text-end">{vol.toFixed(2)}</td>
+                                  <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
+                                  <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                </tr>
+                              ))}
                             </tbody>
                             <tfoot className="table-active">
                               <tr>
@@ -1067,7 +1182,7 @@ const saveCollabs = async () => {
                         </div>
                       </div>
 
-                      {/* ── Récap JH par Lot / Phase / Sprint ── */}
+                      {/* Récap JH */}
                       <div className="card shadow-sm mb-3">
                         <div className="card-header fw-bold d-flex justify-content-between align-items-center">
                           <span>Récapitulatif JH par Lot / Phase / Sprint</span>
@@ -1076,20 +1191,16 @@ const saveCollabs = async () => {
                         <div className="card-body p-0">
                           <table className="table table-sm table-bordered mb-0">
                             <thead className="table-light">
-                              <tr>
-                                <th>Niveau</th>
-                                <th className="text-end" style={{ width: 90 }}>JH</th>
-                              </tr>
+                              <tr><th>Niveau</th><th className="text-end" style={{ width: 90 }}>JH</th></tr>
                             </thead>
                             <tbody>
                               {lotRecap.map(({ lot, vol: lotVol, phases }) => (
                                 <React.Fragment key={lot.id}>
                                   <tr style={{ cursor: "pointer", backgroundColor: "#e8eaf6" }} onClick={() => toggleRecapLot(lot.id)}>
                                     <td>
-                                      <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
-                                        {expandedRecapLots.has(lot.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                      </span>
+                                      <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{expandedRecapLots.has(lot.id) ? <FaChevronDown /> : <FaChevronRight />}</span>
                                       <strong>{lot.name}</strong>
+                                      {(() => { const d = getLotDates(lot); return (d.debut || d.fin) ? <DateBadge debut={d.debut} fin={d.fin} style={{ marginLeft: 6 }} /> : null; })()}
                                     </td>
                                     <td className="text-end fw-bold">{fmtJH(lotVol)}</td>
                                   </tr>
@@ -1097,10 +1208,11 @@ const saveCollabs = async () => {
                                     <React.Fragment key={phase.id}>
                                       <tr style={{ cursor: "pointer", backgroundColor: "#f3f4fb" }} onClick={() => toggleRecapPhase(phase.id)}>
                                         <td className="ps-4">
-                                          <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
-                                            {expandedRecapPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                          </span>
+                                          <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{expandedRecapPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}</span>
                                           {phase.name}
+                                          {((phase as any).dateDebut || (phase as any).dateFin) && (
+                                            <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} style={{ marginLeft: 6 }} />
+                                          )}
                                         </td>
                                         <td className="text-end">{fmtJH(phVol)}</td>
                                       </tr>
@@ -1119,7 +1231,7 @@ const saveCollabs = async () => {
                         </div>
                       </div>
 
-                      {/* ── Récap par profil → Lot / Phase / Sprint ── */}
+                      {/* Récap par profil → Lot / Phase */}
                       {profils.length > 0 && (
                         <div className="card shadow-sm mb-4">
                           <div className="card-header fw-bold">Récapitulatif JH par profil — détail Lot / Phase / Sprint</div>
@@ -1131,15 +1243,9 @@ const saveCollabs = async () => {
                               const isOpen = expandedProfilRecap.has(profil.id);
                               return (
                                 <div key={profil.id} className="border-bottom">
-                                  <div
-                                    className="d-flex align-items-center justify-content-between px-3 py-2"
-                                    style={{ cursor: "pointer", backgroundColor: isOpen ? "#fff8e1" : "white" }}
-                                    onClick={() => toggleProfilRecap(profil.id)}
-                                  >
+                                  <div className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", backgroundColor: isOpen ? "#fff8e1" : "white" }} onClick={() => toggleProfilRecap(profil.id)}>
                                     <div className="d-flex align-items-center gap-2">
-                                      <span className="text-muted" style={{ fontSize: "0.75rem" }}>
-                                        {isOpen ? <FaChevronDown /> : <FaChevronRight />}
-                                      </span>
+                                      <span className="text-muted" style={{ fontSize: "0.75rem" }}>{isOpen ? <FaChevronDown /> : <FaChevronRight />}</span>
                                       <strong>{profil.name}</strong>
                                       {profil.desc && <small className="text-muted">— {profil.desc}</small>}
                                     </div>
@@ -1149,17 +1255,10 @@ const saveCollabs = async () => {
                                       <span className="badge bg-success">{profilAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</span>
                                     </div>
                                   </div>
-
                                   {isOpen && (
                                     <div className="px-3 pb-2 pt-1" style={{ backgroundColor: "#fffde7" }}>
                                       <table className="table table-sm table-bordered mb-0 bg-white">
-                                        <thead className="table-light">
-                                          <tr>
-                                            <th>Niveau</th>
-                                            <th className="text-end" style={{ width: 75 }}>JH</th>
-                                            <th className="text-end" style={{ width: 110 }}>Montant</th>
-                                          </tr>
-                                        </thead>
+                                        <thead className="table-light"><tr><th>Niveau</th><th className="text-end" style={{ width: 75 }}>JH</th><th className="text-end" style={{ width: 110 }}>Montant</th></tr></thead>
                                         <tbody>
                                           {lotRecap.map(({ lot, phases, byProfil: lotByProfil }) => {
                                             const lVol = lotByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
@@ -1167,16 +1266,8 @@ const saveCollabs = async () => {
                                             const isLotOpen = expandedProfilLots.get(profil.id)?.has(lot.id) ?? false;
                                             return (
                                               <React.Fragment key={lot.id}>
-                                                <tr
-                                                  style={{ cursor: "pointer", backgroundColor: "#f0f2ff" }}
-                                                  onClick={() => toggleProfilLot(profil.id, lot.id)}
-                                                >
-                                                  <td>
-                                                    <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>
-                                                      {isLotOpen ? <FaChevronDown /> : <FaChevronRight />}
-                                                    </span>
-                                                    <strong>{lot.name}</strong>
-                                                  </td>
+                                                <tr style={{ cursor: "pointer", backgroundColor: "#f0f2ff" }} onClick={() => toggleProfilLot(profil.id, lot.id)}>
+                                                  <td><span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{isLotOpen ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{lot.name}</strong></td>
                                                   <td className="text-end fw-bold">{fmtJH(lVol)}</td>
                                                   <td className="text-end">{(lVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                                 </tr>
@@ -1217,74 +1308,56 @@ const saveCollabs = async () => {
                         </div>
                       )}
 
-                      {/* ── Barre d'outils + tableau des lignes ── */}
+                      {/* Tableau lignes */}
                       <div className="d-flex justify-content-between align-items-center mb-3">
-                        <button
-                          className={`btn btn-sm d-flex align-items-center gap-2 ${showProfilCols ? "btn-outline-secondary" : "btn-warning"}`}
-                          onClick={() => setShowProfilCols(v => !v)}
-                        >
+                        <button className={`btn btn-sm d-flex align-items-center gap-2 ${showProfilCols ? "btn-outline-secondary" : "btn-warning"}`} onClick={() => setShowProfilCols(v => !v)}>
                           {showProfilCols ? <FaEyeSlash /> : <FaEye />}
                           {showProfilCols ? "Masquer" : "Afficher"} colonnes profils
                           <span className="badge bg-secondary">{profils.length}</span>
                         </button>
                         <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
                       </div>
-
                       <div className="table-responsive shadow-sm rounded">
                         <table className="table table-bordered table-hover align-middle mb-0">
                           <thead className="table-dark">
                             <tr>
-                              <th style={{ width: 32 }} />
-                              <th style={{ width: 40 }}>#</th>
+                              <th style={{ width: 32 }} /><th style={{ width: 40 }}>#</th>
                               <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
-                              <th>Epic</th>
-                              <th>User Story</th>
-                              <th>Description</th>
-                              <th>Détails</th>
+                              <th>Epic</th><th>User Story</th><th>Description</th><th>Détails</th>
                               {showProfilCols && profils.map(p => (
                                 <th key={p.id} className="text-center" style={{ minWidth: 110 }}>
                                   <div className="fw-bold">{p.name}</div>
                                   {p.collaborateurs.length > 0 && (
                                     <div className="d-flex flex-column gap-1 mt-1">
                                       {p.collaborateurs.map((c: any) => (
-                                        <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>
-                                          {c.prenom} {c.nom}
-                                        </span>
+                                        <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>{c.prenom} {c.nom}</span>
                                       ))}
                                     </div>
                                   )}
                                 </th>
                               ))}
-                              <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}>
-                                <div className="fw-bold text-warning">Total JH</div>
-                              </th>
+                              <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}><div className="fw-bold text-warning">Total JH</div></th>
                               <th style={{ width: 90 }} />
                             </tr>
                           </thead>
                           <tbody ref={lineBodyRef}>
                             {lines.length === 0 ? (
                               <tr className="empty-row">
-                                <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
-                                  Aucune ligne — cliquez sur « Ajouter une ligne »
-                                </td>
+                                <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">Aucune ligne — cliquez sur « Ajouter une ligne »</td>
                               </tr>
                             ) : lines.map(line => {
-                              const lot       = getLotByPhaseId((line as any).phaseId);
+                              const lot = getLotByPhaseId((line as any).phaseId);
                               const phaseName = getPhaseNameById((line as any).phaseId);
-                              const sprintId  = (line as any).sprintId;
+                              const sprintId = (line as any).sprintId;
                               const sprintName = sprintId ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null : null;
-                              const lineJH    = getLineJH(line.id);
-
+                              const lineJH = getLineJH(line.id);
                               return (
                                 <tr key={line.id}>
                                   <td className="drag-line text-center text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</td>
                                   <td className="text-center text-muted">{line.order}</td>
-
                                   <td className="text-nowrap">
                                     <div className="d-flex align-items-center gap-1" style={{ cursor: "pointer" }} onClick={() => toggleLine(line.id)}>
-                                      <span className="text-muted" style={{ fontSize: "0.7rem" }}>
-                                        {expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                      </span>
+                                      <span className="text-muted" style={{ fontSize: "0.7rem" }}>{expandedLines.has(line.id) ? <FaChevronDown /> : <FaChevronRight />}</span>
                                       <span className="fw-semibold small text-truncate" style={{ maxWidth: 160 }}>{lot?.name ?? "—"}</span>
                                     </div>
                                     {expandedLines.has(line.id) && (
@@ -1294,15 +1367,11 @@ const saveCollabs = async () => {
                                       </div>
                                     )}
                                   </td>
-
-                                  <td>{line.epic ?? "—"}</td>
-                                  <td>{line.userStory ?? "—"}</td>
-                                  <td>{line.description ?? "—"}</td>
-                                  <td>{line.resultat ?? "—"}</td>
-
+                                  <td>{line.epic ?? "—"}</td><td>{line.userStory ?? "—"}</td>
+                                  <td>{line.description ?? "—"}</td><td>{line.resultat ?? "—"}</td>
                                   {showProfilCols && profils.map(p => {
-                                    const lp     = getLineProfil(line.id, p.id);
-                                    const vol    = lp?.volume ?? 0;
+                                    const lp = getLineProfil(line.id, p.id);
+                                    const vol = lp?.volume ?? 0;
                                     const collab = (lp as any)?.collaborateur;
                                     return (
                                       <td key={p.id} className="text-center" style={{ cursor: "pointer" }} onClick={() => openVolModal(line.id, p.id)}>
@@ -1311,24 +1380,19 @@ const saveCollabs = async () => {
                                       </td>
                                     );
                                   })}
-
                                   <td className="text-center" style={{ backgroundColor: "#fffbea" }}>
-                                    {lineJH > 0
-                                      ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span>
-                                      : <span className="text-muted small">—</span>}
+                                    {lineJH > 0 ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span> : <span className="text-muted small">—</span>}
                                   </td>
-
                                   <td>
                                     <div className="d-flex gap-1 justify-content-center">
                                       <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLine(line)}><FaEdit /></button>
-                                      <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteLine(line.id)}><FaTrash /></button>
+                                      <button className="btn btn-sm btn-outline-danger" onClick={() => deleteLine(line.id)}><FaTrash /></button>
                                     </div>
                                   </td>
                                 </tr>
                               );
                             })}
                           </tbody>
-
                           {lines.length > 0 && (
                             <tfoot>
                               <tr className="table-warning fw-bold">
@@ -1337,9 +1401,7 @@ const saveCollabs = async () => {
                                   const pVol = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
                                   return <td key={p.id} className="text-center">{pVol > 0 ? fmtJH(pVol) : "—"}</td>;
                                 })}
-                                <td className="text-center">
-                                  <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span>
-                                </td>
+                                <td className="text-center"><span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span></td>
                                 <td />
                               </tr>
                             </tfoot>
@@ -1359,10 +1421,12 @@ const saveCollabs = async () => {
                           ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
                           : lots.map(lot => (
                             <div key={lot.id} className="card mb-3 shadow-sm">
-                              <div className="card-header d-flex align-items-center gap-2">
+                              <div className="card-header d-flex align-items-center gap-2 flex-wrap">
                                 <span className="drag-lot text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}>⋮⋮</span>
                                 <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
-                                {lot.desc && <small className="text-muted me-2">{lot.desc}</small>}
+                                {lot.desc && <small className="text-muted me-1">{lot.desc}</small>}
+                                {/* ── [DATES] Dates du lot calculées depuis ses phases ── */}
+                                {(() => { const d = getLotDates(lot); return <DateBadge debut={d.debut} fin={d.fin} />; })()}
                                 <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
                                 <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
                               </div>
@@ -1378,10 +1442,14 @@ const saveCollabs = async () => {
                                     const expanded     = expandedPhases.has(phase.id);
                                     return (
                                       <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
-                                        <div className="d-flex align-items-center gap-2 p-2">
+                                        <div className="d-flex align-items-center gap-2 p-2 flex-wrap">
                                           <span className="drag-phase text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}>⋮⋮</span>
                                           <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{expanded ? <FaChevronDown /> : <FaChevronRight />}</span>
-                                          <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{phase.order}. {phase.name}</span>
+                                          <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>
+                                            {phase.order}. {phase.name}
+                                          </span>
+                                          {/* ── [DATES] Dates de la phase calculées depuis ses sprints ── */}
+                                          <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} />
                                           <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
                                           <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
                                           <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
@@ -1399,13 +1467,12 @@ const saveCollabs = async () => {
                                                 const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
                                                 return (
                                                   <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
-                                                    <div className="d-flex align-items-center gap-2">
+                                                    <div className="d-flex align-items-center gap-2 flex-wrap">
                                                       <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
                                                       <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
-                                                      {sprint.dateDebut && sprint.dateFin && (
-                                                        <small className="text-muted">
-                                                          {new Date(sprint.dateDebut).toLocaleDateString("fr-FR")} → {new Date(sprint.dateFin).toLocaleDateString("fr-FR")}
-                                                        </small>
+                                                      {/* ── [DATES] Dates du sprint affichées directement ── */}
+                                                      {(sprint.dateDebut || sprint.dateFin) && (
+                                                        <DateBadge debut={sprint.dateDebut} fin={sprint.dateFin} style={{ background: "#fff3cd", borderColor: "#ffc107" }} />
                                                       )}
                                                       <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
                                                         {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
@@ -1431,12 +1498,25 @@ const saveCollabs = async () => {
                                                         )}
                                                         {sprintDeliv.length > 0
                                                           ? sprintDeliv.map(d => (
-                                                            <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small">
-                                                              <span>
-                                                                <strong>{d.name}</strong>
-                                                                {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                                            <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small${(d as any).isDelivered ? " opacity-75" : ""}`}
+                                                              style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                              <span className="d-flex align-items-center gap-2">
+                                                                {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
+                                                                <span>
+                                                                  <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
+                                                                  {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
+                                                                  {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
+                                                                </span>
                                                               </span>
-                                                              <div className="d-flex gap-1">
+                                                              <div className="d-flex gap-1 align-items-center">
+                                                                {!(d as any).isDelivered && (
+                                                                  <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
+                                                                    style={{ fontSize: "0.7rem" }}
+                                                                    title="Marquer comme livré"
+                                                                    onClick={() => deliverLivrable(d.id!, phase.id)}>
+                                                                    <FaCheckCircle size={10} /> Livrer
+                                                                  </button>
+                                                                )}
                                                                 <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
                                                                 <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                                               </div>
@@ -1451,12 +1531,26 @@ const saveCollabs = async () => {
                                             </div>
 
                                             {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
-                                              <div key={d.id} className="d-flex justify-content-between align-items-center border-bottom py-1 small ps-1">
-                                                <span>
-                                                  <strong>{d.name}</strong>
-                                                  {(d as any).deliveryDate && ` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}
+                                              <div key={d.id}
+                                                className={`d-flex justify-content-between align-items-center border-bottom py-1 small ps-1${(d as any).isDelivered ? " opacity-75" : ""}`}
+                                                style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                <span className="d-flex align-items-center gap-2">
+                                                  {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
+                                                  <span>
+                                                    <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
+                                                    {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
+                                                    {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
+                                                  </span>
                                                 </span>
-                                                <div className="d-flex gap-1">
+                                                <div className="d-flex gap-1 align-items-center">
+                                                  {!(d as any).isDelivered && (
+                                                    <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
+                                                      style={{ fontSize: "0.7rem" }}
+                                                      title="Marquer comme livré"
+                                                      onClick={() => deliverLivrable(d.id!, phase.id)}>
+                                                      <FaCheckCircle size={10} /> Livrer
+                                                    </button>
+                                                  )}
                                                   <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
                                                   <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                                 </div>
@@ -1484,7 +1578,7 @@ const saveCollabs = async () => {
                       </div>
                       <div ref={profilsRef}>
                         {profils.length === 0
-                          ? <div className="text-center text-muted py-4 fst-italic">Aucun profil. Cliquez sur « Ajouter un profil ».</div>
+                          ? <div className="text-center text-muted py-4 fst-italic">Aucun profil.</div>
                           : profils.map(profil => (
                             <div key={profil.id} className="card mb-2 shadow-sm">
                               <div className="card-body d-flex align-items-start gap-3 py-2">
@@ -1492,24 +1586,17 @@ const saveCollabs = async () => {
                                 <div className="flex-grow-1">
                                   <div className="fw-bold">{profil.order}. {profil.name}</div>
                                   {profil.desc && <small className="text-muted">{profil.desc}</small>}
-                                  <div className="mt-1">
-                                    <span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span>
-                                  </div>
+                                  <div className="mt-1"><span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span></div>
                                   {profil.collaborateurs.length > 0 && (
                                     <div className="mt-2 d-flex flex-wrap gap-1">
                                       {profil.collaborateurs.map((c: any) => (
-                                        <span key={c.id} className="badge bg-info text-dark">
-                                          {c.nom} {c.prenom}
-                                          {c.appellation && <em className="ms-1 opacity-75">({c.appellation})</em>}
-                                        </span>
+                                        <span key={c.id} className="badge bg-info text-dark">{c.nom} {c.prenom}{c.appellation && <em className="ms-1 opacity-75">({c.appellation})</em>}</span>
                                       ))}
                                     </div>
                                   )}
                                 </div>
                                 <div className="d-flex gap-2 align-items-center">
-                                  <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openCollabModal(profil)}>
-                                    <FaUsers /><span className="d-none d-md-inline">Collaborateurs</span>
-                                  </button>
+                                  <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openCollabModal(profil)}><FaUsers /><span className="d-none d-md-inline">Collaborateurs</span></button>
                                   <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditProfil(profil)}><FaEdit /></button>
                                   <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteProfil(profil.id)}><FaTrash /></button>
                                 </div>
@@ -1520,21 +1607,24 @@ const saveCollabs = async () => {
                     </Tab>
 
                     <Tab eventKey="planning" title="Planning">
-                      <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils as any} deliverables={deliverables as any} selectedBacklogId={backlog?.id ?? null} planningService={svc.planning} />
+                      <PlanningTab
+                        lots={lots} lines={lines} lineProfils={lineProfils}
+                        deliverables={deliverables} selectedBacklogId={selectedBacklogId}
+                        planningService={svc.planning}
+                        projectStartDate={projectStartDate} projectEndDate={projectEndDate}
+                        onUpdateProjectDates={async (newStart, newEnd) => {
+                          await projetService.updateDates(projetId, newStart, newEnd);
+                        }}
+                      />
                     </Tab>
 
                     <Tab eventKey="budget" title="Budget">
                       <BudgetTab
-                        lots={lots}
-                        profils={profils as any}
-                        lines={lines}
-                        lineProfils={lineProfils as any}
-                        selectedBacklogId={backlog?.id ?? null}
-                        leadId={leadId ?? null}
-                        deviseAbr={deviseAbr}
+                        lots={lots} profils={profils as any} lines={lines}
+                        lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null}
+                        leadId={leadId ?? null} deviseAbr={deviseAbr}
                       />
                     </Tab>
-
                   </Tabs>
                 )}
               </>
@@ -1553,14 +1643,8 @@ const saveCollabs = async () => {
         <Modal.Header closeButton><Modal.Title>{editLot ? "Modifier le lot" : "Nouveau lot"}</Modal.Title></Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Nom *</Form.Label>
-              <Form.Control value={fLot.name} onChange={e => setFLot(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>Description</Form.Label>
-              <Form.Control as="textarea" rows={2} value={fLot.desc} onChange={e => setFLot(f => ({ ...f, desc: e.target.value }))} disabled={saving} />
-            </Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Nom *</Form.Label><Form.Control value={fLot.name} onChange={e => setFLot(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus /></Form.Group>
+            <Form.Group><Form.Label>Description</Form.Label><Form.Control as="textarea" rows={2} value={fLot.desc} onChange={e => setFLot(f => ({ ...f, desc: e.target.value }))} disabled={saving} /></Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -1573,10 +1657,7 @@ const saveCollabs = async () => {
         <Modal.Header closeButton><Modal.Title>{editPhase ? "Modifier la phase" : "Nouvelle phase"}</Modal.Title></Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group>
-              <Form.Label>Nom *</Form.Label>
-              <Form.Control value={fPhase.name} onChange={e => setFPhase({ name: e.target.value })} disabled={saving} autoFocus />
-            </Form.Group>
+            <Form.Group><Form.Label>Nom *</Form.Label><Form.Control value={fPhase.name} onChange={e => setFPhase({ name: e.target.value })} disabled={saving} autoFocus /></Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -1585,6 +1666,7 @@ const saveCollabs = async () => {
         </Modal.Footer>
       </Modal>
 
+      {/* ── Modal Sprint — avec champs dates obligatoires ── */}
       <Modal show={showSprintModal} onHide={() => !saving && setShowSprintModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editSprint ? "Modifier le sprint" : "Nouveau sprint"}</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -1596,17 +1678,36 @@ const saveCollabs = async () => {
             <div className="row g-2">
               <div className="col">
                 <Form.Group>
-                  <Form.Label>Début</Form.Label>
-                  <Form.Control type="date" value={fSprint.startDate} onChange={e => setFSprint(f => ({ ...f, startDate: e.target.value }))} disabled={saving} />
+                  <Form.Label>
+                    Date début
+                    <small className="text-muted ms-1">(propagée vers la phase)</small>
+                  </Form.Label>
+                  <Form.Control
+                    type="date" value={fSprint.startDate}
+                    onChange={e => setFSprint(f => ({ ...f, startDate: e.target.value }))}
+                    disabled={saving}
+                  />
                 </Form.Group>
               </div>
               <div className="col">
                 <Form.Group>
-                  <Form.Label>Fin</Form.Label>
-                  <Form.Control type="date" value={fSprint.endDate} onChange={e => setFSprint(f => ({ ...f, endDate: e.target.value }))} disabled={saving} />
+                  <Form.Label>
+                    Date fin
+                    <small className="text-muted ms-1">(propagée vers la phase)</small>
+                  </Form.Label>
+                  <Form.Control
+                    type="date" value={fSprint.endDate}
+                    onChange={e => setFSprint(f => ({ ...f, endDate: e.target.value }))}
+                    disabled={saving}
+                  />
                 </Form.Group>
               </div>
             </div>
+            {(fSprint.startDate || fSprint.endDate) && (
+              <div className="mt-2 p-2 rounded" style={{ background: "#e8f4fd", fontSize: "0.78rem", color: "#555" }}>
+                Les dates de la <strong>phase</strong> et du <strong>lot</strong> seront automatiquement recalculées après enregistrement.
+              </div>
+            )}
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -1619,10 +1720,7 @@ const saveCollabs = async () => {
         <Modal.Header closeButton><Modal.Title>{editDeliv ? "Modifier le livrable" : "Nouveau livrable"}</Modal.Title></Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Nom *</Form.Label>
-              <Form.Control value={fDeliv.name} onChange={e => setFDeliv(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus />
-            </Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Nom *</Form.Label><Form.Control value={fDeliv.name} onChange={e => setFDeliv(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus /></Form.Group>
             {ctxPhaseId !== null && (
               <Form.Group className="mb-3">
                 <Form.Label>Sprint associé</Form.Label>
@@ -1632,14 +1730,8 @@ const saveCollabs = async () => {
                 </Form.Select>
               </Form.Group>
             )}
-            <Form.Group className="mb-3">
-              <Form.Label>Date de livraison</Form.Label>
-              <Form.Control type="date" value={fDeliv.deliveryDate} onChange={e => setFDeliv(f => ({ ...f, deliveryDate: e.target.value }))} disabled={saving} />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>Description</Form.Label>
-              <Form.Control as="textarea" rows={2} value={fDeliv.description} onChange={e => setFDeliv(f => ({ ...f, description: e.target.value }))} disabled={saving} />
-            </Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Date de livraison</Form.Label><Form.Control type="date" value={fDeliv.deliveryDate} onChange={e => setFDeliv(f => ({ ...f, deliveryDate: e.target.value }))} disabled={saving} /></Form.Group>
+            <Form.Group><Form.Label>Description</Form.Label><Form.Control as="textarea" rows={2} value={fDeliv.description} onChange={e => setFDeliv(f => ({ ...f, description: e.target.value }))} disabled={saving} /></Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -1652,18 +1744,9 @@ const saveCollabs = async () => {
         <Modal.Header closeButton><Modal.Title>{editProfil ? "Modifier le profil" : "Nouveau profil"}</Modal.Title></Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Nom *</Form.Label>
-              <Form.Control value={fProfil.name} onChange={e => setFProfil(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
-              <Form.Control value={fProfil.desc} onChange={e => setFProfil(f => ({ ...f, desc: e.target.value }))} disabled={saving} />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>TJM ({deviseAbr}/jour) *</Form.Label>
-              <Form.Control type="number" min="0" step="50" value={fProfil.tjm} onChange={e => setFProfil(f => ({ ...f, tjm: +e.target.value || 0 }))} disabled={saving} />
-            </Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Nom *</Form.Label><Form.Control value={fProfil.name} onChange={e => setFProfil(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus /></Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Description</Form.Label><Form.Control value={fProfil.desc} onChange={e => setFProfil(f => ({ ...f, desc: e.target.value }))} disabled={saving} /></Form.Group>
+            <Form.Group><Form.Label>TJM ({deviseAbr}/jour) *</Form.Label><Form.Control type="number" min="0" step="50" value={fProfil.tjm} onChange={e => setFProfil(f => ({ ...f, tjm: +e.target.value || 0 }))} disabled={saving} /></Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -1673,59 +1756,25 @@ const saveCollabs = async () => {
       </Modal>
 
       <Modal show={showCollabModal} onHide={() => !saving && setShowCollabModal(false)} centered size="md">
-        <Modal.Header closeButton>
-          <Modal.Title><FaUsers className="me-2" />Collaborateurs — {collabProfil?.name}</Modal.Title>
-        </Modal.Header>
+        <Modal.Header closeButton><Modal.Title><FaUsers className="me-2" />Collaborateurs — {collabProfil?.name}</Modal.Title></Modal.Header>
         <Modal.Body>
-          {/* Barre de recherche autocomplete */}
           <div className="position-relative mb-3">
-            <Form.Control
-              placeholder="Rechercher un collaborateur…"
-              value={collabSearch}
-              onChange={e => setCollabSearch(e.target.value)}
-              disabled={saving}
-              autoFocus
-            />
+            <Form.Control placeholder="Rechercher un collaborateur…" value={collabSearch} onChange={e => setCollabSearch(e.target.value)} disabled={saving} autoFocus />
             {collabSearch.trim() && (
-              <div
-                className="border rounded bg-white shadow-sm position-absolute w-100"
-                style={{ zIndex: 1000, maxHeight: 220, overflowY: "auto" }}
-              >
-                {allCollabs
-                  .filter(c =>
-                    !fCollabIds.includes(c.id) &&
-                    `${c.nom} ${c.prenom} ${c.appellation ?? ""}`
-                      .toLowerCase()
-                      .includes(collabSearch.toLowerCase())
-                  )
-                  .map((c: any) => (
-                    <div
-                      key={c.id}
-                      className="px-3 py-2 d-flex align-items-center gap-2"
-                      style={{ cursor: "pointer" }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#f0f4ff")}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "")}
-                      onClick={() => {
-                        setFCollabIds(prev => [...prev, c.id]);
-                        setCollabSearch("");
-                      }}
-                    >
-                      <span className="fw-semibold">{c.nom} {c.prenom}</span>
-                      {c.appellation && <small className="text-muted">({c.appellation})</small>}
-                      {c.emailPro && <small className="text-muted ms-auto">{c.emailPro}</small>}
-                    </div>
-                  ))}
-                {allCollabs.filter(c =>
-                  !fCollabIds.includes(c.id) &&
-                  `${c.nom} ${c.prenom} ${c.appellation ?? ""}`.toLowerCase().includes(collabSearch.toLowerCase())
-                ).length === 0 && (
-                  <div className="px-3 py-2 text-muted fst-italic small">Aucun résultat</div>
-                )}
+              <div className="border rounded bg-white shadow-sm position-absolute w-100" style={{ zIndex: 1000, maxHeight: 220, overflowY: "auto" }}>
+                {allCollabs.filter(c => !fCollabIds.includes(c.id) && `${c.nom} ${c.prenom} ${c.appellation ?? ""}`.toLowerCase().includes(collabSearch.toLowerCase())).map((c: any) => (
+                  <div key={c.id} className="px-3 py-2 d-flex align-items-center gap-2" style={{ cursor: "pointer" }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#f0f4ff")}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = "")}
+                    onClick={() => { setFCollabIds(prev => [...prev, c.id]); setCollabSearch(""); }}>
+                    <span className="fw-semibold">{c.nom} {c.prenom}</span>
+                    {c.appellation && <small className="text-muted">({c.appellation})</small>}
+                    {c.emailPro && <small className="text-muted ms-auto">{c.emailPro}</small>}
+                  </div>
+                ))}
               </div>
             )}
           </div>
-
-          {/* Collaborateurs sélectionnés (badges avec ✕) */}
           {fCollabIds.length > 0 ? (
             <div className="d-flex flex-wrap gap-2">
               {fCollabIds.map(id => {
@@ -1735,20 +1784,12 @@ const saveCollabs = async () => {
                   <span key={id} className="badge bg-info text-dark d-flex align-items-center gap-1 px-2 py-1" style={{ fontSize: "0.85rem" }}>
                     {c.nom} {c.prenom}
                     {c.appellation && <em className="opacity-75 small">({c.appellation})</em>}
-                    <button
-                      type="button"
-                      className="btn btn-link p-0 ms-1 text-dark"
-                      style={{ fontSize: "0.75rem", lineHeight: 1 }}
-                      onClick={() => setFCollabIds(prev => prev.filter(x => x !== id))}
-                      disabled={saving}
-                    >✕</button>
+                    <button type="button" className="btn btn-link p-0 ms-1 text-dark" style={{ fontSize: "0.75rem", lineHeight: 1 }} onClick={() => setFCollabIds(prev => prev.filter(x => x !== id))} disabled={saving}>✕</button>
                   </span>
                 );
               })}
             </div>
-          ) : (
-            <div className="text-muted fst-italic small">Aucun collaborateur sélectionné.</div>
-          )}
+          ) : <div className="text-muted fst-italic small">Aucun collaborateur sélectionné.</div>}
         </Modal.Body>
         <Modal.Footer>
           <Button label="Annuler" variant="outline" onClick={() => { setShowCollabModal(false); setCollabSearch(""); }} />
@@ -1786,27 +1827,11 @@ const saveCollabs = async () => {
               </Form.Group>
             )}
             <div className="row g-2">
-              <div className="col-md-6">
-                <Form.Group>
-                  <Form.Label>Epic</Form.Label>
-                  <Form.Control value={fLine.epic} onChange={e => setFLine(f => ({ ...f, epic: e.target.value }))} disabled={saving} />
-                </Form.Group>
-              </div>
-              <div className="col-md-6">
-                <Form.Group>
-                  <Form.Label>User Story</Form.Label>
-                  <Form.Control value={fLine.userStory} onChange={e => setFLine(f => ({ ...f, userStory: e.target.value }))} disabled={saving} />
-                </Form.Group>
-              </div>
+              <div className="col-md-6"><Form.Group><Form.Label>Epic</Form.Label><Form.Control value={fLine.epic} onChange={e => setFLine(f => ({ ...f, epic: e.target.value }))} disabled={saving} /></Form.Group></div>
+              <div className="col-md-6"><Form.Group><Form.Label>User Story</Form.Label><Form.Control value={fLine.userStory} onChange={e => setFLine(f => ({ ...f, userStory: e.target.value }))} disabled={saving} /></Form.Group></div>
             </div>
-            <Form.Group className="mb-3 mt-2">
-              <Form.Label>Description</Form.Label>
-              <Form.Control as="textarea" rows={2} value={fLine.description} onChange={e => setFLine(f => ({ ...f, description: e.target.value }))} disabled={saving} />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>Détails / Résultat attendu</Form.Label>
-              <Form.Control as="textarea" rows={2} value={fLine.resultat} onChange={e => setFLine(f => ({ ...f, resultat: e.target.value }))} disabled={saving} />
-            </Form.Group>
+            <Form.Group className="mb-3 mt-2"><Form.Label>Description</Form.Label><Form.Control as="textarea" rows={2} value={fLine.description} onChange={e => setFLine(f => ({ ...f, description: e.target.value }))} disabled={saving} /></Form.Group>
+            <Form.Group><Form.Label>Détails / Résultat attendu</Form.Label><Form.Control as="textarea" rows={2} value={fLine.resultat} onChange={e => setFLine(f => ({ ...f, resultat: e.target.value }))} disabled={saving} /></Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -1816,9 +1841,7 @@ const saveCollabs = async () => {
       </Modal>
 
       <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title>
-        </Modal.Header>
+        <Modal.Header closeButton><Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title></Modal.Header>
         <Modal.Body>
           <Form.Group className="mb-3">
             <Form.Label>Jours-Homme *</Form.Label>
@@ -1831,10 +1854,7 @@ const saveCollabs = async () => {
                 const assigned = currentProfil.collaborateurs!.find((c: any) => c.id === fCollabId);
                 return assigned ? (
                   <div className="d-flex align-items-center justify-content-between border rounded px-3 py-2" style={{ backgroundColor: "#f0f9ff", borderColor: "#90cdf4" }}>
-                    <div>
-                      <span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>
-                      {assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}
-                    </div>
+                    <div><span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>{assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}</div>
                     <button type="button" className="btn btn-sm btn-link text-danger p-0" onClick={() => setFCollabId(null)} disabled={saving}>✕</button>
                   </div>
                 ) : (
@@ -1849,12 +1869,7 @@ const saveCollabs = async () => {
               })()}
             </Form.Group>
           )}
-          {currentProfil && (
-            <div className="text-muted small">
-              TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />
-              Montant estimé : {(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}
-            </div>
-          )}
+          {currentProfil && <div className="text-muted small">TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />Montant estimé : {(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</div>}
         </Modal.Body>
         <Modal.Footer>
           {editLineProfil && <Button label="Supprimer" variant="outline" onClick={deleteVolume} />}
@@ -1866,12 +1881,7 @@ const saveCollabs = async () => {
       <Modal show={showCellModal} onHide={() => !saving && setShowCellModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>Valeur de cellule</Modal.Title></Modal.Header>
         <Modal.Body>
-          <Form>
-            <Form.Group>
-              <Form.Label>Valeur</Form.Label>
-              <Form.Control value={fCellVal} onChange={e => setFCellVal(e.target.value)} disabled={saving} autoFocus />
-            </Form.Group>
-          </Form>
+          <Form><Form.Group><Form.Label>Valeur</Form.Label><Form.Control value={fCellVal} onChange={e => setFCellVal(e.target.value)} disabled={saving} autoFocus /></Form.Group></Form>
         </Modal.Body>
         <Modal.Footer>
           <Button label="Annuler" variant="outline" onClick={() => setShowCellModal(false)} />

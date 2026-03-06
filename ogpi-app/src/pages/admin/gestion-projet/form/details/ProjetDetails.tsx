@@ -28,9 +28,9 @@ type ProjetDetailsProps = {
 
 const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) => {
   const { api } = useAuth();
-  const leadTechFinService      = useLeadTechFinDetailsService();
-  const projetTechFinService    = useProjetTechFinDetailsService();
-  const projetTechnoService     = useProjetTechnoService();
+  const leadTechFinService   = useLeadTechFinDetailsService();
+  const projetTechFinService = useProjetTechFinDetailsService();
+  const projetTechnoService  = useProjetTechnoService();
 
   const [svc] = useState(() => ({
     backlog:    new BacklogProjetService(api),
@@ -40,21 +40,62 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
     lead:       new LeadService(api),
   }));
 
-  const [loadingData, setLoadingData] = useState(false);
-  const [backlogId,   setBacklogId]   = useState<number | null>(null);
-  const [lots,        setLots]        = useState<any[]>([]);
-  const [lines,       setLines]       = useState<any[]>([]);
-  const [lineProfils, setLineProfils] = useState<any[]>([]);
-  const [deliverables,setDeliverables]= useState<Map<number, any[]>>(new Map());
-  const [profils,     setProfils]     = useState<any[]>([]);
-  const [deviseAbr,   setDeviseAbr]   = useState<string>("€");
-  const [leadData,    setLeadData]    = useState<any | null>(null);
+  const [loadingData,   setLoadingData]   = useState(false);
+  const [backlogId,     setBacklogId]     = useState<number | null>(null);
+  const [lots,          setLots]          = useState<any[]>([]);
+  const [lines,         setLines]         = useState<any[]>([]);
+  const [lineProfils,   setLineProfils]   = useState<any[]>([]);
+  const [deliverables,  setDeliverables]  = useState<Map<number, any[]>>(new Map());
+  const [profils,       setProfils]       = useState<any[]>([]);
+  const [deviseAbr,     setDeviseAbr]     = useState<string>("€");
+  const [leadData,      setLeadData]      = useState<any | null>(null);
   const [projetTechnos, setProjetTechnos] = useState<any[]>([]);
 
+  // ── Chargement des technos — indépendant du backlog ──────────────────────
+  const loadTechnos = useCallback(async () => {
+    if (!projet?.idProjet || projet.lead?.leadId) {
+      setProjetTechnos([]);
+      return;
+    }
+    try {
+      const details = await projetTechFinService.getByProjetId(projet.idProjet);
+      console.log("Détails tech-fin du projet récupérés:", details);
+      if (details?.idProjetTechFinDetails) {
+        const technos = await projetTechnoService.getByDetailsId(details.idProjetTechFinDetails);
+        console.log("Technos projet chargées:", technos);
+        setProjetTechnos(technos ?? []);
+      } else {
+        setProjetTechnos([]);
+      }
+    } catch {
+      setProjetTechnos([]);
+    }
+  }, [projet?.idProjet, projet?.lead?.leadId]);
+
+  // ── Chargement du backlog + lead ─────────────────────────────────────────
   const loadBacklogData = useCallback(async () => {
     if (!projet?.idProjet) return;
     setLoadingData(true);
     try {
+      // ── Lead / devise ──
+      if (projet.lead?.leadId) {
+        try {
+          const [techFin, fullLead] = await Promise.all([
+            leadTechFinService.getByLeadId(projet.lead.leadId),
+            svc.lead.getById(projet.lead.leadId),
+          ]);
+          setDeviseAbr(techFin?.devise?.abrDevise ?? techFin?.devise?.nomDevise ?? "€");
+          setLeadData(fullLead ? { ...fullLead, techFinDetails: techFin ?? null } : null);
+        } catch {
+          setDeviseAbr("€");
+          setLeadData(null);
+        }
+      } else {
+        setDeviseAbr("€");
+        setLeadData(null);
+      }
+
+      // ── Backlog ──
       const header = await svc.backlog.getHeaderByProjetId(projet.idProjet);
       if (!header?.id) return;
       setBacklogId(header.id);
@@ -91,37 +132,6 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
         });
       });
       setDeliverables(dlvMap);
-
-      if (projet.lead?.leadId) {
-        // Projet lié à un lead : charger devise + données lead
-        try {
-          const [techFin, fullLead] = await Promise.all([
-            leadTechFinService.getByLeadId(projet.lead.leadId),
-            svc.lead.getById(projet.lead.leadId),
-          ]);
-          setDeviseAbr(techFin?.devise?.abrDevise ?? techFin?.devise?.nomDevise ?? "€");
-          setLeadData(fullLead ? { ...fullLead, techFinDetails: techFin ?? null } : null);
-        } catch {
-          setDeviseAbr("€");
-          setLeadData(null);
-        }
-        setProjetTechnos([]);
-      } else {
-        // Projet sans lead : charger les technos propres au projet
-        setDeviseAbr("€");
-        setLeadData(null);
-        try {
-          const details = await projetTechFinService.getByProjetId(projet.idProjet);
-          if (details?.idProjetTechFinDetails) {
-            const technos = await projetTechnoService.getByDetailsId(details.idProjetTechFinDetails);
-            setProjetTechnos(technos ?? []);
-          } else {
-            setProjetTechnos([]);
-          }
-        } catch {
-          setProjetTechnos([]);
-        }
-      }
     } catch (err) {
       console.error("Erreur chargement backlog projet details:", err);
     } finally {
@@ -129,10 +139,20 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
     }
   }, [projet?.idProjet, projet?.lead?.leadId]);
 
+  // ── Reset + déclenchement au montage ────────────────────────────────────
   useEffect(() => {
     if (!show || !projet) return;
-    setBacklogId(null); setLots([]); setLines([]); setLineProfils([]);
-    setDeliverables(new Map()); setProfils([]); setLeadData(null); setProjetTechnos([]);
+    setBacklogId(null);
+    setLots([]);
+    setLines([]);
+    setLineProfils([]);
+    setDeliverables(new Map());
+    setProfils([]);
+    setLeadData(null);
+    setProjetTechnos([]);
+
+    // Les deux chargements sont indépendants : les technos ne dépendent pas du backlog
+    loadTechnos();
     loadBacklogData();
   }, [show, projet?.idProjet]);
 
@@ -185,7 +205,6 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
           <Tab.Content>
             <Tab.Pane eventKey="infoGeneral">
               <div className="details-section">
-                {/* technos passé uniquement pour projets sans lead */}
                 <InfoGeneral projet={projet} technos={!leadId ? projetTechnos : undefined} />
               </div>
             </Tab.Pane>
@@ -216,7 +235,16 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Tab.Pane eventKey="planning">
               <div className="details-section details-section--full">
                 {loadingData ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
-                  : <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} selectedBacklogId={backlogId} planningService={svc.planning} />}
+                  :
+                <PlanningTab
+                  lots={lots}
+                  lines={lines}
+                  lineProfils={lineProfils}
+                  deliverables={deliverables}
+                  selectedBacklogId={backlogId}
+                  planningService={svc.planning}
+                  projectStartDate={projet.dateDebutPrevu ?? null}
+                />}
               </div>
             </Tab.Pane>
 

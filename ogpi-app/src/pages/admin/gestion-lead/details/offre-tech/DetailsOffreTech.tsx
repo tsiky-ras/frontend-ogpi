@@ -6,10 +6,6 @@ type DetailsOffreTechProps = {
 };
 
 const DetailsOffreTech: React.FC<DetailsOffreTechProps> = ({ lead }) => {
-  console.log("=== DetailsOffreTech ===");
-  console.log("lead:", lead);
-  console.log("lead.techFinDetails:", lead?.techFinDetails);
-
   if (!lead?.techFinDetails) {
     return (
       <div className="details-lead-body">

@@ -16,6 +16,8 @@ import { useProjetTechnoService } from "../../../../services/projet/tech-fin/Pro
 import { useTechnoService } from "../../../../services/lead/tech-fin/TechnoService.tsx";
 import { Projet } from "../../../../types/projet/Projet.tsx";
 import FormLead from "../../gestion-lead/form/FormLead.tsx";
+import { FaPlus } from "react-icons/fa";
+import GenericForm from "../../../../components/form/GenericForm.tsx";
 
 type FormProjetProps = {
   onSubmit: (projet: Projet) => void | Promise<void>;
@@ -51,7 +53,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
   // ── Technos ─────────────────────────────────────────────────────────────
   const [allTechnos,      setAllTechnos]      = useState<any[]>([]);
   const [selectedTechnos, setSelectedTechnos] = useState<any[]>([]);
-  const [technoSearch,    setTechnoSearch]    = useState("");
+  const [showTechnoModal, setShowTechnoModal] = useState(false);
 
   // ── Formulaire projet ───────────────────────────────────────────────────
   const [form, setForm] = useState<Projet>({
@@ -107,7 +109,10 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
             }
             return [];
           })
-          .then(technos => setSelectedTechnos((technos ?? []).map((t: any) => t.techno ?? t)))
+          .then(technos => setSelectedTechnos((technos ?? []).map((t: any) => {
+            // getByDetailsId retourne { techno: { idTechno, nomTechno } } → on extrait techno
+            return t.techno ?? t;
+          })))
           .catch(() => setSelectedTechnos([]));
       } else {
         setSelectedTechnos([]);
@@ -118,7 +123,6 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
       setLeadResults([]);
       setSelectedLead(null);
       setSelectedTechnos([]);
-      setTechnoSearch("");
       resetForm();
     }
   }, [show, projet]);
@@ -245,6 +249,30 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     setForm((prev: any) => ({ ...prev, [name]: value }));
   };
 
+  // ── Normalisation des ids technos (alignée sur FormTechFin) ────────────
+  const normalizeTechnoIds = (input: any[]): number[] =>
+    Array.from(
+      new Set(
+        (input ?? [])
+          .map(item =>
+            typeof item === "object" && item !== null
+              ? Number(item.idTechno || item.id)
+              : Number(item)
+          )
+          .filter(id => !isNaN(id) && id > 0)
+      )
+    );
+
+  // ── Toggle checkbox techno ───────────────────────────────────────────────
+  const handleToggleTechno = (techno: any, checked: boolean) => {
+    const technoId = Number(techno.idTechno || techno.id);
+    setSelectedTechnos(prev =>
+      checked
+        ? [...prev, techno]
+        : prev.filter(t => Number(t.idTechno || t.id) !== technoId)
+    );
+  };
+
   // ── Sauvegarde ───────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!form.nomProjet || !form.dateDebutPrevu) {
@@ -279,14 +307,19 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
           try {
             details = await projetTechFinService.getByProjetId(savedProjet.idProjet);
           } catch {
-            details = await projetTechFinService.create({ idProjet: savedProjet.idProjet });
+            // Aucun details existant → on le crée avec projetId (nom attendu par le modèle Java)
+            details = await projetTechFinService.create({ projetId: savedProjet.idProjet });
           }
           const detailsId = details?.idProjetTechFinDetails;
           if (detailsId) {
             await projetTechnoService.deleteByDetailsId(detailsId);
             await Promise.all(
               selectedTechnos.map(t =>
-                projetTechnoService.create({ idProjetTechFinDetails: detailsId, techno: { id: t.id } })
+                // Le repository Java appelle getTechno().getIdTechno() → on envoie idTechno
+                projetTechnoService.create({
+                  idProjetTechFinDetails: detailsId,
+                  techno: { idTechno: t.idTechno ?? t.id },
+                })
               )
             );
           }
@@ -336,7 +369,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
           <Modal.Title>
             {projet
               ? `Modifier le projet : ${projet.nomProjet}`
-              : creationMode === "choice"   ? "Créer un projet"
+              : creationMode === "choice"    ? "Créer un projet"
               : creationMode === "from-lead" ? "Créer un projet depuis une opportunité"
               : "Créer un nouveau projet"}
           </Modal.Title>
@@ -497,67 +530,33 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
                 {/* ── Technologies — uniquement pour projets sans lead ── */}
                 {!selectedLead && (
                   <Row className="mt-2">
-                    <Col md={12}>
+                    <Col md={8}>
                       <Form.Group>
                         <Form.Label><strong>Technologies</strong></Form.Label>
-
-                        {/* Barre de recherche autocomplete */}
-                        <div className="position-relative mb-2">
-                          <Form.Control
-                            placeholder="Rechercher une technologie…"
-                            value={technoSearch}
-                            onChange={e => setTechnoSearch(e.target.value)}
-                          />
-                          {technoSearch.trim() && (
-                            <div
-                              className="border rounded bg-white shadow-sm position-absolute w-100"
-                              style={{ zIndex: 1000, maxHeight: 200, overflowY: "auto" }}
-                            >
-                              {allTechnos
-                                .filter(t =>
-                                  !selectedTechnos.find(s => s.id === t.id) &&
-                                  t.nomTechno?.toLowerCase().includes(technoSearch.toLowerCase())
-                                )
-                                .map(t => (
-                                  <div
-                                    key={t.id}
-                                    className="px-3 py-2"
-                                    style={{ cursor: "pointer" }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = "#f0f4ff")}
-                                    onMouseLeave={e => (e.currentTarget.style.background = "")}
-                                    onClick={() => { setSelectedTechnos(prev => [...prev, t]); setTechnoSearch(""); }}
-                                  >
-                                    {t.nomTechno}
-                                  </div>
-                                ))}
-                              {allTechnos.filter(t =>
-                                !selectedTechnos.find(s => s.id === t.id) &&
-                                t.nomTechno?.toLowerCase().includes(technoSearch.toLowerCase())
-                              ).length === 0 && (
-                                <div className="px-3 py-2 text-muted fst-italic small">Aucun résultat</div>
-                              )}
-                            </div>
-                          )}
+                        <div className="d-flex flex-column">
+                          {allTechnos.map(t => {
+                            const idTech = Number(t.idTechno || t.id);
+                            const isChecked = normalizeTechnoIds(selectedTechnos).includes(idTech);
+                            return (
+                              <Form.Check
+                                key={idTech}
+                                type="checkbox"
+                                id={`techno-${idTech}`}
+                                label={t.nomTechno}
+                                checked={isChecked}
+                                onChange={e => handleToggleTechno(t, e.target.checked)}
+                              />
+                            );
+                          })}
                         </div>
-
-                        {/* Badges des technos sélectionnées */}
-                        {selectedTechnos.length > 0 ? (
-                          <div className="d-flex flex-wrap gap-2">
-                            {selectedTechnos.map(t => (
-                              <span key={t.id} className="badge bg-secondary d-flex align-items-center gap-1 px-2 py-1" style={{ fontSize: "0.85rem" }}>
-                                {t.nomTechno}
-                                <button
-                                  type="button"
-                                  className="btn btn-link p-0 ms-1 text-white"
-                                  style={{ fontSize: "0.75rem", lineHeight: 1 }}
-                                  onClick={() => setSelectedTechnos(prev => prev.filter(x => x.id !== t.id))}
-                                >✕</button>
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <small className="text-muted fst-italic">Aucune technologie sélectionnée.</small>
-                        )}
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => setShowTechnoModal(true)}
+                        >
+                          <FaPlus className="me-1" /> Ajouter une techno
+                        </Button>
                       </Form.Group>
                     </Col>
                   </Row>
@@ -575,6 +574,31 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
             </Button>
           )}
         </Modal.Footer>
+      </Modal>
+
+      {/* ── Modal création Techno ── */}
+      <Modal show={showTechnoModal} onHide={() => setShowTechnoModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Créer une technologie</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <GenericForm
+            valueKey="nomTechno"
+            initialData={{ nomTechno: "", descTechno: "" }}
+            extraInputs={[{ name: "descTechno", label: "Description", type: "textarea" }]}
+            onSubmit={async (data: any) => {
+              const newTechno = await technoService.create(data);
+              setAllTechnos(prev =>
+                Array.from(new Map([...prev, newTechno].map(t => [t.idTechno ?? t.id, t])).values())
+              );
+              setSelectedTechnos(prev => [...prev, newTechno]);
+              setShowTechnoModal(false);
+            }}
+            onCancel={() => setShowTechnoModal(false)}
+            submitLabel="Créer"
+            title=""
+          />
+        </Modal.Body>
       </Modal>
 
       {showLoadingMessage && <CollecteLoadingMessage />}

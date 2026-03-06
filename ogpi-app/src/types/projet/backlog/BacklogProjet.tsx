@@ -3,8 +3,6 @@ import { Profil } from "../../profil/Profil.tsx";
 
 // ─────────────────────────────────────────────────────────────
 // BacklogProjetProfil
-// Profil défini dans le backlog (table backlog_profil)
-// avec ses collaborateurs réels rattachés (table backlog_profil_collaborateur)
 // ─────────────────────────────────────────────────────────────
 export interface BacklogProjetProfil {
   id: number;
@@ -17,8 +15,7 @@ export interface BacklogProjetProfil {
 }
 
 // ─────────────────────────────────────────────────────────────
-// BacklogLineProfil (version projet)
-// Table backlog_line_profil — volume d'un profil sur une ligne
+// BacklogProjetLineProfil
 // ─────────────────────────────────────────────────────────────
 export interface BacklogProjetLineProfil {
   id: number;
@@ -29,7 +26,6 @@ export interface BacklogProjetLineProfil {
 
 // ─────────────────────────────────────────────────────────────
 // BacklogSprint
-// Table backlog_sprint — sprint rattaché à une phase
 // ─────────────────────────────────────────────────────────────
 export interface BacklogSprint {
   id: number;
@@ -63,9 +59,14 @@ export interface OrderUpdateItem {
 
 // ─────────────────────────────────────────────────────────────
 // BacklogColumn
-// Table backlog_column_ — colonnes dynamiques d'un sprint
 // ─────────────────────────────────────────────────────────────
-export type BacklogColumnType = "TEXT" | "NUMBER" | "DATE" | "SELECT" | "COLLABORATEUR" | "SPRINT";
+export type BacklogColumnType =
+  | "TEXT"
+  | "NUMBER"
+  | "DATE"
+  | "SELECT"
+  | "COLLABORATEUR"
+  | "SPRINT";
 
 export interface BacklogColumn {
   id: number;
@@ -90,7 +91,6 @@ export interface UpdateBacklogColumnRequest {
 
 // ─────────────────────────────────────────────────────────────
 // BacklogLineColumnValue
-// Table backlog_line_column_value — valeur d'une colonne pour une ligne
 // ─────────────────────────────────────────────────────────────
 export interface BacklogLineColumnValue {
   id: number;
@@ -106,18 +106,8 @@ export interface UpsertBacklogLineColumnValueRequest {
 }
 
 // ─────────────────────────────────────────────────────────────
-// BacklogLivrableStatut
-// Table backlog_livrable_statut — statut d'un livrable
-// ─────────────────────────────────────────────────────────────
-export interface BacklogLivrableStatut {
-  id: number;
-  label: string;
-  order: number;
-}
-
-// ─────────────────────────────────────────────────────────────
-// BacklogDelivrableProjet
-// Table backlog_livrable — livrable enrichi avec statut
+// BacklogDelivrableProjet (VERSION SIMPLIFIÉE)
+// Table backlog_livrable
 // ─────────────────────────────────────────────────────────────
 export interface BacklogDelivrableProjet {
   id: number;
@@ -126,8 +116,7 @@ export interface BacklogDelivrableProjet {
   deliveryDate?: string | null;
   phaseId?: number | null;
   sprintId?: number | null;
-  statutHistoryId?: number | null;
-  statut?: BacklogLivrableStatut | null;
+  isDelivered: boolean;
   order?: number;
 }
 
@@ -137,6 +126,7 @@ export interface CreateBacklogDelivrableRequest {
   deliveryDate?: string;
   phaseId: number;
   sprintId?: number | null;
+  isDelivered?: boolean; // optionnel → défaut false côté backend
   order?: number;
 }
 
@@ -146,16 +136,16 @@ export interface UpdateBacklogDelivrableRequest {
   deliveryDate?: string;
   phaseId: number;
   sprintId?: number | null;
+  isDelivered?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────
 // CreateBacklogForProjetRequest
-// Payload pour créer un backlog directement rattaché à un projet
 // ─────────────────────────────────────────────────────────────
 export interface CreateBacklogForProjetRequest {
   name: string;
   desc?: string;
   projetId: number;
-  leadId?: number | null; 
+  leadId?: number | null;
   type: BacklogType;
 }
