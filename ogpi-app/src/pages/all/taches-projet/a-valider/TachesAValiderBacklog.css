@@ -1,0 +1,324 @@
+/* ═══════════════════════════════════════
+   TachesAValiderBacklog.css
+═══════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --vld-bg: #f8fafc;
+  --vld-surface: #ffffff;
+  --vld-border: #e2e8f0;
+  --vld-border-hover: #cbd5e1;
+  --vld-text: #0f172a;
+  --vld-muted: #64748b;
+  --vld-ok: #10b981;
+  --vld-ok-light: #ecfdf5;
+  --vld-ko: #ef4444;
+  --vld-ko-light: #fef2f2;
+  --vld-pending: #f97316;
+  --vld-pending-light: #fff7ed;
+  --vld-radius: 10px;
+  --vld-shadow: 0 1px 3px rgba(0,0,0,.06);
+  --vld-shadow-hover: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.vld-wrapper {
+  font-family: 'IBM Plex Sans', sans-serif;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 0 40px;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+.vld-page-header {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--vld-border);
+}
+.vld-page-title { font-size: 1.15rem; font-weight: 600; color: var(--vld-text); margin: 0 0 2px; }
+.vld-page-sub   { font-size: .8rem; color: var(--vld-muted); margin: 0; }
+
+/* ─── Stats ──────────────────────────────────────────────────────────────── */
+.vld-stats { display: flex; gap: 12px; margin-bottom: 20px; }
+.vld-stat {
+  background: var(--vld-surface);
+  border: 1px solid var(--vld-border);
+  border-radius: var(--vld-radius);
+  padding: 10px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+.vld-stat--pending { border-top: 3px solid var(--vld-pending); }
+.vld-stat--ok      { border-top: 3px solid var(--vld-ok); }
+.vld-stat--ko      { border-top: 3px solid var(--vld-ko); }
+.vld-stat-num { font-size: 1.35rem; font-weight: 600; color: var(--vld-text); line-height: 1; }
+.vld-stat-lbl { font-size: .68rem; color: var(--vld-muted); margin-top: 3px; }
+
+/* ─── State boxes ─────────────────────────────────────────────────────────── */
+.vld-state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
+  color: var(--vld-muted);
+  font-size: .85rem;
+}
+.vld-state-box--error { color: var(--vld-ko); }
+.vld-state-box--empty svg { opacity: .3; }
+
+/* ─── List ───────────────────────────────────────────────────────────────── */
+.vld-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* ─── Card ───────────────────────────────────────────────────────────────── */
+.vld-card {
+  background: var(--vld-surface);
+  border: 1px solid var(--vld-border);
+  border-radius: var(--vld-radius);
+  box-shadow: var(--vld-shadow);
+  overflow: hidden;
+  transition: box-shadow .2s, border-color .2s;
+}
+.vld-card:hover       { box-shadow: var(--vld-shadow-hover); border-color: var(--vld-border-hover); }
+.vld-card--open       { border-color: var(--vld-pending); }
+.vld-card--validated  { border-left: 3px solid var(--vld-ok); }
+.vld-card--tomodify   { border-left: 3px solid var(--vld-ko); }
+
+.vld-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+.vld-card-header:focus-visible { outline: 2px solid var(--vld-pending); outline-offset: -2px; }
+.vld-card-main { flex: 1; min-width: 0; }
+
+.vld-card-toprow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.vld-card-epic {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .72rem;
+  color: var(--vld-muted);
+  background: var(--vld-bg);
+  border: 1px solid var(--vld-border);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.vld-card-story {
+  font-size: .875rem;
+  font-weight: 500;
+  color: var(--vld-text);
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vld-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ─── Badge ─────────────────────────────────────────────────────────────── */
+.vld-badge {
+  font-size: .68rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* ─── Meta chips ─────────────────────────────────────────────────────────── */
+.vld-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .72rem;
+  color: var(--vld-muted);
+  background: var(--vld-bg);
+  border: 1px solid var(--vld-border);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.vld-meta-chip--collab { color: #6366f1; background: #eef2ff; border-color: #c7d2fe; }
+
+/* ─── Chevron wrap ───────────────────────────────────────────────────────── */
+.vld-chevron-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: var(--vld-muted);
+}
+.vld-done-icon { color: var(--vld-ok); }
+.vld-ko-icon   { color: var(--vld-ko); }
+
+/* ─── Card body ─────────────────────────────────────────────────────────── */
+.vld-card-body {
+  border-top: 1px solid var(--vld-border);
+  padding: 0 16px 16px;
+  animation: vldFadeIn .18s ease;
+}
+@keyframes vldFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* ─── Sections ───────────────────────────────────────────────────────────── */
+.vld-section { margin-top: 16px; }
+.vld-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--vld-muted);
+  margin-bottom: 8px;
+}
+.vld-desc {
+  font-size: .8rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+  background: var(--vld-bg);
+  border-left: 3px solid var(--vld-border);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+}
+
+/* ─── KPIs ────────────────────────────────────────────────────────────────── */
+.vld-kpi-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.vld-kpi {
+  flex: 1;
+  min-width: 80px;
+  background: var(--vld-bg);
+  border: 1px solid var(--vld-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.vld-kpi-val { font-family: 'IBM Plex Mono', monospace; font-size: 1.1rem; font-weight: 500; color: var(--vld-text); }
+.vld-kpi-lbl { font-size: .67rem; color: var(--vld-muted); margin-top: 2px; }
+
+/* ─── Collaborateur ──────────────────────────────────────────────────────── */
+.vld-collab-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--vld-bg);
+  border: 1px solid var(--vld-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.vld-collab-avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  font-weight: 600;
+  font-size: .9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.vld-collab-info { display: flex; flex-direction: column; gap: 2px; }
+.vld-collab-name  { font-size: .82rem; font-weight: 600; color: var(--vld-text); }
+.vld-collab-meta  { font-size: .72rem; color: var(--vld-muted); }
+.vld-collab-profil { font-size: .72rem; color: #6366f1; margin-top: 2px; }
+
+/* ─── History ─────────────────────────────────────────────────────────────── */
+.vld-history { display: flex; flex-direction: column; gap: 6px; }
+.vld-history-item { display: flex; gap: 10px; align-items: flex-start; }
+.vld-history-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.vld-history-body { display: flex; flex-direction: column; gap: 1px; }
+.vld-history-status  { font-size: .77rem; font-weight: 600; }
+.vld-history-user    { font-size: .72rem; color: var(--vld-muted); }
+.vld-history-comment { font-size: .72rem; color: #475569; font-style: italic; }
+.vld-history-date    { font-size: .68rem; color: var(--vld-muted); font-family: 'IBM Plex Mono', monospace; }
+
+/* ─── Validation Panel ───────────────────────────────────────────────────── */
+.vld-panel-actions {
+  display: flex;
+  gap: 10px;
+}
+.vld-panel-confirm {
+  background: var(--vld-bg);
+  border: 1px solid var(--vld-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.vld-panel-confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .78rem;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+.vld-panel-confirm-header.ok { background: var(--vld-ok-light); color: var(--vld-ok); }
+.vld-panel-confirm-header.ko { background: var(--vld-ko-light); color: var(--vld-ko); }
+.vld-panel-error { font-size: .75rem; color: var(--vld-ko); padding: 6px 12px; }
+.vld-panel-ta {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--vld-border);
+  padding: 10px 12px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: .8rem;
+  color: var(--vld-text);
+  resize: vertical;
+  outline: none;
+  background: transparent;
+  box-sizing: border-box;
+}
+.vld-panel-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--vld-border);
+}
+
+/* ─── Decided banner ─────────────────────────────────────────────────────── */
+.vld-decided-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: .8rem;
+  font-weight: 600;
+  margin-top: 16px;
+}
+.vld-decided-banner--ok { background: var(--vld-ok-light); color: var(--vld-ok); border: 1px solid #a7f3d0; }
+.vld-decided-banner--ko { background: var(--vld-ko-light); color: var(--vld-ko); border: 1px solid #fecaca; }
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+.vld-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 500;
+  padding: 8px 16px;
+  font-size: .8rem;
+  transition: opacity .15s, transform .1s;
+}
+.vld-btn:disabled { opacity: .55; cursor: not-allowed; }
+.vld-btn:active:not(:disabled) { transform: scale(.97); }
+.vld-btn--ok   { background: var(--vld-ok); color: #fff; }
+.vld-btn--ko   { background: var(--vld-ko); color: #fff; }
+.vld-btn--ghost { background: var(--vld-bg); color: var(--vld-muted); border: 1px solid var(--vld-border); }
+.vld-btn--sm { padding: 5px 10px; font-size: .75rem; }
+
+/* ─── Spinner ─────────────────────────────────────────────────────────────── */
+.vld-spin { animation: vldSpin .7s linear infinite; }
+.vld-spin--lg { font-size: 1.6rem; }
+@keyframes vldSpin { to { transform: rotate(360deg); } }

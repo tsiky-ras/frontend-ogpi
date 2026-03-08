@@ -41,9 +41,20 @@ export const routes = [
     icon: <FaProjectDiagram />,
   },
   {
-    path: "/gestion-taches",
     label: "Tâches",
     icon: <FaThList />, 
+    children:[
+      {
+        path: "/gestion-taches",
+        label: "Tâches Leads",
+        icon: <FaThList />,
+      },
+      {
+        path: "/gestion-taches-projet",
+        label: "Tâches Projet",
+        icon: <FaThList />,
+      }
+    ]
   },
   {
     label: "Référentiels",
