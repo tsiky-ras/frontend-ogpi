@@ -338,7 +338,7 @@ const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Ut
   const pending = tasks.filter(t => t.currentStatus.status.id === PROJECT_TASK_STATUS.EN_ATTENTE_VALIDATION).length;
 
   return (
-    <div className="vld-wrapper">
+    <div className="mes-taches-wrapper">
       <div className="vld-page-header">
         <div>
           <h4 className="vld-page-title">Tâches à valider</h4>

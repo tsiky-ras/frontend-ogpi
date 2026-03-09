@@ -21,11 +21,20 @@
   --vld-shadow-hover: 0 4px 12px rgba(0,0,0,.08);
 }
 
+/* ─── Wrapper principal : prend toute la largeur disponible ──────────────── */
+.mes-taches-wrapper {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
 .vld-wrapper {
   font-family: 'IBM Plex Sans', sans-serif;
-  max-width: 820px;
-  margin: 0 auto;
-  padding: 0 0 40px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 24px 40px;
+  box-sizing: border-box;
 }
 
 /* ─── Header ─────────────────────────────────────────────────────────────── */
@@ -143,7 +152,9 @@
   padding: 2px 8px;
   border-radius: 20px;
 }
-.vld-meta-chip--collab { color: #6366f1; background: #eef2ff; border-color: #c7d2fe; }
+.vld-meta-chip--collab  { color: #6366f1; background: #eef2ff; border-color: #c7d2fe; }
+.vld-meta-chip--projet  { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
+.vld-meta-chip--lead    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
 
 /* ─── Chevron wrap ───────────────────────────────────────────────────────── */
 .vld-chevron-wrap {
@@ -203,6 +214,46 @@
 .vld-kpi-val { font-family: 'IBM Plex Mono', monospace; font-size: 1.1rem; font-weight: 500; color: var(--vld-text); }
 .vld-kpi-lbl { font-size: .67rem; color: var(--vld-muted); margin-top: 2px; }
 
+/* ─── Progress bar ─────────────────────────────────────────────────────────── */
+.vld-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.vld-progress-track {
+  flex: 1;
+  height: 5px;
+  background: var(--vld-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.vld-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+.vld-progress-pct {
+  font-size: .68rem;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ─── Deadline detail ─────────────────────────────────────────────────────── */
+.vld-deadline-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .75rem;
+  padding: 6px 10px;
+  background: var(--vld-bg);
+  border: 1px solid var(--vld-border);
+  border-radius: 6px;
+  margin-top: 10px;
+}
+
 /* ─── Collaborateur ──────────────────────────────────────────────────────── */
 .vld-collab-card {
   display: flex;
@@ -226,8 +277,8 @@
   flex-shrink: 0;
 }
 .vld-collab-info { display: flex; flex-direction: column; gap: 2px; }
-.vld-collab-name  { font-size: .82rem; font-weight: 600; color: var(--vld-text); }
-.vld-collab-meta  { font-size: .72rem; color: var(--vld-muted); }
+.vld-collab-name   { font-size: .82rem; font-weight: 600; color: var(--vld-text); }
+.vld-collab-meta   { font-size: .72rem; color: var(--vld-muted); }
 .vld-collab-profil { font-size: .72rem; color: #6366f1; margin-top: 2px; }
 
 /* ─── History ─────────────────────────────────────────────────────────────── */
@@ -297,6 +348,15 @@
 .vld-decided-banner--ok { background: var(--vld-ok-light); color: var(--vld-ok); border: 1px solid #a7f3d0; }
 .vld-decided-banner--ko { background: var(--vld-ko-light); color: var(--vld-ko); border: 1px solid #fecaca; }
 
+/* ─── Bandeau contexte projet/lead ───────────────────────────────────────── */
+.vld-card-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
 /* ─── Buttons ─────────────────────────────────────────────────────────────── */
 .vld-btn {
   display: inline-flex;
@@ -313,40 +373,12 @@
 }
 .vld-btn:disabled { opacity: .55; cursor: not-allowed; }
 .vld-btn:active:not(:disabled) { transform: scale(.97); }
-.vld-btn--ok   { background: var(--vld-ok); color: #fff; }
-.vld-btn--ko   { background: var(--vld-ko); color: #fff; }
-.vld-btn--ghost { background: var(--vld-bg); color: var(--vld-muted); border: 1px solid var(--vld-border); }
-.vld-btn--sm { padding: 5px 10px; font-size: .75rem; }
+.vld-btn--ok    { background: var(--vld-ok);  color: #fff; }
+.vld-btn--ko    { background: var(--vld-ko);  color: #fff; }
+.vld-btn--ghost { background: var(--vld-bg);  color: var(--vld-muted); border: 1px solid var(--vld-border); }
+.vld-btn--sm    { padding: 5px 10px; font-size: .75rem; }
 
 /* ─── Spinner ─────────────────────────────────────────────────────────────── */
 .vld-spin { animation: vldSpin .7s linear infinite; }
 .vld-spin--lg { font-size: 1.6rem; }
 @keyframes vldSpin { to { transform: rotate(360deg); } }
-
-/* Bandeau contexte projet/lead en haut de chaque carte */
-.btb-card-context,
-.vld-card-context {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
-}
-
-/* Chips projet et lead */
-.btb-meta-chip--projet, .vld-meta-chip--projet {
-  background: #ede9fe; color: #6d28d9;
-  border-color: #c4b5fd;
-}
-.btb-meta-chip--lead, .vld-meta-chip--lead {
-  background: #fef3c7; color: #92400e;
-  border-color: #fcd34d;
-}
-
-/* Contexte dans le modal TimeSpent */
-.btb-modal-context {
-  display: flex; gap: 10px; flex-wrap: wrap;
-  font-size: 0.8rem; color: #374151;
-  padding: 6px 10px; background: #f8fafc;
-  border-radius: 6px; border: 1px solid #e2e8f0;
-}
