@@ -71,6 +71,8 @@ export interface BacklogLineProfilAsTask {
   line: BacklogLineTask;
   historyStatus: BacklogTaskStatusHistory[];
   currentStatus: BacklogTaskStatusHistory;
+  deviseAbr?:     string | null;   
+  projetNom?:     string | null;
 }
 
 export interface ChangingStatusDTO {

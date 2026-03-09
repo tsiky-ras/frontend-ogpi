@@ -360,3 +360,31 @@
 .btb-spin { animation: btbSpin .7s linear infinite; }
 .btb-spin--lg { font-size: 1.6rem; }
 @keyframes btbSpin { to { transform: rotate(360deg); } }
+
+/* Bandeau contexte projet/lead en haut de chaque carte */
+.btb-card-context,
+.vld-card-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+/* Chips projet et lead */
+.btb-meta-chip--projet, .vld-meta-chip--projet {
+  background: #ede9fe; color: #6d28d9;
+  border-color: #c4b5fd;
+}
+.btb-meta-chip--lead, .vld-meta-chip--lead {
+  background: #fef3c7; color: #92400e;
+  border-color: #fcd34d;
+}
+
+/* Contexte dans le modal TimeSpent */
+.btb-modal-context {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  font-size: 0.8rem; color: #374151;
+  padding: 6px 10px; background: #f8fafc;
+  border-radius: 6px; border: 1px solid #e2e8f0;
+}

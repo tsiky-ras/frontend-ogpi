@@ -22,4 +22,12 @@ export class BacklogTaskService {
     const response = await this.api.post('/projet/backlog-line-profils/changeStatus', dto);
     return response.data;
   }
+
+  async updateTimeSpent(taskId: number, timeSpent: number | null): Promise<void> {
+    console.log(`Updating time spent for task ${taskId} to ${timeSpent}`);
+    await this.api.patch(
+      `/projet/backlog-line-profils/${taskId}/time-spent`,
+      { timeSpent }
+    );
+  }
 }
