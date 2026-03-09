@@ -129,15 +129,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     const pct = Math.round((spent / planned) * 100);
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-        <div style={{ flex: 1, height: 4, backgroundColor: "#e9ecef", borderRadius: 2, overflow: "hidden", minWidth: 40 }}>
-          <div style={{
-            width: `${Math.min(pct, 100)}%`, height: "100%",
-            backgroundColor: progressColor(pct), borderRadius: 2, transition: "width 0.3s",
-          }} />
-        </div>
-        <span style={{ fontSize: "0.62rem", color: progressColor(pct), fontWeight: 600, whiteSpace: "nowrap" }}>
-          {pct}%{pct > 100 ? " ⚠" : ""}
-        </span>
       </div>
     );
   };
@@ -787,46 +778,92 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     // VOLUMES
     // ══════════════════════════════════════════════════════════════════════
 
-    const openVolModal = (lineId: number, profilId: number) => {
-      setCtxLineId(lineId); setCtxProfilId(profilId);
-      const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
-      setEditLineProfil(existing ?? null);
-      setFVolume(existing?.volume ?? 0);
-      setFCollabId(existing?.collaborateur?.id ?? null);
-      setFDeadline(existing?.deadLine ? (existing.deadLine.endsWith("Z") ? existing.deadLine.slice(0, -1) : existing.deadLine).substring(0, 16) : "");
-      setFTimeSpent(existing?.timeSpent ?? null);
-      setShowVolModal(true);
-    };
-
-    const saveVolume = async () => {
-      if (ctxLineId === null || ctxProfilId === null) return;
-      setSaving(true);
-      try {
-        const payload = { volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId, collaborateurId: fCollabId, deadLine: fDeadline ? `${fDeadline}:00` : null, timeSpent: fTimeSpent };
-        if (editLineProfil) {
-          const updated = await svc.lineProfil.update(editLineProfil.id, payload);
-          setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
+      const openVolModal = (lineId: number, profilId: number) => {
+        setCtxLineId(lineId); setCtxProfilId(profilId);
+        const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
+        setEditLineProfil(existing ?? null);
+        setFVolume(existing?.volume ?? 0);
+        setFCollabId(existing?.collaborateur?.id ?? null);
+        
+        // CORRECTION : Gestion du décalage horaire pour l'affichage
+        if (existing?.deadLine) {
+          // Créer une date à partir de la valeur ISO de la BDD
+          const date = new Date(existing.deadLine);
+          // Ajuster pour le fuseau horaire local
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          // Format pour datetime-local (YYYY-MM-DDThh:mm)
+          setFDeadline(`${year}-${month}-${day}T${hours}:${minutes}`);
         } else {
-          const created = await svc.lineProfil.create(payload);
-          setLineProfils(prev => [...prev, created]);
+          setFDeadline("");
         }
-        setShowVolModal(false);
-      } catch { alert("Erreur lors de la sauvegarde du volume."); }
-      finally { setSaving(false); setCtxLineId(null); setCtxProfilId(null); }
-    };
+        
+        setFTimeSpent(existing?.timeSpent ?? null);
+        setShowVolModal(true);
+      };
 
-    const deleteVolume = async () => {
+      const saveVolume = async () => {
+        if (ctxLineId === null || ctxProfilId === null) return;
+        setSaving(true);
+        try {
+          // CORRECTION : Gestion du décalage horaire pour l'envoi
+          let deadLineToSend = null;
+          if (fDeadline) {
+            // Créer une date à partir de la valeur locale du datetime-local
+            const localDate = new Date(fDeadline);
+            // Convertir en UTC pour la BDD
+            deadLineToSend = localDate.toISOString();
+          }
+          
+          const payload = { 
+            volume: fVolume, 
+            lineId: ctxLineId, 
+            profilId: ctxProfilId, 
+            collaborateurId: fCollabId, 
+            deadLine: deadLineToSend,  // Utiliser la valeur convertie
+            timeSpent: fTimeSpent 
+          };
+          
+          if (editLineProfil) {
+            const updated = await svc.lineProfil.update(editLineProfil.id, payload);
+            setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
+          } else {
+            const created = await svc.lineProfil.create(payload);
+            setLineProfils(prev => [...prev, created]);
+          }
+          setShowVolModal(false);
+        } catch { alert("Erreur lors de la sauvegarde du volume."); }
+        finally { setSaving(false); setCtxLineId(null); setCtxProfilId(null); }
+      };
+
+      const deleteVolume = async () => {
       if (!editLineProfil || !window.confirm("Supprimer ce volume ?")) return;
-      try { await svc.lineProfil.delete(editLineProfil.id); setLineProfils(prev => prev.filter(lp => lp.id !== editLineProfil.id)); setShowVolModal(false); }
-      catch { alert("Impossible de supprimer le volume."); }
+      try {
+        await svc.lineProfil.delete(editLineProfil.id);
+        setLineProfils(prev => prev.filter(lp => lp.id !== editLineProfil.id));
+        setShowVolModal(false);
+      } catch { alert("Impossible de supprimer le volume."); }
       finally { setCtxLineId(null); setCtxProfilId(null); }
     };
 
-    const fmtDateTime = (iso: string | null | undefined): string => {
-      if (!iso) return "";
-      try { const normalized = iso.endsWith("Z") ? iso.slice(0, -1) : iso; return new Date(normalized).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
-      catch { return iso; }
-    };
+      const fmtDateTime = (iso: string | null | undefined): string => {
+        if (!iso) return "";
+        try { 
+          // Créer une date à partir de l'ISO UTC de la BDD
+          const date = new Date(iso);
+          // Formater avec le fuseau horaire local
+          return date.toLocaleString("fr-FR", { 
+            day: "2-digit", 
+            month: "short", 
+            year: "numeric", 
+            hour: "2-digit", 
+            minute: "2-digit" 
+          });
+        } catch { return iso; }
+      };
 
     // ══════════════════════════════════════════════════════════════════════
     // COLONNES
@@ -1056,7 +1093,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                   <th className="text-end">Planifié (JH)</th>
                                   <th className="text-end">Tps de réalisation (JH)</th>
                                   <th className="text-end">Tps passé (JH)</th>
-                                  <th className="text-end">Avancement</th>
                                   <th className="text-end">TJM</th>
                                   <th className="text-end">Montant</th>
                                 </tr>
@@ -1084,9 +1120,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                           </span>
                                         ) : <span className="text-muted">—</span>}
                                       </td>
-                                      <td className="text-end" style={{ minWidth: 110 }}>
-                                        {pct != null && vol > 0 && ts > 0 ? <MiniProgressBar spent={ts} planned={vol} /> : <span className="text-muted small">—</span>}
-                                      </td>
+
                                       <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
                                       <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                     </tr>
@@ -1108,9 +1142,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                         {fmtEcart(grandTotalVol - grandTotalTs)} JH
                                       </span>
                                     ) : "—"}
-                                  </td>
-                                  <td className="text-end" style={{ minWidth: 110 }}>
-                                    {grandTotalTs > 0 && grandTotalVol > 0 ? <MiniProgressBar spent={grandTotalTs} planned={grandTotalVol} /> : <span className="text-muted small">—</span>}
                                   </td>
                                   <td />
                                   <td className="text-end fw-bold text-primary">{grandTotalAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
@@ -1169,7 +1200,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                         <td className="text-end">
                                           {lotEcart !== null ? (
                                             <span style={{ color: ecartColor(lotEcart), fontSize: "0.75rem", fontWeight: 600 }}>
-                                              {fmtEcart(lotEcart)}{lotEcart < 0 ? " ⚠" : ""}
+                                              {fmtEcart(lotEcart)}
                                             </span>
                                           ) : <span className="text-muted small">—</span>}
                                         </td>
@@ -1192,7 +1223,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                               <td className="text-end">
                                                 {phEcart !== null ? (
                                                   <span style={{ color: ecartColor(phEcart), fontSize: "0.75rem", fontWeight: 600 }}>
-                                                    {fmtEcart(phEcart)}{phEcart < 0 ? " ⚠" : ""}
+                                                    {fmtEcart(phEcart)}
                                                   </span>
                                                 ) : <span className="text-muted small">—</span>}
                                               </td>
@@ -1207,7 +1238,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                                 <td className="text-end small">
                                                   {spTs > 0 && spVol > 0 ? (() => {
                                                     const spEcart = spVol - spTs;
-                                                    return <span style={{ color: ecartColor(spEcart), fontWeight: 600 }}>{fmtEcart(spEcart)}{spEcart < 0 ? " ⚠" : ""}</span>;
+                                                    return <span style={{ color: ecartColor(spEcart), fontWeight: 600 }}>{fmtEcart(spEcart)}</span>;
                                                   })() : <span className="text-muted">—</span>}
                                                 </td>
                                               </tr>
@@ -1249,13 +1280,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                         <span className="badge bg-primary">{fmtJH(profilVol)} JH planifiés</span>
                                         {profilTs > 0 && (
                                           <span className="badge" style={{ backgroundColor: progressColor(profilPct ?? 0) }}>
-                                            {fmtJH(profilTs)} JH réalisés{profilPct != null ? ` · ${profilPct}%` : ""}
+                                            {fmtJH(profilTs)} JH réalisés
                                           </span>
                                         )}
                                         {profilEcart !== null && (
                                           <span className="badge" style={{ backgroundColor: ecartColor(profilEcart) }}
                                             title={profilEcart >= 0 ? "Temps restant" : "Dépassement"}>
-                                            {fmtEcart(profilEcart)} JH passés
+                                            {fmtEcart(profilEcart)} JH Tps passés
                                           </span>
                                         )}
                                         <span className="badge bg-success">{profilAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</span>
@@ -1895,17 +1926,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
             <Form.Group className="mb-3">
               <Form.Label className="d-flex align-items-center gap-2">
                 Temps de réalisation (JH)
-                {fVolume > 0 && fTimeSpent != null && (() => {
-                  const pct = Math.round((fTimeSpent / fVolume) * 100);
-                  return <span className={`badge ${pct > 100 ? "bg-danger" : pct >= 80 ? "bg-warning text-dark" : "bg-success"}`} style={{ fontSize: "0.7rem" }}>{pct}%</span>;
-                })()}
               </Form.Label>
               <Form.Control type="number" step="0.5" min="0" placeholder="0" value={fTimeSpent ?? ""} onChange={e => setFTimeSpent(e.target.value ? +e.target.value : null)} onWheel={e => (e.target as HTMLInputElement).blur()} disabled={saving} />
               {fVolume > 0 && fTimeSpent != null && (
                 <div className="mt-2">
-                  <div style={{ height: 6, backgroundColor: "#e9ecef", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ width: `${Math.min(Math.round((fTimeSpent / fVolume) * 100), 100)}%`, height: "100%", backgroundColor: progressColor(Math.round((fTimeSpent / fVolume) * 100)), borderRadius: 3, transition: "width 0.2s" }} />
-                  </div>
                   <div className="text-muted small mt-1">
                     {fTimeSpent} JH réalisés sur {fVolume} JH planifiés
                     {fTimeSpent > fVolume && <span className="text-danger fw-bold ms-2">⚠ Dépassement</span>}
@@ -1925,7 +1949,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                       <span style={{ fontSize: "1rem", fontWeight: 700, color: ecartColor(ecart) }}
                         title={ecart >= 0 ? `${ecart.toFixed(1)} JH restants sur le planning` : `Dépassement de ${Math.abs(ecart).toFixed(1)} JH`}>
                         {fmtEcart(ecart)} JH
-                        {ecart < 0 && <span className="ms-1" style={{ fontSize: "0.8rem" }}>⚠</span>}
+                        {ecart < 0 && <span className="ms-1" style={{ fontSize: "0.8rem" }}></span>}
                       </span>
                     );
                   })()}

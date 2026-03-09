@@ -288,11 +288,11 @@ const ValidateTaskCard: React.FC<{
                 <FaClock size={9} />{isOverdue ? "⚠ " : ""}Deadline : {fmtDateTime(task.deadLine)}
               </span>
             )}
-            {timeSpent != null && (
+            {/* {timeSpent != null && (
               <span className="vld-meta-chip" style={{ color: progressColor(pct ?? 0) }}>
                 <FaHourglassHalf size={9} />{timeSpent} JH passés{pct != null && ` (${pct}%)`}
               </span>
-            )}
+            )} */}
           </div>
           {pct != null && (
             <div className="vld-progress-wrap">
