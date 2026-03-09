@@ -3,6 +3,7 @@ import {
   FaChevronDown, FaChevronUp, FaUser, FaClock, FaFolderOpen, FaBriefcase,
   FaCheckCircle, FaTimesCircle, FaSpinner, FaInbox, FaTag,
   FaLayerGroup, FaCoins, FaBook, FaTimes, FaHourglassHalf,
+  FaBoxOpen, FaStream, FaBolt, FaGift,
 } from "react-icons/fa";
 
 import "./TachesAValiderBacklog.css";
@@ -21,6 +22,14 @@ const fmtDateTime = (iso?: string | null) => {
       day: "2-digit", month: "short", year: "numeric",
       hour: "2-digit", minute: "2-digit",
     });
+  } catch { return iso; }
+};
+
+const fmtDate = (iso?: string | null) => {
+  if (!iso) return null;
+  const n = iso.endsWith("Z") ? iso.slice(0, -1) : iso;
+  try {
+    return new Date(n).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
   } catch { return iso; }
 };
 
@@ -58,6 +67,86 @@ const ProjetLeadChips: React.FC<{ task: BacklogLineProfilAsTask }> = ({ task }) 
   </>
 );
 
+// ─── BacklogContextBreadcrumb — fil d'Ariane Lot › Phase › Sprint ─────────────
+const BacklogContextBreadcrumb: React.FC<{ task: BacklogLineProfilAsTask }> = ({ task }) => {
+  const lotNom    = (task.line as any).lotNom    ?? (task.line as any).lot?.name    ?? null;
+  const phaseNom  = (task.line as any).phaseNom  ?? (task.line as any).phase?.name  ?? null;
+  const sprintNom = (task.line as any).sprintNom ?? (task.line as any).sprint?.name ?? null;
+
+  if (!lotNom && !phaseNom && !sprintNom) return null;
+
+  return (
+    <div className="vld-breadcrumb">
+      {lotNom && (
+        <span className="vld-breadcrumb-item vld-breadcrumb-item--lot">
+          <FaBoxOpen size={9} /> {lotNom}
+        </span>
+      )}
+      {phaseNom && (
+        <>
+          {lotNom && <span className="vld-breadcrumb-sep">›</span>}
+          <span className="vld-breadcrumb-item vld-breadcrumb-item--phase">
+            <FaStream size={9} /> {phaseNom}
+          </span>
+        </>
+      )}
+      {sprintNom && (
+        <>
+          {(lotNom || phaseNom) && <span className="vld-breadcrumb-sep">›</span>}
+          <span className="vld-breadcrumb-item vld-breadcrumb-item--sprint">
+            <FaBolt size={9} /> {sprintNom}
+          </span>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── DelivrablesList ─────────────────────────────────────────────────────────
+const DelivrablesList: React.FC<{ task: BacklogLineProfilAsTask }> = ({ task }) => {
+  const deliverables: any[] = (task.line as any).deliverables ?? (task.line as any).livrables ?? [];
+  if (!deliverables.length) return null;
+
+  return (
+    <div className="vld-section">
+      <div className="vld-section-title"><FaGift size={10} /> Livrables</div>
+      <div className="vld-deliverables">
+        {deliverables.map((d: any, i: number) => {
+          const isDelivered = d.isDelivered ?? d.livre ?? false;
+          const dlDate = d.deliveryDate ?? d.dateLivraison ?? null;
+          const dlDateFmt = fmtDate(dlDate);
+          const isLate = dlDate && !isDelivered && new Date(dlDate) < new Date();
+          return (
+            <div
+              key={d.id ?? i}
+              className={[
+                "vld-deliverable-item",
+                isDelivered ? "vld-deliverable-item--done" : "",
+                isLate      ? "vld-deliverable-item--late" : "",
+              ].filter(Boolean).join(" ")}
+            >
+              <span className="vld-deliverable-icon">
+                {isDelivered
+                  ? <FaCheckCircle size={11} style={{ color: "#10b981" }} />
+                  : <FaGift size={11} style={{ color: isLate ? "#ef4444" : "#f97316" }} />
+                }
+              </span>
+              <span className="vld-deliverable-name">{d.name ?? d.nom}</span>
+              {dlDateFmt && (
+                <span className={`vld-deliverable-date${isLate ? " vld-deliverable-date--late" : ""}`}>
+                  {isLate ? "⚠ " : ""}{dlDateFmt}
+                </span>
+              )}
+              {isDelivered && <span className="vld-deliverable-badge">Livré</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── HistoryTimeline ─────────────────────────────────────────────────────────
 const HistoryTimeline: React.FC<{ history: BacklogTaskStatusHistory[] }> = ({ history }) => (
   <div className="vld-history">
     {[...history].reverse().map(h => {
@@ -82,10 +171,10 @@ const ValidationPanel: React.FC<{
   taskId: number; service: BacklogTaskService;
   onDecision: (h: BacklogTaskStatusHistory) => void;
 }> = ({ taskId, service, onDecision }) => {
-  const [mode, setMode]     = useState<"valider" | "modifier" | null>(null);
+  const [mode, setMode]       = useState<"valider" | "modifier" | null>(null);
   const [comment, setComment] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!mode) return;
@@ -169,12 +258,16 @@ const ValidateTaskCard: React.FC<{
       <div className="vld-card-header" onClick={() => setOpen(v => !v)} role="button" tabIndex={0}
         onKeyDown={e => e.key === "Enter" && setOpen(v => !v)}>
         <div className="vld-card-main">
-          {/* Bandeau projet + lead */}
+          {/* Projet + Lead */}
           {(task.projetNom || task.leadNom) && (
             <div className="vld-card-context">
               <ProjetLeadChips task={task} />
             </div>
           )}
+
+          {/* ── Fil d'Ariane Lot › Phase › Sprint ── */}
+          <BacklogContextBreadcrumb task={task} />
+
           <div className="vld-card-toprow">
             <span className="vld-card-epic"><FaTag size={9} />{task.line.epic}</span>
             <StatusBadge statusId={currentStatus.status.id} />
@@ -220,6 +313,44 @@ const ValidateTaskCard: React.FC<{
 
       {open && (
         <div className="vld-card-body">
+
+          {/* ── Section Contexte Backlog ── */}
+          <div className="vld-section">
+            <div className="vld-section-title"><FaBoxOpen size={10} /> Contexte backlog</div>
+            <div className="vld-context-detail">
+              {(() => {
+                const lotNom    = (task.line as any).lotNom    ?? (task.line as any).lot?.name    ?? null;
+                const phaseNom  = (task.line as any).phaseNom  ?? (task.line as any).phase?.name  ?? null;
+                const sprintNom = (task.line as any).sprintNom ?? (task.line as any).sprint?.name ?? null;
+                return (
+                  <>
+                    {lotNom && (
+                      <div className="vld-context-row">
+                        <span className="vld-context-label"><FaBoxOpen size={9} /> Lot</span>
+                        <span className="vld-context-value">{lotNom}</span>
+                      </div>
+                    )}
+                    {phaseNom && (
+                      <div className="vld-context-row">
+                        <span className="vld-context-label"><FaStream size={9} /> Phase</span>
+                        <span className="vld-context-value">{phaseNom}</span>
+                      </div>
+                    )}
+                    {sprintNom && (
+                      <div className="vld-context-row">
+                        <span className="vld-context-label"><FaBolt size={9} /> Sprint</span>
+                        <span className="vld-context-value">{sprintNom}</span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* ── Livrables ── */}
+          <DelivrablesList task={task} />
+
           {task.line.description && (
             <div className="vld-section">
               <div className="vld-section-title"><FaBook size={10} /> Description</div>

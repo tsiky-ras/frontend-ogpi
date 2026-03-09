@@ -3,6 +3,7 @@ import {
   FaChevronDown, FaChevronUp, FaUser, FaClock, FaFolderOpen, FaBriefcase,
   FaCheckCircle, FaArrowRight, FaSpinner, FaInbox, FaTimesCircle,
   FaHourglassHalf, FaTag, FaLayerGroup, FaBook, FaCoins, FaEdit,
+  FaBoxOpen, FaStream, FaBolt, FaGift,
 } from "react-icons/fa";
 
 import "./MesTachesBacklog.css";
@@ -23,6 +24,15 @@ const fmtDateTime = (iso?: string | null) => {
     });
   } catch { return iso; }
 };
+
+const fmtDate = (iso?: string | null) => {
+  if (!iso) return null;
+  const n = iso.endsWith("Z") ? iso.slice(0, -1) : iso;
+  try {
+    return new Date(n).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+  } catch { return iso; }
+};
+
 
 const progressColor = (pct: number) =>
   pct > 100 ? "#dc3545" : pct >= 80 ? "#ffc107" : "#198754";
@@ -69,6 +79,85 @@ const ProjetLeadChips: React.FC<{ task: BacklogLineProfilAsTask }> = ({ task }) 
     )}
   </>
 );
+
+// ─── BacklogContextBreadcrumb — fil d'Ariane Lot › Phase › Sprint ─────────────
+const BacklogContextBreadcrumb: React.FC<{ task: BacklogLineProfilAsTask }> = ({ task }) => {
+  const lotNom    = (task.line as any).lotNom    ?? (task.line as any).lot?.name    ?? null;
+  const phaseNom  = (task.line as any).phaseNom  ?? (task.line as any).phase?.name  ?? null;
+  const sprintNom = (task.line as any).sprintNom ?? (task.line as any).sprint?.name ?? null;
+
+  if (!lotNom && !phaseNom && !sprintNom) return null;
+
+  return (
+    <div className="btb-breadcrumb">
+      {lotNom && (
+        <span className="btb-breadcrumb-item btb-breadcrumb-item--lot">
+          <FaBoxOpen size={9} /> {lotNom}
+        </span>
+      )}
+      {phaseNom && (
+        <>
+          {lotNom && <span className="btb-breadcrumb-sep">›</span>}
+          <span className="btb-breadcrumb-item btb-breadcrumb-item--phase">
+            <FaStream size={9} /> {phaseNom}
+          </span>
+        </>
+      )}
+      {sprintNom && (
+        <>
+          {(lotNom || phaseNom) && <span className="btb-breadcrumb-sep">›</span>}
+          <span className="btb-breadcrumb-item btb-breadcrumb-item--sprint">
+            <FaBolt size={9} /> {sprintNom}
+          </span>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── DelivrablesList — livrables liés à la ligne ─────────────────────────────
+const DelivrablesList: React.FC<{ task: BacklogLineProfilAsTask }> = ({ task }) => {
+  const deliverables: any[] = (task.line as any).deliverables ?? (task.line as any).livrables ?? [];
+  if (!deliverables.length) return null;
+
+  return (
+    <div className="btb-section">
+      <div className="btb-section-title"><FaGift size={10} /> Livrables</div>
+      <div className="btb-deliverables">
+        {deliverables.map((d: any, i: number) => {
+          const isDelivered = d.isDelivered ?? d.livre ?? false;
+          const dlDate = d.deliveryDate ?? d.dateLivraison ?? null;
+          const dlDateFmt = fmtDate(dlDate);
+          const isLate = dlDate && !isDelivered && new Date(dlDate) < new Date();
+          return (
+            <div
+              key={d.id ?? i}
+              className={[
+                "btb-deliverable-item",
+                isDelivered ? "btb-deliverable-item--done" : "",
+                isLate      ? "btb-deliverable-item--late" : "",
+              ].filter(Boolean).join(" ")}
+            >
+              <span className="btb-deliverable-icon">
+                {isDelivered
+                  ? <FaCheckCircle size={11} style={{ color: "#10b981" }} />
+                  : <FaGift size={11} style={{ color: isLate ? "#ef4444" : "#f97316" }} />
+                }
+              </span>
+              <span className="btb-deliverable-name">{d.name ?? d.nom}</span>
+              {dlDateFmt && (
+                <span className={`btb-deliverable-date${isLate ? " btb-deliverable-date--late" : ""}`}>
+                  {isLate ? "⚠ " : ""}{dlDateFmt}
+                </span>
+              )}
+              {isDelivered && <span className="btb-deliverable-badge">Livré</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 // ─── ProgressBar ─────────────────────────────────────────────────────────────
 const ProgressBar: React.FC<{ timeSpent: number; volume: number }> = ({ timeSpent, volume }) => {
@@ -121,13 +210,15 @@ const TimeSpentModal: React.FC<TimeSpentModalProps> = ({ task, service, onUpdate
           <button className="btb-modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="btb-modal-body">
-          {/* Projet + Lead */}
           {(task.projetNom || task.leadNom) && (
             <div className="btb-modal-context">
               {task.projetNom && <span><FaFolderOpen size={10} /> <strong>{task.projetNom}</strong></span>}
               {task.leadNom   && <span><FaBriefcase size={10} /> {task.leadNom}</span>}
             </div>
           )}
+
+          {/* Fil d'Ariane dans la modal */}
+          <BacklogContextBreadcrumb task={task} />
 
           {error && <div className="btb-comment-error">{error}</div>}
 
@@ -151,7 +242,7 @@ const TimeSpentModal: React.FC<TimeSpentModalProps> = ({ task, service, onUpdate
 
           {task.deadLine && (
             <div className="btb-modal-info">
-              <FaClock size={10} /> 
+              <FaClock size={10} />
               <span> Deadline : {fmtDateTime(task.deadLine)}</span>
             </div>
           )}
@@ -308,12 +399,16 @@ const TaskCard: React.FC<{ task: BacklogLineProfilAsTask; service: BacklogTaskSe
         <div className="btb-card-header" onClick={() => setOpen(v => !v)} role="button" tabIndex={0}
           onKeyDown={e => e.key === "Enter" && setOpen(v => !v)}>
           <div className="btb-card-main">
-            {/* Projet + Lead en bandeau */}
+            {/* Projet + Lead */}
             {(task.projetNom || task.leadNom) && (
               <div className="btb-card-context">
                 <ProjetLeadChips task={task} />
               </div>
             )}
+
+            {/* ── Fil d'Ariane Lot › Phase › Sprint ── */}
+            <BacklogContextBreadcrumb task={task} />
+
             <div className="btb-card-toprow">
               <span className="btb-card-epic"><FaTag size={9} />{task.line.epic}</span>
               <StatusBadge statusId={currentStatus.status.id} />
@@ -340,13 +435,50 @@ const TaskCard: React.FC<{ task: BacklogLineProfilAsTask; service: BacklogTaskSe
                 </span>
               )}
             </div>
-            {pct != null && <ProgressBar timeSpent={timeSpent!} volume={task.volume} />}
           </div>
           <button className="btb-chevron">{open ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}</button>
         </div>
 
         {open && (
           <div className="btb-card-body">
+
+            {/* ── Section Contexte Backlog ── */}
+            <div className="btb-section">
+              <div className="btb-section-title"><FaBoxOpen size={10} /> Contexte backlog</div>
+              <div className="btb-context-detail">
+                {(() => {
+                  const lotNom    = (task.line as any).lotNom    ?? (task.line as any).lot?.name    ?? null;
+                  const phaseNom  = (task.line as any).phaseNom  ?? (task.line as any).phase?.name  ?? null;
+                  const sprintNom = (task.line as any).sprintNom ?? (task.line as any).sprint?.name ?? null;
+                  return (
+                    <>
+                      {lotNom && (
+                        <div className="btb-context-row">
+                          <span className="btb-context-label"><FaBoxOpen size={9} /> Lot</span>
+                          <span className="btb-context-value">{lotNom}</span>
+                        </div>
+                      )}
+                      {phaseNom && (
+                        <div className="btb-context-row">
+                          <span className="btb-context-label"><FaStream size={9} /> Phase</span>
+                          <span className="btb-context-value">{phaseNom}</span>
+                        </div>
+                      )}
+                      {sprintNom && (
+                        <div className="btb-context-row">
+                          <span className="btb-context-label"><FaBolt size={9} /> Sprint</span>
+                          <span className="btb-context-value">{sprintNom}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* ── Livrables ── */}
+            <DelivrablesList task={task} />
+
             {task.line.description && (
               <div className="btb-section">
                 <div className="btb-section-title"><FaBook size={10} /> Description</div>
@@ -387,7 +519,7 @@ const TaskCard: React.FC<{ task: BacklogLineProfilAsTask; service: BacklogTaskSe
                 )}
               </div>
               {task.deadLine && (
-                <div className="btb-section-title" style={{ borderColor: isOverdue ? "#dc3545" : "#e2e8f0" }}>
+                <div className="btb-deadline-detail" style={{ borderColor: isOverdue ? "#dc3545" : "#e2e8f0" }}>
                   <FaClock size={10} style={{ color: isOverdue ? "#dc3545" : "#64748b" }} />
                   <span style={{ color: isOverdue ? "#dc3545" : "#64748b", fontWeight: isOverdue ? "bold" : "normal" }}>
                     {isOverdue ? "⚠ Deadline dépassée : " : "Deadline : "}{fmtDateTime(task.deadLine)}

@@ -1,4 +1,4 @@
-  import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
   import Sortable from "sortablejs";
 
   import Button from "../../../../components/button/Button.tsx";
@@ -58,6 +58,34 @@
     collaborateurs: any[];
   }
 
+  const STATUS_TASK_META: Record<number, { label: string; color: string; bg: string; dot: string }> = {
+    1: { label: "Attribué",   color: "#3b82f6", bg: "#eff6ff", dot: "#3b82f6" },
+    2: { label: "Réattribué", color: "#f59e0b", bg: "#fffbeb", dot: "#f59e0b" },
+    3: { label: "À modifier", color: "#ef4444", bg: "#fef2f2", dot: "#ef4444" },
+    4: { label: "En cours",   color: "#8b5cf6", bg: "#f5f3ff", dot: "#8b5cf6" },
+    5: { label: "Soumis",     color: "#f97316", bg: "#fff7ed", dot: "#f97316" },
+    6: { label: "Validé",     color: "#10b981", bg: "#ecfdf5", dot: "#10b981" },
+  };
+
+  const taskStatusMeta = (id?: number | null) =>
+    id != null && STATUS_TASK_META[id] ? STATUS_TASK_META[id] : null;
+
+  const TaskStatusBadge: React.FC<{ statusId?: number | null }> = ({ statusId }) => {
+    const m = taskStatusMeta(statusId);
+    if (!m) return null;
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 3,
+        fontSize: "0.6rem", fontWeight: 600, color: m.color,
+        background: m.bg, border: `1px solid ${m.color}33`,
+        borderRadius: 10, padding: "1px 5px", whiteSpace: "nowrap", letterSpacing: "0.02em",
+      }}>
+        <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: m.dot, flexShrink: 0 }} />
+        {m.label}
+      </span>
+    );
+  };
+
   // ── Helper : formate une date ISO en "jj mmm aaaa" ──────────────────────────
   const fmtDate = (iso: string | null | undefined): string => {
     if (!iso) return "";
@@ -69,14 +97,12 @@
   const DateBadge: React.FC<{ debut?: string | null; fin?: string | null; style?: React.CSSProperties }> = ({ debut, fin, style }) => {
     if (!debut && !fin) return null;
     return (
-      <span
-        style={{
-          fontSize: "0.7rem", color: "#555", background: "#e8f4fd",
-          border: "1px solid #b8d9f0", borderRadius: 4, padding: "1px 6px",
-          whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 3,
-          ...style,
-        }}
-      >
+      <span style={{
+        fontSize: "0.7rem", color: "#555", background: "#e8f4fd",
+        border: "1px solid #b8d9f0", borderRadius: 4, padding: "1px 6px",
+        whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 3,
+        ...style,
+      }}>
         {fmtDate(debut)}{fin && fin !== debut ? ` → ${fmtDate(fin)}` : ""}
       </span>
     );
@@ -87,6 +113,33 @@
     if (pct > 100) return "#dc3545";
     if (pct >= 80)  return "#ffc107";
     return "#198754";
+  };
+
+  // ── Couleur écart (temps passé = planifié - réalisation) ─────────────────────
+  // Positif = il reste du temps (bon), Négatif = dépassement (mauvais)
+  const ecartColor = (ecart: number): string => {
+    if (ecart < 0) return "#dc3545";  // dépassement
+    if (ecart === 0) return "#6c757d"; // pile poil
+    return "#198754";                  // du temps restant
+  };
+
+  // ── Mini barre de progression inline ─────────────────────────────────────────
+  const MiniProgressBar: React.FC<{ spent: number; planned: number }> = ({ spent, planned }) => {
+    if (planned <= 0 || spent == null) return null;
+    const pct = Math.round((spent / planned) * 100);
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+        <div style={{ flex: 1, height: 4, backgroundColor: "#e9ecef", borderRadius: 2, overflow: "hidden", minWidth: 40 }}>
+          <div style={{
+            width: `${Math.min(pct, 100)}%`, height: "100%",
+            backgroundColor: progressColor(pct), borderRadius: 2, transition: "width 0.3s",
+          }} />
+        </div>
+        <span style={{ fontSize: "0.62rem", color: progressColor(pct), fontWeight: 600, whiteSpace: "nowrap" }}>
+          {pct}%{pct > 100 ? " ⚠" : ""}
+        </span>
+      </div>
+    );
   };
 
   const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
@@ -106,7 +159,6 @@
       planning   : new BacklogPlanningService(api),
     }).current;
 
-    // ── État principal ─────────────────────────────────────────────────────────
     const [backlog,     setBacklog]     = useState<Backlog | null>(null);
     const [loading,     setLoading]     = useState(false);
     const [error,       setError]       = useState<string | null>(null);
@@ -184,6 +236,7 @@
     });
     const [fVolume,    setFVolume]    = useState(0);
     const [fDeadline,  setFDeadline]  = useState<string>("");
+    // ── fTimeSpent = "temps de réalisation" (anciennement "temps passé") ──
     const [fTimeSpent, setFTimeSpent] = useState<number | null>(null);
     const [fCol,       setFCol]       = useState({ name: "", type: "TEXT" as BacklogColumnType });
     const [fCellVal,   setFCellVal]   = useState("");
@@ -205,7 +258,6 @@
       setBacklog(full);
       const sortedLots: BacklogLot[] = (full.lots ?? []).sort((a: any, b: any) => a.order - b.order);
       setLots(sortedLots);
-
       const spMap  = new Map<number, BacklogSprint[]>();
       const dlvMap = new Map<number, BacklogDelivrableProjet[]>();
       for (const lot of sortedLots) {
@@ -224,13 +276,8 @@
       }
       setSprints(spMap);
       setDeliverables(dlvMap);
-
       const rawProfils: any[] = full.profilsProjet ?? full.profils ?? [];
-      setProfils(
-        rawProfils
-          .sort((a: any, b: any) => a.order - b.order)
-          .map((p: any) => ({ ...p, collaborateurs: p.collaborateurs ?? [] }))
-      );
+      setProfils(rawProfils.sort((a: any, b: any) => a.order - b.order).map((p: any) => ({ ...p, collaborateurs: p.collaborateurs ?? [] })));
       setLines((full.lines ?? []).sort((a: any, b: any) => a.order - b.order));
     }, []);
 
@@ -263,21 +310,13 @@
     }, [collaborateurService]);
 
     const fetchBacklogHeader = useCallback(async () => {
-      setLoadingBacklogs(true);
-      setError(null);
+      setLoadingBacklogs(true); setError(null);
       try {
         const existingHeader = await svc.backlog.getHeaderByProjetId(projetId);
-        if (existingHeader?.id) {
-          setBacklogHeader(existingHeader);
-          setSelectedBacklogId(existingHeader.id);
-          return;
-        }
+        if (existingHeader?.id) { setBacklogHeader(existingHeader); setSelectedBacklogId(existingHeader.id); return; }
         setBacklogHeader(null);
-      } catch {
-        setError("Impossible de charger le backlog.");
-      } finally {
-        setLoadingBacklogs(false);
-      }
+      } catch { setError("Impossible de charger le backlog."); }
+      finally { setLoadingBacklogs(false); }
     }, [projetId]);
 
     const loadFull = useCallback(async () => {
@@ -287,16 +326,9 @@
         const full = await svc.backlog.getFullById(selectedBacklogId);
         if (!full) return;
         hydrateFromFull(full);
-        await Promise.all([
-          loadLineProfils(full.id),
-          loadColumnsAndValues(full),
-          loadAllCollabs(),
-        ]);
-      } catch {
-        setError("Impossible de charger le backlog.");
-      } finally {
-        setLoading(false);
-      }
+        await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full), loadAllCollabs()]);
+      } catch { setError("Impossible de charger le backlog."); }
+      finally { setLoading(false); }
     }, [selectedBacklogId]);
 
     const reload = useCallback(async () => {
@@ -304,24 +336,16 @@
       setLoading(true);
       try {
         const full = await svc.backlog.getFullById(selectedBacklogId);
-        if (full) {
-          hydrateFromFull(full);
-          await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full)]);
-        }
-      } catch {
-        setError("Impossible de recharger les données.");
-      } finally {
-        setLoading(false);
-      }
+        if (full) { hydrateFromFull(full); await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full)]); }
+      } catch { setError("Impossible de recharger les données."); }
+      finally { setLoading(false); }
     }, [selectedBacklogId]);
 
     useEffect(() => {
       if (!leadId) { setDeviseAbr("€"); return; }
       (async () => {
-        try {
-          const techFin = await leadTechFinService.getByLeadId(leadId);
-          setDeviseAbr((techFin && techFin.devise?.abrDevise) || "€");
-        } catch { setDeviseAbr("€"); }
+        try { const techFin = await leadTechFinService.getByLeadId(leadId); setDeviseAbr((techFin && techFin.devise?.abrDevise) || "€"); }
+        catch { setDeviseAbr("€"); }
       })();
     }, [leadId]);
 
@@ -336,9 +360,7 @@
       fetchBacklogHeader();
     }, [show, projetId]);
 
-    useEffect(() => {
-      if (selectedBacklogId) loadFull();
-    }, [selectedBacklogId]);
+    useEffect(() => { if (selectedBacklogId) loadFull(); }, [selectedBacklogId]);
 
     const handleBackToList = () => {
       setSelectedBacklogId(null);
@@ -366,18 +388,21 @@
       const phases = (lot.phases ?? []) as any[];
       return phases.reduce<{ debut: string | null; fin: string | null }>(
         (acc, p) => ({
-          debut: !acc.debut ? (p.dateDebut ?? null)
-            : !p.dateDebut ? acc.debut
-            : p.dateDebut < acc.debut ? p.dateDebut : acc.debut,
-          fin: !acc.fin ? (p.dateFin ?? null)
-            : !p.dateFin ? acc.fin
-            : p.dateFin > acc.fin ? p.dateFin : acc.fin,
+          debut: !acc.debut ? (p.dateDebut ?? null) : !p.dateDebut ? acc.debut : p.dateDebut < acc.debut ? p.dateDebut : acc.debut,
+          fin: !acc.fin ? (p.dateFin ?? null) : !p.dateFin ? acc.fin : p.dateFin > acc.fin ? p.dateFin : acc.fin,
         }),
         { debut: null, fin: null }
       );
     };
 
     const fmtJH = (v: number) => v.toFixed(v % 1 === 0 ? 0 : 1);
+
+    // ── Formate l'écart : +2.5 JH (vert) / -1 JH (rouge) / 0 (gris) ────────
+    const fmtEcart = (ecart: number): string => {
+      const abs = Math.abs(ecart);
+      const str = abs.toFixed(abs % 1 === 0 ? 0 : 1);
+      return ecart > 0 ? `+${str}` : ecart < 0 ? `-${str}` : `${str}`;
+    };
 
     const toggleLine   = (id: number) => setExpandedLines(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
     const togglePhase  = (id: number) => setExpandedPhases(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
@@ -400,35 +425,62 @@
 
     // ══════════════════════════════════════════════════════════════════════
     // CALCULS RÉCAPITULATIFS
+    // timeSpent  = "temps de réalisation" (saisi par l'utilisateur)
+    // ecart      = planifié - réalisation  ("temps passé" affiché)
     // ══════════════════════════════════════════════════════════════════════
 
+    // Helper : somme JH planifiés pour un set de lineIds (filtré par profil optionnel)
     const getJhForIds = (lineIds: Set<number>, profilId?: number) =>
       lineProfils
         .filter(lp => lineIds.has(lp.lineId) && (profilId == null || (lp.profil as any)?.id === profilId))
         .reduce((s, lp) => s + lp.volume, 0);
 
+    // Helper : somme temps de réalisation pour un set de lineIds (filtré par profil optionnel)
+    const getTsForIds = (lineIds: Set<number>, profilId?: number) =>
+      lineProfils
+        .filter(lp => lineIds.has(lp.lineId) && (profilId == null || (lp.profil as any)?.id === profilId))
+        .reduce((s, lp) => s + (lp.timeSpent ?? 0), 0);
+
     const lotRecap = lots.map(lot => {
       const phaseIds = new Set((lot.phases ?? []).map((p: any) => p.id));
       const lotLineIds = new Set(lines.filter(l => phaseIds.has((l as any).phaseId)).map(l => l.id));
       const lotVol = getJhForIds(lotLineIds);
-      const byProfil = profils.map(p => ({ profil: p, vol: getJhForIds(lotLineIds, p.id) }));
+      const lotTs  = getTsForIds(lotLineIds);
+      const byProfil = profils.map(p => ({
+        profil: p,
+        vol: getJhForIds(lotLineIds, p.id),
+        ts:  getTsForIds(lotLineIds, p.id),
+      }));
       const phasesData = ((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
         const phLineIds = new Set(lines.filter(l => (l as any).phaseId === phase.id).map(l => l.id));
         const phVol = getJhForIds(phLineIds);
-        const phByProfil = profils.map(p => ({ profil: p, vol: getJhForIds(phLineIds, p.id) }));
+        const phTs  = getTsForIds(phLineIds);
+        const phByProfil = profils.map(p => ({
+          profil: p,
+          vol: getJhForIds(phLineIds, p.id),
+          ts:  getTsForIds(phLineIds, p.id),
+        }));
         const phaseSpr = sprints.get(phase.id) ?? [];
         const sprintsData = phaseSpr.map(sp => {
           const spLineIds = new Set(lines.filter(l => (l as any).sprintId === sp.id).map(l => l.id));
           const spVol = getJhForIds(spLineIds);
-          const spByProfil = profils.map(p => ({ profil: p, vol: getJhForIds(spLineIds, p.id) }));
-          return { sprint: sp, vol: spVol, byProfil: spByProfil };
+          const spTs  = getTsForIds(spLineIds);
+          const spByProfil = profils.map(p => ({
+            profil: p,
+            vol: getJhForIds(spLineIds, p.id),
+            ts:  getTsForIds(spLineIds, p.id),
+          }));
+          return { sprint: sp, vol: spVol, ts: spTs, byProfil: spByProfil };
         });
-        return { phase, vol: phVol, byProfil: phByProfil, sprints: sprintsData };
+        return { phase, vol: phVol, ts: phTs, byProfil: phByProfil, sprints: sprintsData };
       });
-      return { lot, vol: lotVol, byProfil, phases: phasesData };
+      return { lot, vol: lotVol, ts: lotTs, byProfil, phases: phasesData };
     });
 
     const tableGrandJH = lineProfils.reduce((s, lp) => s + lp.volume, 0);
+    const tableGrandTs = lineProfils.reduce((s, lp) => s + (lp.timeSpent ?? 0), 0);
+    // Temps passé global = planifié - réalisation
+    const tableGrandEcart = tableGrandTs > 0 ? tableGrandJH - tableGrandTs : null;
 
     const leadIdRef = useRef(leadId);
     useEffect(() => { leadIdRef.current = leadId; }, [leadId]);
@@ -440,18 +492,10 @@
     const handleCreateBacklog = async (item: CreateBacklogForProjetRequest) => {
       setSaving(true);
       try {
-        const created = await svc.backlog.createForProjet({
-          name: item.name, desc: item.desc, projetId,
-          leadId: leadIdRef.current, type: item.type,
-        });
-        setBacklogHeader(created);
-        setSelectedBacklogId(created.id);
-        setShowBacklogForm(false);
-      } catch {
-        setError("Impossible de créer le backlog.");
-      } finally {
-        setSaving(false);
-      }
+        const created = await svc.backlog.createForProjet({ name: item.name, desc: item.desc, projetId, leadId: leadIdRef.current, type: item.type });
+        setBacklogHeader(created); setSelectedBacklogId(created.id); setShowBacklogForm(false);
+      } catch { setError("Impossible de créer le backlog."); }
+      finally { setSaving(false); }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -501,16 +545,12 @@
       try {
         if (editPhase) {
           const updated = await svc.phase.update(editPhase.id, { name: fPhase.name });
-          setLots(prev => prev.map(l => l.id !== ctxLotId ? l : {
-            ...l, phases: (l.phases ?? []).map((p: any) => p.id === editPhase.id ? { ...p, ...updated } : p),
-          }));
+          setLots(prev => prev.map(l => l.id !== ctxLotId ? l : { ...l, phases: (l.phases ?? []).map((p: any) => p.id === editPhase.id ? { ...p, ...updated } : p) }));
         } else {
           const lot = lots.find(l => l.id === ctxLotId);
           const order = Math.max(0, ...((lot?.phases ?? []) as any[]).map(p => p.order)) + 1;
           const created = await svc.phase.create({ name: fPhase.name, order, lotId: ctxLotId });
-          setLots(prev => prev.map(l => l.id !== ctxLotId ? l : {
-            ...l, phases: [...(l.phases ?? []), { ...created, sprints: [], deliverables: [] }],
-          }));
+          setLots(prev => prev.map(l => l.id !== ctxLotId ? l : { ...l, phases: [...(l.phases ?? []), { ...created, sprints: [], deliverables: [] }] }));
           setSprints(prev => new Map(prev).set(created.id, []));
           setDeliverables(prev => new Map(prev).set(created.id, []));
         }
@@ -524,8 +564,7 @@
       try {
         await svc.phase.delete(phaseId);
         setLots(prev => prev.map(l => l.id !== lotId ? l : {
-          ...l, phases: (l.phases ?? []).filter((p: any) => p.id !== phaseId)
-                                        .map((p: any, i: number) => ({ ...p, order: i + 1 })),
+          ...l, phases: (l.phases ?? []).filter((p: any) => p.id !== phaseId).map((p: any, i: number) => ({ ...p, order: i + 1 })),
         }));
         setSprints(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
         setDeliverables(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
@@ -538,81 +577,39 @@
     // ══════════════════════════════════════════════════════════════════════
 
     const propagateDatesFromPhase = async (phaseId: number, phaseSprints: BacklogSprint[]) => {
-      const dates = phaseSprints
-        .filter(s => s.dateDebut || s.dateFin)
-        .reduce<{ debut: string | null; fin: string | null }>(
-          (acc, s) => ({
-            debut: !acc.debut ? (s.dateDebut ?? null)
-              : !s.dateDebut ? acc.debut
-              : s.dateDebut < acc.debut ? s.dateDebut : acc.debut,
-            fin: !acc.fin ? (s.dateFin ?? null)
-              : !s.dateFin ? acc.fin
-              : s.dateFin > acc.fin ? s.dateFin : acc.fin,
-          }),
-          { debut: null, fin: null }
-        );
-
-      await svc.phase.update(phaseId, {
-        dateDebut: dates.debut ?? undefined,
-        dateFin:   dates.fin   ?? undefined,
-      });
-
-      setLots(prev => prev.map(lot => ({
-        ...lot,
-        phases: (lot.phases ?? []).map((p: any) =>
-          p.id === phaseId ? { ...p, dateDebut: dates.debut, dateFin: dates.fin } : p
-        ),
-      })));
-
+      const dates = phaseSprints.filter(s => s.dateDebut || s.dateFin).reduce<{ debut: string | null; fin: string | null }>(
+        (acc, s) => ({
+          debut: !acc.debut ? (s.dateDebut ?? null) : !s.dateDebut ? acc.debut : s.dateDebut < acc.debut ? s.dateDebut : acc.debut,
+          fin: !acc.fin ? (s.dateFin ?? null) : !s.dateFin ? acc.fin : s.dateFin > acc.fin ? s.dateFin : acc.fin,
+        }), { debut: null, fin: null }
+      );
+      await svc.phase.update(phaseId, { dateDebut: dates.debut ?? undefined, dateFin: dates.fin ?? undefined });
+      setLots(prev => prev.map(lot => ({ ...lot, phases: (lot.phases ?? []).map((p: any) => p.id === phaseId ? { ...p, dateDebut: dates.debut, dateFin: dates.fin } : p) })));
       const parentLot = lots.find(l => (l.phases ?? []).some((p: any) => p.id === phaseId));
-      if (parentLot) {
-        await propagateDatesFromLot(parentLot.id, phaseId, dates);
-      }
+      if (parentLot) await propagateDatesFromLot(parentLot.id, phaseId, dates);
     };
 
-    const propagateDatesFromLot = async (
-      lotId: number,
-      updatedPhaseId?: number,
-      updatedPhaseDates?: { debut: string | null; fin: string | null }
-    ) => {
+    const propagateDatesFromLot = async (lotId: number, updatedPhaseId?: number, updatedPhaseDates?: { debut: string | null; fin: string | null }) => {
       const lot = lots.find(l => l.id === lotId);
       if (!lot) return;
-
       const phases = (lot.phases ?? []) as any[];
       const lotDates = phases.reduce<{ debut: string | null; fin: string | null }>(
         (acc, p) => {
           const pd = p.id === updatedPhaseId && updatedPhaseDates ? updatedPhaseDates.debut : (p.dateDebut ?? null);
           const pf = p.id === updatedPhaseId && updatedPhaseDates ? updatedPhaseDates.fin   : (p.dateFin   ?? null);
-          return {
-            debut: !acc.debut ? pd : !pd ? acc.debut : pd < acc.debut ? pd : acc.debut,
-            fin:   !acc.fin   ? pf : !pf ? acc.fin   : pf > acc.fin   ? pf : acc.fin,
-          };
-        },
-        { debut: null, fin: null }
+          return { debut: !acc.debut ? pd : !pd ? acc.debut : pd < acc.debut ? pd : acc.debut, fin: !acc.fin ? pf : !pf ? acc.fin : pf > acc.fin ? pf : acc.fin };
+        }, { debut: null, fin: null }
       );
-
-      await svc.lot.update(lotId, {
-        dateDebut: lotDates.debut ?? undefined,
-        dateFin:   lotDates.fin   ?? undefined,
-      });
-
-      setLots(prev => prev.map(l =>
-        l.id === lotId ? { ...l, dateDebut: lotDates.debut, dateFin: lotDates.fin } : l
-      ));
+      await svc.lot.update(lotId, { dateDebut: lotDates.debut ?? undefined, dateFin: lotDates.fin ?? undefined });
+      setLots(prev => prev.map(l => l.id === lotId ? { ...l, dateDebut: lotDates.debut, dateFin: lotDates.fin } : l));
     };
 
     // ══════════════════════════════════════════════════════════════════════
     // SPRINTS
     // ══════════════════════════════════════════════════════════════════════
 
-    const openAddSprint  = (phaseId: number) => {
-      setCtxPhaseId(phaseId); setEditSprint(null);
-      setFSprint({ name: "", startDate: "", endDate: "" }); setShowSprintModal(true);
-    };
-    const openEditSprint = (s: BacklogSprint, phaseId: number) => {
-      setCtxPhaseId(phaseId); setEditSprint(s);
-      setFSprint({ name: s.name, startDate: s.dateDebut ?? "", endDate: s.dateFin ?? "" }); setShowSprintModal(true);
-    };
+    const openAddSprint  = (phaseId: number) => { setCtxPhaseId(phaseId); setEditSprint(null); setFSprint({ name: "", startDate: "", endDate: "" }); setShowSprintModal(true); };
+    const openEditSprint = (s: BacklogSprint, phaseId: number) => { setCtxPhaseId(phaseId); setEditSprint(s); setFSprint({ name: s.name, startDate: s.dateDebut ?? "", endDate: s.dateFin ?? "" }); setShowSprintModal(true); };
 
     const saveSprint = async () => {
       if (!fSprint.name.trim() || ctxPhaseId === null) return;
@@ -621,40 +618,21 @@
       try {
         const existing = sprints.get(ctxPhaseId) ?? [];
         if (editSprint) {
-          const updated = await svc.phase.updateSprint(editSprint.id, {
-            name: fSprint.name, startDate: fSprint.startDate, endDate: fSprint.endDate,
-          });
+          const updated = await svc.phase.updateSprint(editSprint.id, { name: fSprint.name, startDate: fSprint.startDate, endDate: fSprint.endDate });
           updatedSprints = existing.map(s => s.id === editSprint.id
-            ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null }
-            : s
-          );
+            ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null } : s);
           setSprints(prev => new Map(prev).set(ctxPhaseId, updatedSprints));
         } else {
           const order = Math.max(0, ...existing.map(s => s.order)) + 1;
-          const created = await svc.phase.createSprint({
-            name: fSprint.name, order, phaseId: ctxPhaseId,
-            dateDebut: fSprint.startDate, dateFin: fSprint.endDate,
-          });
-          const createdWithDates: BacklogSprint = {
-            ...created,
-            dateDebut: created.dateDebut ?? (fSprint.startDate || null),
-            dateFin:   created.dateFin   ?? (fSprint.endDate   || null),
-          };
+          const created = await svc.phase.createSprint({ name: fSprint.name, order, phaseId: ctxPhaseId, dateDebut: fSprint.startDate, dateFin: fSprint.endDate });
+          const createdWithDates: BacklogSprint = { ...created, dateDebut: created.dateDebut ?? (fSprint.startDate || null), dateFin: created.dateFin ?? (fSprint.endDate || null) };
           updatedSprints = [...existing, createdWithDates];
           setSprints(prev => new Map(prev).set(ctxPhaseId, updatedSprints));
           setColumns(prev => new Map(prev).set(createdWithDates.id, []));
         }
         setShowSprintModal(false);
-      } catch (err) {
-        console.error("Erreur sauvegarde sprint:", err);
-        alert("Erreur lors de la sauvegarde du sprint.");
-        setSaving(false); setCtxPhaseId(null);
-        return;
-      }
-      if (fSprint.startDate || fSprint.endDate) {
-        try { await propagateDatesFromPhase(ctxPhaseId, updatedSprints); }
-        catch (err) { console.warn("Propagation dates échouée (sprint sauvegardé):", err); }
-      }
+      } catch (err) { console.error("Erreur sauvegarde sprint:", err); alert("Erreur lors de la sauvegarde du sprint."); setSaving(false); setCtxPhaseId(null); return; }
+      if (fSprint.startDate || fSprint.endDate) { try { await propagateDatesFromPhase(ctxPhaseId, updatedSprints); } catch (err) { console.warn("Propagation dates échouée:", err); } }
       setSaving(false); setCtxPhaseId(null);
     };
 
@@ -662,17 +640,9 @@
       if (!window.confirm("Supprimer ce sprint ?")) return;
       try {
         await svc.phase.deleteSprint(sprintId);
-        const updated = (sprints.get(phaseId) ?? [])
-          .filter(s => s.id !== sprintId)
-          .map((s, i) => ({ ...s, order: i + 1 }));
+        const updated = (sprints.get(phaseId) ?? []).filter(s => s.id !== sprintId).map((s, i) => ({ ...s, order: i + 1 }));
         setSprints(prev => new Map(prev).set(phaseId, updated));
-        setDeliverables(prev => {
-          const m = new Map(prev);
-          m.set(phaseId, (m.get(phaseId) ?? []).map(d =>
-            (d as any).sprintId === sprintId ? { ...d, sprintId: null } : d
-          ));
-          return m;
-        });
+        setDeliverables(prev => { const m = new Map(prev); m.set(phaseId, (m.get(phaseId) ?? []).map(d => (d as any).sprintId === sprintId ? { ...d, sprintId: null } : d)); return m; });
         try { await propagateDatesFromPhase(phaseId, updated); } catch(e) { console.warn(e); }
       } catch { alert("Impossible de supprimer le sprint."); }
     };
@@ -717,10 +687,7 @@
     const deliverLivrable = async (delivId: number, phaseId: number) => {
       try {
         await svc.phase.deliverDeliverable(delivId);
-        setDeliverables(prev => new Map(prev).set(
-          phaseId,
-          (prev.get(phaseId) ?? []).map(d => d.id === delivId ? { ...d, isDelivered: true } : d)
-        ));
+        setDeliverables(prev => new Map(prev).set(phaseId, (prev.get(phaseId) ?? []).map(d => d.id === delivId ? { ...d, isDelivered: true } : d)));
       } catch { alert({delivId}+"Impossible de marquer le livrable comme livré."); }
     };
 
@@ -729,17 +696,8 @@
     // ══════════════════════════════════════════════════════════════════════
 
     const openAddProfil  = () => { setEditProfil(null); setFProfil({ name: "", desc: "", tjm: 0, order: 0 }); setFCollabIds([]); setShowProfilModal(true); };
-    const openEditProfil = (p: ProfilFull) => {
-      setEditProfil(p);
-      setFProfil({ name: p.name, desc: p.desc ?? "", tjm: p.tjm, order: p.order });
-      setFCollabIds(p.collaborateurs.map((c: any) => c.id));
-      setShowProfilModal(true);
-    };
-
-    const openCollabModal = (p: ProfilFull) => {
-      setCollabProfil(p); setFCollabIds(p.collaborateurs.map((c: any) => c.id));
-      setCollabSearch(""); setShowCollabModal(true);
-    };
+    const openEditProfil = (p: ProfilFull) => { setEditProfil(p); setFProfil({ name: p.name, desc: p.desc ?? "", tjm: p.tjm, order: p.order }); setFCollabIds(p.collaborateurs.map((c: any) => c.id)); setShowProfilModal(true); };
+    const openCollabModal = (p: ProfilFull) => { setCollabProfil(p); setFCollabIds(p.collaborateurs.map((c: any) => c.id)); setCollabSearch(""); setShowCollabModal(true); };
 
     const saveProfil = async () => {
       if (!fProfil.name.trim() || !backlog?.id) return;
@@ -764,9 +722,7 @@
       setSaving(true);
       try {
         await svc.profil.replaceCollaborateurs(collabProfil.id, fCollabIds);
-        setProfils(prev => prev.map(p => p.id !== collabProfil.id ? p : {
-          ...p, collaborateurs: allCollabs.filter(c => fCollabIds.includes(c.id)),
-        }));
+        setProfils(prev => prev.map(p => p.id !== collabProfil.id ? p : { ...p, collaborateurs: allCollabs.filter(c => fCollabIds.includes(c.id)) }));
         setShowCollabModal(false);
       } catch { alert("Erreur lors de la mise à jour des collaborateurs."); }
       finally { setSaving(false); setCollabProfil(null); }
@@ -786,21 +742,13 @@
     // LIGNES
     // ══════════════════════════════════════════════════════════════════════
 
-    const openAddLine = () => {
-      setEditLine(null);
-      setFLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null });
-      setShowLineModal(true);
-    };
+    const openAddLine = () => { setEditLine(null); setFLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null }); setShowLineModal(true); };
 
     const openEditLine = (l: BacklogLine) => {
       setEditLine(l);
       const phaseId = (l as any).phaseId ?? null;
       const lot = getLotByPhaseId(phaseId);
-      setFLine({
-        epic: l.epic ?? "", userStory: l.userStory ?? "",
-        description: l.description ?? "", resultat: l.resultat ?? "",
-        lotId: lot?.id ?? null, phaseId, sprintId: (l as any).sprintId ?? null,
-      });
+      setFLine({ epic: l.epic ?? "", userStory: l.userStory ?? "", description: l.description ?? "", resultat: l.resultat ?? "", lotId: lot?.id ?? null, phaseId, sprintId: (l as any).sprintId ?? null });
       setShowLineModal(true);
     };
 
@@ -836,7 +784,7 @@
     };
 
     // ══════════════════════════════════════════════════════════════════════
-    // VOLUMES — avec deadline et timeSpent
+    // VOLUMES
     // ══════════════════════════════════════════════════════════════════════
 
     const openVolModal = (lineId: number, profilId: number) => {
@@ -845,11 +793,7 @@
       setEditLineProfil(existing ?? null);
       setFVolume(existing?.volume ?? 0);
       setFCollabId(existing?.collaborateur?.id ?? null);
-      setFDeadline(
-        existing?.deadLine
-          ? (existing.deadLine.endsWith("Z") ? existing.deadLine.slice(0, -1) : existing.deadLine).substring(0, 16)
-          : ""
-      );  
+      setFDeadline(existing?.deadLine ? (existing.deadLine.endsWith("Z") ? existing.deadLine.slice(0, -1) : existing.deadLine).substring(0, 16) : "");
       setFTimeSpent(existing?.timeSpent ?? null);
       setShowVolModal(true);
     };
@@ -858,14 +802,7 @@
       if (ctxLineId === null || ctxProfilId === null) return;
       setSaving(true);
       try {
-        const payload = {
-          volume:          fVolume,
-          lineId:          ctxLineId,
-          profilId:        ctxProfilId,
-          collaborateurId: fCollabId,
-          deadLine: fDeadline ? `${fDeadline}:00` : null,   
-          timeSpent:       fTimeSpent,    
-        };
+        const payload = { volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId, collaborateurId: fCollabId, deadLine: fDeadline ? `${fDeadline}:00` : null, timeSpent: fTimeSpent };
         if (editLineProfil) {
           const updated = await svc.lineProfil.update(editLineProfil.id, payload);
           setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
@@ -880,24 +817,15 @@
 
     const deleteVolume = async () => {
       if (!editLineProfil || !window.confirm("Supprimer ce volume ?")) return;
-      try {
-        await svc.lineProfil.delete(editLineProfil.id);
-        setLineProfils(prev => prev.filter(lp => lp.id !== editLineProfil.id));
-        setShowVolModal(false);
-      } catch { alert("Impossible de supprimer le volume."); }
+      try { await svc.lineProfil.delete(editLineProfil.id); setLineProfils(prev => prev.filter(lp => lp.id !== editLineProfil.id)); setShowVolModal(false); }
+      catch { alert("Impossible de supprimer le volume."); }
       finally { setCtxLineId(null); setCtxProfilId(null); }
     };
 
-      const fmtDateTime = (iso: string | null | undefined): string => {
+    const fmtDateTime = (iso: string | null | undefined): string => {
       if (!iso) return "";
-      try {
-        // Supprime le Z pour éviter la conversion UTC→local (+3h à Madagascar)
-        const normalized = iso.endsWith("Z") ? iso.slice(0, -1) : iso;
-        return new Date(normalized).toLocaleString("fr-FR", {
-          day: "2-digit", month: "short", year: "numeric",
-          hour: "2-digit", minute: "2-digit",
-        });
-      } catch { return iso; }
+      try { const normalized = iso.endsWith("Z") ? iso.slice(0, -1) : iso; return new Date(normalized).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
+      catch { return iso; }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -909,10 +837,8 @@
 
     const deleteColumn = async (col: BacklogColumn) => {
       if (!window.confirm("Supprimer cette colonne ?")) return;
-      try {
-        await svc.column.deleteColumn(col.id);
-        setColumns(prev => new Map(prev).set(col.sprintId, (prev.get(col.sprintId) ?? []).filter(c => c.id !== col.id)));
-      } catch { alert("Impossible de supprimer la colonne."); }
+      try { await svc.column.deleteColumn(col.id); setColumns(prev => new Map(prev).set(col.sprintId, (prev.get(col.sprintId) ?? []).filter(c => c.id !== col.id))); }
+      catch { alert("Impossible de supprimer la colonne."); }
     };
 
     const openCellEdit = (lineId: number, col: BacklogColumn) => {
@@ -926,11 +852,7 @@
       setSaving(true);
       try {
         const saved = await svc.column.upsertValue({ value: fCellVal, lineId: editCell.lineId, columnId: editCell.columnId });
-        setColValues(prev => {
-          const m = new Map(prev);
-          const vals = (m.get(editCell.lineId) ?? []).filter(v => (v.column as any)?.id !== editCell.columnId);
-          m.set(editCell.lineId, [...vals, saved]); return m;
-        });
+        setColValues(prev => { const m = new Map(prev); const vals = (m.get(editCell.lineId) ?? []).filter(v => (v.column as any)?.id !== editCell.columnId); m.set(editCell.lineId, [...vals, saved]); return m; });
         setShowCellModal(false);
       } catch { alert("Erreur lors de la sauvegarde de la valeur."); }
       finally { setSaving(false); }
@@ -1043,13 +965,18 @@
 
     // ══════════════════════════════════════════════════════════════════════
     // TOTAUX PAR PROFIL
+    // vol    = JH planifiés
+    // ts     = temps de réalisation (timeSpent saisi)
+    // ecart  = vol - ts = "temps passé" (ce qu'il reste / ce qui a débordé)
     // ══════════════════════════════════════════════════════════════════════
 
     const profilTotals = profils.map(p => {
       const vol = lineProfils.filter(lp => (lp.profil as any)?.id === p.id).reduce((s, lp) => s + lp.volume, 0);
-      return { profil: p, vol, amount: vol * p.tjm };
+      const ts  = lineProfils.filter(lp => (lp.profil as any)?.id === p.id).reduce((s, lp) => s + (lp.timeSpent ?? 0), 0);
+      return { profil: p, vol, ts, amount: vol * p.tjm };
     });
     const grandTotalVol = profilTotals.reduce((s, t) => s + t.vol, 0);
+    const grandTotalTs  = profilTotals.reduce((s, t) => s + t.ts, 0);
     const grandTotalAmt = profilTotals.reduce((s, t) => s + t.amount, 0);
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1059,9 +986,7 @@
     if (loadingBacklogs) {
       return (
         <Modal show={show} onHide={onClose} size="xl" fullscreen>
-          <Modal.Header closeButton>
-            <Modal.Title>Backlog — {projetNom ?? `Projet #${projetId}`}</Modal.Title>
-          </Modal.Header>
+          <Modal.Header closeButton><Modal.Title>Backlog — {projetNom ?? `Projet #${projetId}`}</Modal.Title></Modal.Header>
           <Modal.Body>
             <div className="d-flex justify-content-center align-items-center" style={{ height: "50vh" }}>
               <FaSpinner className="fa-spin me-2" size={24} /><span>Chargement…</span>
@@ -1091,12 +1016,8 @@
                           <div className="card-body">
                             <h5 className="card-title">{backlogHeader.name}</h5>
                             {(backlogHeader as any).desc && <p className="card-text text-muted small">{(backlogHeader as any).desc}</p>}
-                            <div className="mt-2">
-                              {leadId ? <span className="badge bg-info text-dark">Issu du lead</span> : <span className="badge bg-secondary">Projet indépendant</span>}
-                            </div>
-                            <div className="d-flex justify-content-end mt-3">
-                              <small className="text-primary">Cliquez pour ouvrir →</small>
-                            </div>
+                            <div className="mt-2">{leadId ? <span className="badge bg-info text-dark">Issu du lead</span> : <span className="badge bg-secondary">Projet indépendant</span>}</div>
+                            <div className="d-flex justify-content-end mt-3"><small className="text-primary">Cliquez pour ouvrir →</small></div>
                           </div>
                         </div>
                       </div>
@@ -1116,39 +1037,81 @@
 
               {selectedBacklogId && (
                 <>
-                  {loading && (
-                    <div className="text-center py-5">
-                      <FaSpinner className="fa-spin me-2" size={24} /><span>Chargement…</span>
-                    </div>
-                  )}
+                  {loading && <div className="text-center py-5"><FaSpinner className="fa-spin me-2" size={24} /><span>Chargement…</span></div>}
 
                   {!loading && (
                     <Tabs activeKey={activeTab} onSelect={k => setActiveTab(k ?? "backlog")} className="mb-4">
 
                       {/* ══════════ TAB BACKLOG ══════════════════════════ */}
                       <Tab eventKey="backlog" title="Backlog">
-                        {/* Récap profil */}
+
+                        {/* ── Récap par profil ── */}
                         <div className="card shadow-sm mb-3">
                           <div className="card-header fw-bold">Récapitulatif par profil</div>
                           <div className="card-body p-0">
                             <table className="table table-sm table-bordered mb-0">
                               <thead className="table-light">
-                                <tr><th>Profil</th><th className="text-end">Volume JH</th><th className="text-end">TJM</th><th className="text-end">Montant</th></tr>
+                                <tr>
+                                  <th>Profil</th>
+                                  <th className="text-end">Planifié (JH)</th>
+                                  <th className="text-end">Tps de réalisation (JH)</th>
+                                  <th className="text-end">Tps passé (JH)</th>
+                                  <th className="text-end">Avancement</th>
+                                  <th className="text-end">TJM</th>
+                                  <th className="text-end">Montant</th>
+                                </tr>
                               </thead>
                               <tbody>
-                                {profilTotals.map(({ profil, vol, amount }) => (
-                                  <tr key={profil.id}>
-                                    <td><strong>{profil.name}</strong>{profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}</td>
-                                    <td className="text-end">{vol.toFixed(2)}</td>
-                                    <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
-                                    <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
-                                  </tr>
-                                ))}
+                                {profilTotals.map(({ profil, vol, ts, amount }) => {
+                                  const pct   = vol > 0 ? Math.round((ts / vol) * 100) : null;
+                                  const ecart = ts > 0 ? vol - ts : null;
+                                  return (
+                                    <tr key={profil.id}>
+                                      <td><strong>{profil.name}</strong>{profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}</td>
+                                      <td className="text-end">{vol.toFixed(2)}</td>
+                                      {/* Temps de réalisation */}
+                                      <td className="text-end">
+                                        {ts > 0 ? (
+                                          <span style={{ color: progressColor(pct ?? 0), fontWeight: 600 }}>{ts.toFixed(2)}</span>
+                                        ) : <span className="text-muted">—</span>}
+                                      </td>
+                                      {/* Temps passé = planifié - réalisation */}
+                                      <td className="text-end">
+                                        {ecart !== null ? (
+                                          <span style={{ color: ecartColor(ecart), fontWeight: 600 }}
+                                            title={ecart >= 0 ? `${ecart.toFixed(2)} JH restants` : `Dépassement de ${Math.abs(ecart).toFixed(2)} JH`}>
+                                            {fmtEcart(ecart)} JH
+                                          </span>
+                                        ) : <span className="text-muted">—</span>}
+                                      </td>
+                                      <td className="text-end" style={{ minWidth: 110 }}>
+                                        {pct != null && vol > 0 && ts > 0 ? <MiniProgressBar spent={ts} planned={vol} /> : <span className="text-muted small">—</span>}
+                                      </td>
+                                      <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
+                                      <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                               <tfoot className="table-active">
                                 <tr>
                                   <td><strong>TOTAL</strong></td>
                                   <td className="text-end fw-bold">{grandTotalVol.toFixed(2)}</td>
+                                  {/* Temps de réalisation total */}
+                                  <td className="text-end fw-bold" style={{ color: progressColor(grandTotalVol > 0 ? Math.round((grandTotalTs / grandTotalVol) * 100) : 0) }}>
+                                    {grandTotalTs > 0 ? grandTotalTs.toFixed(2) : "—"}
+                                  </td>
+                                  {/* Temps passé total */}
+                                  <td className="text-end fw-bold">
+                                    {grandTotalTs > 0 ? (
+                                      <span style={{ color: ecartColor(grandTotalVol - grandTotalTs), fontWeight: 600 }}>
+                                        {fmtEcart(grandTotalVol - grandTotalTs)} JH
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                  <td className="text-end" style={{ minWidth: 110 }}>
+                                    {grandTotalTs > 0 && grandTotalVol > 0 ? <MiniProgressBar spent={grandTotalTs} planned={grandTotalVol} /> : <span className="text-muted small">—</span>}
+                                  </td>
                                   <td />
                                   <td className="text-end fw-bold text-primary">{grandTotalAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                 </tr>
@@ -1157,56 +1120,110 @@
                           </div>
                         </div>
 
-                        {/* Récap JH */}
+                        {/* ── Récap JH par Lot / Phase / Sprint ── */}
                         <div className="card shadow-sm mb-3">
                           <div className="card-header fw-bold d-flex justify-content-between align-items-center">
                             <span>Récapitulatif JH par Lot / Phase / Sprint</span>
-                            <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH total</span>
+                            <div className="d-flex gap-2">
+                              <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH planifiés</span>
+                              {tableGrandTs > 0 && (
+                                <span className="badge" style={{ backgroundColor: progressColor(tableGrandJH > 0 ? Math.round((tableGrandTs / tableGrandJH) * 100) : 0) }}>
+                                  {fmtJH(tableGrandTs)} JH réalisés
+                                </span>
+                              )}
+                              {tableGrandEcart !== null && (
+                                <span className="badge" style={{ backgroundColor: ecartColor(tableGrandEcart) }}>
+                                  {fmtEcart(tableGrandEcart)} JH passés
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="card-body p-0">
                             <table className="table table-sm table-bordered mb-0">
                               <thead className="table-light">
-                                <tr><th>Niveau</th><th className="text-end" style={{ width: 90 }}>JH</th></tr>
+                                <tr>
+                                  <th>Niveau</th>
+                                  <th className="text-end" style={{ width: 90 }}>Planifié</th>
+                                  <th className="text-end" style={{ width: 100 }}>Tps de réalisation</th>
+                                  <th className="text-end" style={{ width: 90 }}>Tps passé</th>
+                                </tr>
                               </thead>
                               <tbody>
-                                {lotRecap.map(({ lot, vol: lotVol, phases }) => (
-                                  <React.Fragment key={lot.id}>
-                                    <tr style={{ cursor: "pointer", backgroundColor: "#e8eaf6" }} onClick={() => toggleRecapLot(lot.id)}>
-                                      <td>
-                                        <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{expandedRecapLots.has(lot.id) ? <FaChevronDown /> : <FaChevronRight />}</span>
-                                        <strong>{lot.name}</strong>
-                                        {(() => { const d = getLotDates(lot); return (d.debut || d.fin) ? <DateBadge debut={d.debut} fin={d.fin} style={{ marginLeft: 6 }} /> : null; })()}
-                                      </td>
-                                      <td className="text-end fw-bold">{fmtJH(lotVol)}</td>
-                                    </tr>
-                                    {expandedRecapLots.has(lot.id) && phases.map(({ phase, vol: phVol, sprints: spData }) => (
-                                      <React.Fragment key={phase.id}>
-                                        <tr style={{ cursor: "pointer", backgroundColor: "#f3f4fb" }} onClick={() => toggleRecapPhase(phase.id)}>
-                                          <td className="ps-4">
-                                            <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{expandedRecapPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}</span>
-                                            {phase.name}
-                                            {((phase as any).dateDebut || (phase as any).dateFin) && (
-                                              <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} style={{ marginLeft: 6 }} />
-                                            )}
-                                          </td>
-                                          <td className="text-end">{fmtJH(phVol)}</td>
-                                        </tr>
-                                        {expandedRecapPhases.has(phase.id) && spData.map(({ sprint, vol: spVol }) => spVol > 0 && (
-                                          <tr key={sprint.id} style={{ backgroundColor: "#fafbff" }}>
-                                            <td className="ps-5 text-muted small">Sprint {sprint.order} : {sprint.name}</td>
-                                            <td className="text-end small">{fmtJH(spVol)}</td>
-                                          </tr>
-                                        ))}
-                                      </React.Fragment>
-                                    ))}
-                                  </React.Fragment>
-                                ))}
+                                {lotRecap.map(({ lot, vol: lotVol, ts: lotTs, phases }) => {
+                                  const lotPct   = lotVol > 0 && lotTs > 0 ? Math.round((lotTs / lotVol) * 100) : null;
+                                  const lotEcart = lotTs > 0 ? lotVol - lotTs : null;
+                                  return (
+                                    <React.Fragment key={lot.id}>
+                                      <tr style={{ cursor: "pointer", backgroundColor: "#e8eaf6" }} onClick={() => toggleRecapLot(lot.id)}>
+                                        <td>
+                                          <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{expandedRecapLots.has(lot.id) ? <FaChevronDown /> : <FaChevronRight />}</span>
+                                          <strong>{lot.name}</strong>
+                                          {(() => { const d = getLotDates(lot); return (d.debut || d.fin) ? <DateBadge debut={d.debut} fin={d.fin} style={{ marginLeft: 6 }} /> : null; })()}
+                                        </td>
+                                        <td className="text-end fw-bold">{fmtJH(lotVol)}</td>
+                                        {/* Tps de réalisation */}
+                                        <td className="text-end" style={{ color: lotTs > 0 ? progressColor(lotPct ?? 0) : "#adb5bd", fontWeight: lotTs > 0 ? 600 : "normal" }}>
+                                          {lotTs > 0 ? fmtJH(lotTs) : "—"}
+                                        </td>
+                                        {/* Tps passé */}
+                                        <td className="text-end">
+                                          {lotEcart !== null ? (
+                                            <span style={{ color: ecartColor(lotEcart), fontSize: "0.75rem", fontWeight: 600 }}>
+                                              {fmtEcart(lotEcart)}{lotEcart < 0 ? " ⚠" : ""}
+                                            </span>
+                                          ) : <span className="text-muted small">—</span>}
+                                        </td>
+                                      </tr>
+                                      {expandedRecapLots.has(lot.id) && phases.map(({ phase, vol: phVol, ts: phTs, sprints: spData }) => {
+                                        const phPct   = phVol > 0 && phTs > 0 ? Math.round((phTs / phVol) * 100) : null;
+                                        const phEcart = phTs > 0 ? phVol - phTs : null;
+                                        return (
+                                          <React.Fragment key={phase.id}>
+                                            <tr style={{ cursor: "pointer", backgroundColor: "#f3f4fb" }} onClick={() => toggleRecapPhase(phase.id)}>
+                                              <td className="ps-4">
+                                                <span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{expandedRecapPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}</span>
+                                                {phase.name}
+                                                {((phase as any).dateDebut || (phase as any).dateFin) && <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} style={{ marginLeft: 6 }} />}
+                                              </td>
+                                              <td className="text-end">{fmtJH(phVol)}</td>
+                                              <td className="text-end" style={{ color: phTs > 0 ? progressColor(phPct ?? 0) : "#adb5bd", fontWeight: phTs > 0 ? 600 : "normal" }}>
+                                                {phTs > 0 ? fmtJH(phTs) : "—"}
+                                              </td>
+                                              <td className="text-end">
+                                                {phEcart !== null ? (
+                                                  <span style={{ color: ecartColor(phEcart), fontSize: "0.75rem", fontWeight: 600 }}>
+                                                    {fmtEcart(phEcart)}{phEcart < 0 ? " ⚠" : ""}
+                                                  </span>
+                                                ) : <span className="text-muted small">—</span>}
+                                              </td>
+                                            </tr>
+                                            {expandedRecapPhases.has(phase.id) && spData.map(({ sprint, vol: spVol, ts: spTs }) => spVol > 0 && (
+                                              <tr key={sprint.id} style={{ backgroundColor: "#fafbff" }}>
+                                                <td className="ps-5 text-muted small">Sprint {sprint.order} : {sprint.name}</td>
+                                                <td className="text-end small">{fmtJH(spVol)}</td>
+                                                <td className="text-end small" style={{ color: spTs > 0 ? progressColor(Math.round((spTs / spVol) * 100)) : "#adb5bd" }}>
+                                                  {spTs > 0 ? fmtJH(spTs) : "—"}
+                                                </td>
+                                                <td className="text-end small">
+                                                  {spTs > 0 && spVol > 0 ? (() => {
+                                                    const spEcart = spVol - spTs;
+                                                    return <span style={{ color: ecartColor(spEcart), fontWeight: 600 }}>{fmtEcart(spEcart)}{spEcart < 0 ? " ⚠" : ""}</span>;
+                                                  })() : <span className="text-muted">—</span>}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </React.Fragment>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
                         </div>
 
-                        {/* Récap par profil → Lot / Phase */}
+                        {/* ── Récap par profil → Lot / Phase / Sprint ── */}
                         {profils.length > 0 && (
                           <div className="card shadow-sm mb-4">
                             <div className="card-header fw-bold">Récapitulatif JH par profil — détail Lot / Phase / Sprint</div>
@@ -1214,7 +1231,10 @@
                               {profils.map(profil => {
                                 const profilTot = profilTotals.find(t => t.profil.id === profil.id);
                                 const profilVol = profilTot?.vol ?? 0;
+                                const profilTs  = profilTot?.ts ?? 0;
                                 const profilAmt = profilTot?.amount ?? 0;
+                                const profilPct = profilVol > 0 && profilTs > 0 ? Math.round((profilTs / profilVol) * 100) : null;
+                                const profilEcart = profilTs > 0 ? profilVol - profilTs : null;
                                 const isOpen = expandedProfilRecap.has(profil.id);
                                 return (
                                   <div key={profil.id} className="border-bottom">
@@ -1226,42 +1246,85 @@
                                       </div>
                                       <div className="d-flex align-items-center gap-2">
                                         <span className="badge bg-warning text-dark">{profil.tjm.toFixed(0)} {deviseAbr}/j</span>
-                                        <span className="badge bg-primary">{fmtJH(profilVol)} JH</span>
+                                        <span className="badge bg-primary">{fmtJH(profilVol)} JH planifiés</span>
+                                        {profilTs > 0 && (
+                                          <span className="badge" style={{ backgroundColor: progressColor(profilPct ?? 0) }}>
+                                            {fmtJH(profilTs)} JH réalisés{profilPct != null ? ` · ${profilPct}%` : ""}
+                                          </span>
+                                        )}
+                                        {profilEcart !== null && (
+                                          <span className="badge" style={{ backgroundColor: ecartColor(profilEcart) }}
+                                            title={profilEcart >= 0 ? "Temps restant" : "Dépassement"}>
+                                            {fmtEcart(profilEcart)} JH passés
+                                          </span>
+                                        )}
                                         <span className="badge bg-success">{profilAmt.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</span>
                                       </div>
                                     </div>
                                     {isOpen && (
                                       <div className="px-3 pb-2 pt-1" style={{ backgroundColor: "#fffde7" }}>
                                         <table className="table table-sm table-bordered mb-0 bg-white">
-                                          <thead className="table-light"><tr><th>Niveau</th><th className="text-end" style={{ width: 75 }}>JH</th><th className="text-end" style={{ width: 110 }}>Montant</th></tr></thead>
+                                          <thead className="table-light">
+                                            <tr>
+                                              <th>Niveau</th>
+                                              <th className="text-end" style={{ width: 75 }}>Planifié</th>
+                                              <th className="text-end" style={{ width: 85 }}>Réalisation</th>
+                                              <th className="text-end" style={{ width: 75 }}>Tps passé</th>
+                                              <th className="text-end" style={{ width: 110 }}>Montant</th>
+                                            </tr>
+                                          </thead>
                                           <tbody>
                                             {lotRecap.map(({ lot, phases, byProfil: lotByProfil }) => {
-                                              const lVol = lotByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                              const lEntry = lotByProfil.find(bp => bp.profil.id === profil.id);
+                                              const lVol = lEntry?.vol ?? 0;
+                                              const lTs  = lEntry?.ts ?? 0;
                                               if (lVol === 0 && !expandedProfilLots.get(profil.id)?.has(lot.id)) return null;
                                               const isLotOpen = expandedProfilLots.get(profil.id)?.has(lot.id) ?? false;
+                                              const lPct   = lVol > 0 && lTs > 0 ? Math.round((lTs / lVol) * 100) : null;
+                                              const lEcart = lTs > 0 ? lVol - lTs : null;
                                               return (
                                                 <React.Fragment key={lot.id}>
                                                   <tr style={{ cursor: "pointer", backgroundColor: "#f0f2ff" }} onClick={() => toggleProfilLot(profil.id, lot.id)}>
                                                     <td><span className="me-2 text-muted" style={{ fontSize: "0.75rem" }}>{isLotOpen ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{lot.name}</strong></td>
                                                     <td className="text-end fw-bold">{fmtJH(lVol)}</td>
+                                                    <td className="text-end" style={{ color: lTs > 0 ? progressColor(lPct ?? 0) : "#adb5bd", fontWeight: lTs > 0 ? 600 : "normal" }}>{lTs > 0 ? fmtJH(lTs) : "—"}</td>
+                                                    <td className="text-end">
+                                                      {lEcart !== null ? <span style={{ color: ecartColor(lEcart), fontSize: "0.75rem", fontWeight: 600 }}>{fmtEcart(lEcart)}</span> : "—"}
+                                                    </td>
                                                     <td className="text-end">{(lVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                                   </tr>
                                                   {isLotOpen && phases.map(({ phase, byProfil: phByProfil, sprints: phSprints }) => {
-                                                    const phVol = phByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                                    const phEntry = phByProfil.find(bp => bp.profil.id === profil.id);
+                                                    const phVol = phEntry?.vol ?? 0;
+                                                    const phTs  = phEntry?.ts ?? 0;
+                                                    const phPct   = phVol > 0 && phTs > 0 ? Math.round((phTs / phVol) * 100) : null;
+                                                    const phEcart = phTs > 0 ? phVol - phTs : null;
                                                     return (
                                                       <React.Fragment key={phase.id}>
                                                         <tr style={{ backgroundColor: "#f8f9ff" }}>
                                                           <td className="ps-4 text-muted">{phase.name}</td>
                                                           <td className="text-end small">{fmtJH(phVol)}</td>
+                                                          <td className="text-end small" style={{ color: phTs > 0 ? progressColor(phPct ?? 0) : "#adb5bd" }}>{phTs > 0 ? fmtJH(phTs) : "—"}</td>
+                                                          <td className="text-end small">
+                                                            {phEcart !== null ? <span style={{ color: ecartColor(phEcart) }}>{fmtEcart(phEcart)}</span> : "—"}
+                                                          </td>
                                                           <td className="text-end small">{(phVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                                         </tr>
                                                         {phSprints.map(({ sprint, byProfil: spByProfil }) => {
-                                                          const spVol = spByProfil.find(bp => bp.profil.id === profil.id)?.vol ?? 0;
+                                                          const spEntry = spByProfil.find(bp => bp.profil.id === profil.id);
+                                                          const spVol = spEntry?.vol ?? 0;
+                                                          const spTs  = spEntry?.ts ?? 0;
                                                           if (spVol === 0) return null;
+                                                          const spPct   = spVol > 0 && spTs > 0 ? Math.round((spTs / spVol) * 100) : null;
+                                                          const spEcart = spTs > 0 ? spVol - spTs : null;
                                                           return (
                                                             <tr key={sprint.id} style={{ backgroundColor: "#fcfcff" }}>
                                                               <td className="ps-5 text-muted small">Sprint {sprint.order} : {sprint.name}</td>
                                                               <td className="text-end small text-muted">{fmtJH(spVol)}</td>
+                                                              <td className="text-end small" style={{ color: spTs > 0 ? progressColor(spPct ?? 0) : "#adb5bd" }}>{spTs > 0 ? fmtJH(spTs) : "—"}</td>
+                                                              <td className="text-end small">
+                                                                {spEcart !== null ? <span style={{ color: ecartColor(spEcart) }}>{fmtEcart(spEcart)}</span> : "—"}
+                                                              </td>
                                                               <td className="text-end small text-muted">{(spVol * profil.tjm).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                                             </tr>
                                                           );
@@ -1283,7 +1346,7 @@
                           </div>
                         )}
 
-                        {/* Tableau lignes */}
+                        {/* ── Tableau lignes ── */}
                         <div className="d-flex justify-content-between align-items-center mb-3">
                           <button className={`btn btn-sm d-flex align-items-center gap-2 ${showProfilCols ? "btn-outline-secondary" : "btn-warning"}`} onClick={() => setShowProfilCols(v => !v)}>
                             {showProfilCols ? <FaEyeSlash /> : <FaEye />}
@@ -1300,20 +1363,17 @@
                                 <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
                                 <th>Epic</th><th>User Story</th><th>Description</th><th>Détails</th>
                                 {showProfilCols && profils.map(p => (
-                                  <th key={p.id} className="text-center" style={{ minWidth: 140 }}>
+                                  <th key={p.id} className="text-center" style={{ minWidth: 160 }}>
                                     <div className="fw-bold">{p.name}</div>
                                     {p.collaborateurs.length > 0 && (
                                       <div className="d-flex flex-column gap-1 mt-1">
                                         {p.collaborateurs.map((c: any) => (
-                                          <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>
-                                            {c.prenom} {c.nom}
-                                          </span>
+                                          <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>{c.prenom} {c.nom}</span>
                                         ))}
                                       </div>
                                     )}
-                                    {/* Sous-labels colonnes */}
-                                    <div className="d-flex justify-content-center gap-2 mt-1" style={{ fontSize: "0.58rem", color: "#adb5bd", fontWeight: "normal" }}>
-                                      <span>JH</span><span>·</span><span>Passé</span><span>·</span><span>Deadline</span>
+                                    <div className="d-flex justify-content-center gap-1 mt-1 flex-wrap" style={{ fontSize: "0.58rem", color: "#adb5bd", fontWeight: "normal" }}>
+                                      <span>JH</span><span>·</span><span>Réalisation</span><span>·</span><span>Passé</span><span>·</span><span>Deadline</span><span>·</span><span>Statut</span>
                                     </div>
                                   </th>
                                 ))}
@@ -1357,75 +1417,55 @@
                                     <td>{line.description ?? "—"}</td>
                                     <td>{line.resultat ?? "—"}</td>
 
-                                    {/* ── Colonnes profil avec statut d'avancement ── */}
                                     {showProfilCols && profils.map(p => {
                                       const lp        = getLineProfil(line.id, p.id);
                                       const vol       = lp?.volume ?? 0;
                                       const collab    = lp?.collaborateur;
                                       const deadline  = lp?.deadLine ?? null;
-                                      const timeSpent = lp?.timeSpent ?? null;
+                                      const timeSpent = lp?.timeSpent ?? null;   // temps de réalisation
+                                      const ecart     = vol > 0 && timeSpent != null ? vol - timeSpent : null; // temps passé
                                       const pct       = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
                                       const isOverdue = deadline && new Date(deadline) < new Date() && pct !== 100;
-
+                                      const statusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
                                       return (
-                                        <td
-                                          key={p.id}
-                                          className="text-center"
-                                          style={{ cursor: "pointer", verticalAlign: "middle", padding: "4px 6px" }}
-                                          onClick={() => openVolModal(line.id, p.id)}
-                                        >
+                                        <td key={p.id} className="text-center" style={{ cursor: "pointer", verticalAlign: "middle", padding: "4px 6px" }} onClick={() => openVolModal(line.id, p.id)}>
                                           {vol > 0 ? (
                                             <div className="d-flex flex-column align-items-center gap-1">
-                                              {/* Volume + temps passé */}
                                               <div className="d-flex align-items-center gap-1 flex-wrap justify-content-center">
+                                                {/* JH planifiés */}
                                                 <span className="badge bg-primary" style={{ fontSize: "0.7rem" }}>{vol} JH</span>
+                                                {/* Temps de réalisation */}
                                                 {timeSpent != null && (
-                                                  <span
-                                                    className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`}
-                                                    style={{ fontSize: "0.65rem" }}
-                                                    title={`${timeSpent} JH passés sur ${vol} JH`}
-                                                  >
-                                                    {timeSpent}h
+                                                  <span className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`} style={{ fontSize: "0.65rem" }} title={`Réalisation : ${timeSpent} JH sur ${vol} JH planifiés`}>
+                                                    {timeSpent} réal.
+                                                  </span>
+                                                )}
+                                                {/* Temps passé = vol - timeSpent */}
+                                                {ecart !== null && (
+                                                  <span style={{
+                                                    fontSize: "0.6rem", fontWeight: 700,
+                                                    color: ecartColor(ecart),
+                                                    background: ecart < 0 ? "#fef2f2" : ecart === 0 ? "#f3f4f6" : "#ecfdf5",
+                                                    border: `1px solid ${ecartColor(ecart)}44`,
+                                                    borderRadius: 10, padding: "1px 5px", whiteSpace: "nowrap",
+                                                  }} title={ecart >= 0 ? `${ecart} JH restants` : `Dépassement de ${Math.abs(ecart)} JH`}>
+                                                    {fmtEcart(ecart)} passé
                                                   </span>
                                                 )}
                                               </div>
-
-                                              {/* Barre de progression */}
                                               {pct != null && (
                                                 <div style={{ width: "100%", maxWidth: 80, height: 4, backgroundColor: "#e9ecef", borderRadius: 2, overflow: "hidden" }}>
-                                                  <div
-                                                    style={{
-                                                      width:           `${Math.min(pct, 100)}%`,
-                                                      height:          "100%",
-                                                      backgroundColor: progressColor(pct),
-                                                      borderRadius:    2,
-                                                      transition:      "width 0.3s",
-                                                    }}
-                                                  />
+                                                  <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", backgroundColor: progressColor(pct), borderRadius: 2, transition: "width 0.3s" }} />
                                                 </div>
                                               )}
-
-                                              {/* Deadline */}
+                                              <TaskStatusBadge statusId={statusId} />
                                               {deadline && (
-                                                <span
-                                                  style={{
-                                                    fontSize:   "0.6rem",
-                                                    color:      isOverdue ? "#dc3545" : "#6c757d",
-                                                    fontWeight: isOverdue ? "bold" : "normal",
-                                                    whiteSpace: "nowrap",
-                                                  }}
-                                                  title={isOverdue ? "Deadline dépassée !" : `Deadline : ${fmtDateTime(deadline)}`}
-                                                  >
-                                                  {isOverdue ? "⚠ " : ""}{fmtDateTime(deadline)}                                                
+                                                <span style={{ fontSize: "0.6rem", color: isOverdue ? "#dc3545" : "#6c757d", fontWeight: isOverdue ? "bold" : "normal", whiteSpace: "nowrap" }}
+                                                  title={isOverdue ? "Deadline dépassée !" : `Deadline : ${fmtDateTime(deadline)}`}>
+                                                  {isOverdue ? "⚠ " : ""}{fmtDateTime(deadline)}
                                                 </span>
                                               )}
-
-                                              {/* Collaborateur */}
-                                              {collab && (
-                                                <small className="text-muted" style={{ fontSize: "0.6rem", lineHeight: 1.1 }}>
-                                                  {collab.nom} {collab.prenom}
-                                                </small>
-                                              )}
+                                              {collab && <small className="text-muted" style={{ fontSize: "0.6rem", lineHeight: 1.1 }}>{collab.nom} {collab.prenom}</small>}
                                             </div>
                                           ) : (
                                             <span className="text-muted small">—</span>
@@ -1452,10 +1492,30 @@
                                 <tr className="table-warning fw-bold">
                                   <td colSpan={7} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
                                   {showProfilCols && profils.map(p => {
-                                    const pVol = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
-                                    return <td key={p.id} className="text-center">{pVol > 0 ? fmtJH(pVol) : "—"}</td>;
+                                    const pVol  = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
+                                    const pTs   = profilTotals.find(t => t.profil.id === p.id)?.ts ?? 0;
+                                    const pPct  = pVol > 0 && pTs > 0 ? Math.round((pTs / pVol) * 100) : null;
+                                    const pEcart = pTs > 0 ? pVol - pTs : null;
+                                    return (
+                                      <td key={p.id} className="text-center">
+                                        {pVol > 0 ? (
+                                          <div className="d-flex flex-column align-items-center gap-1">
+                                            <span>{fmtJH(pVol)} JH</span>
+                                            {pTs > 0 && <span style={{ color: progressColor(pPct ?? 0), fontSize: "0.75rem" }}>{fmtJH(pTs)} réal.</span>}
+                                            {pEcart !== null && <span style={{ color: ecartColor(pEcart), fontSize: "0.75rem", fontWeight: 700 }}>{fmtEcart(pEcart)} passé</span>}
+                                            {pPct != null && <MiniProgressBar spent={pTs} planned={pVol} />}
+                                          </div>
+                                        ) : "—"}
+                                      </td>
+                                    );
                                   })}
-                                  <td className="text-center"><span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span></td>
+                                  <td className="text-center">
+                                    <div className="d-flex flex-column align-items-center gap-1">
+                                      <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span>
+                                      {tableGrandTs > 0 && <span className="badge" style={{ backgroundColor: progressColor(tableGrandJH > 0 ? Math.round((tableGrandTs / tableGrandJH) * 100) : 0) }}>{fmtJH(tableGrandTs)} réal.</span>}
+                                      {tableGrandEcart !== null && <span className="badge" style={{ backgroundColor: ecartColor(tableGrandEcart) }}>{fmtEcart(tableGrandEcart)} passé</span>}
+                                    </div>
+                                  </td>
                                   <td />
                                 </tr>
                               </tfoot>
@@ -1469,7 +1529,6 @@
                         <div className="d-flex justify-content-end mb-3">
                           <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
                         </div>
-
                         <div ref={lotsRef}>
                           {lots.length === 0
                             ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
@@ -1498,9 +1557,7 @@
                                           <div className="d-flex align-items-center gap-2 p-2 flex-wrap">
                                             <span className="drag-phase text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}>⋮⋮</span>
                                             <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{expanded ? <FaChevronDown /> : <FaChevronRight />}</span>
-                                            <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>
-                                              {phase.order}. {phase.name}
-                                            </span>
+                                            <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{phase.order}. {phase.name}</span>
                                             <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} />
                                             <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
                                             <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
@@ -1509,7 +1566,6 @@
                                             <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
                                             <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
                                           </div>
-
                                           {expanded && (
                                             <div className="px-3 pb-2">
                                               <div data-sprints-phase-id={phase.id}>
@@ -1522,12 +1578,8 @@
                                                       <div className="d-flex align-items-center gap-2 flex-wrap">
                                                         <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
                                                         <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
-                                                        {(sprint.dateDebut || sprint.dateFin) && (
-                                                          <DateBadge debut={sprint.dateDebut} fin={sprint.dateFin} style={{ background: "#fff3cd", borderColor: "#ffc107" }} />
-                                                        )}
-                                                        <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>
-                                                          {spExpanded ? <FaChevronDown /> : <FaChevronRight />}
-                                                        </button>
+                                                        {(sprint.dateDebut || sprint.dateFin) && <DateBadge debut={sprint.dateDebut} fin={sprint.dateFin} style={{ background: "#fff3cd", borderColor: "#ffc107" }} />}
+                                                        <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>{spExpanded ? <FaChevronDown /> : <FaChevronRight />}</button>
                                                         <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
                                                         <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
                                                       </div>
@@ -1549,8 +1601,7 @@
                                                           )}
                                                           {sprintDeliv.length > 0
                                                             ? sprintDeliv.map(d => (
-                                                              <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small${(d as any).isDelivered ? " opacity-75" : ""}`}
-                                                                style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                              <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small${(d as any).isDelivered ? " opacity-75" : ""}`} style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
                                                                 <span className="d-flex align-items-center gap-2">
                                                                   {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
                                                                   <span>
@@ -1560,13 +1611,7 @@
                                                                   </span>
                                                                 </span>
                                                                 <div className="d-flex gap-1 align-items-center">
-                                                                  {!(d as any).isDelivered && (
-                                                                    <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
-                                                                      style={{ fontSize: "0.7rem" }} title="Marquer comme livré"
-                                                                      onClick={() => deliverLivrable(d.id!, phase.id)}>
-                                                                      <FaCheckCircle size={10} /> Livrer
-                                                                    </button>
-                                                                  )}
+                                                                  {!(d as any).isDelivered && <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1" style={{ fontSize: "0.7rem" }} onClick={() => deliverLivrable(d.id!, phase.id)}><FaCheckCircle size={10} /> Livrer</button>}
                                                                   <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
                                                                   <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                                                 </div>
@@ -1579,11 +1624,8 @@
                                                   );
                                                 })}
                                               </div>
-
                                               {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
-                                                <div key={d.id}
-                                                  className={`d-flex justify-content-between align-items-center border-bottom py-1 small ps-1${(d as any).isDelivered ? " opacity-75" : ""}`}
-                                                  style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small ps-1${(d as any).isDelivered ? " opacity-75" : ""}`} style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
                                                   <span className="d-flex align-items-center gap-2">
                                                     {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
                                                     <span>
@@ -1593,21 +1635,13 @@
                                                     </span>
                                                   </span>
                                                   <div className="d-flex gap-1 align-items-center">
-                                                    {!(d as any).isDelivered && (
-                                                      <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
-                                                        style={{ fontSize: "0.7rem" }} title="Marquer comme livré"
-                                                        onClick={() => deliverLivrable(d.id!, phase.id)}>
-                                                        <FaCheckCircle size={10} /> Livrer
-                                                      </button>
-                                                    )}
+                                                    {!(d as any).isDelivered && <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1" style={{ fontSize: "0.7rem" }} onClick={() => deliverLivrable(d.id!, phase.id)}><FaCheckCircle size={10} /> Livrer</button>}
                                                     <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
                                                     <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
                                                   </div>
                                                 </div>
                                               ))}
-                                              {phaseSprints.length === 0 && phaseDeliv.length === 0 && (
-                                                <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>
-                                              )}
+                                              {phaseSprints.length === 0 && phaseDeliv.length === 0 && <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>}
                                             </div>
                                           )}
                                         </div>
@@ -1656,23 +1690,12 @@
                       </Tab>
 
                       <Tab eventKey="planning" title="Planning">
-                        <PlanningTab
-                          lots={lots} lines={lines} lineProfils={lineProfils}
-                          deliverables={deliverables} selectedBacklogId={selectedBacklogId}
-                          planningService={svc.planning}
-                          projectStartDate={projectStartDate} projectEndDate={projectEndDate}
-                          onUpdateProjectDates={async (newStart, newEnd) => {
-                            await projetService.updateDates(projetId, newStart, newEnd);
-                          }}
-                        />
+                        <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} selectedBacklogId={selectedBacklogId} planningService={svc.planning} projectStartDate={projectStartDate} projectEndDate={projectEndDate}
+                          onUpdateProjectDates={async (newStart, newEnd) => { await projetService.updateDates(projetId, newStart, newEnd); }} />
                       </Tab>
 
                       <Tab eventKey="budget" title="Budget">
-                        <BudgetTab
-                          lots={lots} profils={profils as any} lines={lines}
-                          lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null}
-                          leadId={leadId ?? null} deviseAbr={deviseAbr}
-                        />
+                        <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} leadId={leadId ?? null} deviseAbr={deviseAbr} />
                       </Tab>
                     </Tabs>
                   )}
@@ -1705,9 +1728,7 @@
         <Modal show={showPhaseModal} onHide={() => !saving && setShowPhaseModal(false)} centered>
           <Modal.Header closeButton><Modal.Title>{editPhase ? "Modifier la phase" : "Nouvelle phase"}</Modal.Title></Modal.Header>
           <Modal.Body>
-            <Form>
-              <Form.Group><Form.Label>Nom *</Form.Label><Form.Control value={fPhase.name} onChange={e => setFPhase({ name: e.target.value })} disabled={saving} autoFocus /></Form.Group>
-            </Form>
+            <Form><Form.Group><Form.Label>Nom *</Form.Label><Form.Control value={fPhase.name} onChange={e => setFPhase({ name: e.target.value })} disabled={saving} autoFocus /></Form.Group></Form>
           </Modal.Body>
           <Modal.Footer>
             <Button label="Annuler" variant="outline" onClick={() => setShowPhaseModal(false)} />
@@ -1719,29 +1740,12 @@
           <Modal.Header closeButton><Modal.Title>{editSprint ? "Modifier le sprint" : "Nouveau sprint"}</Modal.Title></Modal.Header>
           <Modal.Body>
             <Form>
-              <Form.Group className="mb-3">
-                <Form.Label>Nom *</Form.Label>
-                <Form.Control value={fSprint.name} onChange={e => setFSprint(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus />
-              </Form.Group>
+              <Form.Group className="mb-3"><Form.Label>Nom *</Form.Label><Form.Control value={fSprint.name} onChange={e => setFSprint(f => ({ ...f, name: e.target.value }))} disabled={saving} autoFocus /></Form.Group>
               <div className="row g-2">
-                <div className="col">
-                  <Form.Group>
-                    <Form.Label>Date début <small className="text-muted ms-1">(propagée vers la phase)</small></Form.Label>
-                    <Form.Control type="date" value={fSprint.startDate} onChange={e => setFSprint(f => ({ ...f, startDate: e.target.value }))} disabled={saving} />
-                  </Form.Group>
-                </div>
-                <div className="col">
-                  <Form.Group>
-                    <Form.Label>Date fin <small className="text-muted ms-1">(propagée vers la phase)</small></Form.Label>
-                    <Form.Control type="date" value={fSprint.endDate} onChange={e => setFSprint(f => ({ ...f, endDate: e.target.value }))} disabled={saving} />
-                  </Form.Group>
-                </div>
+                <div className="col"><Form.Group><Form.Label>Date début</Form.Label><Form.Control type="date" value={fSprint.startDate} onChange={e => setFSprint(f => ({ ...f, startDate: e.target.value }))} disabled={saving} /></Form.Group></div>
+                <div className="col"><Form.Group><Form.Label>Date fin</Form.Label><Form.Control type="date" value={fSprint.endDate} onChange={e => setFSprint(f => ({ ...f, endDate: e.target.value }))} disabled={saving} /></Form.Group></div>
               </div>
-              {(fSprint.startDate || fSprint.endDate) && (
-                <div className="mt-2 p-2 rounded" style={{ background: "#e8f4fd", fontSize: "0.78rem", color: "#555" }}>
-                  Les dates de la <strong>phase</strong> et du <strong>lot</strong> seront automatiquement recalculées après enregistrement.
-                </div>
-              )}
+              {(fSprint.startDate || fSprint.endDate) && <div className="mt-2 p-2 rounded" style={{ background: "#e8f4fd", fontSize: "0.78rem", color: "#555" }}>Les dates de la <strong>phase</strong> et du <strong>lot</strong> seront automatiquement recalculées.</div>}
             </Form>
           </Modal.Body>
           <Modal.Footer>
@@ -1874,81 +1878,70 @@
           </Modal.Footer>
         </Modal>
 
-        {/* ══ Modal Volume JH — avec deadline et temps passé ══════════════ */}
+        {/* ══ Modal Volume JH ══════════════════════════════════════════════ */}
         <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title>
-          </Modal.Header>
+          <Modal.Header closeButton><Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title></Modal.Header>
           <Modal.Body>
-            {/* Jours-Homme */}
-            <Form.Control
-              type="number" step="0.5" min="0"
-              value={fVolume}
-              onChange={e => setFVolume(+e.target.value || 0)}
-              onWheel={e => (e.target as HTMLInputElement).blur()}   
-              disabled={saving} autoFocus
-            />
-
-            {/* Deadline */}
+            <Form.Group className="mb-3">
+              <Form.Label>Jours-Homme planifiés</Form.Label>
+              <Form.Control type="number" step="0.5" min="0" value={fVolume} onChange={e => setFVolume(+e.target.value || 0)} onWheel={e => (e.target as HTMLInputElement).blur()} disabled={saving} autoFocus />
+            </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Deadline</Form.Label>
-              <Form.Control
-                type="datetime-local"
-                value={fDeadline}
-                onChange={e => setFDeadline(e.target.value)}
-                disabled={saving}
-              />
+              <Form.Control type="datetime-local" value={fDeadline} onChange={e => setFDeadline(e.target.value)} disabled={saving} />
             </Form.Group>
 
-            {/* Temps passé */}
+            {/* ── Temps de réalisation (anciennement "temps passé") ── */}
             <Form.Group className="mb-3">
               <Form.Label className="d-flex align-items-center gap-2">
-                Temps passé (JH)
-                {fVolume > 0 && fTimeSpent != null && (
-                  (() => {
-                    const pct = Math.round((fTimeSpent / fVolume) * 100);
-                    return (
-                      <span
-                        className={`badge ${pct > 100 ? "bg-danger" : pct >= 80 ? "bg-warning text-dark" : "bg-success"}`}
-                        style={{ fontSize: "0.7rem" }}
-                      >
-                        {pct}%
-                      </span>
-                    );
-                  })()
-                )}
+                Temps de réalisation (JH)
+                {fVolume > 0 && fTimeSpent != null && (() => {
+                  const pct = Math.round((fTimeSpent / fVolume) * 100);
+                  return <span className={`badge ${pct > 100 ? "bg-danger" : pct >= 80 ? "bg-warning text-dark" : "bg-success"}`} style={{ fontSize: "0.7rem" }}>{pct}%</span>;
+                })()}
               </Form.Label>
-                <Form.Control
-                  type="number" step="0.5" min="0"
-                  placeholder="0"
-                  value={fTimeSpent ?? ""}
-                  onChange={e => setFTimeSpent(e.target.value ? +e.target.value : null)}
-                  onWheel={e => (e.target as HTMLInputElement).blur()}   // ← ajout
-                  disabled={saving}
-                />            
-              {/* Barre de progression en temps réel dans le modal */}
+              <Form.Control type="number" step="0.5" min="0" placeholder="0" value={fTimeSpent ?? ""} onChange={e => setFTimeSpent(e.target.value ? +e.target.value : null)} onWheel={e => (e.target as HTMLInputElement).blur()} disabled={saving} />
               {fVolume > 0 && fTimeSpent != null && (
                 <div className="mt-2">
                   <div style={{ height: 6, backgroundColor: "#e9ecef", borderRadius: 3, overflow: "hidden" }}>
-                    <div
-                      style={{
-                        width:           `${Math.min(Math.round((fTimeSpent / fVolume) * 100), 100)}%`,
-                        height:          "100%",
-                        backgroundColor: progressColor(Math.round((fTimeSpent / fVolume) * 100)),
-                        borderRadius:    3,
-                        transition:      "width 0.2s",
-                      }}
-                    />
+                    <div style={{ width: `${Math.min(Math.round((fTimeSpent / fVolume) * 100), 100)}%`, height: "100%", backgroundColor: progressColor(Math.round((fTimeSpent / fVolume) * 100)), borderRadius: 3, transition: "width 0.2s" }} />
                   </div>
                   <div className="text-muted small mt-1">
-                    {fTimeSpent} JH passés sur {fVolume} JH planifiés
+                    {fTimeSpent} JH réalisés sur {fVolume} JH planifiés
                     {fTimeSpent > fVolume && <span className="text-danger fw-bold ms-2">⚠ Dépassement</span>}
                   </div>
                 </div>
               )}
             </Form.Group>
 
-            {/* Collaborateur assigné */}
+            {/* ── Temps passé = planifié - réalisation (calculé, lecture seule) ── */}
+            {fVolume > 0 && fTimeSpent != null && (
+              <div className="mb-3 p-3 rounded" style={{ backgroundColor: "#f8f9fa", border: "1px solid #dee2e6" }}>
+                <div className="d-flex align-items-center justify-content-between">
+                  <span className="text-muted small fw-semibold">Temps passé (planifié − réalisation)</span>
+                  {(() => {
+                    const ecart = fVolume - fTimeSpent;
+                    return (
+                      <span style={{ fontSize: "1rem", fontWeight: 700, color: ecartColor(ecart) }}
+                        title={ecart >= 0 ? `${ecart.toFixed(1)} JH restants sur le planning` : `Dépassement de ${Math.abs(ecart).toFixed(1)} JH`}>
+                        {fmtEcart(ecart)} JH
+                        {ecart < 0 && <span className="ms-1" style={{ fontSize: "0.8rem" }}>⚠</span>}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="text-muted" style={{ fontSize: "0.72rem", marginTop: 2 }}>
+                  {fVolume} JH planifiés − {fTimeSpent} JH réalisés
+                  {fVolume - fTimeSpent > 0
+                    ? <span className="text-success ms-2">= {(fVolume - fTimeSpent).toFixed(1)} JH encore disponibles</span>
+                    : fVolume - fTimeSpent < 0
+                      ? <span className="text-danger ms-2">= dépassement de {Math.abs(fVolume - fTimeSpent).toFixed(1)} JH</span>
+                      : <span className="text-secondary ms-2">= exactement dans le planning</span>
+                  }
+                </div>
+              </div>
+            )}
+
             {currentProfil && (currentProfil.collaborateurs?.length ?? 0) > 0 && (
               <Form.Group className="mb-3">
                 <Form.Label>Collaborateur assigné</Form.Label>
@@ -1956,10 +1949,7 @@
                   const assigned = currentProfil.collaborateurs!.find((c: any) => c.id === fCollabId);
                   return assigned ? (
                     <div className="d-flex align-items-center justify-content-between border rounded px-3 py-2" style={{ backgroundColor: "#f0f9ff", borderColor: "#90cdf4" }}>
-                      <div>
-                        <span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>
-                        {assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}
-                      </div>
+                      <div><span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>{assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}</div>
                       <button type="button" className="btn btn-sm btn-link text-danger p-0" onClick={() => setFCollabId(null)} disabled={saving}>✕</button>
                     </div>
                   ) : (
@@ -1974,14 +1964,23 @@
                 })()}
               </Form.Group>
             )}
-
-            {/* Estimation financière */}
             {currentProfil && (
               <div className="text-muted small p-2 rounded" style={{ backgroundColor: "#f8f9fa" }}>
                 TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />
                 Montant estimé : <strong>{(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</strong>
               </div>
             )}
+            {editLineProfil && (() => {
+              const statusId: number | null = (editLineProfil as any)?.currentStatus?.status?.id ?? (editLineProfil as any)?.statusId ?? null;
+              const m = taskStatusMeta(statusId);
+              if (!m) return null;
+              return (
+                <div className="d-flex align-items-center gap-2 mt-2 p-2 rounded" style={{ backgroundColor: m.bg, border: `1px solid ${m.color}33` }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: m.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: "0.8rem", color: m.color, fontWeight: 600 }}>Statut : {m.label}</span>
+                </div>
+              );
+            })()}
           </Modal.Body>
           <Modal.Footer>
             {editLineProfil && <Button label="Supprimer" variant="outline" onClick={deleteVolume} />}

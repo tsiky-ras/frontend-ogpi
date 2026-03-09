@@ -545,3 +545,181 @@
 .btb-spin { animation: btbSpin .7s linear infinite; }
 .btb-spin--lg { font-size: 1.6rem; }
 @keyframes btbSpin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PATCH CSS — Contexte backlog (Lot / Phase / Sprint / Livrables)
+   À ajouter à la fin de MesTachesBacklog.css et TachesAValiderBacklog.css
+   (les sélecteurs btb- sont pour MesTaches, vld- pour TachesAValider)
+═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Fil d'Ariane (breadcrumb) — visible dans le header de carte ─────────── */
+.btb-breadcrumb,
+.vld-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.btb-breadcrumb-sep,
+.vld-breadcrumb-sep {
+  font-size: .65rem;
+  color: #94a3b8;
+}
+
+.btb-breadcrumb-item,
+.vld-breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: .68rem;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* Lot — violet doux */
+.btb-breadcrumb-item--lot,
+.vld-breadcrumb-item--lot {
+  background: #ede9fe;
+  color: #6d28d9;
+  border-color: #c4b5fd;
+}
+
+/* Phase — bleu ciel */
+.btb-breadcrumb-item--phase,
+.vld-breadcrumb-item--phase {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+/* Sprint — ambre */
+.btb-breadcrumb-item--sprint,
+.vld-breadcrumb-item--sprint {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+/* ─── Contexte detail (dans le body de carte, section dépliée) ────────────── */
+.btb-context-detail,
+.vld-context-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--btb-bg, #f8fafc);
+  border: 1px solid var(--btb-border, #e2e8f0);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.btb-context-row,
+.vld-context-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .78rem;
+}
+
+.btb-context-label,
+.vld-context-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 56px;
+  font-size: .68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #64748b;
+}
+
+.btb-context-value,
+.vld-context-value {
+  font-size: .8rem;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+/* ─── Livrables ───────────────────────────────────────────────────────────── */
+.btb-deliverables,
+.vld-deliverables {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.btb-deliverable-item,
+.vld-deliverable-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: .78rem;
+  transition: background .15s;
+}
+
+.btb-deliverable-item--done,
+.vld-deliverable-item--done {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  opacity: .85;
+}
+
+.btb-deliverable-item--late,
+.vld-deliverable-item--late {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.btb-deliverable-icon,
+.vld-deliverable-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.btb-deliverable-name,
+.vld-deliverable-name {
+  flex: 1;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.btb-deliverable-item--done .btb-deliverable-name,
+.vld-deliverable-item--done .vld-deliverable-name {
+  text-decoration: line-through;
+  color: #64748b;
+}
+
+.btb-deliverable-date,
+.vld-deliverable-date {
+  font-size: .68rem;
+  color: #64748b;
+  font-family: 'IBM Plex Mono', monospace;
+  white-space: nowrap;
+}
+
+.btb-deliverable-date--late,
+.vld-deliverable-date--late {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.btb-deliverable-badge,
+.vld-deliverable-badge {
+  font-size: .62rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: #10b981;
+  color: #fff;
+  white-space: nowrap;
+}
