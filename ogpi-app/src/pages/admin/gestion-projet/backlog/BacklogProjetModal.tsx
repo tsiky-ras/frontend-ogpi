@@ -1404,7 +1404,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                       </div>
                                     )}
                                     <div className="d-flex justify-content-center gap-1 mt-1 flex-wrap" style={{ fontSize: "0.58rem", color: "#adb5bd", fontWeight: "normal" }}>
-                                      <span>JH</span><span>·</span><span>Réalisation</span><span>·</span><span>Passé</span><span>·</span><span>Deadline</span><span>·</span><span>Statut</span>
+                                      <span>JH</span><span>·</span><span>Réalisation</span><span>·</span><span>Passé</span><span>·</span><span>Deadline</span><span>·</span>
                                     </div>
                                   </th>
                                 ))}
@@ -1453,8 +1453,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                       const vol       = lp?.volume ?? 0;
                                       const collab    = lp?.collaborateur;
                                       const deadline  = lp?.deadLine ?? null;
-                                      const timeSpent = lp?.timeSpent ?? null;   // temps de réalisation
-                                      const ecart     = vol > 0 && timeSpent != null ? vol - timeSpent : null; // temps passé
+                                      const timeSpent = lp?.timeSpent ?? null;   
+                                      const ecart     = vol > 0 && timeSpent != null ? vol - timeSpent : null; 
                                       const pct       = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
                                       const isOverdue = deadline && new Date(deadline) < new Date() && pct !== 100;
                                       const statusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
@@ -1484,11 +1484,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                                   </span>
                                                 )}
                                               </div>
-                                              {pct != null && (
-                                                <div style={{ width: "100%", maxWidth: 80, height: 4, backgroundColor: "#e9ecef", borderRadius: 2, overflow: "hidden" }}>
-                                                  <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", backgroundColor: progressColor(pct), borderRadius: 2, transition: "width 0.3s" }} />
-                                                </div>
-                                              )}
                                               <TaskStatusBadge statusId={statusId} />
                                               {deadline && (
                                                 <span style={{ fontSize: "0.6rem", color: isOverdue ? "#dc3545" : "#6c757d", fontWeight: isOverdue ? "bold" : "normal", whiteSpace: "nowrap" }}
