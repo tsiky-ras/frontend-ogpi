@@ -58,14 +58,14 @@ interface ProfilFull extends BacklogProjetProfil {
   collaborateurs: any[];
 }
 
-// ── [DATES] Helper : formate une date ISO en "jj/mm/aaaa" ───────────────────
+// ── Helper : formate une date ISO en "jj mmm aaaa" ──────────────────────────
 const fmtDate = (iso: string | null | undefined): string => {
   if (!iso) return "";
   try { return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }); }
   catch { return iso; }
 };
 
-// ── [DATES] Badge dates inline ───────────────────────────────────────────────
+// ── Badge dates inline ───────────────────────────────────────────────────────
 const DateBadge: React.FC<{ debut?: string | null; fin?: string | null; style?: React.CSSProperties }> = ({ debut, fin, style }) => {
   if (!debut && !fin) return null;
   return (
@@ -80,6 +80,13 @@ const DateBadge: React.FC<{ debut?: string | null; fin?: string | null; style?: 
       {fmtDate(debut)}{fin && fin !== debut ? ` → ${fmtDate(fin)}` : ""}
     </span>
   );
+};
+
+// ── Couleur barre de progression ─────────────────────────────────────────────
+const progressColor = (pct: number): string => {
+  if (pct > 100) return "#dc3545";
+  if (pct >= 80)  return "#ffc107";
+  return "#198754";
 };
 
 const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
@@ -99,7 +106,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     planning   : new BacklogPlanningService(api),
   }).current;
 
-  // ── État principal ────────────────────────────────────────────────────
+  // ── État principal ─────────────────────────────────────────────────────────
   const [backlog,     setBacklog]     = useState<Backlog | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
@@ -175,9 +182,11 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     epic: "", userStory: "", description: "", resultat: "",
     lotId: null as number | null, phaseId: null as number | null, sprintId: null as number | null,
   });
-  const [fVolume,  setFVolume]  = useState(0);
-  const [fCol,     setFCol]     = useState({ name: "", type: "TEXT" as BacklogColumnType });
-  const [fCellVal, setFCellVal] = useState("");
+  const [fVolume,    setFVolume]    = useState(0);
+  const [fDeadline,  setFDeadline]  = useState<string>("");
+  const [fTimeSpent, setFTimeSpent] = useState<number | null>(null);
+  const [fCol,       setFCol]       = useState({ name: "", type: "TEXT" as BacklogColumnType });
+  const [fCellVal,   setFCellVal]   = useState("");
 
   const lineBodyRef    = useRef<HTMLTableSectionElement | null>(null);
   const lotsRef        = useRef<HTMLDivElement | null>(null);
@@ -353,7 +362,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   const getLineJH = (lineId: number) =>
     lineProfils.filter(lp => lp.lineId === lineId).reduce((s, lp) => s + lp.volume, 0);
 
-  // ── Dates calculées du lot depuis ses phases (sans dépendance backend) ──
   const getLotDates = (lot: BacklogLot): { debut: string | null; fin: string | null } => {
     const phases = (lot.phases ?? []) as any[];
     return phases.reduce<{ debut: string | null; fin: string | null }>(
@@ -511,7 +519,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     finally { setSaving(false); setCtxLotId(null); }
   };
 
-  // ── [DATES] deletePhase : propager les dates du lot après suppression ──
   const deletePhase = async (phaseId: number, lotId: number) => {
     if (!window.confirm("Supprimer cette phase et tout son contenu ?")) return;
     try {
@@ -522,30 +529,15 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       }));
       setSprints(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
       setDeliverables(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
-
-      // Propagation dates lot depuis ses phases restantes
       try { await propagateDatesFromLot(lotId); } catch(e) { console.warn(e); }
     } catch { alert("Impossible de supprimer la phase."); }
   };
 
   // ══════════════════════════════════════════════════════════════════════
-  // SPRINTS — create / update / delete avec propagation automatique dates
+  // PROPAGATION DATES
   // ══════════════════════════════════════════════════════════════════════
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PROPAGATION DATES — 100% frontend, sans appel réseau externe
-  // Règles : Phase.dates = MIN/MAX(sprints)  Lot.dates = MIN/MAX(phases)
-  // ══════════════════════════════════════════════════════════════════════
-
-  /**
-   * Calcule dateDebut=MIN / dateFin=MAX depuis une liste de sprints,
-   * met à jour la phase en BDD via svc.phase.update,
-   * puis propage au lot parent.
-   */
-  const propagateDatesFromPhase = async (
-    phaseId: number,
-    phaseSprints: BacklogSprint[]
-  ) => {
+  const propagateDatesFromPhase = async (phaseId: number, phaseSprints: BacklogSprint[]) => {
     const dates = phaseSprints
       .filter(s => s.dateDebut || s.dateFin)
       .reduce<{ debut: string | null; fin: string | null }>(
@@ -560,36 +552,24 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         { debut: null, fin: null }
       );
 
-    // Mise à jour en BDD de la phase
     await svc.phase.update(phaseId, {
       dateDebut: dates.debut ?? undefined,
       dateFin:   dates.fin   ?? undefined,
     });
 
-    // Mise à jour locale immédiate de la phase
     setLots(prev => prev.map(lot => ({
       ...lot,
       phases: (lot.phases ?? []).map((p: any) =>
-        p.id === phaseId
-          ? { ...p, dateDebut: dates.debut, dateFin: dates.fin }
-          : p
+        p.id === phaseId ? { ...p, dateDebut: dates.debut, dateFin: dates.fin } : p
       ),
     })));
 
-    // Propager au lot parent
-    const parentLot = lots.find(l =>
-      (l.phases ?? []).some((p: any) => p.id === phaseId)
-    );
+    const parentLot = lots.find(l => (l.phases ?? []).some((p: any) => p.id === phaseId));
     if (parentLot) {
       await propagateDatesFromLot(parentLot.id, phaseId, dates);
     }
   };
 
-  /**
-   * Recalcule dateDebut=MIN / dateFin=MAX du lot depuis toutes ses phases,
-   * en tenant compte de la mise à jour d'une phase si fournie,
-   * puis met à jour le lot en BDD et dans le state.
-   */
   const propagateDatesFromLot = async (
     lotId: number,
     updatedPhaseId?: number,
@@ -601,13 +581,8 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     const phases = (lot.phases ?? []) as any[];
     const lotDates = phases.reduce<{ debut: string | null; fin: string | null }>(
       (acc, p) => {
-        // Utilise les dates fraîches pour la phase qu'on vient de modifier
-        const pd = p.id === updatedPhaseId && updatedPhaseDates
-          ? updatedPhaseDates.debut
-          : (p.dateDebut ?? null);
-        const pf = p.id === updatedPhaseId && updatedPhaseDates
-          ? updatedPhaseDates.fin
-          : (p.dateFin ?? null);
+        const pd = p.id === updatedPhaseId && updatedPhaseDates ? updatedPhaseDates.debut : (p.dateDebut ?? null);
+        const pf = p.id === updatedPhaseId && updatedPhaseDates ? updatedPhaseDates.fin   : (p.dateFin   ?? null);
         return {
           debut: !acc.debut ? pd : !pd ? acc.debut : pd < acc.debut ? pd : acc.debut,
           fin:   !acc.fin   ? pf : !pf ? acc.fin   : pf > acc.fin   ? pf : acc.fin,
@@ -616,47 +591,38 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       { debut: null, fin: null }
     );
 
-    // Mise à jour en BDD du lot
     await svc.lot.update(lotId, {
       dateDebut: lotDates.debut ?? undefined,
       dateFin:   lotDates.fin   ?? undefined,
     });
 
-    // Mise à jour locale immédiate du lot
     setLots(prev => prev.map(l =>
-      l.id === lotId
-        ? { ...l, dateDebut: lotDates.debut, dateFin: lotDates.fin }
-        : l
+      l.id === lotId ? { ...l, dateDebut: lotDates.debut, dateFin: lotDates.fin } : l
     ));
   };
 
+  // ══════════════════════════════════════════════════════════════════════
+  // SPRINTS
+  // ══════════════════════════════════════════════════════════════════════
+
   const openAddSprint  = (phaseId: number) => {
-    setCtxPhaseId(phaseId);
-    setEditSprint(null);
-    setFSprint({ name: "", startDate: "", endDate: "" });
-    setShowSprintModal(true);
+    setCtxPhaseId(phaseId); setEditSprint(null);
+    setFSprint({ name: "", startDate: "", endDate: "" }); setShowSprintModal(true);
   };
   const openEditSprint = (s: BacklogSprint, phaseId: number) => {
-    setCtxPhaseId(phaseId);
-    setEditSprint(s);
-    setFSprint({ name: s.name, startDate: s.dateDebut ?? "", endDate: s.dateFin ?? "" });
-    setShowSprintModal(true);
+    setCtxPhaseId(phaseId); setEditSprint(s);
+    setFSprint({ name: s.name, startDate: s.dateDebut ?? "", endDate: s.dateFin ?? "" }); setShowSprintModal(true);
   };
 
   const saveSprint = async () => {
     if (!fSprint.name.trim() || ctxPhaseId === null) return;
     setSaving(true);
-
-    // ── 1. Sauvegarde du sprint ──────────────────────────────────────────
     let updatedSprints: BacklogSprint[] = [];
     try {
       const existing = sprints.get(ctxPhaseId) ?? [];
-
       if (editSprint) {
         const updated = await svc.phase.updateSprint(editSprint.id, {
-          name:      fSprint.name,
-          startDate: fSprint.startDate,
-          endDate:   fSprint.endDate,
+          name: fSprint.name, startDate: fSprint.startDate, endDate: fSprint.endDate,
         });
         updatedSprints = existing.map(s => s.id === editSprint.id
           ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null }
@@ -666,11 +632,8 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       } else {
         const order = Math.max(0, ...existing.map(s => s.order)) + 1;
         const created = await svc.phase.createSprint({
-          name:      fSprint.name,
-          order,
-          phaseId:   ctxPhaseId,
-          dateDebut: fSprint.startDate,
-          dateFin:   fSprint.endDate,
+          name: fSprint.name, order, phaseId: ctxPhaseId,
+          dateDebut: fSprint.startDate, dateFin: fSprint.endDate,
         });
         const createdWithDates: BacklogSprint = {
           ...created,
@@ -685,26 +648,16 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     } catch (err) {
       console.error("Erreur sauvegarde sprint:", err);
       alert("Erreur lors de la sauvegarde du sprint.");
-      setSaving(false);
-      setCtxPhaseId(null);
+      setSaving(false); setCtxPhaseId(null);
       return;
     }
-
-    // ── 2. Propagation dates locale Sprint → Phase → Lot ─────────────────
-    // Calcul 100% frontend : pas d'appel réseau supplémentaire
     if (fSprint.startDate || fSprint.endDate) {
-      try {
-        await propagateDatesFromPhase(ctxPhaseId, updatedSprints);
-      } catch (err) {
-        console.warn("Propagation dates échouée (sprint sauvegardé):", err);
-      }
+      try { await propagateDatesFromPhase(ctxPhaseId, updatedSprints); }
+      catch (err) { console.warn("Propagation dates échouée (sprint sauvegardé):", err); }
     }
-
-    setSaving(false);
-    setCtxPhaseId(null);
+    setSaving(false); setCtxPhaseId(null);
   };
 
-  // ── [DATES] deleteSprint : propagation depuis la phase ────────────────
   const deleteSprint = async (sprintId: number, phaseId: number) => {
     if (!window.confirm("Supprimer ce sprint ?")) return;
     try {
@@ -720,8 +673,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         ));
         return m;
       });
-
-      // Propagation dates locale
       try { await propagateDatesFromPhase(phaseId, updated); } catch(e) { console.warn(e); }
     } catch { alert("Impossible de supprimer le sprint."); }
   };
@@ -786,10 +737,8 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   };
 
   const openCollabModal = (p: ProfilFull) => {
-    setCollabProfil(p);
-    setFCollabIds(p.collaborateurs.map((c: any) => c.id));
-    setCollabSearch("");
-    setShowCollabModal(true);
+    setCollabProfil(p); setFCollabIds(p.collaborateurs.map((c: any) => c.id));
+    setCollabSearch(""); setShowCollabModal(true);
   };
 
   const saveProfil = async () => {
@@ -887,7 +836,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
   };
 
   // ══════════════════════════════════════════════════════════════════════
-  // VOLUMES
+  // VOLUMES — avec deadline et timeSpent
   // ══════════════════════════════════════════════════════════════════════
 
   const openVolModal = (lineId: number, profilId: number) => {
@@ -895,7 +844,13 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
     setEditLineProfil(existing ?? null);
     setFVolume(existing?.volume ?? 0);
-    setFCollabId((existing as any)?.collaborateur?.id ?? null);
+    setFCollabId(existing?.collaborateur?.id ?? null);
+    setFDeadline(
+      existing?.deadLine
+        ? (existing.deadLine.endsWith("Z") ? existing.deadLine.slice(0, -1) : existing.deadLine).substring(0, 16)
+        : ""
+    );  
+    setFTimeSpent(existing?.timeSpent ?? null);
     setShowVolModal(true);
   };
 
@@ -903,11 +858,19 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     if (ctxLineId === null || ctxProfilId === null) return;
     setSaving(true);
     try {
+      const payload = {
+        volume:          fVolume,
+        lineId:          ctxLineId,
+        profilId:        ctxProfilId,
+        collaborateurId: fCollabId,
+        deadLine: fDeadline ? `${fDeadline}:00` : null,   
+        timeSpent:       fTimeSpent,    
+      };
       if (editLineProfil) {
-        const updated = await svc.lineProfil.update(editLineProfil.id, { volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId, collaborateurId: fCollabId });
+        const updated = await svc.lineProfil.update(editLineProfil.id, payload);
         setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
       } else {
-        const created = await svc.lineProfil.create({ volume: fVolume, lineId: ctxLineId, profilId: ctxProfilId, collaborateurId: fCollabId });
+        const created = await svc.lineProfil.create(payload);
         setLineProfils(prev => [...prev, created]);
       }
       setShowVolModal(false);
@@ -923,6 +886,18 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
       setShowVolModal(false);
     } catch { alert("Impossible de supprimer le volume."); }
     finally { setCtxLineId(null); setCtxProfilId(null); }
+  };
+
+    const fmtDateTime = (iso: string | null | undefined): string => {
+    if (!iso) return "";
+    try {
+      // Supprime le Z pour éviter la conversion UTC→local (+3h à Madagascar)
+      const normalized = iso.endsWith("Z") ? iso.slice(0, -1) : iso;
+      return new Date(normalized).toLocaleString("fr-FR", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch { return iso; }
   };
 
   // ══════════════════════════════════════════════════════════════════════
@@ -1325,25 +1300,35 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                               <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
                               <th>Epic</th><th>User Story</th><th>Description</th><th>Détails</th>
                               {showProfilCols && profils.map(p => (
-                                <th key={p.id} className="text-center" style={{ minWidth: 110 }}>
+                                <th key={p.id} className="text-center" style={{ minWidth: 140 }}>
                                   <div className="fw-bold">{p.name}</div>
                                   {p.collaborateurs.length > 0 && (
                                     <div className="d-flex flex-column gap-1 mt-1">
                                       {p.collaborateurs.map((c: any) => (
-                                        <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>{c.prenom} {c.nom}</span>
+                                        <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>
+                                          {c.prenom} {c.nom}
+                                        </span>
                                       ))}
                                     </div>
                                   )}
+                                  {/* Sous-labels colonnes */}
+                                  <div className="d-flex justify-content-center gap-2 mt-1" style={{ fontSize: "0.58rem", color: "#adb5bd", fontWeight: "normal" }}>
+                                    <span>JH</span><span>·</span><span>Passé</span><span>·</span><span>Deadline</span>
+                                  </div>
                                 </th>
                               ))}
-                              <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}><div className="fw-bold text-warning">Total JH</div></th>
+                              <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}>
+                                <div className="fw-bold text-warning">Total JH</div>
+                              </th>
                               <th style={{ width: 90 }} />
                             </tr>
                           </thead>
                           <tbody ref={lineBodyRef}>
                             {lines.length === 0 ? (
                               <tr className="empty-row">
-                                <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">Aucune ligne — cliquez sur « Ajouter une ligne »</td>
+                                <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
+                                  Aucune ligne — cliquez sur « Ajouter une ligne »
+                                </td>
                               </tr>
                             ) : lines.map(line => {
                               const lot = getLotByPhaseId((line as any).phaseId);
@@ -1367,19 +1352,88 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                       </div>
                                     )}
                                   </td>
-                                  <td>{line.epic ?? "—"}</td><td>{line.userStory ?? "—"}</td>
-                                  <td>{line.description ?? "—"}</td><td>{line.resultat ?? "—"}</td>
+                                  <td>{line.epic ?? "—"}</td>
+                                  <td>{line.userStory ?? "—"}</td>
+                                  <td>{line.description ?? "—"}</td>
+                                  <td>{line.resultat ?? "—"}</td>
+
+                                  {/* ── Colonnes profil avec statut d'avancement ── */}
                                   {showProfilCols && profils.map(p => {
-                                    const lp = getLineProfil(line.id, p.id);
-                                    const vol = lp?.volume ?? 0;
-                                    const collab = (lp as any)?.collaborateur;
+                                    const lp        = getLineProfil(line.id, p.id);
+                                    const vol       = lp?.volume ?? 0;
+                                    const collab    = lp?.collaborateur;
+                                    const deadline  = lp?.deadLine ?? null;
+                                    const timeSpent = lp?.timeSpent ?? null;
+                                    const pct       = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
+                                    const isOverdue = deadline && new Date(deadline) < new Date() && pct !== 100;
+
                                     return (
-                                      <td key={p.id} className="text-center" style={{ cursor: "pointer" }} onClick={() => openVolModal(line.id, p.id)}>
-                                        {vol > 0 ? <span className="badge bg-primary">{vol}</span> : <span className="text-muted small">—</span>}
-                                        {collab && <small className="d-block text-muted" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>{collab.nom} {collab.prenom}</small>}
+                                      <td
+                                        key={p.id}
+                                        className="text-center"
+                                        style={{ cursor: "pointer", verticalAlign: "middle", padding: "4px 6px" }}
+                                        onClick={() => openVolModal(line.id, p.id)}
+                                      >
+                                        {vol > 0 ? (
+                                          <div className="d-flex flex-column align-items-center gap-1">
+                                            {/* Volume + temps passé */}
+                                            <div className="d-flex align-items-center gap-1 flex-wrap justify-content-center">
+                                              <span className="badge bg-primary" style={{ fontSize: "0.7rem" }}>{vol} JH</span>
+                                              {timeSpent != null && (
+                                                <span
+                                                  className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`}
+                                                  style={{ fontSize: "0.65rem" }}
+                                                  title={`${timeSpent} JH passés sur ${vol} JH`}
+                                                >
+                                                  {timeSpent}h
+                                                </span>
+                                              )}
+                                            </div>
+
+                                            {/* Barre de progression */}
+                                            {pct != null && (
+                                              <div style={{ width: "100%", maxWidth: 80, height: 4, backgroundColor: "#e9ecef", borderRadius: 2, overflow: "hidden" }}>
+                                                <div
+                                                  style={{
+                                                    width:           `${Math.min(pct, 100)}%`,
+                                                    height:          "100%",
+                                                    backgroundColor: progressColor(pct),
+                                                    borderRadius:    2,
+                                                    transition:      "width 0.3s",
+                                                  }}
+                                                />
+                                              </div>
+                                            )}
+
+                                            {/* Deadline */}
+                                            {deadline && (
+                                              <span
+                                                style={{
+                                                  fontSize:   "0.6rem",
+                                                  color:      isOverdue ? "#dc3545" : "#6c757d",
+                                                  fontWeight: isOverdue ? "bold" : "normal",
+                                                  whiteSpace: "nowrap",
+                                                }}
+                                                title={isOverdue ? "Deadline dépassée !" : `Deadline : ${fmtDateTime(deadline)}`}
+                                                >
+                                                {isOverdue ? "⚠ " : ""}{fmtDateTime(deadline)}                                                
+                                              </span>
+                                            )}
+
+                                            {/* Collaborateur */}
+                                            {collab && (
+                                              <small className="text-muted" style={{ fontSize: "0.6rem", lineHeight: 1.1 }}>
+                                                {collab.nom} {collab.prenom}
+                                              </small>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted small">—</span>
+                                        )}
                                       </td>
                                     );
                                   })}
+
                                   <td className="text-center" style={{ backgroundColor: "#fffbea" }}>
                                     {lineJH > 0 ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span> : <span className="text-muted small">—</span>}
                                   </td>
@@ -1425,7 +1479,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                 <span className="drag-lot text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}>⋮⋮</span>
                                 <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
                                 {lot.desc && <small className="text-muted me-1">{lot.desc}</small>}
-                                {/* ── [DATES] Dates du lot calculées depuis ses phases ── */}
                                 {(() => { const d = getLotDates(lot); return <DateBadge debut={d.debut} fin={d.fin} />; })()}
                                 <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
                                 <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
@@ -1448,7 +1501,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                           <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>
                                             {phase.order}. {phase.name}
                                           </span>
-                                          {/* ── [DATES] Dates de la phase calculées depuis ses sprints ── */}
                                           <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} />
                                           <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
                                           <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
@@ -1470,7 +1522,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                                     <div className="d-flex align-items-center gap-2 flex-wrap">
                                                       <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
                                                       <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
-                                                      {/* ── [DATES] Dates du sprint affichées directement ── */}
                                                       {(sprint.dateDebut || sprint.dateFin) && (
                                                         <DateBadge debut={sprint.dateDebut} fin={sprint.dateFin} style={{ background: "#fff3cd", borderColor: "#ffc107" }} />
                                                       )}
@@ -1511,8 +1562,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                                               <div className="d-flex gap-1 align-items-center">
                                                                 {!(d as any).isDelivered && (
                                                                   <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
-                                                                    style={{ fontSize: "0.7rem" }}
-                                                                    title="Marquer comme livré"
+                                                                    style={{ fontSize: "0.7rem" }} title="Marquer comme livré"
                                                                     onClick={() => deliverLivrable(d.id!, phase.id)}>
                                                                     <FaCheckCircle size={10} /> Livrer
                                                                   </button>
@@ -1545,8 +1595,7 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                                                 <div className="d-flex gap-1 align-items-center">
                                                   {!(d as any).isDelivered && (
                                                     <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1"
-                                                      style={{ fontSize: "0.7rem" }}
-                                                      title="Marquer comme livré"
+                                                      style={{ fontSize: "0.7rem" }} title="Marquer comme livré"
                                                       onClick={() => deliverLivrable(d.id!, phase.id)}>
                                                       <FaCheckCircle size={10} /> Livrer
                                                     </button>
@@ -1666,7 +1715,6 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* ── Modal Sprint — avec champs dates obligatoires ── */}
       <Modal show={showSprintModal} onHide={() => !saving && setShowSprintModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>{editSprint ? "Modifier le sprint" : "Nouveau sprint"}</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -1678,28 +1726,14 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
             <div className="row g-2">
               <div className="col">
                 <Form.Group>
-                  <Form.Label>
-                    Date début
-                    <small className="text-muted ms-1">(propagée vers la phase)</small>
-                  </Form.Label>
-                  <Form.Control
-                    type="date" value={fSprint.startDate}
-                    onChange={e => setFSprint(f => ({ ...f, startDate: e.target.value }))}
-                    disabled={saving}
-                  />
+                  <Form.Label>Date début <small className="text-muted ms-1">(propagée vers la phase)</small></Form.Label>
+                  <Form.Control type="date" value={fSprint.startDate} onChange={e => setFSprint(f => ({ ...f, startDate: e.target.value }))} disabled={saving} />
                 </Form.Group>
               </div>
               <div className="col">
                 <Form.Group>
-                  <Form.Label>
-                    Date fin
-                    <small className="text-muted ms-1">(propagée vers la phase)</small>
-                  </Form.Label>
-                  <Form.Control
-                    type="date" value={fSprint.endDate}
-                    onChange={e => setFSprint(f => ({ ...f, endDate: e.target.value }))}
-                    disabled={saving}
-                  />
+                  <Form.Label>Date fin <small className="text-muted ms-1">(propagée vers la phase)</small></Form.Label>
+                  <Form.Control type="date" value={fSprint.endDate} onChange={e => setFSprint(f => ({ ...f, endDate: e.target.value }))} disabled={saving} />
                 </Form.Group>
               </div>
             </div>
@@ -1840,13 +1874,81 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
         </Modal.Footer>
       </Modal>
 
+      {/* ══ Modal Volume JH — avec deadline et temps passé ══════════════ */}
       <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered>
-        <Modal.Header closeButton><Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title></Modal.Header>
+        <Modal.Header closeButton>
+          <Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title>
+        </Modal.Header>
         <Modal.Body>
+          {/* Jours-Homme */}
+          <Form.Control
+            type="number" step="0.5" min="0"
+            value={fVolume}
+            onChange={e => setFVolume(+e.target.value || 0)}
+            onWheel={e => (e.target as HTMLInputElement).blur()}   
+            disabled={saving} autoFocus
+          />
+
+          {/* Deadline */}
           <Form.Group className="mb-3">
-            <Form.Label>Jours-Homme *</Form.Label>
-            <Form.Control type="number" step="0.5" min="0" value={fVolume} onChange={e => setFVolume(+e.target.value || 0)} disabled={saving} autoFocus />
+            <Form.Label>Deadline</Form.Label>
+            <Form.Control
+              type="datetime-local"
+              value={fDeadline}
+              onChange={e => setFDeadline(e.target.value)}
+              disabled={saving}
+            />
           </Form.Group>
+
+          {/* Temps passé */}
+          <Form.Group className="mb-3">
+            <Form.Label className="d-flex align-items-center gap-2">
+              Temps passé (JH)
+              {fVolume > 0 && fTimeSpent != null && (
+                (() => {
+                  const pct = Math.round((fTimeSpent / fVolume) * 100);
+                  return (
+                    <span
+                      className={`badge ${pct > 100 ? "bg-danger" : pct >= 80 ? "bg-warning text-dark" : "bg-success"}`}
+                      style={{ fontSize: "0.7rem" }}
+                    >
+                      {pct}%
+                    </span>
+                  );
+                })()
+              )}
+            </Form.Label>
+              <Form.Control
+                type="number" step="0.5" min="0"
+                placeholder="0"
+                value={fTimeSpent ?? ""}
+                onChange={e => setFTimeSpent(e.target.value ? +e.target.value : null)}
+                onWheel={e => (e.target as HTMLInputElement).blur()}   // ← ajout
+                disabled={saving}
+              />            
+            {/* Barre de progression en temps réel dans le modal */}
+            {fVolume > 0 && fTimeSpent != null && (
+              <div className="mt-2">
+                <div style={{ height: 6, backgroundColor: "#e9ecef", borderRadius: 3, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      width:           `${Math.min(Math.round((fTimeSpent / fVolume) * 100), 100)}%`,
+                      height:          "100%",
+                      backgroundColor: progressColor(Math.round((fTimeSpent / fVolume) * 100)),
+                      borderRadius:    3,
+                      transition:      "width 0.2s",
+                    }}
+                  />
+                </div>
+                <div className="text-muted small mt-1">
+                  {fTimeSpent} JH passés sur {fVolume} JH planifiés
+                  {fTimeSpent > fVolume && <span className="text-danger fw-bold ms-2">⚠ Dépassement</span>}
+                </div>
+              </div>
+            )}
+          </Form.Group>
+
+          {/* Collaborateur assigné */}
           {currentProfil && (currentProfil.collaborateurs?.length ?? 0) > 0 && (
             <Form.Group className="mb-3">
               <Form.Label>Collaborateur assigné</Form.Label>
@@ -1854,7 +1956,10 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
                 const assigned = currentProfil.collaborateurs!.find((c: any) => c.id === fCollabId);
                 return assigned ? (
                   <div className="d-flex align-items-center justify-content-between border rounded px-3 py-2" style={{ backgroundColor: "#f0f9ff", borderColor: "#90cdf4" }}>
-                    <div><span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>{assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}</div>
+                    <div>
+                      <span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>
+                      {assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}
+                    </div>
                     <button type="button" className="btn btn-sm btn-link text-danger p-0" onClick={() => setFCollabId(null)} disabled={saving}>✕</button>
                   </div>
                 ) : (
@@ -1869,7 +1974,14 @@ const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
               })()}
             </Form.Group>
           )}
-          {currentProfil && <div className="text-muted small">TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />Montant estimé : {(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</div>}
+
+          {/* Estimation financière */}
+          {currentProfil && (
+            <div className="text-muted small p-2 rounded" style={{ backgroundColor: "#f8f9fa" }}>
+              TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />
+              Montant estimé : <strong>{(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</strong>
+            </div>
+          )}
         </Modal.Body>
         <Modal.Footer>
           {editLineProfil && <Button label="Supprimer" variant="outline" onClick={deleteVolume} />}

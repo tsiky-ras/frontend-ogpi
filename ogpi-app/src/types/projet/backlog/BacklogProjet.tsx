@@ -22,6 +22,14 @@ export interface BacklogProjetLineProfil {
   volume: number;
   lineId: number;
   profil: BacklogProjetProfil;
+  collaborateur?: {
+    id: number;
+    nom: string;
+    prenom: string;
+    appellation?: string;
+  } | null;
+  deadline?: string | null;
+  timeSpent?: number | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -126,7 +134,7 @@ export interface CreateBacklogDelivrableRequest {
   deliveryDate?: string;
   phaseId: number;
   sprintId?: number | null;
-  isDelivered?: boolean; // optionnel → défaut false côté backend
+  isDelivered?: boolean;
   order?: number;
 }
 
