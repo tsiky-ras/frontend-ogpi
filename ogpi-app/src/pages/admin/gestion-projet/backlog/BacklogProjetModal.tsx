@@ -532,8 +532,14 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setSaving(true);
       try {
         if (editLot) {
-          const updated = await svc.lot.update(editLot.id, fLot);
+          const updated = await svc.lot.update(editLot.id, { 
+            name: fLot.name, 
+            desc: fLot.desc, 
+            order: editLot.order,
+            backlogId: backlog!.id,
+          });
           setLots(prev => prev.map(l => l.id === editLot.id ? { ...l, ...updated } : l));
+          await reloadLots();
         } else {
           const order = Math.max(0, ...lots.map(l => l.order)) + 1;
           const created = await svc.lot.create({ ...fLot, order, backlogId: backlog.id });
@@ -566,8 +572,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setSaving(true);
       try {
         if (editPhase) {
-          const updated = await svc.phase.update(editPhase.id, { name: fPhase.name });
-          setLots(prev => prev.map(l => l.id !== ctxLotId ? l : { ...l, phases: (l.phases ?? []).map((p: any) => p.id === editPhase.id ? { ...p, ...updated } : p) }));
+        const updated = await svc.phase.update(editPhase.id, { name: fPhase.name, order: editPhase.order });          
+        setLots(prev => prev.map(l => l.id !== ctxLotId ? l : { ...l, phases: (l.phases ?? []).map((p: any) => p.id === editPhase.id ? { ...p, ...updated } : p) }));
         } else {
           const lot = lots.find(l => l.id === ctxLotId);
           const order = Math.max(0, ...((lot?.phases ?? []) as any[]).map(p => p.order)) + 1;
@@ -614,11 +620,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         const existing = sprints.get(ctxPhaseId) ?? [];
 
         if (editSprint) {
-          const updated = await svc.phase.updateSprint(editSprint.id, {
-            name:      fSprint.name,
-            startDate: fSprint.startDate,
-            endDate:   fSprint.endDate,
-          });
+        const updated = await svc.phase.updateSprint(editSprint.id, {
+          name:      fSprint.name,
+          order:     editSprint.order,
+          startDate: fSprint.startDate,
+          endDate:   fSprint.endDate,
+        });
           const updatedSprints = existing.map(s =>
             s.id === editSprint.id
               ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null }
