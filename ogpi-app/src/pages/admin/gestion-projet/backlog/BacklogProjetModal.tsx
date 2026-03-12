@@ -43,6 +43,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
   import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
   import { ProjetService } from "../../../../services/projet/ProjetService.tsx";
+  import FacturableProfil from "../tabs/FacturableProfil.tsx";
+  import { BacklogDateService } from "../../../../services/projet/backlog/BacklogDateService.tsx";
 
   interface BacklogProjetModalProps {
     show:             boolean;
@@ -148,6 +150,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       lineProfil : new BacklogProjetLineProfilService(api),
       column     : new BacklogProjetColumnService(api),
       planning   : new BacklogPlanningService(api),
+      date : new BacklogDateService (api),
     }).current;
 
     const [backlog,     setBacklog]     = useState<Backlog | null>(null);
@@ -224,6 +227,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     const [fLine,      setFLine]      = useState({
       epic: "", userStory: "", description: "", resultat: "",
       lotId: null as number | null, phaseId: null as number | null, sprintId: null as number | null,
+      facturable: true,
     });
     const [fVolume,    setFVolume]    = useState(0);
     const [fDeadline,  setFDeadline]  = useState<string>("");
@@ -269,7 +273,14 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setDeliverables(dlvMap);
       const rawProfils: any[] = full.profilsProjet ?? full.profils ?? [];
       setProfils(rawProfils.sort((a: any, b: any) => a.order - b.order).map((p: any) => ({ ...p, collaborateurs: p.collaborateurs ?? [] })));
-      setLines((full.lines ?? []).sort((a: any, b: any) => a.order - b.order));
+      setLines(
+      (full.lines ?? [])
+        .sort((a: any, b: any) => a.order - b.order)
+        .map((l: any) => ({
+          ...l,
+          facturable: l.facturable ?? l.isFacturable ?? true,
+        }))
+    );
     }, []);
 
     const loadColumnsAndValues = useCallback(async (full: any) => {
@@ -315,6 +326,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setLoading(true); setError(null);
       try {
         const full = await svc.backlog.getFullById(selectedBacklogId);
+        console.log(full);
         if (!full) return;
         hydrateFromFull(full);
         await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full), loadAllCollabs()]);
@@ -330,6 +342,25 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         if (full) { hydrateFromFull(full); await Promise.all([loadLineProfils(full.id), loadColumnsAndValues(full)]); }
       } catch { setError("Impossible de recharger les données."); }
       finally { setLoading(false); }
+    }, [selectedBacklogId]);
+
+    const reloadLots = useCallback(async () => {
+      if (!selectedBacklogId) return;
+      try {
+        const full = await svc.backlog.getFullById(selectedBacklogId);
+        if (!full) return;
+        const sortedLots: BacklogLot[] = (full.lots ?? []).sort((a: any, b: any) => a.order - b.order);
+        setLots(sortedLots);
+        const spMap = new Map<number, BacklogSprint[]>();
+        for (const lot of sortedLots) {
+          for (const phase of (lot.phases ?? []) as any[]) {
+            spMap.set(phase.id, (phase.sprints ?? []).sort((a: any, b: any) => a.order - b.order));
+          }
+        }
+        setSprints(spMap);
+      } catch (err) {
+        console.warn("reloadLots échoué (non bloquant):", err);
+      }
     }, [selectedBacklogId]);
 
     useEffect(() => {
@@ -559,41 +590,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         }));
         setSprints(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
         setDeliverables(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
-        try { await propagateDatesFromLot(lotId); } catch(e) { console.warn(e); }
-      } catch { alert("Impossible de supprimer la phase."); }
+        try {
+        await svc.date.propagateFromLot(lotId);
+        await reloadLots();
+      } catch(e) { console.warn("Propagation dates échouée (non bloquant):", e); }
+    } catch { alert("Impossible de supprimer la phase."); }
     };
 
-    // ══════════════════════════════════════════════════════════════════════
-    // PROPAGATION DATES
-    // ══════════════════════════════════════════════════════════════════════
-
-    const propagateDatesFromPhase = async (phaseId: number, phaseSprints: BacklogSprint[]) => {
-      const dates = phaseSprints.filter(s => s.dateDebut || s.dateFin).reduce<{ debut: string | null; fin: string | null }>(
-        (acc, s) => ({
-          debut: !acc.debut ? (s.dateDebut ?? null) : !s.dateDebut ? acc.debut : s.dateDebut < acc.debut ? s.dateDebut : acc.debut,
-          fin: !acc.fin ? (s.dateFin ?? null) : !s.dateFin ? acc.fin : s.dateFin > acc.fin ? s.dateFin : acc.fin,
-        }), { debut: null, fin: null }
-      );
-      await svc.phase.update(phaseId, { dateDebut: dates.debut ?? undefined, dateFin: dates.fin ?? undefined });
-      setLots(prev => prev.map(lot => ({ ...lot, phases: (lot.phases ?? []).map((p: any) => p.id === phaseId ? { ...p, dateDebut: dates.debut, dateFin: dates.fin } : p) })));
-      const parentLot = lots.find(l => (l.phases ?? []).some((p: any) => p.id === phaseId));
-      if (parentLot) await propagateDatesFromLot(parentLot.id, phaseId, dates);
-    };
-
-    const propagateDatesFromLot = async (lotId: number, updatedPhaseId?: number, updatedPhaseDates?: { debut: string | null; fin: string | null }) => {
-      const lot = lots.find(l => l.id === lotId);
-      if (!lot) return;
-      const phases = (lot.phases ?? []) as any[];
-      const lotDates = phases.reduce<{ debut: string | null; fin: string | null }>(
-        (acc, p) => {
-          const pd = p.id === updatedPhaseId && updatedPhaseDates ? updatedPhaseDates.debut : (p.dateDebut ?? null);
-          const pf = p.id === updatedPhaseId && updatedPhaseDates ? updatedPhaseDates.fin   : (p.dateFin   ?? null);
-          return { debut: !acc.debut ? pd : !pd ? acc.debut : pd < acc.debut ? pd : acc.debut, fin: !acc.fin ? pf : !pf ? acc.fin : pf > acc.fin ? pf : acc.fin };
-        }, { debut: null, fin: null }
-      );
-      await svc.lot.update(lotId, { dateDebut: lotDates.debut ?? undefined, dateFin: lotDates.fin ?? undefined });
-      setLots(prev => prev.map(l => l.id === lotId ? { ...l, dateDebut: lotDates.debut, dateFin: lotDates.fin } : l));
-    };
 
     // ══════════════════════════════════════════════════════════════════════
     // SPRINTS
@@ -605,26 +608,66 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     const saveSprint = async () => {
       if (!fSprint.name.trim() || ctxPhaseId === null) return;
       setSaving(true);
-      let updatedSprints: BacklogSprint[] = [];
+      let savedSprintId: number | null = null;
+
       try {
         const existing = sprints.get(ctxPhaseId) ?? [];
+
         if (editSprint) {
-          const updated = await svc.phase.updateSprint(editSprint.id, { name: fSprint.name, startDate: fSprint.startDate, endDate: fSprint.endDate });
-          updatedSprints = existing.map(s => s.id === editSprint.id
-            ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null } : s);
+          const updated = await svc.phase.updateSprint(editSprint.id, {
+            name:      fSprint.name,
+            startDate: fSprint.startDate,
+            endDate:   fSprint.endDate,
+          });
+          const updatedSprints = existing.map(s =>
+            s.id === editSprint.id
+              ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null }
+              : s
+          );
           setSprints(prev => new Map(prev).set(ctxPhaseId, updatedSprints));
+          savedSprintId = editSprint.id;
+
         } else {
           const order = Math.max(0, ...existing.map(s => s.order)) + 1;
-          const created = await svc.phase.createSprint({ name: fSprint.name, order, phaseId: ctxPhaseId, dateDebut: fSprint.startDate, dateFin: fSprint.endDate });
-          const createdWithDates: BacklogSprint = { ...created, dateDebut: created.dateDebut ?? (fSprint.startDate || null), dateFin: created.dateFin ?? (fSprint.endDate || null) };
-          updatedSprints = [...existing, createdWithDates];
-          setSprints(prev => new Map(prev).set(ctxPhaseId, updatedSprints));
+          const created = await svc.phase.createSprint({
+            name:      fSprint.name,
+            order,
+            phaseId:   ctxPhaseId,
+            dateDebut: fSprint.startDate,
+            dateFin:   fSprint.endDate,
+          });
+          const createdWithDates: BacklogSprint = {
+            ...created,
+            dateDebut: created.dateDebut ?? (fSprint.startDate || null),
+            dateFin:   created.dateFin   ?? (fSprint.endDate   || null),
+          };
+          setSprints(prev => new Map(prev).set(ctxPhaseId, [...existing, createdWithDates]));
           setColumns(prev => new Map(prev).set(createdWithDates.id, []));
+          savedSprintId = createdWithDates.id;
         }
+
         setShowSprintModal(false);
-      } catch (err) { console.error("Erreur sauvegarde sprint:", err); alert("Erreur lors de la sauvegarde du sprint."); setSaving(false); setCtxPhaseId(null); return; }
-      if (fSprint.startDate || fSprint.endDate) { try { await propagateDatesFromPhase(ctxPhaseId, updatedSprints); } catch (err) { console.warn("Propagation dates échouée:", err); } }
-      setSaving(false); setCtxPhaseId(null);
+
+      } catch (err) {
+        console.error("Erreur sauvegarde sprint:", err);
+        alert("Erreur lors de la sauvegarde du sprint.");
+        setSaving(false);
+        setCtxPhaseId(null);
+        return;
+      }
+
+      // ── Propagation via BacklogDateService ─────────────────────────────
+      if (savedSprintId && (fSprint.startDate || fSprint.endDate)) {
+        try {
+          await svc.date.propagateFromSprint(savedSprintId);
+          await reloadLots();
+        } catch (err) {
+          console.warn("Propagation dates échouée (non bloquant):", err);
+        }
+      }
+
+      setSaving(false);
+      setCtxPhaseId(null);
     };
 
     const deleteSprint = async (sprintId: number, phaseId: number) => {
@@ -634,7 +677,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         const updated = (sprints.get(phaseId) ?? []).filter(s => s.id !== sprintId).map((s, i) => ({ ...s, order: i + 1 }));
         setSprints(prev => new Map(prev).set(phaseId, updated));
         setDeliverables(prev => { const m = new Map(prev); m.set(phaseId, (m.get(phaseId) ?? []).map(d => (d as any).sprintId === sprintId ? { ...d, sprintId: null } : d)); return m; });
-        try { await propagateDatesFromPhase(phaseId, updated); } catch(e) { console.warn(e); }
+        try {
+          await svc.date.propagateFromPhase(phaseId);
+          await reloadLots();
+        } catch(e) { console.warn("Propagation dates échouée (non bloquant):", e); }
       } catch { alert("Impossible de supprimer le sprint."); }
     };
 
@@ -733,13 +779,18 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     // LIGNES
     // ══════════════════════════════════════════════════════════════════════
 
-    const openAddLine = () => { setEditLine(null); setFLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null }); setShowLineModal(true); };
+    const openAddLine = () => { setEditLine(null); setFLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null, facturable: true }); setShowLineModal(true); };
 
     const openEditLine = (l: BacklogLine) => {
       setEditLine(l);
       const phaseId = (l as any).phaseId ?? null;
       const lot = getLotByPhaseId(phaseId);
-      setFLine({ epic: l.epic ?? "", userStory: l.userStory ?? "", description: l.description ?? "", resultat: l.resultat ?? "", lotId: lot?.id ?? null, phaseId, sprintId: (l as any).sprintId ?? null });
+      setFLine({
+        epic: l.epic ?? "", userStory: l.userStory ?? "",
+        description: l.description ?? "", resultat: l.resultat ?? "",
+        lotId: lot?.id ?? null, phaseId, sprintId: (l as any).sprintId ?? null,
+        facturable: l.facturable ?? true, 
+      });
       setShowLineModal(true);
     };
 
@@ -747,15 +798,18 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       if (!fLine.phaseId) { alert("Veuillez sélectionner une phase."); return; }
       setSaving(true);
       try {
-        const payload = { epic: fLine.epic, userStory: fLine.userStory, description: fLine.description, resultat: fLine.resultat, phaseId: fLine.phaseId, sprintId: fLine.sprintId };
+        const payload = { epic: fLine.epic, userStory: fLine.userStory, description: fLine.description, resultat: fLine.resultat, phaseId: fLine.phaseId, sprintId: fLine.sprintId, facturable: fLine.facturable, };
         if (editLine) {
-          const updated = await svc.line.update(editLine.id, { ...payload, order: editLine.order });
-          setLines(prev => prev.map(l => l.id === editLine.id ? { ...l, ...updated } : l));
+        const updated = await svc.line.update(editLine.id, { ...payload, order: editLine.order });
+        setLines(prev => prev.map(l => l.id === editLine.id
+          ? { ...l, ...updated, facturable: updated.facturable ?? (updated as any).isFacturable ?? payload.facturable }
+          : l
+        ));
         } else {
           const order = Math.max(0, ...lines.map(l => l.order)) + 1;
           const created = await svc.line.create({ ...payload, order });
-          setLines(prev => [...prev, created]);
-          setColValues(prev => new Map(prev).set(created.id, []));
+          const createdNorm = { ...created, facturable: created.facturable ?? (created as any).isFacturable ?? payload.facturable };
+          setLines(prev => [...prev, createdNorm])
         }
         setShowLineModal(false);
       } catch { alert("Erreur lors de la sauvegarde de la ligne."); }
@@ -784,18 +838,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         setEditLineProfil(existing ?? null);
         setFVolume(existing?.volume ?? 0);
         setFCollabId(existing?.collaborateur?.id ?? null);
-        
-        // CORRECTION : Gestion du décalage horaire pour l'affichage
-        if (existing?.deadLine) {
-          // Créer une date à partir de la valeur ISO de la BDD
+          if (existing?.deadLine) {
           const date = new Date(existing.deadLine);
-          // Ajuster pour le fuseau horaire local
           const year = date.getFullYear();
           const month = String(date.getMonth() + 1).padStart(2, '0');
           const day = String(date.getDate()).padStart(2, '0');
           const hours = String(date.getHours()).padStart(2, '0');
           const minutes = String(date.getMinutes()).padStart(2, '0');
-          // Format pour datetime-local (YYYY-MM-DDThh:mm)
           setFDeadline(`${year}-${month}-${day}T${hours}:${minutes}`);
         } else {
           setFDeadline("");
@@ -809,12 +858,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         if (ctxLineId === null || ctxProfilId === null) return;
         setSaving(true);
         try {
-          // CORRECTION : Gestion du décalage horaire pour l'envoi
           let deadLineToSend = null;
           if (fDeadline) {
-            // Créer une date à partir de la valeur locale du datetime-local
             const localDate = new Date(fDeadline);
-            // Convertir en UTC pour la BDD
             deadLineToSend = localDate.toISOString();
           }
           
@@ -823,7 +869,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
             lineId: ctxLineId, 
             profilId: ctxProfilId, 
             collaborateurId: fCollabId, 
-            deadLine: deadLineToSend,  // Utiliser la valeur convertie
+            deadLine: deadLineToSend,  
             timeSpent: fTimeSpent 
           };
           
@@ -1008,10 +1054,22 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     // ══════════════════════════════════════════════════════════════════════
 
     const profilTotals = profils.map(p => {
-      const vol = lineProfils.filter(lp => (lp.profil as any)?.id === p.id).reduce((s, lp) => s + lp.volume, 0);
-      const ts  = lineProfils.filter(lp => (lp.profil as any)?.id === p.id).reduce((s, lp) => s + (lp.timeSpent ?? 0), 0);
-      return { profil: p, vol, ts, amount: vol * p.tjm };
-    });
+      const vol = lineProfils
+        .filter(lp => (lp.profil as any)?.id === p.id)
+        .reduce((s, lp) => s + lp.volume, 0);
+      const ts = lineProfils
+        .filter(lp => (lp.profil as any)?.id === p.id)
+        .reduce((s, lp) => s + (lp.timeSpent ?? 0), 0);
+      // ← Montant : seulement les lignes facturables
+      const amount = lineProfils
+        .filter(lp => {
+          if ((lp.profil as any)?.id !== p.id) return false;
+          const line = lines.find(l => l.id === lp.lineId);
+          return line?.facturable !== false; // true par défaut si absent
+        })
+        .reduce((s, lp) => s + lp.volume * p.tjm, 0);
+      return { profil: p, vol, ts, amount };
+    }); 
     const grandTotalVol = profilTotals.reduce((s, t) => s + t.vol, 0);
     const grandTotalTs  = profilTotals.reduce((s, t) => s + t.ts, 0);
     const grandTotalAmt = profilTotals.reduce((s, t) => s + t.amount, 0);
@@ -1499,9 +1557,21 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                         </td>
                                       );
                                     })}
-
-                                    <td className="text-center" style={{ backgroundColor: "#fffbea" }}>
-                                      {lineJH > 0 ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span> : <span className="text-muted small">—</span>}
+                                    <td className="text-center" style={{ backgroundColor: lineJH > 0 && !line.facturable ? "#f8f9fa" : "#fffbea" }}>
+                                      <div className="d-flex flex-column align-items-center gap-1">
+                                        {lineJH > 0
+                                          ? <span className="badge bg-warning text-dark fw-bold">{fmtJH(lineJH)}</span>
+                                          : <span className="text-muted small">—</span>}
+                                        {!line.facturable && (
+                                          <span
+                                            className="badge bg-secondary"
+                                            style={{ fontSize: "0.58rem", letterSpacing: "0.02em" }}
+                                            title="Cette tâche n'est pas facturée"
+                                          >
+                                            Non facturable
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td>
                                       <div className="d-flex gap-1 justify-content-center">
@@ -1723,6 +1793,15 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                       <Tab eventKey="budget" title="Budget">
                         <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} leadId={leadId ?? null} deviseAbr={deviseAbr} />
                       </Tab>
+                      <Tab eventKey="facturation" title="Facturation">
+                        <FacturableProfil
+                          lots={lots}
+                          profils={profils}
+                          lines={lines}
+                          lineProfils={lineProfils}
+                          deviseAbr={deviseAbr}
+                        />
+                        </Tab>
                     </Tabs>
                   )}
                 </>
@@ -1897,6 +1976,36 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
               <Form.Group className="mb-3 mt-2"><Form.Label>Description</Form.Label><Form.Control as="textarea" rows={2} value={fLine.description} onChange={e => setFLine(f => ({ ...f, description: e.target.value }))} disabled={saving} /></Form.Group>
               <Form.Group><Form.Label>Détails / Résultat attendu</Form.Label><Form.Control as="textarea" rows={2} value={fLine.resultat} onChange={e => setFLine(f => ({ ...f, resultat: e.target.value }))} disabled={saving} /></Form.Group>
             </Form>
+            {/* ── Facturable ── */}
+            <Form.Group className="mt-3">
+              <div
+                className="d-flex align-items-center justify-content-between p-3 rounded"
+                style={{
+                  backgroundColor: fLine.facturable ? "#ecfdf5" : "#f8f9fa",
+                  border: `1px solid ${fLine.facturable ? "#6ee7b7" : "#dee2e6"}`,
+                  transition: "all 0.2s",
+                }}
+              >
+                <div>
+                  <div className="fw-semibold" style={{ fontSize: "0.9rem" }}>
+                    Tâche facturable
+                  </div>
+                  <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                    {fLine.facturable
+                      ? "Le montant sera calculé selon le TJM du profil."
+                      : "TJM = 0 — cette tâche ne sera pas facturée."}
+                  </div>
+                </div>
+                <Form.Check
+                  type="switch"
+                  id="facturable-switch"
+                  checked={fLine.facturable}
+                  onChange={e => setFLine(f => ({ ...f, facturable: e.target.checked }))}
+                  disabled={saving}
+                  style={{ transform: "scale(1.3)" }}
+                />
+              </div>
+            </Form.Group>
           </Modal.Body>
           <Modal.Footer>
             <Button label="Annuler" variant="outline" onClick={() => setShowLineModal(false)} />
@@ -1983,12 +2092,26 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                 })()}
               </Form.Group>
             )}
-            {currentProfil && (
-              <div className="text-muted small p-2 rounded" style={{ backgroundColor: "#f8f9fa" }}>
-                TJM : {currentProfil.tjm?.toLocaleString("fr-FR")} {deviseAbr}<br />
-                Montant estimé : <strong>{(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</strong>
-              </div>
-            )}
+            {currentProfil && (() => {
+              const line = lines.find(l => l.id === ctxLineId);
+              const isFacturable = line?.facturable !== false;
+              return (
+                <div className="text-muted small p-2 rounded" style={{ backgroundColor: isFacturable ? "#f8f9fa" : "#fff3cd", border: isFacturable ? "none" : "1px solid #ffc107" }}>
+                  {!isFacturable && (
+                    <div className="fw-semibold text-warning mb-1" style={{ fontSize: "0.75rem" }}>
+                      ⚠ Tâche non facturable — TJM appliqué : 0 {deviseAbr}
+                    </div>
+                  )}
+                  TJM : {isFacturable ? `${currentProfil.tjm?.toLocaleString("fr-FR")} ${deviseAbr}` : `0 ${deviseAbr}`}<br />
+                  Montant estimé :{" "}
+                  <strong>
+                    {isFacturable
+                      ? `${(fVolume * (currentProfil.tjm ?? 0)).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} ${deviseAbr}`
+                      : `0 ${deviseAbr}`}
+                  </strong>
+                </div>
+              );
+            })()}
             {editLineProfil && (() => {
               const statusId: number | null = (editLineProfil as any)?.currentStatus?.status?.id ?? (editLineProfil as any)?.statusId ?? null;
               const m = taskStatusMeta(statusId);
