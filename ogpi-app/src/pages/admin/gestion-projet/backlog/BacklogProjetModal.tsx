@@ -47,6 +47,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import { ProjetService } from "../../../../services/projet/ProjetService.tsx";
   import FacturableProfil from "../tabs/FacturableProfil.tsx";
   import { BacklogDateService } from "../../../../services/projet/backlog/BacklogDateService.tsx";
+  import CalendrierPaiementTab from "../tabs/CalendrierPaiementTab.tsx";
+  import { CalendrierPaiementService } from "../../../../services/projet/paiement/CalendrierPaiementService.tsx";
 
   interface BacklogProjetModalProps {
     show:             boolean;
@@ -146,6 +148,15 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     VALIDE:                6,
   } as const;
 
+  // ── StatusPanel : colonne OK/KO unique, toujours réouvrable ────────────────
+  // Permet de marquer une tâche OK ou KO à tout moment (régression possible).
+  // KO = REATTRIBUE (2) → la tâche retourne dans "Mes tâches" du collaborateur.
+  // OK = VALIDE (6)     → tâche validée / test passé.
+  // ── TestStatusPanel : colonne "Statut de test" ──────────────────────────────
+  // Permet de marquer une tâche OK ou KO côté test, même après validation.
+  // KO = REATTRIBUE (2) → la tâche retourne dans "Mes tâches" du collaborateur.
+  // OK = VALIDE (6)     → confirme que le test est passé.
+  // Contrairement à ValidationPanel, le panel reste toujours réouvrable.
   interface TestStatusPanelProps {
     taskId: number;
     currentTestStatus?: "ok" | "ko" | null;
@@ -326,7 +337,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       lineProfil : new BacklogProjetLineProfilService(api),
       column     : new BacklogProjetColumnService(api),
       planning   : new BacklogPlanningService(api),
-      date : new BacklogDateService (api),
+      date    : new BacklogDateService(api),
+      paiement: new CalendrierPaiementService(api),
     }).current;
 
     // ── Appel API changeStatus OK/KO — toujours réouvrable (régression possible) ──
@@ -381,6 +393,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     const leadTechFinService = useLeadTechFinDetailsService();
     const [deviseAbr, setDeviseAbr] = useState<string>("€");
     const [budgetRH, setBudgetRH]   = useState<number>(0);
+    // montantOffre = budget de l'offre technique du lead (lead_tech_fin_details_montant)
+    const [montantOffre, setMontantOffre] = useState<number>(0);
 
     const [showProfilCols, setShowProfilCols] = useState(true);
 
@@ -564,10 +578,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     }, [selectedBacklogId]);
 
     useEffect(() => {
-      if (!leadId) { setDeviseAbr("€"); return; }
+      if (!leadId) { setDeviseAbr("€"); setMontantOffre(0); return; }
       (async () => {
-        try { const techFin = await leadTechFinService.getByLeadId(leadId); setDeviseAbr((techFin && techFin.devise?.abrDevise) || "€"); }
-        catch { setDeviseAbr("€"); }
+        try {
+          const techFin = await leadTechFinService.getByLeadId(leadId);
+          setDeviseAbr((techFin && techFin.devise?.abrDevise) || "€");
+          // montantOffre = "Budget nécessaire" = lead_tech_fin_details_montant
+          // Le frontend le stocke parfois sous "budget", parfois sous "montantOffre"
+          setMontantOffre(techFin?.montantOffre || techFin?.budget || 0);
+        }
+        catch { setDeviseAbr("€"); setMontantOffre(0); }
       })();
     }, [leadId]);
 
@@ -580,6 +600,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setSelectedBacklogId(null);
       setExpandedPhases(new Set()); setExpandedSprints(new Map()); setExpandedLines(new Set());
       setTestStatuses(new Map()); // reset statuts de test à l'ouverture
+      setMontantOffre(0); // sera rechargé par l'effet leadId
       fetchBacklogHeader();
     }, [show, projetId]);
 
@@ -2101,13 +2122,25 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                           service={new ChargesAnnexesService(api)}
                         />
                       </Tab>
-                      <Tab eventKey="facturation" title="Facturation">
+                      <Tab eventKey="facturation" title="Facturation ressources">
                         <FacturableProfil
                           lots={lots}
                           profils={profils}
                           lines={lines}
                           lineProfils={lineProfils}
                           deviseAbr={deviseAbr}
+                        />
+                      </Tab>
+
+                      <Tab eventKey="paiements" title="Paiements clients">
+                        <CalendrierPaiementTab
+                          backlogId={backlog?.id ?? null}
+                          lots={lots}
+                          sprints={sprints}
+                          deliverables={deliverables}
+                          deviseAbr={deviseAbr}
+                          montantOffre={montantOffre}
+                          service={svc.paiement}
                         />
                       </Tab>
                     </Tabs>
