@@ -5,6 +5,8 @@ import InfoGeneral from "./info-general/InfoGeneral.tsx";
 import StructureTab from "../../tabs/StructureTab.tsx";
 import EquipeTab from "../../tabs/EquipeTab.tsx";
 import BudgetTab from "../../../gestion-lead/backlog/BudgetTab.tsx";
+import ChargesAnnexesTab from "../../tabs/ChargesAnnexesTab.tsx";
+import { ChargesAnnexesService } from "../../../../../services/projet/backlog/ChargesAnnexesService.tsx";
 import PlanningTab from "../../../gestion-lead/backlog/PlanningTab.tsx";
 import DetailsQualif from "../../../gestion-lead/details/qualif/DetailsQualif.tsx";
 import DetailsOffreTech from "../../../gestion-lead/details/offre-tech/DetailsOffreTech.tsx";
@@ -33,14 +35,16 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
   const projetTechnoService  = useProjetTechnoService();
 
   const [svc] = useState(() => ({
-    backlog:    new BacklogProjetService(api),
-    profil:     new BacklogProjetProfilService(api),
-    lineProfil: new BacklogProjetLineProfilService(api),
-    planning:   new BacklogPlanningService(api),
-    lead:       new LeadService(api),
+    backlog:          new BacklogProjetService(api),
+    profil:           new BacklogProjetProfilService(api),
+    lineProfil:       new BacklogProjetLineProfilService(api),
+    planning:         new BacklogPlanningService(api),
+    lead:             new LeadService(api),
+    chargesAnnexes:   new ChargesAnnexesService(api),
   }));
 
   const [loadingData,   setLoadingData]   = useState(false);
+  const [budgetRH,      setBudgetRH]      = useState<number>(0);
   const [backlogId,     setBacklogId]     = useState<number | null>(null);
   const [lots,          setLots]          = useState<any[]>([]);
   const [lines,         setLines]         = useState<any[]>([]);
@@ -200,6 +204,7 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Nav.Item><Nav.Link eventKey="equipe">Équipe</Nav.Link></Nav.Item>
             <Nav.Item><Nav.Link eventKey="planning">Planning</Nav.Link></Nav.Item>
             <Nav.Item><Nav.Link eventKey="budget">Budget</Nav.Link></Nav.Item>
+            <Nav.Item><Nav.Link eventKey="charges_annexes">Charges Annexes</Nav.Link></Nav.Item>
           </Nav>
 
           <Tab.Content>
@@ -251,7 +256,21 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Tab.Pane eventKey="budget">
               <div className="details-section details-section--full">
                 {loadingData ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
-                  : <BudgetTab lots={lots} profils={profils} lines={lines} lineProfils={lineProfils} selectedBacklogId={backlogId} leadId={leadId} deviseAbr={deviseAbr} />}
+                  : <BudgetTab lots={lots} profils={profils} lines={lines} lineProfils={lineProfils} selectedBacklogId={backlogId} leadId={leadId} deviseAbr={deviseAbr} onTotalChange={setBudgetRH} />}
+              </div>
+            </Tab.Pane>
+
+            <Tab.Pane eventKey="charges_annexes">
+              <div className="details-section details-section--full">
+                {loadingData
+                  ? <div className="details-tab-loading"><FaSpinner className="fa-spin me-2" /> Chargement...</div>
+                  : <ChargesAnnexesTab
+                      backlogId={backlogId}
+                      deviseAbr={deviseAbr}
+                      budgetRH={budgetRH}
+                      service={svc.chargesAnnexes}
+                    />
+                }
               </div>
             </Tab.Pane>
           </Tab.Content>

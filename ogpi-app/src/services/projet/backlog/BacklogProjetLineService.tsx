@@ -124,4 +124,27 @@ export class BacklogProjetLineProfilService {
     );
     return response.data;
   }
+
+    /**
+   * Récupère tous les lineProfils d'un backlog avec leur statut courant.
+   * GET /api/projet/backlogs/{backlogId}/line-profils
+   */
+  async getAllLineProfilsByBacklogId(backlogId: number): Promise<BacklogProjetLineProfil[]> {
+      const response = await this.api.get(`/projet/backlog-line-profils/${backlogId}/line-profils`);
+      return response.data;
+  }
+
+  /**
+   * Change le statut d'une tâche (backlog_line_profil).
+   * POST /projet/backlog-line-profils/changeStatus
+   * statusId : 1=Attribué 2=Réattribué 3=À modifier 4=En cours 5=Soumis 6=Validé
+   */
+  async changeStatus(taskId: number, statusId: number, comment: string): Promise<any> {
+    const response = await this.api.post('/projet/backlog-line-profils/changeStatus', {
+      idStatus: statusId,
+      comment: comment || 'Changement de statut',
+      backlogLineProfilId: taskId,
+    });
+    return response.data;
+  }
 }

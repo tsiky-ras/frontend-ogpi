@@ -39,7 +39,7 @@ export class BacklogProjetPhaseService {
   /** PUT /projet/backlog-phases/{id} */
   async update(
     id: number,
-    payload: { name: string; dateDebut?: string; dateFin?: string }
+    payload: { name: string; order: number, dateDebut?: string; dateFin?: string }
   ): Promise<BacklogPhase> {
     const response = await this.api.put(`/projet/backlog-phases/${id}`, payload);
     return response.data;
@@ -87,11 +87,12 @@ export class BacklogProjetPhaseService {
   }
 
   /** PUT /projet/backlog-sprints/{id} */
-  async updateSprint(id: number, payload: { name: string; startDate?: string; endDate?: string }): Promise<BacklogSprint> {
+  async updateSprint(id: number, payload: { name: string; order: number, startDate?: string; endDate?: string }): Promise<BacklogSprint> {
     const response = await this.api.put(
       `/projet/backlog-sprints/${id}`,
       {
         name: payload.name,
+        order: payload.order,
         dateDebut: payload.startDate,
         dateFin: payload.endDate,
       }

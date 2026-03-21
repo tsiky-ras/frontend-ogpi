@@ -25,11 +25,11 @@ export class BacklogProjetLotService {
   }
 
   /** PUT /projet/backlog-lots/{id} */
-  async update(id: number, payload: { name: string; desc?: string }): Promise<BacklogLot> {
+  async update(id: number, payload: { name: string; order: number; desc?: string; backlogId: number }): Promise<BacklogLot> {
     const response = await this.api.put(`/projet/backlog-lots/${id}`, payload);
     return response.data;
   }
-
+  
   /** DELETE /projet/backlog-lots/{id} */
   async delete(id: number): Promise<void> {
     await this.api.delete(`/projet/backlog-lots/${id}`);

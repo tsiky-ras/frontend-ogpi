@@ -1,0 +1,179 @@
+/* TaskStatusCell.css */
+.tsc-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  font-family: inherit;
+  position: relative;
+}
+
+/* Badge + bouton historique */
+.tsc-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tsc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 20px;
+  font-size: 0.67rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: default;
+  white-space: nowrap;
+  background: none;
+  transition: filter .12s;
+}
+.tsc-badge--active { cursor: pointer; }
+.tsc-badge--active:hover:not(:disabled) { filter: brightness(.93); }
+.tsc-badge:disabled { cursor: default; }
+
+.tsc-hist-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+.tsc-hist-btn:hover { color: #3b82f6; background: #eff6ff; }
+
+/* Dropdown */
+.tsc-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.13);
+  min-width: 200px;
+  overflow: hidden;
+  animation: tscFade .1s ease;
+}
+@keyframes tscFade { from { opacity:0; transform:translateY(-3px); } to { opacity:1; } }
+
+.tsc-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-align: left;
+  transition: filter .1s;
+  border-bottom: 1px solid #f0f4f8;
+}
+.tsc-dd-item:last-child { border-bottom: none; }
+.tsc-dd-item:hover { filter: brightness(.93); }
+
+.tsc-dd-item--ok {
+  color: #16a34a;
+  background: #f0fdf4;
+}
+.tsc-dd-item--ok:hover { background: #dcfce7; }
+.tsc-dd-item--ko {
+  color: #dc2626;
+  background: #fff5f5;
+}
+.tsc-dd-item--ko:hover { background: #fee2e2; }
+
+/* Formulaire KO */
+.tsc-ko-form {
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 7px 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.tsc-ko-form__err {
+  font-size: 0.68rem;
+  color: #dc2626;
+  margin-bottom: 4px;
+}
+.tsc-ko-form__ta {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid #fca5a5;
+  border-radius: 5px;
+  font-size: 0.73rem;
+  resize: vertical;
+  min-height: 48px;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+}
+.tsc-ko-form__ta:focus { border-color: #ef4444; }
+.tsc-ko-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-top: 6px;
+}
+.tsc-ko-cancel {
+  padding: 3px 9px; font-size: 0.7rem; border-radius: 5px;
+  background: transparent; border: 1px solid #e2e8f0; color: #64748b; cursor: pointer;
+}
+.tsc-ko-confirm {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; font-size: 0.7rem; font-weight: 600; border-radius: 5px;
+  background: #dc2626; color: #fff; border: none; cursor: pointer;
+}
+.tsc-ko-confirm:disabled { opacity: 0.5; cursor: default; }
+
+/* Bandeau KO */
+.tsc-ko-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 0.65rem;
+  color: #b91c1c;
+  max-width: 180px;
+}
+.tsc-ko-motif { flex: 1; font-style: italic; }
+.tsc-ko-by    { font-weight: 600; white-space: nowrap; }
+
+/* Historique */
+.tsc-hist {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 200px;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+}
+.tsc-hist__empty { font-size: 0.68rem; color: #94a3b8; margin: 0; text-align: center; }
+.tsc-hist__item  { display: flex; align-items: flex-start; gap: 6px; }
+
+/* Shared */
+.tsc-dot    { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.tsc-chevron { transition: transform .12s; opacity: 0.6; }
+.tsc-chevron--up { transform: rotate(180deg); }
+.tsc-spin   { animation: tscSpin .7s linear infinite; }
+@keyframes tscSpin { to { transform: rotate(360deg); } }

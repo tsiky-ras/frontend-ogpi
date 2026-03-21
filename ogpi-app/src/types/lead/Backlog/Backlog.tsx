@@ -45,6 +45,7 @@ export interface BacklogLine {
   lotId?: number | null;
   backlogId?: number | null;
   profilId?: number | null;
+  facturable : boolean
 }
 
 export interface Backlog {
@@ -117,7 +118,8 @@ export interface BacklogLine {
   resultat?: string;
   phaseId: number | null;
   profils?: BacklogLineProfil[];
-}
+  facturable: boolean;
+  }
 
 export interface BacklogLineProfil {
   id: number;

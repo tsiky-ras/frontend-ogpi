@@ -17,11 +17,37 @@ export interface BacklogProjetProfil {
 // ─────────────────────────────────────────────────────────────
 // BacklogProjetLineProfil
 // ─────────────────────────────────────────────────────────────
+export interface BacklogLineProfilStatus {
+  id: number;
+  label: string;
+}
+
+export interface BacklogLineProfilCurrentStatus {
+  id?: number;
+  dateChangement?: string | null;
+  commentaire?: string | null;
+  status: BacklogLineProfilStatus;
+  backlogLineProfilId?: number;
+}
+
 export interface BacklogProjetLineProfil {
   id: number;
   volume: number;
   lineId: number;
   profil: BacklogProjetProfil;
+  collaborateur?: {
+    id: number;
+    nom: string;
+    prenom: string;
+    appellation?: string;
+    matricule?: string;
+    emailPro?: string;
+  } | null;
+  deadLine?: string | null;   // backend : deadLine (camelCase)
+  deadline?: string | null;   // alias legacy
+  timeSpent?: number | null;
+  currentStatus?: BacklogLineProfilCurrentStatus | null;
+  statusId?: number | null;   // fallback si pas de currentStatus
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -126,7 +152,7 @@ export interface CreateBacklogDelivrableRequest {
   deliveryDate?: string;
   phaseId: number;
   sprintId?: number | null;
-  isDelivered?: boolean; // optionnel → défaut false côté backend
+  isDelivered?: boolean;
   order?: number;
 }
 

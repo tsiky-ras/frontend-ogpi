@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   BacklogLot,
   BacklogProfil,
@@ -12,8 +12,10 @@ interface BudgetTabProps {
   lines: BacklogLine[];
   lineProfils: BacklogLineProfil[];
   selectedBacklogId: number | null;
-  leadId?: number | null;     
+  leadId?: number | null;
   deviseAbr?: string | null;
+  /** Callback pour remonter le total RH vers le parent (pour les charges annexes) */
+  onTotalChange?: (total: number) => void;
 }
 
 const LOT_COLOR = "#223A46";
@@ -26,6 +28,7 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
   lineProfils,
   selectedBacklogId,
   deviseAbr,
+  onTotalChange,
 }) => {
   const activeProfils = useMemo(() => {
     const safeProfils = Array.isArray(profils)    ? profils    : [];
@@ -75,6 +78,11 @@ const BudgetTab: React.FC<BudgetTabProps> = ({
 
   const grandTotalVolume = globalProfilTotals.reduce((s, p) => s + p.volume, 0);
   const grandTotalAmount = globalProfilTotals.reduce((s, p) => s + p.amount, 0);
+
+  // Notifie le parent dès que le total RH change (pour les charges annexes)
+  useEffect(() => {
+    onTotalChange?.(grandTotalAmount);
+  }, [grandTotalAmount, onTotalChange]);
 
   const fmt = (n: number) =>
     n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
