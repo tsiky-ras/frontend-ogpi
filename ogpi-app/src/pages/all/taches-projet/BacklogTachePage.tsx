@@ -59,8 +59,8 @@ const BacklogTachePage: React.FC = () => {
                 onClick={() => setActiveTab("afaire")}>Mes tâches à faire</button>
               <button className={`btp-tab-btn${activeTab === "avalider" ? " active" : ""}`}
                 onClick={() => setActiveTab("avalider")}>Tâches à valider</button>
-              <button className={`btp-tab-btn${activeTab === "statut_collab" ? " active" : ""}`}
-                onClick={() => setActiveTab("statut_collab")}>Statut Collaborateur</button>
+              {/* <button className={`btp-tab-btn${activeTab === "statut_collab" ? " active" : ""}`}
+                onClick={() => setActiveTab("statut_collab")}>Statut Collaborateur</button> */}
             </div>
 
             <div className="btp-tab-content">

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import Button from "../../../../components/button/Button.tsx";
   import {
     FaPlus, FaSpinner, FaEdit, FaTrash, FaCalendar,
-    FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash, FaCheckCircle,
+    FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle,
   } from "react-icons/fa";
   import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
@@ -42,8 +42,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import BacklogFormProjet from "./BacklogFormProjet.tsx";
   import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
   import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
-  import TaskStatusCell from "../../../../components/task-status/TaskStatusCell.tsx";
-  import type { TaskStatusEntry } from "../../../../components/task-status/TaskStatusCell.tsx";
   import ChargesAnnexesTab from "../tabs/ChargesAnnexesTab.tsx";
   import { ChargesAnnexesService } from "../../../../services/projet/backlog/ChargesAnnexesService.tsx";
   import { ProjetService } from "../../../../services/projet/ProjetService.tsx";
@@ -122,11 +120,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   };
 
   // ── Couleur écart (temps passé = planifié - réalisation) ─────────────────────
-  // Positif = il reste du temps (bon), Négatif = dépassement (mauvais)
   const ecartColor = (ecart: number): string => {
-    if (ecart < 0) return "#dc3545";  // dépassement
-    if (ecart === 0) return "#6c757d"; // pile poil
-    return "#198754";                  // du temps restant
+    if (ecart < 0) return "#dc3545";
+    if (ecart === 0) return "#6c757d";
+    return "#198754";
   };
 
   // ── Mini barre de progression inline ─────────────────────────────────────────
@@ -139,22 +136,186 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     );
   };
 
-  // ── Constantes statut tâche — alignées avec backend et STATUS_TASK_META ────
-  // 1=Attribué 2=Réattribué 3=À modifier 4=En cours 5=Soumis/Validé collab 6=Validé CP
+  // ── Constantes statut tâche ────────
   const TASK_STATUS = {
-    AFFECTE:    1,
-    REATTRIBUE: 2,
-    A_REFAIRE:  3,   // KO → à refaire
-    EN_COURS:   4,
-    VALIDE:     5,   // Collab soumet → attend CP
-    TERMINE:    6,   // CP valide OK → terminé
+    AFFECTE:               1,
+    REATTRIBUE:            2,
+    A_MODIFIER:            3,
+    EN_COURS:              4,
+    EN_ATTENTE_VALIDATION: 5,
+    VALIDE:                6,
   } as const;
+
+  interface TestStatusPanelProps {
+    taskId: number;
+    currentTestStatus?: "ok" | "ko" | null;
+    onDone: (taskId: number, result: "ok" | "ko", comment: string) => Promise<void>;
+  }
+
+  const TestStatusPanel: React.FC<TestStatusPanelProps> = ({ taskId, currentTestStatus, onDone }) => {
+    const [mode, setMode]       = React.useState<"ok" | "ko" | null>(null);
+    const [comment, setComment] = React.useState("");
+    const [saving, setSaving]   = React.useState(false);
+    const [error, setError]     = React.useState<string | null>(null);
+
+    const handleSubmit = async () => {
+      if (!mode) return;
+      setSaving(true); setError(null);
+      try {
+        await onDone(
+          taskId,
+          mode,
+          comment.trim() || (mode === "ok" ? "Test OK" : "Test KO — à retravailler")
+        );
+        setMode(null); setComment("");
+      } catch { setError("Erreur lors de l'enregistrement."); }
+      finally { setSaving(false); }
+    };
+
+    // Si un statut de test existe déjà et qu'on n'est pas en mode saisie :
+    // on affiche le badge + petits boutons pour changer
+    if (!mode && currentTestStatus) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            fontSize: "0.68rem", fontWeight: 700,
+            color: currentTestStatus === "ok" ? "#16a34a" : "#dc2626",
+            background: currentTestStatus === "ok" ? "#f0fdf4" : "#fff5f5",
+            border: `1.5px solid ${currentTestStatus === "ok" ? "#86efac" : "#fca5a5"}`,
+            borderRadius: 10, padding: "2px 8px",
+          }}>
+            {currentTestStatus === "ok" ? <FaCheckCircle size={9} /> : <FaTimesCircle size={9} />}
+            Test {currentTestStatus.toUpperCase()}
+          </span>
+          {/* Toujours permettre de re-décider */}
+          <div style={{ display: "flex", gap: 3 }}>
+            <button
+              style={{
+                fontSize: "0.58rem", padding: "1px 6px", borderRadius: 5,
+                background: "transparent", border: "1px solid #86efac",
+                color: "#16a34a", cursor: "pointer",
+              }}
+              onClick={() => { setMode("ok"); setComment(""); setError(null); }}>
+              OK
+            </button>
+            <button
+              style={{
+                fontSize: "0.58rem", padding: "1px 6px", borderRadius: 5,
+                background: "transparent", border: "1px solid #fca5a5",
+                color: "#dc2626", cursor: "pointer",
+              }}
+              onClick={() => { setMode("ko"); setComment(""); setError(null); }}>
+              KO
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Pas encore de statut → boutons principaux
+    if (!mode) return (
+      <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+        <button
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            padding: "3px 9px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 700,
+            color: "#16a34a", background: "#f0fdf4", border: "1.5px solid #86efac",
+            cursor: "pointer", transition: "all .1s",
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#16a34a"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#f0fdf4"; (e.currentTarget as HTMLButtonElement).style.color = "#16a34a"; }}
+          onClick={() => { setMode("ok"); setComment(""); setError(null); }}
+          title="Test passé — OK">
+          <FaCheckCircle size={10} /> OK
+        </button>
+        <button
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            padding: "3px 9px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 700,
+            color: "#dc2626", background: "#fff5f5", border: "1.5px solid #fca5a5",
+            cursor: "pointer", transition: "all .1s",
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#dc2626"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff5f5"; (e.currentTarget as HTMLButtonElement).style.color = "#dc2626"; }}
+          onClick={() => { setMode("ko"); setComment(""); setError(null); }}
+          title="Test échoué — KO, ré-affectation">
+          <FaTimesCircle size={10} /> KO
+        </button>
+      </div>
+    );
+
+    // Mode saisie commentaire
+    return (
+      <div style={{
+        background: mode === "ok" ? "#f0fdf4" : "#fff5f5",
+        border: `1px solid ${mode === "ok" ? "#86efac" : "#fca5a5"}`,
+        borderRadius: 7, padding: "7px 8px", width: "100%",
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 5,
+          fontSize: "0.7rem", fontWeight: 700,
+          color: mode === "ok" ? "#16a34a" : "#dc2626",
+          marginBottom: 5,
+        }}>
+          {mode === "ok" ? <FaCheckCircle size={10} /> : <FaTimesCircle size={10} />}
+          {mode === "ok" ? "Confirmer Test OK" : "Test KO — motif de ré-affectation"}
+        </div>
+        {error && <div style={{ fontSize: "0.67rem", color: "#dc2626", marginBottom: 4 }}>{error}</div>}
+        <textarea
+          style={{
+            width: "100%", padding: "4px 6px",
+            border: `1px solid ${mode === "ok" ? "#86efac" : "#fca5a5"}`,
+            borderRadius: 5, fontSize: "0.71rem", resize: "vertical",
+            minHeight: 44, fontFamily: "inherit",
+            boxSizing: "border-box" as const, outline: "none",
+          }}
+          placeholder={mode === "ok" ? "Commentaire (optionnel)…" : "Motif du KO (recommandé)…"}
+          value={comment}
+          onChange={e => { setComment(e.target.value); setError(null); }}
+          rows={2}
+          autoFocus
+        />
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 5, marginTop: 5 }}>
+          <button
+            style={{ padding: "2px 8px", fontSize: "0.68rem", borderRadius: 5, background: "transparent", border: "1px solid #e2e8f0", color: "#64748b", cursor: "pointer" }}
+            onClick={() => { setMode(null); setComment(""); setError(null); }}
+            disabled={saving}>
+            Annuler
+          </button>
+          <button
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, borderRadius: 5,
+              background: mode === "ok" ? "#16a34a" : "#dc2626",
+              color: "#fff", border: "none",
+              cursor: saving ? "wait" : "pointer",
+              opacity: saving ? 0.6 : 1,
+            }}
+            onClick={handleSubmit}
+            disabled={saving}>
+            {saving ? <FaSpinner size={9} className="fa-spin" /> : mode === "ok" ? <FaCheckCircle size={9} /> : <FaTimesCircle size={9} />}
+            {mode === "ok" ? "Valider OK" : "Confirmer KO"}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     show, onClose, projetId, projetNom, leadId, projectStartDate, projectEndDate,
   }) => {
     const { api, user } = useAuth();
     const collaborateurService = useProfilService();
+
+    // ── Rôle utilisateur : CP / BA / Suppléant peuvent valider ───────────────
+    const isValidator = React.useMemo(() => {
+      const role = (user?.role?.roleLabel ?? "").toLowerCase();
+      return role.includes("chef") || role.includes("cp") ||
+             role.includes("suppl") || role.includes("ba") ||
+             role.includes("business analyst");
+    }, [user]);
+
     const projetService = new ProjetService(api);
     const svc = useRef({
       backlog    : new BacklogProjetService(api),
@@ -167,6 +328,26 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       planning   : new BacklogPlanningService(api),
       date : new BacklogDateService (api),
     }).current;
+
+    // ── Appel API changeStatus OK/KO — toujours réouvrable (régression possible) ──
+    // KO = REATTRIBUE (2) → la tâche retourne dans "Mes tâches" du collaborateur
+    // OK = VALIDE (6)     → tâche validée
+    const handleTestStatus = React.useCallback(async (
+      taskId: number, result: "ok" | "ko", comment: string
+    ) => {
+      const newStatusId = result === "ok" ? TASK_STATUS.VALIDE : TASK_STATUS.REATTRIBUE;
+      await svc.lineProfil.changeStatus(taskId, newStatusId, comment);
+      setLineProfils(prev => prev.map(lp =>
+        lp.id === taskId
+          ? { ...lp, currentStatus: { status: { id: newStatusId, label: STATUS_TASK_META[newStatusId]?.label ?? "" } } } as any
+          : lp
+      ));
+      setTestStatuses(prev => {
+        const m = new Map(prev);
+        m.set(taskId, result);
+        return m;
+      });
+    }, [svc]);
 
     const [backlog,     setBacklog]     = useState<Backlog | null>(null);
     const [loading,     setLoading]     = useState(false);
@@ -190,6 +371,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     const [allCollabs,   setAllCollabs]   = useState<any[]>([]);
     const [fCollabId,    setFCollabId]    = useState<number | null>(null);
 
+    // ── Statuts de test par lineProfil id : "ok" | "ko" ─────────────────────
+    const [testStatuses, setTestStatuses] = useState<Map<number, "ok" | "ko">>(new Map());
+
     const [activeTab,       setActiveTab]       = useState("backlog");
     const [expandedPhases,  setExpandedPhases]  = useState<Set<number>>(new Set());
     const [expandedSprints, setExpandedSprints] = useState<Map<number, Set<number>>>(new Map());
@@ -198,30 +382,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     const [deviseAbr, setDeviseAbr] = useState<string>("€");
     const [budgetRH, setBudgetRH]   = useState<number>(0);
 
-    // ── Helpers rôle utilisateur connecté ──────────────────────────────────
-    // user?.role?.roleLabel contient le label du rôle depuis le JWT
-    const userRoleLabel = (user?.role?.roleLabel ?? "").toLowerCase();
-    const isValidator = userRoleLabel.includes("chef") ||
-                        userRoleLabel.includes("cp") ||
-                        userRoleLabel.includes("suppléant") ||
-                        userRoleLabel.includes("suppleant") ||
-                        userRoleLabel.includes("ba") ||
-                        userRoleLabel.includes("business analyst");
-
-    const isCollaboratorOf = (profilCollabs: any[]): boolean => {
-      if (!user?.userId) return false;
-      return profilCollabs.some((c: any) =>
-        c.userId === user.userId || c.user?.id === user.userId || c.id === user.userId
-      );
-    };
-
-    // ── changeStatus pour TaskStatusCell ───────────────────────────────────
-    const handleChangeStatus = async (
-      taskId: number, statusId: number, comment: string
-    ): Promise<TaskStatusEntry> => {
-      const response = await svc.lineProfil.changeStatus(taskId, statusId, comment);
-      return response;
-    };
     const [showProfilCols, setShowProfilCols] = useState(true);
 
     const [expandedRecapLots,   setExpandedRecapLots]   = useState<Set<number>>(new Set());
@@ -272,7 +432,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     });
     const [fVolume,    setFVolume]    = useState(0);
     const [fDeadline,  setFDeadline]  = useState<string>("");
-    // ── fTimeSpent = "temps de réalisation" (anciennement "temps passé") ──
     const [fTimeSpent, setFTimeSpent] = useState<number | null>(null);
     const [fCol,       setFCol]       = useState({ name: "", type: "TEXT" as BacklogColumnType });
     const [fCellVal,   setFCellVal]   = useState("");
@@ -343,16 +502,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     }, []);
 
     const loadLineProfils = useCallback(async (backlogId: number) => {
-      try { setLineProfils(await svc.lineProfil.getAllByBacklogId(backlogId)); }
+      try { setLineProfils(await svc.lineProfil.getAllLineProfilsByBacklogId(backlogId)); }
       catch { setLineProfils([]); }
     }, []);
-
-    // const loadLineProfils = useCallback(async (backlogId: number) => {
-    //   try { setLineProfils(await svc.lineProfil.getAllLineProfilsByBacklogId(backlogId)); 
-    //     console.log(await svc.lineProfil.getAllLineProfilsByBacklogId(backlogId));
-    //   }
-    //   catch { setLineProfils([]); }
-    // }, []);
 
     const loadAllCollabs = useCallback(async () => {
       try { const data = await collaborateurService.getAll(); setAllCollabs(Array.isArray(data) ? data : []); }
@@ -427,6 +579,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setError(null); setShowBacklogForm(false); setActiveTab("backlog");
       setSelectedBacklogId(null);
       setExpandedPhases(new Set()); setExpandedSprints(new Map()); setExpandedLines(new Set());
+      setTestStatuses(new Map()); // reset statuts de test à l'ouverture
       fetchBacklogHeader();
     }, [show, projetId]);
 
@@ -467,7 +620,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
     const fmtJH = (v: number) => v.toFixed(v % 1 === 0 ? 0 : 1);
 
-    // ── Formate l'écart : +2.5 JH (vert) / -1 JH (rouge) / 0 (gris) ────────
     const fmtEcart = (ecart: number): string => {
       const abs = Math.abs(ecart);
       const str = abs.toFixed(abs % 1 === 0 ? 0 : 1);
@@ -495,17 +647,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
     // ══════════════════════════════════════════════════════════════════════
     // CALCULS RÉCAPITULATIFS
-    // timeSpent  = "temps de réalisation" (saisi par l'utilisateur)
-    // ecart      = planifié - réalisation  ("temps passé" affiché)
     // ══════════════════════════════════════════════════════════════════════
 
-    // Helper : somme JH planifiés pour un set de lineIds (filtré par profil optionnel)
     const getJhForIds = (lineIds: Set<number>, profilId?: number) =>
       lineProfils
         .filter(lp => lineIds.has(lp.lineId) && (profilId == null || (lp.profil as any)?.id === profilId))
         .reduce((s, lp) => s + lp.volume, 0);
 
-    // Helper : somme temps de réalisation pour un set de lineIds (filtré par profil optionnel)
     const getTsForIds = (lineIds: Set<number>, profilId?: number) =>
       lineProfils
         .filter(lp => lineIds.has(lp.lineId) && (profilId == null || (lp.profil as any)?.id === profilId))
@@ -549,7 +697,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
     const tableGrandJH = lineProfils.reduce((s, lp) => s + lp.volume, 0);
     const tableGrandTs = lineProfils.reduce((s, lp) => s + (lp.timeSpent ?? 0), 0);
-    // Temps passé global = planifié - réalisation
     const tableGrandEcart = tableGrandTs > 0 ? tableGrandJH - tableGrandTs : null;
 
     const leadIdRef = useRef(leadId);
@@ -580,9 +727,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setSaving(true);
       try {
         if (editLot) {
-          const updated = await svc.lot.update(editLot.id, { 
-            name: fLot.name, 
-            desc: fLot.desc, 
+          const updated = await svc.lot.update(editLot.id, {
+            name: fLot.name,
+            desc: fLot.desc,
             order: editLot.order,
             backlogId: backlog!.id,
           });
@@ -620,7 +767,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       setSaving(true);
       try {
         if (editPhase) {
-        const updated = await svc.phase.update(editPhase.id, { name: fPhase.name, order: editPhase.order });          
+        const updated = await svc.phase.update(editPhase.id, { name: fPhase.name, order: editPhase.order });
         setLots(prev => prev.map(l => l.id !== ctxLotId ? l : { ...l, phases: (l.phases ?? []).map((p: any) => p.id === editPhase.id ? { ...p, ...updated } : p) }));
         } else {
           const lot = lots.find(l => l.id === ctxLotId);
@@ -645,12 +792,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         setSprints(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
         setDeliverables(prev => { const m = new Map(prev); m.delete(phaseId); return m; });
         try {
-        await svc.date.propagateFromLot(lotId);
-        await reloadLots();
-      } catch(e) { console.warn("Propagation dates échouée (non bloquant):", e); }
-    } catch { alert("Impossible de supprimer la phase."); }
+          await svc.date.propagateFromLot(lotId);
+          await reloadLots();
+        } catch(e) { console.warn("Propagation dates échouée (non bloquant):", e); }
+      } catch { alert("Impossible de supprimer la phase."); }
     };
-
 
     // ══════════════════════════════════════════════════════════════════════
     // SPRINTS
@@ -668,12 +814,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         const existing = sprints.get(ctxPhaseId) ?? [];
 
         if (editSprint) {
-        const updated = await svc.phase.updateSprint(editSprint.id, {
-          name:      fSprint.name,
-          order:     editSprint.order,
-          startDate: fSprint.startDate,
-          endDate:   fSprint.endDate,
-        });
+          const updated = await svc.phase.updateSprint(editSprint.id, {
+            name:      fSprint.name,
+            order:     editSprint.order,
+            startDate: fSprint.startDate,
+            endDate:   fSprint.endDate,
+          });
           const updatedSprints = existing.map(s =>
             s.id === editSprint.id
               ? { ...s, ...updated, dateDebut: fSprint.startDate || updated.dateDebut || null, dateFin: fSprint.endDate || updated.dateFin || null }
@@ -711,7 +857,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         return;
       }
 
-      // ── Propagation via BacklogDateService ─────────────────────────────
       if (savedSprintId && (fSprint.startDate || fSprint.endDate)) {
         try {
           await svc.date.propagateFromSprint(savedSprintId);
@@ -844,7 +989,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
         epic: l.epic ?? "", userStory: l.userStory ?? "",
         description: l.description ?? "", resultat: l.resultat ?? "",
         lotId: lot?.id ?? null, phaseId, sprintId: (l as any).sprintId ?? null,
-        facturable: l.facturable ?? true, 
+        facturable: l.facturable ?? true,
       });
       setShowLineModal(true);
     };
@@ -855,16 +1000,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       try {
         const payload = { epic: fLine.epic, userStory: fLine.userStory, description: fLine.description, resultat: fLine.resultat, phaseId: fLine.phaseId, sprintId: fLine.sprintId, facturable: fLine.facturable, };
         if (editLine) {
-        const updated = await svc.line.update(editLine.id, { ...payload, order: editLine.order });
-        setLines(prev => prev.map(l => l.id === editLine.id
-          ? { ...l, ...updated, facturable: updated.facturable ?? (updated as any).isFacturable ?? payload.facturable }
-          : l
-        ));
+          const updated = await svc.line.update(editLine.id, { ...payload, order: editLine.order });
+          setLines(prev => prev.map(l => l.id === editLine.id
+            ? { ...l, ...updated, facturable: updated.facturable ?? (updated as any).isFacturable ?? payload.facturable }
+            : l
+          ));
         } else {
           const order = Math.max(0, ...lines.map(l => l.order)) + 1;
           const created = await svc.line.create({ ...payload, order });
           const createdNorm = { ...created, facturable: created.facturable ?? (created as any).isFacturable ?? payload.facturable };
-          setLines(prev => [...prev, createdNorm])
+          setLines(prev => [...prev, createdNorm]);
         }
         setShowLineModal(false);
       } catch { alert("Erreur lors de la sauvegarde de la ligne."); }
@@ -887,60 +1032,57 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     // VOLUMES
     // ══════════════════════════════════════════════════════════════════════
 
-      const openVolModal = (lineId: number, profilId: number) => {
-        setCtxLineId(lineId); setCtxProfilId(profilId);
-        const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
-        setEditLineProfil(existing ?? null);
-        setFVolume(existing?.volume ?? 0);
-        setFCollabId(existing?.collaborateur?.id ?? null);
-          if (existing?.deadLine) {
-          const date = new Date(existing.deadLine);
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          const hours = String(date.getHours()).padStart(2, '0');
-          const minutes = String(date.getMinutes()).padStart(2, '0');
-          setFDeadline(`${year}-${month}-${day}T${hours}:${minutes}`);
-        } else {
-          setFDeadline("");
+    const openVolModal = (lineId: number, profilId: number) => {
+      setCtxLineId(lineId); setCtxProfilId(profilId);
+      const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
+      setEditLineProfil(existing ?? null);
+      setFVolume(existing?.volume ?? 0);
+      setFCollabId(existing?.collaborateur?.id ?? null);
+      if (existing?.deadLine) {
+        const date = new Date(existing.deadLine);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        setFDeadline(`${year}-${month}-${day}T${hours}:${minutes}`);
+      } else {
+        setFDeadline("");
+      }
+      setFTimeSpent(existing?.timeSpent ?? null);
+      setShowVolModal(true);
+    };
+
+    const saveVolume = async () => {
+      if (ctxLineId === null || ctxProfilId === null) return;
+      setSaving(true);
+      try {
+        let deadLineToSend = null;
+        if (fDeadline) {
+          const localDate = new Date(fDeadline);
+          deadLineToSend = localDate.toISOString();
         }
-        
-        setFTimeSpent(existing?.timeSpent ?? null);
-        setShowVolModal(true);
-      };
+        const payload = {
+          volume: fVolume,
+          lineId: ctxLineId,
+          profilId: ctxProfilId,
+          collaborateurId: fCollabId,
+          deadLine: deadLineToSend,
+          timeSpent: fTimeSpent,
+        };
+        if (editLineProfil) {
+          const updated = await svc.lineProfil.update(editLineProfil.id, payload);
+          setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
+        } else {
+          const created = await svc.lineProfil.create(payload);
+          setLineProfils(prev => [...prev, created]);
+        }
+        setShowVolModal(false);
+      } catch { alert("Erreur lors de la sauvegarde du volume."); }
+      finally { setSaving(false); setCtxLineId(null); setCtxProfilId(null); }
+    };
 
-      const saveVolume = async () => {
-        if (ctxLineId === null || ctxProfilId === null) return;
-        setSaving(true);
-        try {
-          let deadLineToSend = null;
-          if (fDeadline) {
-            const localDate = new Date(fDeadline);
-            deadLineToSend = localDate.toISOString();
-          }
-          
-          const payload = { 
-            volume: fVolume, 
-            lineId: ctxLineId, 
-            profilId: ctxProfilId, 
-            collaborateurId: fCollabId, 
-            deadLine: deadLineToSend,  
-            timeSpent: fTimeSpent 
-          };
-          
-          if (editLineProfil) {
-            const updated = await svc.lineProfil.update(editLineProfil.id, payload);
-            setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
-          } else {
-            const created = await svc.lineProfil.create(payload);
-            setLineProfils(prev => [...prev, created]);
-          }
-          setShowVolModal(false);
-        } catch { alert("Erreur lors de la sauvegarde du volume."); }
-        finally { setSaving(false); setCtxLineId(null); setCtxProfilId(null); }
-      };
-
-      const deleteVolume = async () => {
+    const deleteVolume = async () => {
       if (!editLineProfil || !window.confirm("Supprimer ce volume ?")) return;
       try {
         await svc.lineProfil.delete(editLineProfil.id);
@@ -950,21 +1092,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       finally { setCtxLineId(null); setCtxProfilId(null); }
     };
 
-      const fmtDateTime = (iso: string | null | undefined): string => {
-        if (!iso) return "";
-        try { 
-          // Créer une date à partir de l'ISO UTC de la BDD
-          const date = new Date(iso);
-          // Formater avec le fuseau horaire local
-          return date.toLocaleString("fr-FR", { 
-            day: "2-digit", 
-            month: "short", 
-            year: "numeric", 
-            hour: "2-digit", 
-            minute: "2-digit" 
-          });
-        } catch { return iso; }
-      };
+    const fmtDateTime = (iso: string | null | undefined): string => {
+      if (!iso) return "";
+      try {
+        const date = new Date(iso);
+        return date.toLocaleString("fr-FR", {
+          day: "2-digit", month: "short", year: "numeric",
+          hour: "2-digit", minute: "2-digit",
+        });
+      } catch { return iso; }
+    };
 
     // ══════════════════════════════════════════════════════════════════════
     // COLONNES
@@ -1103,9 +1240,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
     // ══════════════════════════════════════════════════════════════════════
     // TOTAUX PAR PROFIL
-    // vol    = JH planifiés
-    // ts     = temps de réalisation (timeSpent saisi)
-    // ecart  = vol - ts = "temps passé" (ce qu'il reste / ce qui a débordé)
     // ══════════════════════════════════════════════════════════════════════
 
     const profilTotals = profils.map(p => {
@@ -1115,16 +1249,15 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       const ts = lineProfils
         .filter(lp => (lp.profil as any)?.id === p.id)
         .reduce((s, lp) => s + (lp.timeSpent ?? 0), 0);
-      // ← Montant : seulement les lignes facturables
       const amount = lineProfils
         .filter(lp => {
           if ((lp.profil as any)?.id !== p.id) return false;
           const line = lines.find(l => l.id === lp.lineId);
-          return line?.facturable !== false; // true par défaut si absent
+          return line?.facturable !== false;
         })
         .reduce((s, lp) => s + lp.volume * p.tjm, 0);
       return { profil: p, vol, ts, amount };
-    }); 
+    });
     const grandTotalVol = profilTotals.reduce((s, t) => s + t.vol, 0);
     const grandTotalTs  = profilTotals.reduce((s, t) => s + t.ts, 0);
     const grandTotalAmt = profilTotals.reduce((s, t) => s + t.amount, 0);
@@ -1218,13 +1351,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                     <tr key={profil.id}>
                                       <td><strong>{profil.name}</strong>{profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}</td>
                                       <td className="text-end">{vol.toFixed(2)}</td>
-                                      {/* Temps de réalisation */}
                                       <td className="text-end">
                                         {ts > 0 ? (
                                           <span style={{ color: progressColor(pct ?? 0), fontWeight: 600 }}>{ts.toFixed(2)}</span>
                                         ) : <span className="text-muted">—</span>}
                                       </td>
-                                      {/* Temps passé = planifié - réalisation */}
                                       <td className="text-end">
                                         {ecart !== null ? (
                                           <span style={{ color: ecartColor(ecart), fontWeight: 600 }}
@@ -1233,7 +1364,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                           </span>
                                         ) : <span className="text-muted">—</span>}
                                       </td>
-
                                       <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
                                       <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                     </tr>
@@ -1244,11 +1374,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                 <tr>
                                   <td><strong>TOTAL</strong></td>
                                   <td className="text-end fw-bold">{grandTotalVol.toFixed(2)}</td>
-                                  {/* Temps de réalisation total */}
                                   <td className="text-end fw-bold" style={{ color: progressColor(grandTotalVol > 0 ? Math.round((grandTotalTs / grandTotalVol) * 100) : 0) }}>
                                     {grandTotalTs > 0 ? grandTotalTs.toFixed(2) : "—"}
                                   </td>
-                                  {/* Temps passé total */}
                                   <td className="text-end fw-bold">
                                     {grandTotalTs > 0 ? (
                                       <span style={{ color: ecartColor(grandTotalVol - grandTotalTs), fontWeight: 600 }}>
@@ -1305,11 +1433,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                           {(() => { const d = getLotDates(lot); return (d.debut || d.fin) ? <DateBadge debut={d.debut} fin={d.fin} style={{ marginLeft: 6 }} /> : null; })()}
                                         </td>
                                         <td className="text-end fw-bold">{fmtJH(lotVol)}</td>
-                                        {/* Tps de réalisation */}
                                         <td className="text-end" style={{ color: lotTs > 0 ? progressColor(lotPct ?? 0) : "#adb5bd", fontWeight: lotTs > 0 ? 600 : "normal" }}>
                                           {lotTs > 0 ? fmtJH(lotTs) : "—"}
                                         </td>
-                                        {/* Tps passé */}
                                         <td className="text-end">
                                           {lotEcart !== null ? (
                                             <span style={{ color: ecartColor(lotEcart), fontSize: "0.75rem", fontWeight: 600 }}>
@@ -1506,7 +1632,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                 <th style={{ width: 32 }} /><th style={{ width: 40 }}>#</th>
                                 <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
                                 <th>Epic</th><th>User Story</th><th>Description</th><th>Détails</th>
-                                <th style={{ minWidth: 110 }}>Statut</th>
+                                <th style={{ minWidth: 130 }}>Statut / Décision</th>
                                 {showProfilCols && profils.map(p => (
                                   <th key={p.id} className="text-center" style={{ minWidth: 160 }}>
                                     <div className="fw-bold">{p.name}</div>
@@ -1519,11 +1645,24 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                     )}
                                     <div className="d-flex justify-content-center gap-1 mt-1 flex-wrap" style={{ fontSize: "0.58rem", color: "#adb5bd", fontWeight: "normal" }}>
                                       <span>JH</span><span>·</span><span>Réalisation</span><span>·</span>
-                                      <span style={{ color: "#818cf8" }}>Statut tâche</span><span>·</span>
-                                      <span style={{ color: "#f97316" }}>Statut test</span>
+                                      <span style={{ color: "#f97316" }}>Décision</span>
                                     </div>
                                   </th>
                                 ))}
+
+                                {/* ── En-tête Statut OK/KO — 1 colonne par profil, toujours modifiable ── */}
+                                {showProfilCols && profils.map(p => (
+                                  <th key={`status-th-${p.id}`} className="text-center"
+                                    style={{ minWidth: 140, backgroundColor: "#0f766e", color: "#fff" }}>
+                                    <div className="fw-bold" style={{ fontSize: "0.78rem" }}>Statut OK / KO</div>
+                                    <div style={{ fontSize: "0.62rem", opacity: 0.85, fontWeight: 400 }}>{p.name}</div>
+                                    <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 3 }}>
+                                      <span style={{ fontSize: "0.6rem", background: "#f0fdf4", color: "#16a34a", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>OK</span>
+                                      <span style={{ fontSize: "0.6rem", background: "#fff5f5", color: "#dc2626", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>KO</span>
+                                    </div>
+                                  </th>
+                                ))}
+
                                 <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}>
                                   <div className="fw-bold text-warning">Total JH</div>
                                 </th>
@@ -1533,7 +1672,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                             <tbody ref={lineBodyRef}>
                               {lines.length === 0 ? (
                                 <tr className="empty-row">
-                                  <td colSpan={9 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
+                                  <td colSpan={9 + (showProfilCols ? profils.length * 2 : 0) + 1} className="text-center text-muted fst-italic py-4">
                                     Aucune ligne — cliquez sur « Ajouter une ligne »
                                   </td>
                                 </tr>
@@ -1563,8 +1702,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                     <td>{line.userStory ?? "—"}</td>
                                     <td>{line.description ?? "—"}</td>
                                     <td>{line.resultat ?? "—"}</td>
-                                    {/* ── Colonne Statut : statuts réels des tâches affectées ── */}
-                                    <td className="text-center" style={{ verticalAlign: "middle", padding: "4px 6px" }}>
+
+                                    {/* ── Colonne Statut : badges lecture seule ── */}
+                                    <td className="text-center" style={{ verticalAlign: "middle", padding: "4px 8px", minWidth: 110 }}>
                                       {(() => {
                                         const lpsForLine = lineProfils.filter(lp => lp.lineId === line.id && lp.volume > 0);
                                         if (!lpsForLine.length) return <span className="text-muted small">—</span>;
@@ -1572,14 +1712,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                           <div className="d-flex flex-column align-items-center gap-1">
                                             {lpsForLine.map(lp => {
                                               const sid = (lp as any)?.currentStatus?.status?.id ?? null;
-                                              const pName = (lp as any)?.profil?.name ?? "";
                                               const collab = lp?.collaborateur;
                                               const collabLabel = collab
                                                 ? (collab as any).appellation ?? `${(collab as any).prenom ?? ""} ${(collab as any).nom ?? ""}`.trim()
                                                 : null;
                                               const m = sid != null ? taskStatusMeta(sid) : null;
                                               return (
-                                                <div key={lp.id} className="d-flex flex-column align-items-center" style={{ gap: 1 }}>
+                                                <div key={lp.id} className="d-flex flex-column align-items-center" style={{ gap: 2 }}>
                                                   {m ? (
                                                     <span style={{
                                                       display: "inline-flex", alignItems: "center", gap: 3,
@@ -1593,9 +1732,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                                   ) : (
                                                     <span style={{ fontSize:"0.62rem", color:"#94a3b8" }}>—</span>
                                                   )}
-                                                  {(pName || collabLabel) && (
+                                                  {collabLabel && (
                                                     <span style={{ fontSize:"0.58rem", color:"#94a3b8", whiteSpace:"nowrap" }}>
-                                                      {collabLabel ?? pName}
+                                                      {collabLabel}
                                                     </span>
                                                   )}
                                                 </div>
@@ -1606,31 +1745,28 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                       })()}
                                     </td>
 
+                                    {/* ── Colonnes JH / Réalisation par profil ── */}
                                     {showProfilCols && profils.map(p => {
-                                      const lp        = getLineProfil(line.id, p.id);
-                                      const vol       = lp?.volume ?? 0;
-                                      const collab    = lp?.collaborateur;
-                                      const deadline  = lp?.deadLine ?? null;
-                                      const timeSpent = lp?.timeSpent ?? null;
-                                      const ecart     = vol > 0 && timeSpent != null ? vol - timeSpent : null;
-                                      const pct       = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
+                                      const lp         = getLineProfil(line.id, p.id);
+                                      const vol        = lp?.volume ?? 0;
+                                      const collab     = lp?.collaborateur;
+                                      const deadline   = lp?.deadLine ?? null;
+                                      const timeSpent  = lp?.timeSpent ?? null;
+                                      const ecart      = vol > 0 && timeSpent != null ? vol - timeSpent : null;
+                                      const pct        = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
                                       const lpStatusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
-                                      const lpHistory: TaskStatusEntry[] = (lp as any)?.historyStatus ?? [];
-                                      const isOverdue = deadline && new Date(deadline) < new Date() && lpStatusId !== TASK_STATUS.TERMINE;
-                                      const collabNom = collab ? (collab.appellation ?? `${collab.prenom} ${collab.nom}`) : null;
-                                      // Est-ce que l'utilisateur connecté est le collab de ce profil ?
-                                      const isMeCollab = isCollaboratorOf(p.collaborateurs ?? []);
+                                      const isOverdue  = deadline && new Date(deadline) < new Date() && lpStatusId !== TASK_STATUS.VALIDE;
+                                      const collabNom  = collab ? (collab.appellation ?? `${collab.prenom} ${collab.nom}`) : null;
                                       return (
                                         <td key={p.id} className="text-center" style={{ verticalAlign: "middle", padding: "4px 6px" }}>
                                           {vol > 0 ? (
                                             <div className="d-flex flex-column align-items-center gap-1">
-                                              {/* JH + réalisation */}
                                               <div className="d-flex align-items-center gap-1 flex-wrap justify-content-center">
-                                                <span
-                                                  className="badge bg-primary"
+                                                <span className="badge bg-primary"
                                                   style={{ fontSize: "0.7rem", cursor: "pointer" }}
-                                                  onClick={() => openVolModal(line.id, p.id)}
-                                                >{vol} JH</span>
+                                                  onClick={() => openVolModal(line.id, p.id)}>
+                                                  {vol} JH
+                                                </span>
                                                 {timeSpent != null && (
                                                   <span className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`}
                                                     style={{ fontSize: "0.65rem", cursor: "pointer" }}
@@ -1654,36 +1790,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                                   </span>
                                                 )}
                                               </div>
-
-                                              {/* ── Dropdown statut tâche + statut test ── */}
-                                              {lp ? (
-                                                <TaskStatusCell
-                                                  taskId={lp.id}
-                                                  currentStatusId={lpStatusId ?? TASK_STATUS.AFFECTE}
-                                                  history={lpHistory}
-                                                  isValidator={isValidator}
-                                                  isCollaborator={isMeCollab}
-                                                  collaborateurNom={collabNom}
-                                                  onChangeStatus={handleChangeStatus}
-                                                />
-                                              ) : (
-                                                <span
-                                                  className="tsc-inline-dd__badge tsc-badge--static"
-                                                  style={{ color:"#64748b", background:"#f1f5f9", borderColor:"#e2e8f0", fontSize:"0.67rem", cursor:"pointer" }}
-                                                  onClick={() => openVolModal(line.id, p.id)}
-                                                  title="Cliquer pour assigner un collaborateur et démarrer"
-                                                >
-                                                  <span className="tsc-dot" style={{ background:"#cbd5e1" }} />
-                                                  Non assigné
-                                                </span>
-                                              )}
-
-                                              {/* Deadline */}
                                               {deadline && (
                                                 <span style={{
                                                   fontSize: "0.6rem",
-                                                  color: lpStatusId === TASK_STATUS.TERMINE ? "#10b981" : isOverdue ? "#dc3545" : "#6c757d",
-                                                  fontWeight: (isOverdue || lpStatusId === TASK_STATUS.TERMINE) ? "bold" : "normal",
+                                                  color: lpStatusId === TASK_STATUS.VALIDE ? "#10b981" : isOverdue ? "#dc3545" : "#6c757d",
+                                                  fontWeight: (isOverdue || lpStatusId === TASK_STATUS.VALIDE) ? "bold" : "normal",
                                                   whiteSpace: "nowrap",
                                                 }}
                                                   title={isOverdue ? "Deadline dépassée !" : `Deadline : ${fmtDateTime(deadline)}`}>
@@ -1700,6 +1811,30 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                         </td>
                                       );
                                     })}
+
+                                    {/* ══ Colonne Statut OK/KO — 1 par profil, toujours modifiable ══ */}
+                                    {showProfilCols && profils.map(p => {
+                                      const lp = getLineProfil(line.id, p.id);
+                                      if (!lp) return (
+                                        <td key={`status-${p.id}`} className="text-center"
+                                          style={{ verticalAlign: "middle", padding: "4px 6px", minWidth: 140, backgroundColor: "#f0fdfa" }}>
+                                          <span className="text-muted" style={{ fontSize: "0.62rem" }}>—</span>
+                                        </td>
+                                      );
+                                      const currentTest = testStatuses.get(lp.id) ?? null;
+                                      return (
+                                        <td key={`status-${p.id}`} className="text-center"
+                                          style={{ verticalAlign: "middle", padding: "4px 6px", minWidth: 140, backgroundColor: "#f0fdfa" }}>
+                                          <TestStatusPanel
+                                            taskId={lp.id}
+                                            currentTestStatus={currentTest}
+                                            onDone={handleTestStatus}
+                                          />
+                                        </td>
+                                      );
+                                    })}
+
+                                    {/* ── Total JH ligne ── */}
                                     <td className="text-center" style={{ backgroundColor: lineJH > 0 && !line.facturable ? "#f8f9fa" : "#fffbea" }}>
                                       <div className="d-flex flex-column align-items-center gap-1">
                                         {lineJH > 0
@@ -1729,7 +1864,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                             {lines.length > 0 && (
                               <tfoot>
                                 <tr className="table-warning fw-bold">
-                                    <td colSpan={8} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>                                  {showProfilCols && profils.map(p => {
+                                  <td colSpan={8} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
+                                  {showProfilCols && profils.map(p => {
                                     const pVol  = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
                                     const pTs   = profilTotals.find(t => t.profil.id === p.id)?.ts ?? 0;
                                     const pPct  = pVol > 0 && pTs > 0 ? Math.round((pTs / pVol) * 100) : null;
@@ -1744,6 +1880,28 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                             {pPct != null && <MiniProgressBar spent={pTs} planned={pVol} />}
                                           </div>
                                         ) : "—"}
+                                      </td>
+                                    );
+                                  })}
+                                  {/* Footer Statut OK/KO — compteur par profil */}
+                                  {showProfilCols && profils.map(p => {
+                                    const okCount = lines.filter(line => {
+                                      const lp = getLineProfil(line.id, p.id);
+                                      return lp && testStatuses.get(lp.id) === "ok";
+                                    }).length;
+                                    const koCount = lines.filter(line => {
+                                      const lp = getLineProfil(line.id, p.id);
+                                      return lp && testStatuses.get(lp.id) === "ko";
+                                    }).length;
+                                    return (
+                                      <td key={`status-foot-${p.id}`} className="text-center"
+                                        style={{ fontSize: "0.72rem", backgroundColor: "#f0fdfa" }}>
+                                        {(okCount > 0 || koCount > 0) ? (
+                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                                            {okCount > 0 && <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ {okCount} OK</span>}
+                                            {koCount > 0 && <span style={{ color: "#dc2626", fontWeight: 700 }}>✗ {koCount} KO</span>}
+                                          </div>
+                                        ) : <span className="text-muted">—</span>}
                                       </td>
                                     );
                                   })}
@@ -1951,7 +2109,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                           lineProfils={lineProfils}
                           deviseAbr={deviseAbr}
                         />
-                        </Tab>
+                      </Tab>
                     </Tabs>
                   )}
                 </>
@@ -2126,7 +2284,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
               <Form.Group className="mb-3 mt-2"><Form.Label>Description</Form.Label><Form.Control as="textarea" rows={2} value={fLine.description} onChange={e => setFLine(f => ({ ...f, description: e.target.value }))} disabled={saving} /></Form.Group>
               <Form.Group><Form.Label>Détails / Résultat attendu</Form.Label><Form.Control as="textarea" rows={2} value={fLine.resultat} onChange={e => setFLine(f => ({ ...f, resultat: e.target.value }))} disabled={saving} /></Form.Group>
             </Form>
-            {/* ── Facturable ── */}
             <Form.Group className="mt-3">
               <div
                 className="d-flex align-items-center justify-content-between p-3 rounded"
@@ -2137,9 +2294,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                 }}
               >
                 <div>
-                  <div className="fw-semibold" style={{ fontSize: "0.9rem" }}>
-                    Tâche facturable
-                  </div>
+                  <div className="fw-semibold" style={{ fontSize: "0.9rem" }}>Tâche facturable</div>
                   <div className="text-muted" style={{ fontSize: "0.75rem" }}>
                     {fLine.facturable
                       ? "Le montant sera calculé selon le TJM du profil."
@@ -2176,11 +2331,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
               <Form.Control type="datetime-local" value={fDeadline} onChange={e => setFDeadline(e.target.value)} disabled={saving} />
             </Form.Group>
 
-            {/* ── Temps de réalisation (anciennement "temps passé") ── */}
             <Form.Group className="mb-3">
-              <Form.Label className="d-flex align-items-center gap-2">
-                Temps de réalisation (JH)
-              </Form.Label>
+              <Form.Label className="d-flex align-items-center gap-2">Temps de réalisation (JH)</Form.Label>
               <Form.Control type="number" step="0.5" min="0" placeholder="0" value={fTimeSpent ?? ""} onChange={e => setFTimeSpent(e.target.value ? +e.target.value : null)} onWheel={e => (e.target as HTMLInputElement).blur()} disabled={saving} />
               {fVolume > 0 && fTimeSpent != null && (
                 <div className="mt-2">
@@ -2192,7 +2344,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
               )}
             </Form.Group>
 
-            {/* ── Temps passé = planifié - réalisation (calculé, lecture seule) ── */}
             {fVolume > 0 && fTimeSpent != null && (
               <div className="mb-3 p-3 rounded" style={{ backgroundColor: "#f8f9fa", border: "1px solid #dee2e6" }}>
                 <div className="d-flex align-items-center justify-content-between">

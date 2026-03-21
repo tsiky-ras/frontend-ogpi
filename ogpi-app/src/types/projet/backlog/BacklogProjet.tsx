@@ -17,6 +17,19 @@ export interface BacklogProjetProfil {
 // ─────────────────────────────────────────────────────────────
 // BacklogProjetLineProfil
 // ─────────────────────────────────────────────────────────────
+export interface BacklogLineProfilStatus {
+  id: number;
+  label: string;
+}
+
+export interface BacklogLineProfilCurrentStatus {
+  id?: number;
+  dateChangement?: string | null;
+  commentaire?: string | null;
+  status: BacklogLineProfilStatus;
+  backlogLineProfilId?: number;
+}
+
 export interface BacklogProjetLineProfil {
   id: number;
   volume: number;
@@ -27,9 +40,14 @@ export interface BacklogProjetLineProfil {
     nom: string;
     prenom: string;
     appellation?: string;
+    matricule?: string;
+    emailPro?: string;
   } | null;
-  deadline?: string | null;
+  deadLine?: string | null;   // backend : deadLine (camelCase)
+  deadline?: string | null;   // alias legacy
   timeSpent?: number | null;
+  currentStatus?: BacklogLineProfilCurrentStatus | null;
+  statusId?: number | null;   // fallback si pas de currentStatus
 }
 
 // ─────────────────────────────────────────────────────────────

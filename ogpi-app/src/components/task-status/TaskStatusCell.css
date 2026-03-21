@@ -1,40 +1,21 @@
-/* ═══════════════════════════════════
-   TaskStatusCell.css
-═══════════════════════════════════ */
-
+/* TaskStatusCell.css */
 .tsc-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 3px;
   font-family: inherit;
+  position: relative;
 }
 
-/* ── Ligne statut tâche + statut test ── */
-.tsc-row {
+/* Badge + bouton historique */
+.tsc-badge-row {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 4px;
-  align-items: flex-start;
 }
 
-.tsc-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  width: 100%;
-}
-.tsc-group__label {
-  font-size: 0.58rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #94a3b8;
-}
-
-/* ── Inline dropdown ── */
-.tsc-inline-dd { position: relative; }
-.tsc-inline-dd__badge {
+.tsc-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -43,80 +24,85 @@
   font-size: 0.67rem;
   font-weight: 600;
   border: 1px solid transparent;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
-  transition: filter 0.1s;
   background: none;
+  transition: filter .12s;
 }
-.tsc-inline-dd__badge:not(:disabled):hover { filter: brightness(0.93); }
-.tsc-inline-dd__badge:disabled { cursor: default; opacity: 0.7; }
-.tsc-badge--static { cursor: default; }
-.tsc-badge--static:hover { filter: none; }
+.tsc-badge--active { cursor: pointer; }
+.tsc-badge--active:hover:not(:disabled) { filter: brightness(.93); }
+.tsc-badge:disabled { cursor: default; }
 
-.tsc-inline-dd__menu {
+.tsc-hist-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+.tsc-hist-btn:hover { color: #3b82f6; background: #eff6ff; }
+
+/* Dropdown */
+.tsc-dropdown {
   position: absolute;
+  top: calc(100% + 4px);
   left: 0;
-  top: calc(100% + 3px);
   z-index: 9999;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.12);
-  min-width: 130px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.13);
+  min-width: 200px;
   overflow: hidden;
   animation: tscFade .1s ease;
 }
-@keyframes tscFade { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
-.tsc-inline-dd__item {
+@keyframes tscFade { from { opacity:0; transform:translateY(-3px); } to { opacity:1; } }
+
+.tsc-dd-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   width: 100%;
-  padding: 6px 10px;
-  font-size: 0.72rem;
+  padding: 8px 12px;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
   background: none;
   text-align: left;
   transition: filter .1s;
+  border-bottom: 1px solid #f0f4f8;
 }
-.tsc-inline-dd__item:hover { filter: brightness(0.92); }
+.tsc-dd-item:last-child { border-bottom: none; }
+.tsc-dd-item:hover { filter: brightness(.93); }
 
-/* ── Test OK / KO buttons ── */
-.tsc-test-actions {
-  display: flex;
-  gap: 4px;
+.tsc-dd-item--ok {
+  color: #16a34a;
+  background: #f0fdf4;
 }
-.tsc-test-btn {
-  padding: 2px 8px;
-  border-radius: 5px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  cursor: pointer;
-  border: 1.5px solid;
-  transition: all .1s;
+.tsc-dd-item--ok:hover { background: #dcfce7; }
+.tsc-dd-item--ko {
+  color: #dc2626;
+  background: #fff5f5;
 }
-.tsc-test-btn--ok {
-  background: #f0fdf4; color: #16a34a; border-color: #86efac;
-}
-.tsc-test-btn--ok:hover { background: #16a34a; color: #fff; }
-.tsc-test-btn--ko {
-  background: #fff5f5; color: #dc2626; border-color: #fca5a5;
-}
-.tsc-test-btn--ko:hover { background: #dc2626; color: #fff; }
+.tsc-dd-item--ko:hover { background: #fee2e2; }
 
-/* ── Formulaire motif KO ── */
+/* Formulaire KO */
 .tsc-ko-form {
   background: #fff5f5;
   border: 1px solid #fecaca;
   border-radius: 6px;
   padding: 7px 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .tsc-ko-form__err {
   font-size: 0.68rem;
   color: #dc2626;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 .tsc-ko-form__ta {
   width: 100%;
@@ -137,18 +123,18 @@
   gap: 5px;
   margin-top: 6px;
 }
-.tsc-ko-form__cancel {
+.tsc-ko-cancel {
   padding: 3px 9px; font-size: 0.7rem; border-radius: 5px;
   background: transparent; border: 1px solid #e2e8f0; color: #64748b; cursor: pointer;
 }
-.tsc-ko-form__confirm {
+.tsc-ko-confirm {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 9px; font-size: 0.7rem; font-weight: 600; border-radius: 5px;
   background: #dc2626; color: #fff; border: none; cursor: pointer;
 }
-.tsc-ko-form__confirm:disabled { opacity: 0.5; cursor: default; }
+.tsc-ko-confirm:disabled { opacity: 0.5; cursor: default; }
 
-/* ── Bandeau KO (visible collab) ── */
+/* Bandeau KO */
 .tsc-ko-banner {
   display: flex;
   align-items: flex-start;
@@ -156,32 +142,38 @@
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 5px;
-  padding: 4px 7px;
-  font-size: 0.66rem;
+  padding: 3px 6px;
+  font-size: 0.65rem;
   color: #b91c1c;
+  max-width: 180px;
 }
-.tsc-ko-banner__motif { flex: 1; font-style: italic; }
-.tsc-ko-banner__by    { font-weight: 600; white-space: nowrap; }
+.tsc-ko-motif { flex: 1; font-style: italic; }
+.tsc-ko-by    { font-weight: 600; white-space: nowrap; }
 
-/* ── Historique ── */
-.tsc-hist-toggle {
-  display: inline-flex; align-items: center; gap: 3px;
-  background: none; border: none; font-size: 0.62rem;
-  color: #94a3b8; cursor: pointer; padding: 0;
-}
-.tsc-hist-toggle:hover { color: #3b82f6; }
+/* Historique */
 .tsc-hist {
-  display: flex; flex-direction: column; gap: 4px;
-  max-height: 140px; overflow-y: auto;
-  background: #f8fafc; border: 1px solid #e2e8f0;
-  border-radius: 6px; padding: 6px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 200px;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
 }
 .tsc-hist__empty { font-size: 0.68rem; color: #94a3b8; margin: 0; text-align: center; }
 .tsc-hist__item  { display: flex; align-items: flex-start; gap: 6px; }
 
-/* ── Shared ── */
-.tsc-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+/* Shared */
+.tsc-dot    { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .tsc-chevron { transition: transform .12s; opacity: 0.6; }
 .tsc-chevron--up { transform: rotate(180deg); }
-.tsc-spin { animation: tscSpin .7s linear infinite; }
+.tsc-spin   { animation: tscSpin .7s linear infinite; }
 @keyframes tscSpin { to { transform: rotate(360deg); } }

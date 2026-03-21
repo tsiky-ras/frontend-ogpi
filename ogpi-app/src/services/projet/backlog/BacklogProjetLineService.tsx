@@ -130,7 +130,7 @@ export class BacklogProjetLineProfilService {
    * GET /api/projet/backlogs/{backlogId}/line-profils
    */
   async getAllLineProfilsByBacklogId(backlogId: number): Promise<BacklogProjetLineProfil[]> {
-      const response = await this.api.get(`/projet/backlogs-line-profils/${backlogId}/line-profils`);
+      const response = await this.api.get(`/projet/backlog-line-profils/${backlogId}/line-profils`);
       return response.data;
   }
 
