@@ -27,6 +27,7 @@ import LeadPage from "./pages/admin/gestion-lead/LeadPage.tsx";
 import TachePage from "./pages/all/gestion-tache/TachePage.tsx";
 import BacklogTachePage from "./pages/all/taches-projet/BacklogTachePage.tsx";
 import ProjetPage from "./pages/admin/gestion-projet/ProjetPage.tsx";
+import CalendrierPage from "./pages/all/calendrier/CalendrierPage.tsx";
 const App: React.FC = () => {
   return (
     <Router>
@@ -38,6 +39,7 @@ const App: React.FC = () => {
         <Route path="/gestion-taches-projet" element={<BacklogTachePage />} />
         <Route path="/gestion-opportunites" element={<LeadPage />} /> 
         <Route path="/gestion-projets" element={<ProjetPage />} />
+        <Route path="/calendrier/deadlines" element={<CalendrierPage />} />
         {/* Admin sécurisé */}
         <Route
           path="/admin"

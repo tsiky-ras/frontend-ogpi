@@ -21,6 +21,8 @@ import { useLeadTechFinDetailsService } from "../../../../../services/lead/tech-
 import { LeadService } from "../../../../../services/lead/LeadService.tsx";
 import { useProjetTechFinDetailsService } from "../../../../../services/projet/tech-fin/ProjetTechFinDetailsService.tsx";
 import { useProjetTechnoService } from "../../../../../services/projet/tech-fin/ProjetTechnoService.tsx";
+import CalendrierPaiementTab from "../../tabs/CalendrierPaiementTab.tsx";
+import { CalendrierPaiementService } from "../../../../../services/projet/paiement/CalendrierPaiementService.tsx";
 
 type ProjetDetailsProps = {
   show: boolean;
@@ -41,6 +43,8 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
     planning:         new BacklogPlanningService(api),
     lead:             new LeadService(api),
     chargesAnnexes:   new ChargesAnnexesService(api),
+    paiement: new CalendrierPaiementService(api),
+    
   }));
 
   const [loadingData,   setLoadingData]   = useState(false);
@@ -54,6 +58,8 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
   const [deviseAbr,     setDeviseAbr]     = useState<string>("€");
   const [leadData,      setLeadData]      = useState<any | null>(null);
   const [projetTechnos, setProjetTechnos] = useState<any[]>([]);
+  const [sprints, setSprints] = useState<any[]>([]);
+  const [montantOffre, setMontantOffre] = useState<number>(0);
 
   // ── Chargement des technos — indépendant du backlog ──────────────────────
   const loadTechnos = useCallback(async () => {
@@ -110,6 +116,7 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
       const sortedLots = (full.lots ?? []).slice().sort((a: any, b: any) => a.order - b.order);
       setLots(sortedLots);
       setLines((full.lines ?? []).slice().sort((a: any, b: any) => a.order - b.order));
+      setSprints(full.sprints ?? []);
 
       const rawProfils: any[] = full.profilsProjet ?? full.profils ?? [];
       setProfils(
@@ -205,6 +212,7 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
             <Nav.Item><Nav.Link eventKey="planning">Planning</Nav.Link></Nav.Item>
             <Nav.Item><Nav.Link eventKey="budget">Budget</Nav.Link></Nav.Item>
             <Nav.Item><Nav.Link eventKey="charges_annexes">Charges Annexes</Nav.Link></Nav.Item>
+            <Nav.Item><Nav.Link eventKey="paiements">Paiements clients</Nav.Link></Nav.Item>
           </Nav>
 
           <Tab.Content>
@@ -272,6 +280,17 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({ show, onClose, projet }) 
                     />
                 }
               </div>
+            </Tab.Pane>
+            <Tab.Pane eventKey="paiements">
+              <CalendrierPaiementTab
+                backlogId={backlogId}
+                lots={lots}
+                sprints={sprints}
+                deliverables={deliverables}
+                deviseAbr={deviseAbr}
+                montantOffre={montantOffre} //montant budget offre technique
+                service={svc.paiement}
+              />
             </Tab.Pane>
           </Tab.Content>
         </Tab.Container>
