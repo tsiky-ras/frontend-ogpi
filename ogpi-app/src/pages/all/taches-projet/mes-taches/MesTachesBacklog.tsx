@@ -574,9 +574,9 @@ const TaskCard: React.FC<{ task: BacklogLineProfilAsTask; service: BacklogTaskSe
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-interface Props { service: BacklogTaskService; currentUserName?: string; }
+interface Props { service: BacklogTaskService; currentUserName?: string; deviseAbr?: string; }
 
-const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur" }) => {
+const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr }) => {
   const [tasks, setTasks]   = useState<BacklogLineProfilAsTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);

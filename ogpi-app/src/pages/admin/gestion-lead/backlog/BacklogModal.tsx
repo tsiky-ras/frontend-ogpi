@@ -11,13 +11,15 @@ import { BacklogLotService } from "../../../../services/lead/backlog/BacklogLotS
 import { BacklogPhaseService } from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
 import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogProfilService.tsx";
 import { BacklogLineService } from "../../../../services/lead/backlog/BacklogLineService.tsx";
-import { BacklogLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
+import { BacklogProjetLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
 import { BacklogDeliverableService } from "../../../../services/lead/backlog/BacklogdeliverableService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import BacklogForm from "./BacklogForm.tsx";
 import PlanningTab from "./PlanningTab.tsx";
 import BudgetTab from "./BudgetTab.tsx";
+import ChargesAnnexesTab from "../../gestion-projet/tabs/ChargesAnnexesTab.tsx";
+import { ChargesAnnexesService } from "../../../../services/projet/backlog/ChargesAnnexesService.tsx";
 
 import {
   Backlog,
@@ -50,6 +52,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const backlogDeliverableService = new BacklogDeliverableService(api);
   const backlogPlanningService    = new BacklogPlanningService(api);
   const leadTechFinService        = useLeadTechFinDetailsService();
+  const chargesAnnexesService     = new ChargesAnnexesService(api);
 
   // ── Liste des backlogs ────────────────────────────────────
   const [backlogs,          setBacklogs]          = useState<Backlog[]>([]);
@@ -108,6 +111,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [expandedPhases,      setExpandedPhases]      = useState<Set<number>>(new Set());
   const [loadingDeliverables, setLoadingDeliverables] = useState<Set<number>>(new Set());
   const [deviseAbr,           setDeviseAbr]           = useState<string | null>(null);
+  const [budgetRH,            setBudgetRH]            = useState<number>(0);
 
   // ── Refs Sortable ─────────────────────────────────────────
   const listRef                      = useRef<HTMLDivElement | null>(null);
@@ -1023,6 +1027,17 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                   lineProfils={lineProfils}
                   selectedBacklogId={selectedBacklogId}
                   deviseAbr={deviseAbr}
+                  onTotalChange={setBudgetRH}
+                />
+              </Tab>
+
+              {/* ── TAB CHARGES ANNEXES ── */}
+              <Tab eventKey="charges_annexes" title="Charges Annexes">
+                <ChargesAnnexesTab
+                  backlogId={selectedBacklogId}
+                  deviseAbr={deviseAbr}
+                  budgetRH={budgetRH}
+                  service={chargesAnnexesService}
                 />
               </Tab>
             </Tabs>

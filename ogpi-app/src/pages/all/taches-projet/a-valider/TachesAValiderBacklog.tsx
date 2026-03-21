@@ -12,6 +12,7 @@ import {
   BacklogTaskStatusHistory, PROJECT_TASK_STATUS,
   ChangingStatusDTO, BacklogLineProfilAsTask,
 } from "../../../../types/lead/Backlog/BacklogTaskTypes.tsx";
+import StatutCollaborateurTab from "../statut-collab/StatutCollaborateurTab.tsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtDateTime = (iso?: string | null) => {
@@ -446,9 +447,9 @@ const ValidateTaskCard: React.FC<{
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-interface Props { service: BacklogTaskService; currentUserName?: string; }
+interface Props { service: BacklogTaskService; currentUserName?: string; deviseAbr?: string; }
 
-const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur" }) => {
+const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr }) => {
   const [tasks, setTasks]     = useState<BacklogLineProfilAsTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);

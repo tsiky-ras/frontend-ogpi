@@ -265,14 +265,11 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
       {/* ── En-tête global ── */}
       <div
         className="d-flex align-items-center justify-content-between px-3 py-2 rounded mb-3"
-        style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)", color: "white" }}
+        style={{ background: "linear-gradient(135deg, #223A46 0%, #223A46 100%)", color: "white" }}
       >
         <div className="d-flex align-items-center gap-2">
           <FaFileInvoiceDollar size={18} />
           <span className="fw-bold">Facturation mensuelle par profil</span>
-          <span className="badge bg-white text-primary">
-            {allMonthKeys.filter(k => k !== "sans-date").length} mois
-          </span>
           {sansDateCount > 0 && (
             <span className="badge bg-warning text-dark" title="Tâches sans dates — non planifiées dans le calendrier">
               ⚠ {sansDateCount} tâche{sansDateCount > 1 ? "s" : ""} sans date
@@ -280,26 +277,6 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
           )}
         </div>
         <div className="fw-bold fs-5">{fmtAmount(grandTotal, deviseAbr)}</div>
-      </div>
-
-      {/* ── Légende priorité des dates ── */}
-      <div
-        className="d-flex align-items-center gap-2 flex-wrap px-3 py-2 rounded mb-3"
-        style={{ background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: "0.72rem", color: "#0369a1" }}
-      >
-        <span className="fw-semibold">Source des dates (priorité) :</span>
-        <span className="badge" style={{ background: "#0ea5e9", fontSize: "0.65rem" }}>1 · Tâche assignée</span>
-        <span className="text-muted">→</span>
-        <span className="badge" style={{ background: "#6366f1", fontSize: "0.65rem" }}>2 · Sprint</span>
-        <span className="text-muted">→</span>
-        <span className="badge" style={{ background: "#8b5cf6", fontSize: "0.65rem" }}>3 · Phase</span>
-        <span className="text-muted">→</span>
-        <span className="badge" style={{ background: "#a78bfa", fontSize: "0.65rem" }}>4 · Lot</span>
-        <span className="text-muted">→</span>
-        <span className="badge bg-secondary" style={{ fontSize: "0.65rem" }}>Sans date</span>
-        <span className="ms-2 text-muted fst-italic">
-          · Les JH sont distribués uniformément sur les mois couverts.
-        </span>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
@@ -312,7 +289,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
           </div>
           <div className="table-responsive">
             <table className="table table-sm table-bordered mb-0" style={{ fontSize: "0.78rem" }}>
-              <thead style={{ background: "#1e3a5f", color: "white" }}>
+              <thead style={{ background: "#223A46", color: "white" }}>
                 <tr>
                   <th style={{ minWidth: 150 }}>Profil</th>
                   <th className="text-end" style={{ minWidth: 85, whiteSpace: "nowrap" }}>TJM</th>
@@ -324,7 +301,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                       </th>
                     );
                   })}
-                  <th className="text-end" style={{ minWidth: 115, background: "#0f2952", whiteSpace: "nowrap" }}>
+                  <th className="text-end" style={{ minWidth: 115, background: "#0f2952", whiteSpace: "nowrap", color:"white" }}>
                     TOTAL
                   </th>
                 </tr>
@@ -346,7 +323,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                         <td key={key} className="text-end" style={{ verticalAlign: "middle" }}>
                           {jh > 0 ? (
                             <div className="d-flex flex-column align-items-end">
-                              <span className="fw-semibold" style={{ color: key === "sans-date" ? "#64748b" : "#1e3a5f" }}>
+                              <span className="fw-semibold" style={{ color: key === "sans-date" ? "#64748b" : "#223A46" }}>
                                 {fmtAmount(amt, deviseAbr)}
                               </span>
                               <small className="text-muted">{fmtJH(jh)} JH</small>
@@ -357,7 +334,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                     })}
                     <td className="text-end fw-bold" style={{ background: "#eff6ff", verticalAlign: "middle" }}>
                       <div className="d-flex flex-column align-items-end">
-                        <span style={{ color: "#1e3a5f" }}>{fmtAmount(totalAmount, deviseAbr)}</span>
+                        <span style={{ color: "#223A46" }}>{fmtAmount(totalAmount, deviseAbr)}</span>
                         <small className="text-muted">{fmtJH(totalJH)} JH</small>
                       </div>
                     </td>
@@ -420,7 +397,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                     <span className="badge bg-secondary">{fmtJH(totalJH)} JH facturables</span>
                     <span
                       className="badge fw-bold"
-                      style={{ background: "#1e3a5f", fontSize: "0.8rem", padding: "4px 10px" }}
+                      style={{ background: "#223A46", fontSize: "0.8rem", padding: "4px 10px" }}
                     >
                       {fmtAmount(totalAmount, deviseAbr)}
                     </span>
@@ -451,7 +428,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                                 style={{
                                   background: isSansDate
                                     ? "linear-gradient(90deg, #64748b, #94a3b8)"
-                                    : "linear-gradient(90deg, #1e3a5f, #2563eb)",
+                                    : "linear-gradient(90deg, #223A46, #223A46)",
                                   color: "white",
                                   cursor: lotEntries.length > 0 ? "pointer" : "default",
                                   fontSize: "0.82rem",
@@ -475,7 +452,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                               <div className="px-3 py-2 text-center">
                                 <div
                                   className="fw-bold"
-                                  style={{ fontSize: "1.1rem", color: isSansDate ? "#64748b" : "#1e3a5f" }}
+                                  style={{ fontSize: "1.1rem", color: isSansDate ? "#64748b" : "#223A46" }}
                                 >
                                   {fmtAmount(amount, deviseAbr)}
                                 </div>
@@ -499,7 +476,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                                       style={{
                                         height: "100%",
                                         width: `${Math.min(100, Math.round((jh / totalJH) * 100))}%`,
-                                        background: "linear-gradient(90deg, #2563eb, #60a5fa)",
+                                        background: "linear-gradient(90deg, #223A46, #60a5fa)",
                                         borderRadius: 2,
                                         transition: "width 0.4s ease",
                                       }}
@@ -535,7 +512,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
                                       </span>
                                       <div className="d-flex gap-2 align-items-center">
                                         <span className="text-muted">{fmtJH(lotJH)} JH</span>
-                                        <span className="fw-semibold" style={{ color: "#1e3a5f" }}>
+                                        <span className="fw-semibold" style={{ color: "#223A46" }}>
                                           {fmtAmount(lotJH * profil.tjm, deviseAbr)}
                                         </span>
                                       </div>
@@ -570,7 +547,7 @@ const FacturableProfil: React.FC<FacturableProfilProps> = ({
         <div
           className="d-flex justify-content-between align-items-center px-3 py-3"
           style={{
-            background: "linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%)",
+            background: "linear-gradient(135deg, #223A46 0%, #1d4ed8 100%)",
             color: "white",
             borderRadius: "0 0 6px 6px",
           }}

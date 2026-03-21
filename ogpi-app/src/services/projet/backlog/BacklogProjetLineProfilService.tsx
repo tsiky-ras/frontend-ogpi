@@ -144,4 +144,29 @@ export class BacklogProjetLineProfilService {
       throw error;
     }
   }
+  // ==========================
+  // CHANGE STATUS
+  // Utilisé par TaskStatusCell pour le workflow collaborateur / CP / BA
+  // statusId : 1=Affecté 2=Réattribué 3=À modifier(KO) 4=En cours 5=Soumis 6=Validé(OK)
+  // ==========================
+  async changeStatus(
+    taskId: number,
+    statusId: number,
+    comment: string
+  ): Promise<any> {
+    try {
+      const response = await this.api.post(
+        '/projet/backlog-line-profils/changeStatus',
+        {
+          idStatus: statusId,
+          comment: comment || 'Changement de statut',
+          backlogLineProfilId: taskId,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Erreur changeStatus:', error);
+      throw error;
+    }
+  }
 }

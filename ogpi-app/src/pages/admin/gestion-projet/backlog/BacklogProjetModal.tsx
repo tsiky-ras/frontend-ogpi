@@ -42,6 +42,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import BacklogFormProjet from "./BacklogFormProjet.tsx";
   import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
   import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
+  import TaskStatusCell from "../../../../components/task-status/TaskStatusCell.tsx";
+  import type { TaskStatusEntry } from "../../../../components/task-status/TaskStatusCell.tsx";
+  import ChargesAnnexesTab from "../tabs/ChargesAnnexesTab.tsx";
+  import { ChargesAnnexesService } from "../../../../services/projet/backlog/ChargesAnnexesService.tsx";
   import { ProjetService } from "../../../../services/projet/ProjetService.tsx";
   import FacturableProfil from "../tabs/FacturableProfil.tsx";
   import { BacklogDateService } from "../../../../services/projet/backlog/BacklogDateService.tsx";
@@ -135,10 +139,21 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     );
   };
 
+  // ── Constantes statut tâche — alignées avec backend et STATUS_TASK_META ────
+  // 1=Attribué 2=Réattribué 3=À modifier 4=En cours 5=Soumis/Validé collab 6=Validé CP
+  const TASK_STATUS = {
+    AFFECTE:    1,
+    REATTRIBUE: 2,
+    A_REFAIRE:  3,   // KO → à refaire
+    EN_COURS:   4,
+    VALIDE:     5,   // Collab soumet → attend CP
+    TERMINE:    6,   // CP valide OK → terminé
+  } as const;
+
   const BacklogProjetModal: React.FC<BacklogProjetModalProps> = ({
     show, onClose, projetId, projetNom, leadId, projectStartDate, projectEndDate,
   }) => {
-    const { api } = useAuth();
+    const { api, user } = useAuth();
     const collaborateurService = useProfilService();
     const projetService = new ProjetService(api);
     const svc = useRef({
@@ -181,6 +196,32 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
     const [expandedLines,   setExpandedLines]   = useState<Set<number>>(new Set());
     const leadTechFinService = useLeadTechFinDetailsService();
     const [deviseAbr, setDeviseAbr] = useState<string>("€");
+    const [budgetRH, setBudgetRH]   = useState<number>(0);
+
+    // ── Helpers rôle utilisateur connecté ──────────────────────────────────
+    // user?.role?.roleLabel contient le label du rôle depuis le JWT
+    const userRoleLabel = (user?.role?.roleLabel ?? "").toLowerCase();
+    const isValidator = userRoleLabel.includes("chef") ||
+                        userRoleLabel.includes("cp") ||
+                        userRoleLabel.includes("suppléant") ||
+                        userRoleLabel.includes("suppleant") ||
+                        userRoleLabel.includes("ba") ||
+                        userRoleLabel.includes("business analyst");
+
+    const isCollaboratorOf = (profilCollabs: any[]): boolean => {
+      if (!user?.userId) return false;
+      return profilCollabs.some((c: any) =>
+        c.userId === user.userId || c.user?.id === user.userId || c.id === user.userId
+      );
+    };
+
+    // ── changeStatus pour TaskStatusCell ───────────────────────────────────
+    const handleChangeStatus = async (
+      taskId: number, statusId: number, comment: string
+    ): Promise<TaskStatusEntry> => {
+      const response = await svc.lineProfil.changeStatus(taskId, statusId, comment);
+      return response;
+    };
     const [showProfilCols, setShowProfilCols] = useState(true);
 
     const [expandedRecapLots,   setExpandedRecapLots]   = useState<Set<number>>(new Set());
@@ -305,6 +346,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       try { setLineProfils(await svc.lineProfil.getAllByBacklogId(backlogId)); }
       catch { setLineProfils([]); }
     }, []);
+
+    // const loadLineProfils = useCallback(async (backlogId: number) => {
+    //   try { setLineProfils(await svc.lineProfil.getAllLineProfilsByBacklogId(backlogId)); 
+    //     console.log(await svc.lineProfil.getAllLineProfilsByBacklogId(backlogId));
+    //   }
+    //   catch { setLineProfils([]); }
+    // }, []);
 
     const loadAllCollabs = useCallback(async () => {
       try { const data = await collaborateurService.getAll(); setAllCollabs(Array.isArray(data) ? data : []); }
@@ -1458,6 +1506,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                 <th style={{ width: 32 }} /><th style={{ width: 40 }}>#</th>
                                 <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
                                 <th>Epic</th><th>User Story</th><th>Description</th><th>Détails</th>
+                                <th style={{ minWidth: 110 }}>Statut</th>
                                 {showProfilCols && profils.map(p => (
                                   <th key={p.id} className="text-center" style={{ minWidth: 160 }}>
                                     <div className="fw-bold">{p.name}</div>
@@ -1469,7 +1518,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                       </div>
                                     )}
                                     <div className="d-flex justify-content-center gap-1 mt-1 flex-wrap" style={{ fontSize: "0.58rem", color: "#adb5bd", fontWeight: "normal" }}>
-                                      <span>JH</span><span>·</span><span>Réalisation</span><span>·</span><span>Passé</span><span>·</span><span>Deadline</span><span>·</span>
+                                      <span>JH</span><span>·</span><span>Réalisation</span><span>·</span>
+                                      <span style={{ color: "#818cf8" }}>Statut tâche</span><span>·</span>
+                                      <span style={{ color: "#f97316" }}>Statut test</span>
                                     </div>
                                   </th>
                                 ))}
@@ -1482,7 +1533,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                             <tbody ref={lineBodyRef}>
                               {lines.length === 0 ? (
                                 <tr className="empty-row">
-                                  <td colSpan={8 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
+                                  <td colSpan={9 + (showProfilCols ? profils.length : 0) + 1} className="text-center text-muted fst-italic py-4">
                                     Aucune ligne — cliquez sur « Ajouter une ligne »
                                   </td>
                                 </tr>
@@ -1512,31 +1563,82 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                     <td>{line.userStory ?? "—"}</td>
                                     <td>{line.description ?? "—"}</td>
                                     <td>{line.resultat ?? "—"}</td>
+                                    {/* ── Colonne Statut : statuts réels des tâches affectées ── */}
+                                    <td className="text-center" style={{ verticalAlign: "middle", padding: "4px 6px" }}>
+                                      {(() => {
+                                        const lpsForLine = lineProfils.filter(lp => lp.lineId === line.id && lp.volume > 0);
+                                        if (!lpsForLine.length) return <span className="text-muted small">—</span>;
+                                        return (
+                                          <div className="d-flex flex-column align-items-center gap-1">
+                                            {lpsForLine.map(lp => {
+                                              const sid = (lp as any)?.currentStatus?.status?.id ?? null;
+                                              const pName = (lp as any)?.profil?.name ?? "";
+                                              const collab = lp?.collaborateur;
+                                              const collabLabel = collab
+                                                ? (collab as any).appellation ?? `${(collab as any).prenom ?? ""} ${(collab as any).nom ?? ""}`.trim()
+                                                : null;
+                                              const m = sid != null ? taskStatusMeta(sid) : null;
+                                              return (
+                                                <div key={lp.id} className="d-flex flex-column align-items-center" style={{ gap: 1 }}>
+                                                  {m ? (
+                                                    <span style={{
+                                                      display: "inline-flex", alignItems: "center", gap: 3,
+                                                      fontSize: "0.62rem", fontWeight: 700, color: m.color,
+                                                      background: m.bg, border: `1px solid ${m.color}33`,
+                                                      borderRadius: 10, padding: "2px 7px", whiteSpace: "nowrap",
+                                                    }}>
+                                                      <span style={{ width:5, height:5, borderRadius:"50%", background:m.dot, flexShrink:0 }} />
+                                                      {m.label}
+                                                    </span>
+                                                  ) : (
+                                                    <span style={{ fontSize:"0.62rem", color:"#94a3b8" }}>—</span>
+                                                  )}
+                                                  {(pName || collabLabel) && (
+                                                    <span style={{ fontSize:"0.58rem", color:"#94a3b8", whiteSpace:"nowrap" }}>
+                                                      {collabLabel ?? pName}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
 
                                     {showProfilCols && profils.map(p => {
                                       const lp        = getLineProfil(line.id, p.id);
                                       const vol       = lp?.volume ?? 0;
                                       const collab    = lp?.collaborateur;
                                       const deadline  = lp?.deadLine ?? null;
-                                      const timeSpent = lp?.timeSpent ?? null;   
-                                      const ecart     = vol > 0 && timeSpent != null ? vol - timeSpent : null; 
+                                      const timeSpent = lp?.timeSpent ?? null;
+                                      const ecart     = vol > 0 && timeSpent != null ? vol - timeSpent : null;
                                       const pct       = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
-                                      const isOverdue = deadline && new Date(deadline) < new Date() && pct !== 100;
-                                      const statusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
+                                      const lpStatusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
+                                      const lpHistory: TaskStatusEntry[] = (lp as any)?.historyStatus ?? [];
+                                      const isOverdue = deadline && new Date(deadline) < new Date() && lpStatusId !== TASK_STATUS.TERMINE;
+                                      const collabNom = collab ? (collab.appellation ?? `${collab.prenom} ${collab.nom}`) : null;
+                                      // Est-ce que l'utilisateur connecté est le collab de ce profil ?
+                                      const isMeCollab = isCollaboratorOf(p.collaborateurs ?? []);
                                       return (
-                                        <td key={p.id} className="text-center" style={{ cursor: "pointer", verticalAlign: "middle", padding: "4px 6px" }} onClick={() => openVolModal(line.id, p.id)}>
+                                        <td key={p.id} className="text-center" style={{ verticalAlign: "middle", padding: "4px 6px" }}>
                                           {vol > 0 ? (
                                             <div className="d-flex flex-column align-items-center gap-1">
+                                              {/* JH + réalisation */}
                                               <div className="d-flex align-items-center gap-1 flex-wrap justify-content-center">
-                                                {/* JH planifiés */}
-                                                <span className="badge bg-primary" style={{ fontSize: "0.7rem" }}>{vol} JH</span>
-                                                {/* Temps de réalisation */}
+                                                <span
+                                                  className="badge bg-primary"
+                                                  style={{ fontSize: "0.7rem", cursor: "pointer" }}
+                                                  onClick={() => openVolModal(line.id, p.id)}
+                                                >{vol} JH</span>
                                                 {timeSpent != null && (
-                                                  <span className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`} style={{ fontSize: "0.65rem" }} title={`Réalisation : ${timeSpent} JH sur ${vol} JH planifiés`}>
+                                                  <span className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`}
+                                                    style={{ fontSize: "0.65rem", cursor: "pointer" }}
+                                                    onClick={() => openVolModal(line.id, p.id)}
+                                                    title={`Réalisation : ${timeSpent} JH sur ${vol} JH planifiés`}>
                                                     {timeSpent} réal.
                                                   </span>
                                                 )}
-                                                {/* Temps passé = vol - timeSpent */}
                                                 {ecart !== null && (
                                                   <span style={{
                                                     fontSize: "0.6rem", fontWeight: 700,
@@ -1544,22 +1646,56 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                                                     background: ecart < 0 ? "#fef2f2" : ecart === 0 ? "#f3f4f6" : "#ecfdf5",
                                                     border: `1px solid ${ecartColor(ecart)}44`,
                                                     borderRadius: 10, padding: "1px 5px", whiteSpace: "nowrap",
-                                                  }} title={ecart >= 0 ? `${ecart} JH restants` : `Dépassement de ${Math.abs(ecart)} JH`}>
+                                                    cursor: "pointer",
+                                                  }}
+                                                    onClick={() => openVolModal(line.id, p.id)}
+                                                    title={ecart >= 0 ? `${ecart} JH restants` : `Dépassement de ${Math.abs(ecart)} JH`}>
                                                     {fmtEcart(ecart)} passé
                                                   </span>
                                                 )}
                                               </div>
-                                              <TaskStatusBadge statusId={statusId} />
+
+                                              {/* ── Dropdown statut tâche + statut test ── */}
+                                              {lp ? (
+                                                <TaskStatusCell
+                                                  taskId={lp.id}
+                                                  currentStatusId={lpStatusId ?? TASK_STATUS.AFFECTE}
+                                                  history={lpHistory}
+                                                  isValidator={isValidator}
+                                                  isCollaborator={isMeCollab}
+                                                  collaborateurNom={collabNom}
+                                                  onChangeStatus={handleChangeStatus}
+                                                />
+                                              ) : (
+                                                <span
+                                                  className="tsc-inline-dd__badge tsc-badge--static"
+                                                  style={{ color:"#64748b", background:"#f1f5f9", borderColor:"#e2e8f0", fontSize:"0.67rem", cursor:"pointer" }}
+                                                  onClick={() => openVolModal(line.id, p.id)}
+                                                  title="Cliquer pour assigner un collaborateur et démarrer"
+                                                >
+                                                  <span className="tsc-dot" style={{ background:"#cbd5e1" }} />
+                                                  Non assigné
+                                                </span>
+                                              )}
+
+                                              {/* Deadline */}
                                               {deadline && (
-                                                <span style={{ fontSize: "0.6rem", color: isOverdue ? "#dc3545" : "#6c757d", fontWeight: isOverdue ? "bold" : "normal", whiteSpace: "nowrap" }}
+                                                <span style={{
+                                                  fontSize: "0.6rem",
+                                                  color: lpStatusId === TASK_STATUS.TERMINE ? "#10b981" : isOverdue ? "#dc3545" : "#6c757d",
+                                                  fontWeight: (isOverdue || lpStatusId === TASK_STATUS.TERMINE) ? "bold" : "normal",
+                                                  whiteSpace: "nowrap",
+                                                }}
                                                   title={isOverdue ? "Deadline dépassée !" : `Deadline : ${fmtDateTime(deadline)}`}>
                                                   {isOverdue ? "⚠ " : ""}{fmtDateTime(deadline)}
                                                 </span>
                                               )}
-                                              {collab && <small className="text-muted" style={{ fontSize: "0.6rem", lineHeight: 1.1 }}>{collab.nom} {collab.prenom}</small>}
+                                              {collabNom && (
+                                                <small className="text-muted" style={{ fontSize: "0.6rem", lineHeight: 1.1 }}>{collabNom}</small>
+                                              )}
                                             </div>
                                           ) : (
-                                            <span className="text-muted small">—</span>
+                                            <span className="text-muted small" style={{ cursor: "pointer" }} onClick={() => openVolModal(line.id, p.id)}>—</span>
                                           )}
                                         </td>
                                       );
@@ -1593,8 +1729,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                             {lines.length > 0 && (
                               <tfoot>
                                 <tr className="table-warning fw-bold">
-                                  <td colSpan={7} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
-                                  {showProfilCols && profils.map(p => {
+                                    <td colSpan={8} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>                                  {showProfilCols && profils.map(p => {
                                     const pVol  = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
                                     const pTs   = profilTotals.find(t => t.profil.id === p.id)?.ts ?? 0;
                                     const pPct  = pVol > 0 && pTs > 0 ? Math.round((pTs / pVol) * 100) : null;
@@ -1798,7 +1933,15 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                       </Tab>
 
                       <Tab eventKey="budget" title="Budget">
-                        <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} leadId={leadId ?? null} deviseAbr={deviseAbr} />
+                        <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} leadId={leadId ?? null} deviseAbr={deviseAbr} onTotalChange={setBudgetRH} />
+                      </Tab>
+                      <Tab eventKey="charges_annexes" title="Charges Annexes">
+                        <ChargesAnnexesTab
+                          backlogId={backlog?.id ?? null}
+                          deviseAbr={deviseAbr}
+                          budgetRH={budgetRH}
+                          service={new ChargesAnnexesService(api)}
+                        />
                       </Tab>
                       <Tab eventKey="facturation" title="Facturation">
                         <FacturableProfil

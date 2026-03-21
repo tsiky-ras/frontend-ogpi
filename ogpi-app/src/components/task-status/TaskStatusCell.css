@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════
+   TaskStatusCell.css
+═══════════════════════════════════ */
+
+.tsc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: inherit;
+}
+
+/* ── Ligne statut tâche + statut test ── */
+.tsc-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.tsc-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+}
+.tsc-group__label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+/* ── Inline dropdown ── */
+.tsc-inline-dd { position: relative; }
+.tsc-inline-dd__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 20px;
+  font-size: 0.67rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.1s;
+  background: none;
+}
+.tsc-inline-dd__badge:not(:disabled):hover { filter: brightness(0.93); }
+.tsc-inline-dd__badge:disabled { cursor: default; opacity: 0.7; }
+.tsc-badge--static { cursor: default; }
+.tsc-badge--static:hover { filter: none; }
+
+.tsc-inline-dd__menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 3px);
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.12);
+  min-width: 130px;
+  overflow: hidden;
+  animation: tscFade .1s ease;
+}
+@keyframes tscFade { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
+.tsc-inline-dd__item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-align: left;
+  transition: filter .1s;
+}
+.tsc-inline-dd__item:hover { filter: brightness(0.92); }
+
+/* ── Test OK / KO buttons ── */
+.tsc-test-actions {
+  display: flex;
+  gap: 4px;
+}
+.tsc-test-btn {
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid;
+  transition: all .1s;
+}
+.tsc-test-btn--ok {
+  background: #f0fdf4; color: #16a34a; border-color: #86efac;
+}
+.tsc-test-btn--ok:hover { background: #16a34a; color: #fff; }
+.tsc-test-btn--ko {
+  background: #fff5f5; color: #dc2626; border-color: #fca5a5;
+}
+.tsc-test-btn--ko:hover { background: #dc2626; color: #fff; }
+
+/* ── Formulaire motif KO ── */
+.tsc-ko-form {
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 7px 8px;
+}
+.tsc-ko-form__err {
+  font-size: 0.68rem;
+  color: #dc2626;
+  margin-bottom: 5px;
+}
+.tsc-ko-form__ta {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid #fca5a5;
+  border-radius: 5px;
+  font-size: 0.73rem;
+  resize: vertical;
+  min-height: 48px;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+}
+.tsc-ko-form__ta:focus { border-color: #ef4444; }
+.tsc-ko-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-top: 6px;
+}
+.tsc-ko-form__cancel {
+  padding: 3px 9px; font-size: 0.7rem; border-radius: 5px;
+  background: transparent; border: 1px solid #e2e8f0; color: #64748b; cursor: pointer;
+}
+.tsc-ko-form__confirm {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; font-size: 0.7rem; font-weight: 600; border-radius: 5px;
+  background: #dc2626; color: #fff; border: none; cursor: pointer;
+}
+.tsc-ko-form__confirm:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Bandeau KO (visible collab) ── */
+.tsc-ko-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  padding: 4px 7px;
+  font-size: 0.66rem;
+  color: #b91c1c;
+}
+.tsc-ko-banner__motif { flex: 1; font-style: italic; }
+.tsc-ko-banner__by    { font-weight: 600; white-space: nowrap; }
+
+/* ── Historique ── */
+.tsc-hist-toggle {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: none; border: none; font-size: 0.62rem;
+  color: #94a3b8; cursor: pointer; padding: 0;
+}
+.tsc-hist-toggle:hover { color: #3b82f6; }
+.tsc-hist {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 140px; overflow-y: auto;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 6px; padding: 6px 8px;
+}
+.tsc-hist__empty { font-size: 0.68rem; color: #94a3b8; margin: 0; text-align: center; }
+.tsc-hist__item  { display: flex; align-items: flex-start; gap: 6px; }
+
+/* ── Shared ── */
+.tsc-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.tsc-chevron { transition: transform .12s; opacity: 0.6; }
+.tsc-chevron--up { transform: rotate(180deg); }
+.tsc-spin { animation: tscSpin .7s linear infinite; }
+@keyframes tscSpin { to { transform: rotate(360deg); } }

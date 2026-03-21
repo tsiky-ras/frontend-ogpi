@@ -6,13 +6,14 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 import MesTachesBacklog from "./mes-taches/MesTachesBacklog.tsx";
 import TachesAValiderBacklog from "./a-valider/TachesAValiderBacklog.tsx";
+import StatutCollaborateurTab from "../../admin/gestion-projet/tabs/StatutCollaborateurTab.tsx";
 import { BacklogTaskService } from "../../../services/projet/backlog/BacklogTaskService.tsx";
 import { useLeadTechFinDetailsService } from "../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import "./BacklogTachePage.css";
 
 const BacklogTachePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"afaire" | "avalider">("afaire");
+  const [activeTab, setActiveTab] = useState<"afaire" | "avalider" | "statut_collab">("afaire");
   const [deviseAbr, setDeviseAbr] = useState<string>("€");
   const { api, user } = useAuth();
 
@@ -58,6 +59,8 @@ const BacklogTachePage: React.FC = () => {
                 onClick={() => setActiveTab("afaire")}>Mes tâches à faire</button>
               <button className={`btp-tab-btn${activeTab === "avalider" ? " active" : ""}`}
                 onClick={() => setActiveTab("avalider")}>Tâches à valider</button>
+              <button className={`btp-tab-btn${activeTab === "statut_collab" ? " active" : ""}`}
+                onClick={() => setActiveTab("statut_collab")}>Statut Collaborateur</button>
             </div>
 
             <div className="btp-tab-content">
@@ -67,6 +70,10 @@ const BacklogTachePage: React.FC = () => {
               )}
               {activeTab === "avalider" && (
                 <TachesAValiderBacklog service={backlogTaskService}
+                  currentUserName={user?.username} deviseAbr={deviseAbr} />
+              )}
+              {activeTab === "statut_collab" && (
+                <StatutCollaborateurTab service={backlogTaskService}
                   currentUserName={user?.username} deviseAbr={deviseAbr} />
               )}
             </div>
