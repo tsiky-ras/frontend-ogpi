@@ -14,6 +14,7 @@ import { ProjetService } from '../../../../services/projet/ProjetService.tsx';
 import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Projet } from '../../../../types/projet/Projet.tsx';
 import BacklogProjetModal from '../backlog/BacklogProjetModal.tsx';
+import { ProjetAvancementService, ProjetAvancement } from '../../../../services/projet/ProjetAvancementService.tsx';
 
 const ListeProjet: React.FC = () => {
   const { api } = useAuth();
@@ -28,13 +29,18 @@ const ListeProjet: React.FC = () => {
   const [showBacklogModal, setShowBacklogModal] = useState(false);
   const [selectedProjetForBacklog, setSelectedProjetForBacklog] = useState<Projet | null>(null);
 
-  const projetService = new ProjetService(api);
+  const projetService          = new ProjetService(api);
+  const avancementService      = new ProjetAvancementService(api);
 
   const [kpis, setKpis] = useState({
     totalProjets: 0,
     totalCP: 0,
     totalSuppleante: 0,
   });
+
+  // Map projetId → ProjetAvancement, chargé en une requête
+  const [avancements, setAvancements] = useState<Map<number, ProjetAvancement>>(new Map());
+  const [loadingAvancement, setLoadingAvancement] = useState(false);
 
   /* ================= DATA ================= */
   const loadProjets = async () => {
@@ -51,8 +57,21 @@ const ListeProjet: React.FC = () => {
     }
   };
 
+  const loadAvancements = async () => {
+    setLoadingAvancement(true);
+    try {
+      const data = await avancementService.getAll();
+      setAvancements(ProjetAvancementService.toMap(data));
+    } catch {
+      // silencieux — les colonnes restent vides
+    } finally {
+      setLoadingAvancement(false);
+    }
+  };
+
   useEffect(() => {
     loadProjets();
+    loadAvancements();
   }, []);
 
   /* ================= HANDLERS BACKLOG ================= */
@@ -127,6 +146,71 @@ const ListeProjet: React.FC = () => {
           {row.description || '-'}
         </div>
       ),
+    },
+    {
+      key: 'avancementTaches',
+      label: 'Avancement tâches',
+      render: (row: Projet) => {
+        const a = avancements.get(row.idProjet ?? 0);
+        if (loadingAvancement) return <div className="avancement-skeleton" />;
+        if (!a || a.tachesTotal === 0) return (
+          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Aucune tâche</span>
+        );
+        const pct = a.avancementTaches;
+        const color = pct >= 100 ? '#2d8f47' : pct >= 60 ? '#EABF5B' : '#C93C29';
+        return (
+          <div style={{ minWidth: 120 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: 3 }}>
+              <span style={{ color: '#5F6F6E', fontWeight: 500 }}>
+                {a.tachesValidees}/{a.tachesTotal} tâches
+              </span>
+              <span style={{ fontWeight: 700, color }}>{pct.toFixed(0)} %</span>
+            </div>
+            <div style={{ height: 7, background: '#E8E5D7', borderRadius: 999, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${Math.min(100, pct)}%`,
+                background: color, borderRadius: 999,
+                transition: 'width .4s',
+              }} />
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'avancementPaiement',
+      label: 'Avancement paiement',
+      render: (row: Projet) => {
+        const a = avancements.get(row.idProjet ?? 0);
+        if (loadingAvancement) return <div className="avancement-skeleton" />;
+        if (!a || a.montantOffre === 0) return (
+          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+            {a && a.totalPaye > 0
+              ? `${a.totalPaye.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} encaissé`
+              : 'Pas d\'offre'}
+          </span>
+        );
+        const pct = a.avancementPaiement;
+        const color = pct >= 100 ? '#2d8f47' : pct >= 50 ? '#3B6E8F' : '#5F6F6E';
+        return (
+          <div style={{ minWidth: 140 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: 3 }}>
+              <span style={{ color: '#5F6F6E', fontWeight: 500 }}>
+                {a.totalPaye.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+                <span style={{ color: '#94a3b8' }}> / {a.montantOffre.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>
+              </span>
+              <span style={{ fontWeight: 700, color }}>{pct.toFixed(0)} %</span>
+            </div>
+            <div style={{ height: 7, background: '#E8E5D7', borderRadius: 999, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${Math.min(100, pct)}%`,
+                background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+                borderRadius: 999, transition: 'width .4s',
+              }} />
+            </div>
+          </div>
+        );
+      },
     },
     {
       key: 'actions',
@@ -296,4 +380,4 @@ const ListeProjet: React.FC = () => {
   );
 };
 
-export default ListeProjet;
+export default ListeProjet; 
