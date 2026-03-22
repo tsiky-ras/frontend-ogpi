@@ -5,7 +5,8 @@ import Title from "../../../components/title/Title.tsx";
 import { Tabs, Tab } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-import ListeProjet from "./liste/ListeProjet.tsx";
+import ListeProjet  from "./liste/ListeProjet.tsx";
+import KanbanProjet from "./kanban/KanbanProjet.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 
 const ProjetPage: React.FC = () => {
@@ -13,15 +14,15 @@ const ProjetPage: React.FC = () => {
   const { api } = useAuth();
 
   return (
-    <div className="page-lead-layout"> {/* On reprend la même classe responsive */}
+    <div className="page-lead-layout">
       <Header />
 
-      <div className="liste-lead-wrapper"> {/* wrapper responsive */}
-        <aside className="liste-lead-sidebar"> {/* sidebar responsive */}
+      <div className="liste-lead-wrapper">
+        <aside className="liste-lead-sidebar">
           <Sidebar />
         </aside>
 
-        <main className="liste-lead-main"> {/* main content responsive */}
+        <main className="liste-lead-main">
           <div className="container-fluid">
             <div className="row mb-3">
               <div className="col">
@@ -34,7 +35,7 @@ const ProjetPage: React.FC = () => {
 
             <Tabs
               activeKey={activeTab}
-              onSelect={(k) => k && setActiveTab(k)}
+              onSelect={k => k && setActiveTab(k)}
               className="mb-4"
               mountOnEnter
               unmountOnExit
@@ -42,7 +43,10 @@ const ProjetPage: React.FC = () => {
               <Tab eventKey="liste" title="Liste">
                 <ListeProjet />
               </Tab>
-              {/* Tu peux ajouter d'autres onglets comme Validation ou Kanban si nécessaire */}
+
+              <Tab eventKey="kanban" title="Kanban">
+                <KanbanProjet />
+              </Tab>
             </Tabs>
           </div>
         </main>

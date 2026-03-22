@@ -17,6 +17,8 @@ import {
   FaHandshake,
   FaMoneyBillWave,
   FaProjectDiagram,
+  FaCalendarAlt,
+  FaCalendarCheck,
 } from "react-icons/fa";
 
 export const routes = [
@@ -55,6 +57,11 @@ export const routes = [
         icon: <FaThList />,
       }
     ]
+  },
+  {
+    label: "Deadline & Paiement",
+    icon: <FaCalendarAlt />,
+    path: "/calendrier/deadlines"
   },
   {
     label: "Référentiels",
