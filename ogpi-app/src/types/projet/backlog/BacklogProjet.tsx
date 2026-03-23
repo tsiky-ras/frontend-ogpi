@@ -160,7 +160,7 @@ export interface UpdateBacklogDelivrableRequest {
   name: string;
   description?: string;
   deliveryDate?: string;
-  phaseId: number;
+  phaseId?: number;
   sprintId?: number | null;
   isDelivered?: boolean;
 }

@@ -89,7 +89,7 @@ export class BacklogProjetPhaseService {
   /** PUT /projet/backlog-sprints/{id} */
   async updateSprint(id: number, payload: { name: string; order: number, startDate?: string; endDate?: string }): Promise<BacklogSprint> {
     const response = await this.api.put(
-      `/projet/backlog-sprints/${id}`,
+      `/projet/backlog-phases/sprints/${id}`,
       {
         name: payload.name,
         order: payload.order,

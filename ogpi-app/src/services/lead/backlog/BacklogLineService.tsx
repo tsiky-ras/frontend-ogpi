@@ -14,6 +14,7 @@ export class BacklogLineService {
     resultat: string;
     order: number;
     phaseId: number;
+    sprintId?:number;
   }): Promise<BacklogLine> {
     try {
       const response = await this.api.post("/backlog-lines", data);
@@ -33,6 +34,7 @@ export class BacklogLineService {
       resultat: string;
       phaseId: number;
       order:number;
+      sprintId?:number;
     }
   ): Promise<BacklogLine> {
     try {

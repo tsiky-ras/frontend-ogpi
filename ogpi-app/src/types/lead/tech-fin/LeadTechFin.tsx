@@ -74,6 +74,7 @@ export interface LeadTechFinDetails {
   dateAttribution: string;
   devise: {
     idDevise: number;
+    abrDevise?:string;
   };
   typeFacturation: {
     idTypeFacturation: number;
