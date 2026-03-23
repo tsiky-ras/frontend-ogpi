@@ -158,6 +158,7 @@ export interface UpdateBacklogLineProfilRequest {
 // ─── BACKLOG ──────────────────────────────────────────────
 export interface Backlog {
   id: number;
+  datedeButPlanning?:string|null;
   name: string;
   desc?: string;
   leadId: number;

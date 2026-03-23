@@ -232,7 +232,11 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
 
       const allLineProfils: BacklogLineProfil[] = [];
       sortedLines.forEach(line => {
-        if (line.profils?.length) allLineProfils.push(...line.profils);
+        if (line.profils?.length) {
+          line.profils.forEach(lp => {
+            allLineProfils.push({ ...lp, lineId: line.id });
+          });
+        }
       });
       setLineProfils(allLineProfils);
 
@@ -1167,7 +1171,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     deliverables={sprintDeliverables}
                     selectedBacklogId={selectedBacklogId}
                     planningService={backlogPlanningService}
-                    initialOverrides={planningOverrides}
+                    // initialOverrides={planningOverrides}
+                    datedebutPlanning={backlog?.datedeButPlanning}
                   />
                 ) : (
                   <div className="d-flex justify-content-center align-items-center py-5">
