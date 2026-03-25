@@ -1,787 +1,1554 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { BacklogLot, BacklogLine, BacklogLineProfil, BacklogDeliverable } from "../../../../types/lead/Backlog/Backlog.tsx";
-import { BacklogPlanningService, UpsertPlanningRequest } from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
+import {
+  BacklogLot,
+  BacklogLine,
+  BacklogLineProfil,
+  BacklogDeliverable,
+  BacklogSprint,
+} from "../../../../types/lead/Backlog/Backlog.tsx";
 
-// ─── CONSTANTES MÉTIER ────────────────────────────────────────────────────────
-const WORK_START_H = 9;
-const WORK_END_H   = 18;
-
-const SLOT_MINUTES = 30;
-const SLOTS_PER_HOUR = 60 / SLOT_MINUTES; // 2
-const TOTAL_DAY_HOURS = WORK_END_H - WORK_START_H; // 9h
-const WORK_SLOTS_PER_DAY = TOTAL_DAY_HOURS * SLOTS_PER_HOUR; // 18 slots
-
-const HOURS_PER_DAY   = TOTAL_DAY_HOURS;
-const DAYS_PER_WEEK   = 5;
-const WEEKS_PER_MONTH = 4;
-const HOURS_PER_WEEK  = HOURS_PER_DAY * DAYS_PER_WEEK;
-const HOURS_PER_MONTH = HOURS_PER_WEEK * WEEKS_PER_MONTH;
-const SPRINT_HOURS    = HOURS_PER_WEEK * 2;
+import { BacklogDelivrableProjet } from "../../../../types/projet/backlog/BacklogProjet.tsx";
 
 
-const VISUAL_SLOTS_PER_DAY = 9;
-const WEEK_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
+import { BacklogPlanningService, SprintTimeDTO } from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 
-type TimeUnit = "hour" | "day" | "week" | "month";
-const COL_PX: Record<TimeUnit, number> = { hour: 34, day: 40, week: 72, month: 128 };
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 
-const ROW_H    = 38;
-const LABEL_W  = 230;   // largeur colonne labels (fixe, non scrollable)
-const HDR_H    = 80;    // hauteur totale header (sticky)
-const HDR_ROW1 = 36;    // ligne 1 : nom du jour
-const HDR_ROW2 = 44;    // ligne 2 : créneaux horaires
-const MIN_BAR  = 4;
-const HANDLE_W = 8;
-
-
-
-const COLOR = {
-  lotBar: "#223A46", phaseAuto: "#28a745", phaseManual: "#0e8f82",
-  delivManual: "#6ec997", delivAuto: "#007975",
-  sprintBar: "#7c4dbe", sprintAlt: "#5c3a9e", sprintBg: "rgba(124,77,190,0.06)",
-  ghost: "#c8e6c9", lotBg: "#f0f7f1", phaseBg: "#fafffe",
-  selectedBg: "#f0e8ff", grid: "#e4eae4", gridMajor: "#c5d5c5",
-  headerBg: "#284350", headerSub: "#223A46", headerText: "#ffffff",
-  warning: "#e67e22", danger: "#e74c3c", success: "#27ae60",
-  holiday: "rgba(255,100,100,0.08)",
-  pauseBg: "rgba(255,180,0,0.15)", pauseBorder: "#c8960a", pauseText: "#8a6200",
-};
-
-interface PhaseOverride { heures: number; }
-
-interface GRow {
-  id: string; kind: "lot"|"phase"|"sprint"|"deliverable";
-  label: string; phaseId?: number; delivId?: number; lotId?: number; sprintIdx?: number;
-  startH: number; endH: number; autoStartH: number; autoEndH: number;
-  isOverridden: boolean; color: string; depth: number; totalJH: number;
-  realDateDebut?: string|null; realDateFin?: string|null;
-}
+type TimeUnit = "day" | "week";
 
 interface PlanningTabProps {
-  lots: BacklogLot[]; lines: BacklogLine[]; lineProfils: BacklogLineProfil[];
-  deliverables: Map<number, BacklogDeliverable[]>; selectedBacklogId: number|null;
-  planningService: BacklogPlanningService; initialOverrides?: Map<string,{heures:number}>;
-  projectStartDate?: string|null; projectEndDate?: string|null;
-  onUpdateProjectDates?: (s:string,e:string)=>Promise<void>;
+  lots: BacklogLot[];
+  lines: BacklogLine[];
+  lineProfils: BacklogLineProfil[];
+  deliverables: Map<number, BacklogDeliverable[]> | Map<number, BacklogDelivrableProjet[]>;
+  selectedBacklogId: number | null;
+  planningService: BacklogPlanningService;
+  datedebutPlanning?: string | null;
 }
 
-// ─── JOURS FÉRIÉS MADAGASCAR ─────────────────────────────────────────────────
-function easterSunday(y:number):Date {
-  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
-  const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
-  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
-  return new Date(y,Math.floor((h+l-7*m+114)/31)-1,((h+l-7*m+114)%31)+1);
+
+// Computed sprint for rendering
+interface ComputedSprint {
+  id: number;
+  phaseId: number;
+  lotId: number;
+  name: string;
+  order: number;
+  fromDay: number; // 1-based
+  toDay: number;   // 1-based inclusive
+  duration: number; // days
+  isManual: boolean; // has explicit fromDay/toDay
+  deliverables: BacklogDeliverable[];
 }
-function getMalagasyHolidays(y:number):Set<string> {
-  const tk=(d:Date)=>d.toISOString().slice(0,10);
-  const add=(d:Date,n:number)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
-  const e=easterSunday(y);
-  const list=[new Date(y,0,1),new Date(y,2,29),add(e,1),new Date(y,4,1),add(e,39),add(e,50),new Date(y,5,26),new Date(y,7,15),new Date(y,10,1),new Date(y,11,25)];
-  const s=new Set<string>();
-  list.forEach(d=>{s.add(tk(d));if(d.getDay()===0){const r=new Date(d);r.setDate(d.getDate()+1);s.add(tk(r));}});
-  return s;
+
+interface ComputedPhase {
+  id: number;
+  lotId: number;
+  name: string;
+  order: number;
+  fromDay: number;
+  toDay: number;
+  sprints: ComputedSprint[];
 }
-const hCache=new Map<number,Set<string>>();
-const getHS=(y:number)=>{if(!hCache.has(y))hCache.set(y,getMalagasyHolidays(y));return hCache.get(y)!;};
-const isHoliday=(d:Date)=>getHS(d.getFullYear()).has(d.toISOString().slice(0,10));
-const isWeekend=(d:Date)=>{const w=d.getDay();return w===0||w===6;};
-const isWorkDay=(d:Date)=>!isWeekend(d)&&!isHoliday(d);
-function addWorkDays(base:Date,days:number):Date {
-  if(days<=0)return new Date(base);
-  const d=new Date(base);let a=0;
-  while(a<Math.floor(days)){d.setDate(d.getDate()+1);if(isWorkDay(d))a++;}
+
+interface ComputedLot {
+  id: number;
+  name: string;
+  order: number;
+  fromDay: number;
+  toDay: number;
+  phases: ComputedPhase[];
+}
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+
+const DAYS_PER_WEEK = 5;
+const ROW_H = 36;
+const LABEL_W = 240;
+const HDR_H = 72;
+const HDR_ROW1 = 28;
+const MIN_BAR = 4;
+const HANDLE_W = 7;
+
+const COL_PX: Record<TimeUnit, number> = { day: 36, week: 64 };
+
+const COLOR = {
+  lotBar: "#1e3a4a",
+  lotBg: "#f0f6f9",
+  phaseBar: "#0e7490",
+  phaseBg: "#f0fbff",
+  sprintBar: "#7c3aed",
+  sprintAlt: "#5b21b6",
+  sprintBg: "rgba(124,58,237,0.05)",
+  sprintDrag: "#a855f7",
+  delivLabel: "#6b7280",
+  grid: "#dde8ed",
+  gridMajor: "#b0c8d4",
+  headerBg: "#1e3a4a",
+  headerSub: "#163040",
+  headerText: "#ffffff",
+  success: "#059669",
+  warning: "#d97706",
+  danger: "#dc2626",
+  today: "rgba(234,179,8,0.18)",
+  todayLine: "#ca8a04",
+};
+
+// ─── DATE HELPERS ─────────────────────────────────────────────────────────────
+
+function dayToDate(base: Date, dayNum: number): Date {
+  // dayNum is 1-based: day 1 = base
+  const d = new Date(base);
+  d.setDate(d.getDate() + (dayNum - 1));
   return d;
 }
-function nextWorkDay(d:Date):Date{const r=new Date(d);while(!isWorkDay(r))r.setDate(r.getDate()+1);return r;}
-function countWorkDaysBetween(s:Date,e:Date):number{let n=0;const d=new Date(s);while(d<=e){if(isWorkDay(d))n++;d.setDate(d.getDate()+1);}return n;}
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-const sn=(v:number,fb=0)=>isFinite(v)?v:fb;
-const jhToH=(jh:number,p:number)=>Math.max(HOURS_PER_DAY,sn((jh/Math.max(1,p)/HOURS_PER_DAY)*HOURS_PER_DAY,HOURS_PER_DAY));
-const unitH = (u: TimeUnit) =>
-  u === "hour"
-    ? 0.5
-    : u === "day"
-    ? HOURS_PER_DAY
-    : u === "week"
-    ? HOURS_PER_WEEK
-    : HOURS_PER_MONTH;  
-const snapH=(h:number,u:TimeUnit)=>Math.max(1,Math.round(sn(h,1)/unitH(u))*unitH(u));
-const mPM=(u:TimeUnit)=>u==="hour"?VISUAL_SLOTS_PER_DAY:u==="day"?DAYS_PER_WEEK:u==="week"?WEEKS_PER_MONTH:3;
-const fmtDur=(h:number)=>{const v=sn(h,0);if(v===0)return"0h";if(v<HOURS_PER_DAY)return`${v}h`;if(v<HOURS_PER_WEEK)return`${(v/HOURS_PER_DAY).toFixed(1)}j`;if(v<HOURS_PER_MONTH)return`${(v/HOURS_PER_WEEK).toFixed(1)} sem.`;return`${(v/HOURS_PER_MONTH).toFixed(1)} mois`;};
-const owDate=(base:Date,h:number)=>addWorkDays(base,Math.floor(h/HOURS_PER_DAY));
-const toISO=(d:Date)=>d.toISOString().slice(0,10);
-const fd=(d:Date)=>d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"2-digit"});
-const fdl=(d:Date)=>d.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
-const fds=(d:Date)=>d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"});
-const fdr=(iso:string)=>{const d=new Date(iso);return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"});};
-
-// ─── CONVERSION h→px ─────────────────────────────────────────────────────────
-// En mode heure, les positions sont relatives à la zone scrollable (sans LABEL_W)
-function hToScrollX(offsetH:number,unit:TimeUnit,colW:number):number {
-  if(unit!=="hour") return sn(offsetH/unitH(unit),0)*colW;
-  return sn(offsetH / unitH(unit), 0) * colW;
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
 }
 
-function hToW(dh:number,unit:TimeUnit,colW:number):number {
-  return Math.max(MIN_BAR, sn(dh / unitH(unit), 0) * colW);
-}
-// Ancien h2x conservé pour compatibilité (ajoute LABEL_W)
-function h2x(offsetH:number,unit:TimeUnit,colW:number):number {
-  return LABEL_W + hToScrollX(offsetH,unit,colW);
-}
-function h2w(dh:number,unit:TimeUnit,colW:number):number {
-  return hToW(dh,unit,colW);
+function fmtDateShort(d: Date): string {
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
 
-// ─── LABELS ──────────────────────────────────────────────────────────────────
-const mlbl=(u:TimeUnit,g:number,base:Date|null)=>{
-  if(!base)return u==="hour"?`Jour ${g+1}`:u==="day"?`Sem. ${g+1}`:u==="week"?`Mois ${g+1}`:`Trim. ${g+1}`;
-  if(u==="hour")return fds(addWorkDays(base,g));
-  if(u==="day")return`Sem. ${fds(addWorkDays(base,g*DAYS_PER_WEEK))}`;
-  if(u==="week"){const d=addWorkDays(base,g*WEEKS_PER_MONTH*DAYS_PER_WEEK);return d.toLocaleDateString("fr-FR",{month:"long",year:"numeric"});}
-  const d=addWorkDays(base,g*3*WEEKS_PER_MONTH*DAYS_PER_WEEK);
-  return`T${Math.floor(d.getMonth()/3)+1} ${d.getFullYear()}`;
-};
-const slbl=(u:TimeUnit,i:number,base:Date|null)=>{
-  if(!base)return u==="hour"?`H${i+1}`:u==="day"?`J${i+1}`:u==="week"?`S${i+1}`:`M${i+1}`;
-  if(u==="day")return fds(addWorkDays(base,i));
-  if(u==="week")return fds(addWorkDays(base,i*DAYS_PER_WEEK));
-  if(u==="month")return addWorkDays(base,i*WEEKS_PER_MONTH*DAYS_PER_WEEK).toLocaleDateString("fr-FR",{month:"short"});
-  return"";
-};
+function isoToDate(iso: string): Date {
+  return new Date(iso);
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  COMPOSANT PRINCIPAL
-// ─────────────────────────────────────────────────────────────────────────────
-const PlanningTab:React.FC<PlanningTabProps>=({
-  lots,lines,lineProfils,deliverables,selectedBacklogId,planningService,
-  initialOverrides,projectStartDate,projectEndDate,onUpdateProjectDates,
-})=>{
-  const isPM=!!projectStartDate;
-  const [unit,setUnit]=useState<TimeUnit>("week");
-  const [overrides,setOverrides]=useState<Map<string,PhaseOverride>>(()=>initialOverrides?new Map(initialOverrides):new Map());
-  const [pending,setPending]=useState<Map<string,PhaseOverride>>(new Map());
-  const [loadingOv,setLoadingOv]=useState(false);
-  const [saving,setSaving]=useState(false);
-  const [saveOk,setSaveOk]=useState(false);
-  const [saveErr,setSaveErr]=useState<string|null>(null);
-  const [showGhosts,setShowGhosts]=useState(true);
-  const [showHolidays,setShowHolidays]=useState(true);
-  const [showSprints,setShowSprints]=useState(true);
-  const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
-  const [selectedId,setSelectedId]=useState<string|null>(null);
-  const [updatingDates,setUpdatingDates]=useState(false);
-  const [datesUpdated,setDatesUpdated]=useState(false);
-  const [drag,setDrag]=useState<{rowId:string;type:"move"|"resizeL"|"resizeR";startX:number;origStart:number;origEnd:number}|null>(null);
-  const [liveOv,setLiveOv]=useState<{rowId:string;h:number}|null>(null);
-  // ── refs pour scroll synchronisé ──────────────────────────────────────────
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+// ─── SPRINT DURATION CALCULATION ─────────────────────────────────────────────
+
+/**
+ * Durée d'un sprint = maximum des sommes de volumes par profil.
+ *
+ * Algo :
+ *  1. Filtrer les lignes par sprintId → récupérer leurs IDs
+ *  2. Dans lineProfils, garder ceux dont lineId est dans ce set
+ *  3. Sommer les volumes par profil
+ *  4. Durée = max des sommes
+ *
+ * Exemple avec les données réelles :
+ *   lineId:1 → profil 1 : 7.8 + 2.6 = 10.4 JH
+ *   lineId:1 → profil 2 : 20 JH
+ *   lineId:2 → profil 1 : 7 JH
+ *   lineId:2 → profil 2 : 7.5 JH
+ *   Profil 1 total : 10.4 + 7 = 17.4 JH
+ *   Profil 2 total : 20 + 7.5 = 27.5 JH
+ *   → Durée = ceil(27.5) = 28 jours
+ */
+function calcSprintDuration(
+  sprintId: number,
+  lines: BacklogLine[],
+  lineProfils: BacklogLineProfil[]
+): number {
+  // 1. IDs des lignes de ce sprint
+  const sprintLineIds = new Set(
+    lines.filter((l) => l.sprintId === sprintId).map((l) => l.id)
+  );
+  if (sprintLineIds.size === 0) return 1;
+
+  // 2. Sommer les volumes par profil_id
+  const profilTotals = new Map<number, number>();
+  for (const lp of lineProfils) {
+    if (!sprintLineIds.has(lp.lineId)) continue;
+    const pid = lp.profil.id;
+    profilTotals.set(pid, (profilTotals.get(pid) ?? 0) + lp.volume);
+  }
+
+  if (profilTotals.size === 0) return 1;
+
+  // 3. Durée = profil le plus chargé
+  return Math.max(1, Math.ceil(Math.max(...profilTotals.values())));
+}
+
+// ─── PLANNING COMPUTATION ─────────────────────────────────────────────────────
+
+/**
+ * Règles :
+ * - Sprint manuel (fromDay + toDay définis) : position respectée telle quelle.
+ * - Sprint auto : placé à la suite du précédent (curseur = toDay précédent + 1).
+ * - Le curseur avance TOUJOURS après chaque sprint (manuel ou auto),
+ *   donc les sprints suivants démarrent bien après le précédent.
+ * - Phases s'enchaînent dans un lot, lots s'enchaînent globalement.
+ * - Bounds phases/lots = min(fromDay) / max(toDay) des enfants.
+ */
+function computePlanning(
+  lots: BacklogLot[],
+  lines: BacklogLine[],
+  lineProfils: BacklogLineProfil[],
+  deliverables: Map<number, BacklogDeliverable[]>
+): ComputedLot[] {
+  const sortedLots = [...lots].sort((a, b) => a.order - b.order);
+
+  // Curseur global : avance lot par lot
+  let cursor = 1;
+
+  return sortedLots.map((lot) => {
+    const sortedPhases = [...(lot.phases ?? [])].sort(
+      (a, b) => a.order - b.order
+    );
+
+    const computedPhases: ComputedPhase[] = [];
+    // Le curseur de phase repart du curseur global en début de lot
+    let phaseCursor = cursor;
+
+    for (const phase of sortedPhases) {
+      const sortedSprints = [...(phase.sprints ?? [])].sort(
+        (a, b) => a.order - b.order
+      );
+
+      const computedSprints: ComputedSprint[] = [];
+      // Le curseur de sprint repart du curseur de phase
+      let sprintCursor = phaseCursor;
+
+      for (const sprint of sortedSprints) {
+        const isManual =
+          sprint.fromDay !== null &&
+          sprint.fromDay !== undefined &&
+          sprint.toDay !== null &&
+          sprint.toDay !== undefined &&
+          sprint.fromDay > 0 &&
+          sprint.toDay > 0;
+
+        let fromDay: number;
+        let toDay: number;
+
+        if (isManual) {
+          // Position définie manuellement → on la respecte
+          fromDay = sprint.fromDay!;
+          toDay = sprint.toDay!;
+        } else {
+          // Auto : démarre là où s'est arrêté le précédent
+          const duration = calcSprintDuration(sprint.id, lines, lineProfils);
+          fromDay = sprintCursor;
+          toDay = sprintCursor + duration - 1;
+        }
+
+        // ⚠️ Règle clé : le curseur avance TOUJOURS (manuel ou auto)
+        // → le sprint suivant démarre après ce sprint
+        sprintCursor = toDay + 1;
+
+        const sprintDelivs = (deliverables.get(phase.id) ?? []).filter(
+          (d) => d.sprintId === sprint.id
+        );
+
+        computedSprints.push({
+          id: sprint.id,
+          phaseId: phase.id,
+          lotId: lot.id,
+          name: sprint.name,
+          order: sprint.order,
+          fromDay,
+          toDay,
+          duration: toDay - fromDay + 1,
+          isManual,
+          deliverables: sprintDelivs,
+        });
+      }
+
+      // Bounds phase = min/max des sprints (guard Infinity si aucun sprint)
+      const sprintFroms = computedSprints.map((s) => s.fromDay).filter(Number.isFinite);
+      const sprintTos   = computedSprints.map((s) => s.toDay).filter(Number.isFinite);
+      const phaseFrom   = sprintFroms.length > 0 ? Math.min(...sprintFroms) : phaseCursor;
+      const phaseTo     = sprintTos.length   > 0 ? Math.max(...sprintTos)   : phaseCursor;
+
+      computedPhases.push({
+        id: phase.id,
+        lotId: lot.id,
+        name: phase.name,
+        order: phase.order,
+        fromDay: phaseFrom,
+        toDay: phaseTo,
+        sprints: computedSprints,
+      });
+
+      // Le curseur de phase avance jusqu'à la fin de cette phase
+      phaseCursor = sprintCursor;
+    }
+
+    // Bounds lot = min/max des phases (guard Infinity si aucune phase)
+    const phaseFroms = computedPhases.map((p) => p.fromDay).filter(Number.isFinite);
+    const phaseTos   = computedPhases.map((p) => p.toDay).filter(Number.isFinite);
+    const lotFrom    = phaseFroms.length > 0 ? Math.min(...phaseFroms) : cursor;
+    const lotTo      = phaseTos.length   > 0 ? Math.max(...phaseTos)   : cursor;
+
+    // Le curseur global avance jusqu'à la fin de ce lot
+    cursor = phaseCursor;
+
+    return {
+      id: lot.id,
+      name: lot.name,
+      order: lot.order,
+      fromDay: lotFrom,
+      toDay: lotTo,
+      phases: computedPhases,
+    };
+  });
+}
+
+// ─── RENDER ROWS ──────────────────────────────────────────────────────────────
+
+type RowKind = "lot" | "phase" | "sprint" | "deliverable";
+
+interface GRow {
+  id: string;
+  kind: RowKind;
+  label: string;
+  fromDay: number;
+  toDay: number;
+  sprintId?: number;
+  phaseId?: number;
+  lotId?: number;
+  depth: number;
+  color: string;
+  bgColor: string;
+  isDraggable: boolean;
+  deliverables?: BacklogDeliverable[];
+}
+
+function buildRows(
+  computed: ComputedLot[],
+  collapsed: Set<string>,
+  showDeliverables: boolean
+): GRow[] {
+  const rows: GRow[] = [];
+
+  for (const lot of computed) {
+    const lotId = `lot-${lot.id}`;
+    rows.push({
+      id: lotId,
+      kind: "lot",
+      label: lot.name,
+      fromDay: lot.fromDay,
+      toDay: lot.toDay,
+      lotId: lot.id,
+      depth: 0,
+      color: COLOR.lotBar,
+      bgColor: COLOR.lotBg,
+      isDraggable: false,
+    });
+
+    if (collapsed.has(lotId)) continue;
+
+    for (const phase of lot.phases) {
+      const phaseId = `phase-${phase.id}`;
+      rows.push({
+        id: phaseId,
+        kind: "phase",
+        label: phase.name,
+        fromDay: phase.fromDay,
+        toDay: phase.toDay,
+        phaseId: phase.id,
+        lotId: lot.id,
+        depth: 1,
+        color: COLOR.phaseBar,
+        bgColor: COLOR.phaseBg,
+        isDraggable: false,
+      });
+
+      if (collapsed.has(phaseId)) continue;
+
+      for (const sprint of phase.sprints) {
+        const sprintRowId = `sprint-${sprint.id}`;
+        rows.push({
+          id: sprintRowId,
+          kind: "sprint",
+          label: sprint.name,
+          fromDay: sprint.fromDay,
+          toDay: sprint.toDay,
+          sprintId: sprint.id,
+          phaseId: phase.id,
+          lotId: lot.id,
+          depth: 2,
+          color: COLOR.sprintBar,
+          bgColor: COLOR.sprintBg,
+          isDraggable: true,
+          deliverables: sprint.deliverables,
+        });
+
+        // Deliverables as labels (no Gantt bar)
+        if (showDeliverables && sprint.deliverables && sprint.deliverables.length > 0) {
+          for (const deliv of sprint.deliverables) {
+            rows.push({
+              id: `deliv-${deliv.id}`,
+              kind: "deliverable",
+              label: deliv.name,
+              fromDay: sprint.toDay,
+              toDay: sprint.toDay,
+              sprintId: sprint.id,
+              phaseId: phase.id,
+              lotId: lot.id,
+              depth: 3,
+              color: COLOR.delivLabel,
+              bgColor: "#ffffff",
+              isDraggable: false,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return rows;
+}
+
+// ─── PIXEL HELPERS ────────────────────────────────────────────────────────────
+
+function dayToX(day: number, unit: TimeUnit, colW: number): number {
+  if (!isFinite(day) || day == null) return 0;
+  if (unit === "day") return (day - 1) * colW;
+  return ((day - 1) / DAYS_PER_WEEK) * colW;
+}
+
+function durationToW(days: number, unit: TimeUnit, colW: number): number {
+  if (!isFinite(days) || days <= 0) return MIN_BAR;
+  if (unit === "day") return Math.max(MIN_BAR, days * colW);
+  return Math.max(MIN_BAR, (days / DAYS_PER_WEEK) * colW);
+}
+
+function xToDay(px: number, unit: TimeUnit, colW: number): number {
+  if (unit === "day") return Math.round(px / colW) + 1;
+  return Math.round((px / colW) * DAYS_PER_WEEK) + 1;
+}
+
+function snapToUnit(day: number, unit: TimeUnit): number {
+  if (unit === "day") return Math.max(1, day);
+  // snap to week boundary (multiples of 5)
+  return Math.max(1, Math.round((day - 1) / DAYS_PER_WEEK) * DAYS_PER_WEEK + 1);
+}
+
+// ─── LEGEND DOT ───────────────────────────────────────────────────────────────
+
+const LDot: React.FC<{ color: string; label: string; square?: boolean }> = ({
+  color,
+  label,
+  square,
+}) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+    <div
+      style={{
+        width: 10,
+        height: 10,
+        background: color,
+        borderRadius: square ? 2 : 5,
+        border: "1px solid rgba(0,0,0,0.12)",
+        flexShrink: 0,
+      }}
+    />
+    <span style={{ color: "#64748b", fontSize: "0.72rem" }}>{label}</span>
+  </div>
+);
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+
+const PlanningTab: React.FC<PlanningTabProps> = ({
+  lots,
+  lines,
+  lineProfils,
+  deliverables,
+  selectedBacklogId,
+  planningService,
+  datedebutPlanning,
+}) => {
+  const [unit, setUnit] = useState<TimeUnit>("week");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showDeliverables, setShowDeliverables] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveOk, setSaveOk] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  // Date de début planning
+  const [startDateInput, setStartDateInput] = useState<string>(
+    datedebutPlanning ?? ""
+  );
+  const [editingDate, setEditingDate] = useState(false);
+  const [savingDate, setSavingDate] = useState(false);
+
+  // Sprint drag state
+  const [dragState, setDragState] = useState<{
+    sprintId: number;
+    type: "move" | "resizeR";
+    startX: number;
+    origFrom: number;
+    origTo: number;
+  } | null>(null);
+
+  // Live override for drag preview (sprintId → {fromDay, toDay})
+  const [liveOverrides, setLiveOverrides] = useState<
+    Map<number, { fromDay: number; toDay: number }>
+  >(new Map());
+
+  // Pending overrides to save
+  const [pendingOverrides, setPendingOverrides] = useState<
+    Map<number, { fromDay: number; toDay: number }>
+  >(new Map());
+
   const headerScrollRef = useRef<HTMLDivElement>(null);
-  const bodyScrollRef   = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
   const isSyncingScroll = useRef(false);
 
-  const baseDate=useMemo<Date|null>(()=>{if(!projectStartDate)return null;const d=new Date(projectStartDate);return isNaN(d.getTime())?null:nextWorkDay(d);},[projectStartDate]);
-  const contractEndDate=useMemo<Date|null>(()=>{if(!projectEndDate)return null;const d=new Date(projectEndDate);return isNaN(d.getTime())?null:d;},[projectEndDate]);
+  const colW = COL_PX[unit];
 
-  // ── Synchronisation scroll header ↔ body ──────────────────────────────────
-  useEffect(()=>{
+  const baseDate = useMemo<Date | null>(() => {
+    const d = startDateInput || datedebutPlanning;
+    if (!d) return null;
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }, [startDateInput, datedebutPlanning]);
+
+  // ── Sync scroll ────────────────────────────────────────────────────────────
+  useEffect(() => {
     const hEl = headerScrollRef.current;
     const bEl = bodyScrollRef.current;
-    if(!hEl||!bEl) return;
-    const onBodyScroll = ()=>{
-      if(isSyncingScroll.current) return;
+    if (!hEl || !bEl) return;
+    const onBody = () => {
+      if (isSyncingScroll.current) return;
       isSyncingScroll.current = true;
       hEl.scrollLeft = bEl.scrollLeft;
       isSyncingScroll.current = false;
     };
-    const onHeaderScroll = ()=>{
-      if(isSyncingScroll.current) return;
+    const onHeader = () => {
+      if (isSyncingScroll.current) return;
       isSyncingScroll.current = true;
       bEl.scrollLeft = hEl.scrollLeft;
       isSyncingScroll.current = false;
     };
-    bEl.addEventListener("scroll", onBodyScroll);
-    hEl.addEventListener("scroll", onHeaderScroll);
-    return()=>{bEl.removeEventListener("scroll",onBodyScroll);hEl.removeEventListener("scroll",onHeaderScroll);};
-  },[]);
+    bEl.addEventListener("scroll", onBody);
+    hEl.addEventListener("scroll", onHeader);
+    return () => {
+      bEl.removeEventListener("scroll", onBody);
+      hEl.removeEventListener("scroll", onHeader);
+    };
+  }, []);
 
-  useEffect(()=>{
-    if(!selectedBacklogId)return;
-    (async()=>{
-      setLoadingOv(true);
-      try{
-        const ex=await planningService.hasPlanning(selectedBacklogId);
-        if(ex){const ents=await planningService.getByBacklogId(selectedBacklogId);const m=new Map<string,PhaseOverride>();ents.forEach(e=>{const h=(e as any).heures??(e as any).heure;m.set(`phase-${e.phaseId}`,{heures:h});});setOverrides(m);}
-        else setOverrides(new Map());
-        setPending(new Map());
-      }catch{setOverrides(new Map());}
-      finally{setLoadingOv(false);}
-    })();
-  },[selectedBacklogId]);
+  // ── Base planning (lots originaux + pending sauvegardés seulement) ──────────
+  // On N'applique PAS liveOverrides ici pour éviter de recalculer à chaque px
+  // du drag. Les liveOverrides sont appliqués directement dans rows via un
+  // patch léger sur les ComputedSprints.
+  const lotsWithPending = useMemo<BacklogLot[]>(() => {
+    if (pendingOverrides.size === 0) return lots;
+    return lots.map((lot) => ({
+      ...lot,
+      phases: (lot.phases ?? []).map((phase) => ({
+        ...phase,
+        sprints: (phase.sprints ?? []).map((sprint) => {
+          const ov = pendingOverrides.get(sprint.id);
+          if (ov) return { ...sprint, fromDay: ov.fromDay, toDay: ov.toDay };
+          return sprint;
+        }),
+      })),
+    }));
+  }, [lots, pendingOverrides]);
 
-  const apc=useMemo(()=>{const ids=new Set(lineProfils.filter(lp=>lp.volume>0).map(lp=>lp.profil.id));return Math.max(1,ids.size);},[lineProfils]);
-  const getJH=useCallback((ids:number[])=>lineProfils.filter(lp=>ids.includes(lp.lineId)).reduce((s,lp)=>s+lp.volume,0),[lineProfils]);
-  const getAutoH=useCallback((phaseId:number)=>{const ids=lines.filter(l=>l.phaseId===phaseId).map(l=>l.id);const jh=getJH(ids);return jh===0?0:jhToH(jh,apc);},[lines,getJH,apc]);
-  const getEffH=useCallback((k:string,aH:number)=>{
-    if(liveOv?.rowId===k&&isFinite(liveOv.h)&&liveOv.h>0)return Math.max(1,liveOv.h);
-    const p=pending.get(k);if(p&&isFinite(p.heures)&&p.heures>0)return Math.max(1,p.heures);
-    const s=overrides.get(k);if(s&&isFinite(s.heures)&&s.heures>0)return Math.max(1,s.heures);
-    return isFinite(aH)&&aH>0?aH:1;
-  },[liveOv,pending,overrides]);
-  const hasOv=useCallback((k:string)=>overrides.has(k)||pending.has(k),[overrides,pending]);
+  // Planning de base (recalcul uniquement quand lots/lines/profils changent)
+  const computedBase = useMemo(
+    () => computePlanning(lotsWithPending, lines, lineProfils, deliverables),
+    [lotsWithPending, lines, lineProfils, deliverables]
+  );
 
-  const rows=useMemo(():GRow[]=>{
-    const res:GRow[]=[];let cur=0;
-    lots.forEach(lot=>{
-      const phases=[...(lot.phases||[])].sort((a,b)=>a.order-b.order);
-      const ls=cur;const ch:GRow[]=[];let pc=cur;
-      phases.forEach(ph=>{
-        const pk=`phase-${ph.id}`;
-        const jh=getJH(lines.filter(l=>l.phaseId===ph.id).map(l=>l.id));
-        const aH=jh>0?getAutoH(ph.id):0;const eH=jh>0?getEffH(pk,aH):0;const ov=hasOv(pk);
-        const ps=pc,pe=ps+eH;
-        ch.push({id:pk,kind:"phase",label:ph.name,phaseId:ph.id,lotId:lot.id,startH:ps,endH:pe,autoStartH:ps,autoEndH:ps+aH,isOverridden:ov,color:ov?COLOR.phaseManual:COLOR.phaseAuto,depth:1,totalJH:jh,realDateDebut:(ph as any).dateDebut??(ph as any).date_debut??null,realDateFin:(ph as any).dateFin??(ph as any).date_fin??null});
-        if(showSprints&&eH>0){
-          const ns=Math.ceil(eH/SPRINT_HOURS);
-          for(let si=0;si<ns;si++){
-            const ss=ps+si*SPRINT_HOURS,se=Math.min(pe,ss+SPRINT_HOURS);
-            ch.push({id:`sprint-${ph.id}-${si}`,kind:"sprint",label:`Sprint ${si+1}`,phaseId:ph.id,lotId:lot.id,sprintIdx:si,startH:ss,endH:se,autoStartH:ss,autoEndH:se,isOverridden:false,color:si%2===0?COLOR.sprintBar:COLOR.sprintAlt,depth:2,totalJH:0,realDateDebut:null,realDateFin:null});
-          }
-        }
-        const devs=(deliverables.get(ph.id)||[]).sort((a,b)=>(a.order??0)-(b.order??0));
-        if(devs.length>0){const ee=eH/devs.length,ae=aH/devs.length;let dc=ps;devs.forEach(d=>{ch.push({id:`deliv-${d.id}`,kind:"deliverable",label:d.name,delivId:d.id,phaseId:ph.id,lotId:lot.id,startH:dc,endH:dc+ee,autoStartH:dc,autoEndH:dc+ae,isOverridden:ov,color:ov?COLOR.delivManual:COLOR.delivAuto,depth:showSprints?3:2,totalJH:0,realDateDebut:(d as any).dateLivraison??null,realDateFin:(d as any).dateLivraison??null});dc+=ee;});}
-        pc=pe;
+  // Patch live : on applique liveOverrides directement sur les ComputedSprints
+  // sans recalculer tout le planning → rendu fluide pendant le drag
+  const computed = useMemo<ComputedLot[]>(() => {
+    if (liveOverrides.size === 0) return computedBase;
+    return computedBase.map((lot) => {
+      const patchedPhases = lot.phases.map((phase) => {
+        const patchedSprints = phase.sprints.map((sprint) => {
+          const ov = liveOverrides.get(sprint.id);
+          if (!ov) return sprint;
+          return {
+            ...sprint,
+            fromDay: ov.fromDay,
+            toDay: ov.toDay,
+            duration: ov.toDay - ov.fromDay + 1,
+            isManual: true,
+          };
+        });
+        const froms = patchedSprints.map((s) => s.fromDay).filter(isFinite);
+        const tos   = patchedSprints.map((s) => s.toDay).filter(isFinite);
+        const phaseFrom = froms.length > 0 ? Math.min(...froms) : phase.fromDay;
+        const phaseTo   = tos.length   > 0 ? Math.max(...tos)   : phase.toDay;
+        return { ...phase, fromDay: phaseFrom, toDay: phaseTo, sprints: patchedSprints };
       });
-      res.push({id:`lot-${lot.id}`,kind:"lot",label:lot.name,lotId:lot.id,startH:ls,endH:pc,autoStartH:ls,autoEndH:pc,isOverridden:false,color:COLOR.lotBar,depth:0,totalJH:ch.filter(r=>r.kind==="phase").reduce((s,r)=>s+r.totalJH,0),realDateDebut:(lot as any).dateDebut??(lot as any).date_debut??null,realDateFin:(lot as any).dateFin??(lot as any).date_fin??null});
-      if(!collapsed.has(`lot-${lot.id}`))res.push(...ch);
-      cur=pc;
+      const lFroms = patchedPhases.map((p) => p.fromDay).filter(isFinite);
+      const lTos   = patchedPhases.map((p) => p.toDay).filter(isFinite);
+      return {
+        ...lot,
+        fromDay: lFroms.length > 0 ? Math.min(...lFroms) : lot.fromDay,
+        toDay:   lTos.length   > 0 ? Math.max(...lTos)   : lot.toDay,
+        phases: patchedPhases,
+      };
     });
-    return res;
-  },[lots,lines,getJH,getAutoH,getEffH,hasOv,deliverables,collapsed,showSprints]);
+  }, [computedBase, liveOverrides]);
 
-  const totalHours=rows.filter(r=>r.kind==="lot").reduce((s,r)=>s+sn(r.endH-r.startH),0);
-  const maxH=Math.max(...rows.map(r=>sn(r.endH)),1);
-  const planEnd=useMemo<Date|null>(()=>{if(!baseDate||totalHours===0)return null;return owDate(baseDate,totalHours);},[baseDate,totalHours]);
-  const isOD=useMemo(()=>!!(planEnd&&contractEndDate&&planEnd>contractEndDate),[planEnd,contractEndDate]);
+  const rows = useMemo(
+    () => buildRows(computed, collapsed, showDeliverables),
+    [computed, collapsed, showDeliverables]
+  );
 
-  const colW=COL_PX[unit];
+  const totalDays = useMemo(() => {
+    if (computed.length === 0) return 1;
+    const vals = computed.map((l) => l.toDay).filter(Number.isFinite);
+    return vals.length > 0 ? Math.max(...vals) : 1;
+  }, [computed]);
+
   const nCols = useMemo(() => {
-      if (unit === "hour") {
-        return Math.ceil(maxH / unitH("hour")) + 4;
+    if (unit === "day") return totalDays + 4;
+    return Math.ceil(totalDays / DAYS_PER_WEEK) + 3;
+  }, [totalDays, unit]);
+
+  const scrollW = nCols * colW;
+  const svgBodyH = Math.max(1, rows.length) * ROW_H;
+
+  // ── Drag & Drop ────────────────────────────────────────────────────────────
+  const startDrag = useCallback(
+    (
+      e: React.MouseEvent,
+      sprintId: number,
+      type: "move" | "resizeR",
+      fromDay: number,
+      toDay: number
+    ) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragState({ sprintId, type, startX: e.clientX, origFrom: fromDay, origTo: toDay });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!dragState) return;
+
+    const onMove = (e: MouseEvent) => {
+      const dPx = e.clientX - dragState.startX;
+
+      // px → jours : day=1col/jour, week=1col/5jours
+      const pxPerDay = unit === "day" ? colW : colW / DAYS_PER_WEEK;
+      const dDays = Math.round(dPx / pxPerDay);
+
+      const duration = dragState.origTo - dragState.origFrom + 1;
+
+      let newFrom: number;
+      let newTo: number;
+
+      if (dragState.type === "move") {
+        // Déplacement : conserve la durée, translate la position
+        newFrom = Math.max(1, dragState.origFrom + dDays);
+        newTo   = newFrom + duration - 1;
+      } else {
+        // ResizeR : fromDay fixe, toDay s'étire
+        newFrom = dragState.origFrom;
+        newTo   = Math.max(dragState.origFrom, dragState.origTo + dDays);
       }
-    return Math.ceil(sn(maxH / unitH(unit), 1)) + 2;
-  }, [maxH, unit]);
-  
-  // ── Largeur de la zone scrollable (sans LABEL_W) ──────────────────────────
-  const scrollW = useMemo(() => {
-    return nCols * colW;
-  }, [nCols, colW]);
 
-  const svgBodyH = Math.max(1,rows.length)*ROW_H;
+      setLiveOverrides((prev) => {
+        const n = new Map(prev);
+        n.set(dragState.sprintId, { fromDay: newFrom, toDay: newTo });
+        return n;
+      });
+    };
 
-  // getBx / getBw opèrent maintenant dans l'espace scrollable (sans LABEL_W)
-  const getBx=useCallback((h:number)=>hToScrollX(h,unit,colW),[unit,colW]);
-  const getBw=useCallback((s:number,e:number)=>hToW(e-s,unit,colW),[unit,colW]);
-  const pxToH=useCallback((px:number)=>sn((px/colW)*unitH(unit),0),[colW,unit]);
+    const onUp = () => {
+      setLiveOverrides((prev) => {
+        const ov = prev.get(dragState.sprintId);
+        if (ov) {
+          setPendingOverrides((p) => {
+            const n = new Map(p);
+            n.set(dragState.sprintId, ov);
+            return n;
+          });
+        }
+        const n = new Map(prev);
+        n.delete(dragState.sprintId);
+        return n;
+      });
+      setDragState(null);
+    };
 
-  const startDrag=useCallback((e:React.MouseEvent,rowId:string,type:"move"|"resizeL"|"resizeR",sH:number,eH:number)=>{e.preventDefault();e.stopPropagation();setDrag({rowId,type,startX:e.clientX,origStart:sH,origEnd:eH});},[]);
-  useEffect(()=>{
-    if(!drag)return;
-    const om=(e:MouseEvent)=>{const dh=pxToH(e.clientX-drag.startX);const dur=drag.origEnd-drag.origStart;const nh=drag.type==="resizeR"?Math.max(1,sn(dur+dh,1)):drag.type==="resizeL"?Math.max(1,sn(dur-dh,1)):sn(dur,1);const s=snapH(nh,unit);if(isFinite(s)&&s>0)setLiveOv({rowId:drag.rowId,h:s});};
-    const ou=()=>{if(liveOv&&isFinite(liveOv.h)&&liveOv.h>0)setPending(p=>{const n=new Map(p);n.set(liveOv.rowId,{heures:liveOv.h});return n;});setLiveOv(null);setDrag(null);};
-    window.addEventListener("mousemove",om);window.addEventListener("mouseup",ou);
-    return()=>{window.removeEventListener("mousemove",om);window.removeEventListener("mouseup",ou);};
-  },[drag,liveOv,pxToH,unit]);
-  useEffect(()=>{
-    if(!selectedId)return;
-    const ok=(e:KeyboardEvent)=>{if(!["ArrowLeft","ArrowRight","+","-"].includes(e.key))return;e.preventDefault();const row=rows.find(r=>r.id===selectedId);if(!row||row.kind==="lot"||row.kind==="sprint")return;const st=unitH(unit);const cH=sn(row.endH-row.startH,st);const nh=(e.key==="ArrowRight"||e.key==="+")? cH+st:Math.max(1,cH-st);if(isFinite(nh)&&nh>0)setPending(p=>{const n=new Map(p);n.set(selectedId,{heures:nh});return n;});};
-    window.addEventListener("keydown",ok);return()=>window.removeEventListener("keydown",ok);
-  },[selectedId,rows,unit]);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [dragState, colW, unit]);
 
-  const handleSave=async()=>{
-    if(pending.size===0)return;setSaving(true);setSaveErr(null);setSaveOk(false);
-    try{
-      const ap:{phaseId:number;key:string;autoH:number}[]=[];
-      lots.forEach(lot=>(lot.phases||[]).forEach(ph=>ap.push({phaseId:ph.id,key:`phase-${ph.id}`,autoH:getAutoH(ph.id)})));
-      const sn2=new Map<string,PhaseOverride>();const ents:UpsertPlanningRequest[]=[];
-      ap.forEach(({phaseId,key,autoH})=>{const h=pending.get(key)?.heures??overrides.get(key)?.heures??autoH;const fH=Math.max(1,isFinite(h)?h:autoH);sn2.set(key,{heures:fH});ents.push({phaseId,heures:fH,startDate:null});});
-      if(ents.length>0)await planningService.bulkUpsert(ents);
-      setOverrides(sn2);setPending(new Map());setSaveOk(true);setTimeout(()=>setSaveOk(false),3000);
-    }catch(err:any){setSaveErr(err?.message??"Erreur de sauvegarde.");}
-    finally{setSaving(false);}
+  // ── Save ───────────────────────────────────────────────────────────────────
+  const handleSave = async () => {
+    if (pendingOverrides.size === 0) return;
+    setSaving(true);
+    setSaveErr(null);
+    setSaveOk(false);
+
+    try {
+      const sprintPayloads: SprintTimeDTO[] = [];
+
+      for (const [sprintId, ov] of pendingOverrides.entries()) {
+        const payload: SprintTimeDTO = {
+          id: sprintId,
+          fromDay: ov.fromDay,
+          toDay: ov.toDay,
+        };
+        if (baseDate) {
+          payload.dateDebut = addDays(baseDate, ov.fromDay - 1)
+            .toISOString()
+            .slice(0, 10);
+          payload.dateFin = addDays(baseDate, ov.toDay - 1)
+            .toISOString()
+            .slice(0, 10);
+        }
+        sprintPayloads.push(payload);
+      }
+
+      await planningService.updateSprintTimes(sprintPayloads);
+
+      setPendingOverrides(new Map());
+      setSaveOk(true);
+      setTimeout(() => setSaveOk(false), 3000);
+    } catch (err: any) {
+      setSaveErr(err?.message ?? "Erreur lors de la sauvegarde.");
+    } finally {
+      setSaving(false);
+    }
   };
-  const handleUpdateDates=async()=>{
-    if(!onUpdateProjectDates||!baseDate||!planEnd)return;setUpdatingDates(true);
-    try{await onUpdateProjectDates(toISO(baseDate),toISO(planEnd));setDatesUpdated(true);setTimeout(()=>setDatesUpdated(false),3000);}
-    catch{}finally{setUpdatingDates(false);}
+
+  const handleSaveStartDate = async () => {
+    if (!selectedBacklogId || !startDateInput) return;
+    setSavingDate(true);
+    try {
+      await planningService.updateStartDate(selectedBacklogId, startDateInput);
+      setEditingDate(false);
+    } catch (err: any) {
+      setSaveErr(err?.message ?? "Erreur date de début.");
+    } finally {
+      setSavingDate(false);
+    }
   };
-  const handleReset=async(key:string)=>{
-    const m=key.match(/^phase-(\d+)$/);if(m){try{await planningService.deleteByPhaseId(Number(m[1]));}catch{}}
-    setOverrides(p=>{const n=new Map(p);n.delete(key);return n;});
-    setPending(p=>{const n=new Map(p);n.delete(key);return n;});
-    if(selectedId===key)setSelectedId(null);
+
+  const handleCancelPending = () => {
+    setPendingOverrides(new Map());
+    setLiveOverrides(new Map());
   };
-  const mc=new Set([...overrides.keys(),...pending.keys()]).size;
 
-  if(!selectedBacklogId)return<div className="text-center text-muted py-5">Veuillez sélectionner un backlog pour voir le planning prévisionnel.</div>;
-  if(loadingOv)return<div className="d-flex justify-content-center align-items-center py-5"><span className="spinner-border spinner-border-sm me-2"/>Chargement du planning…</div>;
+  // ── Header SVG ─────────────────────────────────────────────────────────────
+  const renderHeaderSVG = () => {
+    const el: React.ReactNode[] = [];
 
-  // ─── HEADER SVG (scrollable, sans LABEL_W) ───────────────────────────────
-  const renderHeaderSVG=()=>{
-    const el:React.ReactNode[]=[];
-if (unit === "hour") {
-  const dayWidth = WORK_SLOTS_PER_DAY * colW;
-  const days = Math.ceil(scrollW / dayWidth);
-
-  for (let d = 0; d < days; d++) {
-    const dayX = d * dayWidth;
-    const dayDate = baseDate ? addWorkDays(baseDate, d) : null;
+    if (unit === "day") {
+      // Row 1: weeks
+      const nWeeks = Math.ceil(nCols / DAYS_PER_WEEK);
+      for (let w = 0; w < nWeeks; w++) {
+        const wx = w * DAYS_PER_WEEK * colW;
+        const ww = Math.min(DAYS_PER_WEEK, nCols - w * DAYS_PER_WEEK) * colW;
+        el.push(
+          <rect key={`wbg-${w}`} x={wx} y={0} width={ww} height={HDR_ROW1}
+            fill={w % 2 === 0 ? COLOR.headerBg : COLOR.headerSub} />,
+          <text key={`wlbl-${w}`} x={wx + ww / 2} y={HDR_ROW1 / 2 + 4}
+            textAnchor="middle" fill="#fff" fontSize={9} fontWeight={700} fontFamily="inherit">
+            {baseDate
+              ? `Sem. ${fmtDateShort(addDays(baseDate, w * DAYS_PER_WEEK))}`
+              : `Sem. ${w + 1}`}
+          </text>
+        );
+      }
+      // Row 2: days
+      for (let d = 0; d < nCols; d++) {
+        const dx = d * colW;
+        const label = baseDate
+          ? fmtDateShort(addDays(baseDate, d))
+          : `J${d + 1}`;
+        el.push(
+          <rect key={`dbg-${d}`} x={dx} y={HDR_ROW1} width={colW} height={HDR_H - HDR_ROW1}
+            fill={d % 2 === 0 ? "#f0f6f9" : "#e4eff5"} stroke={COLOR.grid} strokeWidth={0.5} />,
+          <text key={`dlbl-${d}`} x={dx + colW / 2} y={HDR_ROW1 + 14 + (HDR_H - HDR_ROW1) / 2 - 6}
+            textAnchor="middle" fill="#1e3a4a" fontSize={8} fontFamily="inherit" fontWeight={600}>
+            {label}
+          </text>
+        );
+      }
+    } else {
+      // Week mode: Row 1 = months (approx), Row 2 = weeks
+      const nMonths = Math.ceil(nCols / 4);
+      for (let m = 0; m < nMonths; m++) {
+        const mx = m * 4 * colW;
+        const mw = Math.min(4, nCols - m * 4) * colW;
+        el.push(
+          <rect key={`mbg-${m}`} x={mx} y={0} width={mw} height={HDR_ROW1}
+            fill={m % 2 === 0 ? COLOR.headerBg : COLOR.headerSub} />,
+          <text key={`mlbl-${m}`} x={mx + mw / 2} y={HDR_ROW1 / 2 + 4}
+            textAnchor="middle" fill="#fff" fontSize={9} fontWeight={700} fontFamily="inherit">
+            {baseDate
+              ? addDays(baseDate, m * 4 * DAYS_PER_WEEK).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
+              : `Mois ${m + 1}`}
+          </text>
+        );
+      }
+      for (let w = 0; w < nCols; w++) {
+        const wx = w * colW;
+        const label = baseDate
+          ? `S. ${fmtDateShort(addDays(baseDate, w * DAYS_PER_WEEK))}`
+          : `S${w + 1}`;
+        el.push(
+          <rect key={`wbg2-${w}`} x={wx} y={HDR_ROW1} width={colW} height={HDR_H - HDR_ROW1}
+            fill={w % 2 === 0 ? "#f0f6f9" : "#e4eff5"} stroke={COLOR.grid} strokeWidth={0.5} />,
+          <text key={`wlbl2-${w}`} x={wx + colW / 2} y={HDR_ROW1 + (HDR_H - HDR_ROW1) / 2 + 4}
+            textAnchor="middle" fill="#1e3a4a" fontSize={baseDate ? 7 : 9} fontFamily="inherit" fontWeight={600}>
+            {label}
+          </text>
+        );
+      }
+    }
 
     el.push(
-      <rect
-        key={`daybg-${d}`}
-        x={dayX}
-        y={0}
-        width={dayWidth}
-        height={HDR_ROW1}
-        fill={d % 2 === 0 ? COLOR.headerBg : COLOR.headerSub}
-        
-      />,
-      
-      <text
-        key={`daylabel-${d}`}
-        x={dayX + dayWidth / 2}
-        y={HDR_ROW1 / 2 + 5}
-        textAnchor="middle"
-        fill="#fff"
-        fontSize={11}
-        fontWeight={700}
-      >
-        {dayDate
-          ? dayDate.toLocaleDateString("fr-FR", {
-              weekday: "short",
-              day: "2-digit",
-              month: "short",
-            })
-          : `Jour ${d + 1}`}
-      </text>
+      <line key="hbottom" x1={0} y1={HDR_H} x2={scrollW} y2={HDR_H}
+        stroke={COLOR.gridMajor} strokeWidth={1.5} />
     );
+    return el;
+  };
 
-        // Fond ligne heures
-    el.push(
-      <rect
-        key={`hourbg-${d}`}
-        x={dayX}
-        y={HDR_ROW1}
-        width={dayWidth}
-        height={HDR_ROW2}
-        fill={COLOR.headerSub}
-      />
-    );
+  // ── Body SVG ───────────────────────────────────────────────────────────────
+  const renderBodySVG = () => {
+    const el: React.ReactNode[] = [];
 
-    for (let s = 0; s < WORK_SLOTS_PER_DAY; s++) {
-      const slotX = dayX + s * colW;
-      const hour = WORK_START_H + s / 2;
-      const label =
-        s % 2 === 0
-          ? `${Math.floor(hour)}:00`
-          : `${Math.floor(hour)}:30`;
-
+    // Vertical grid lines
+    for (let i = 0; i <= nCols; i++) {
+      const x = i * colW;
+      const isMajor = unit === "day" ? i % DAYS_PER_WEEK === 0 : true;
       el.push(
-        <line
-          key={`grid-${d}-${s}`}
-          x1={slotX}
-          y1={HDR_ROW1}
-          x2={slotX}
-          y2={HDR_H}
-          stroke={COLOR.grid}
-          strokeWidth={0.5}
-        />,
-        <text
-          key={`label-${d}-${s}`}
-          x={slotX + colW / 2}
-          y={HDR_ROW1 + 16}
-          textAnchor="middle"
-          fontSize={10}
-          fontWeight={600}          
-          fill="#fff"
-        >
-          {label}
-        </text>
+        <line key={`vg-${i}`} x1={x} y1={0} x2={x} y2={svgBodyH}
+          stroke={isMajor ? COLOR.gridMajor : COLOR.grid}
+          strokeWidth={isMajor ? 1 : 0.5} />
       );
     }
-  }
-}else {
-      const ng=Math.ceil(nCols/mPM(unit));
-      for(let g=0;g<ng;g++){
-        const gx=g*mPM(unit)*colW;const gw=Math.min(mPM(unit),nCols-g*mPM(unit))*colW;
-        if(!isFinite(gx)||gw<=0)continue;
-        el.push(
-          <rect key={`gh-${g}`} x={gx} y={0} width={gw} height={28} fill={g%2===0?COLOR.headerBg:COLOR.headerSub}/>,
-          <text key={`gt-${g}`} x={gx+gw/2} y={18} textAnchor="middle" fill={COLOR.headerText} fontSize={9} fontWeight={700} fontFamily="inherit">{mlbl(unit,g,baseDate)}</text>,
-        );
-      }
-      for(let i=0;i<nCols;i++){
-        const cx=i*colW;if(!isFinite(cx))continue;
-        let bg=i%2===0?"#f0f7f0":"#e4f0e4";
-        if(isPM&&baseDate&&showHolidays&&unit==="day"){const sd=addWorkDays(baseDate,i);if(isHoliday(sd))bg="#ffe0e0";}
-        el.push(
-          <rect key={`sh-${i}`} x={cx} y={28} width={colW} height={32} fill={bg} stroke={COLOR.grid} strokeWidth={0.5}/>,
-          <text key={`st-${i}`} x={cx+colW/2} y={47} textAnchor="middle" fill="#3a5c3a" fontSize={isPM?7.5:9} fontFamily="inherit">{slbl(unit,i,baseDate)}</text>,
-        );
-        if(isPM&&baseDate&&showHolidays&&unit==="day"){const sd=addWorkDays(baseDate,i);if(isHoliday(sd)){el.push(<rect key={`hh-${i}`} x={cx} y={28} width={colW} height={32} fill="rgba(220,50,50,0.12)"/>);}}
-      }
-    }
-    // Ligne de fin contrat
-    if(contractEndDate&&baseDate){
-      const cH=countWorkDaysBetween(baseDate,contractEndDate)*HOURS_PER_DAY;
-      const cx=hToScrollX(cH,unit,colW);
-      if(isFinite(cx)&&cx>0){
-        el.push(
-          <line key="cl" x1={cx} y1={0} x2={cx} y2={HDR_H} stroke={isOD?COLOR.danger:COLOR.success} strokeWidth={2} strokeDasharray="6,3" opacity={0.8}/>,
-          <rect key="clb" x={cx-48} y={2} width={96} height={16} rx={3} fill={isOD?COLOR.danger:COLOR.success} opacity={0.9}/>,
-          <text key="clt" x={cx} y={13} textAnchor="middle" fill="#fff" fontSize={8} fontWeight={700} fontFamily="inherit">Fin prévue contrat</text>,
-        );
-      }
-    }
-    el.push(<line key="hs" x1={0} y1={HDR_H} x2={scrollW} y2={HDR_H} stroke={COLOR.gridMajor} strokeWidth={1.5}/>);
-    return el;
-  };
 
-  // ─── GRILLE + BARRES GANTT (scrollable) ──────────────────────────────────
-  const renderBodySVG=()=>{
-    const el:React.ReactNode[]=[];
-
-    // Grille verticale
-      if (unit === "hour") {
-        const dayWidth = WORK_SLOTS_PER_DAY * colW;
-        const days = Math.ceil(scrollW / dayWidth);
-
-        for (let d = 0; d < days; d++) {
-          const dayX = d * dayWidth;
-
-          for (let s = 0; s <= WORK_SLOTS_PER_DAY; s++) {
-            const x = dayX + s * colW;
-
-            el.push(
-              <line
-                key={`vg-${d}-${s}`}
-                x1={x}
-                y1={0}
-                x2={x}
-                y2={svgBodyH}
-                stroke={s % 2 === 0 ? COLOR.gridMajor : COLOR.grid}
-                strokeWidth={s % 2 === 0 ? 1 : 0.5}
-              />
-            );
-          }
-        }
-      } else {
-      for(let i=0;i<=nCols;i++){
-        const x=i*colW;if(!isFinite(x))continue;
-        el.push(<line key={`vg-${i}`} x1={x} y1={0} x2={x} y2={svgBodyH} stroke={i%mPM(unit)===0?COLOR.gridMajor:COLOR.grid} strokeWidth={i%mPM(unit)===0?1:0.5}/>);
-      }
-    }
-    // Grille horizontale
-    rows.forEach((_,ri)=>{
-      const y=ri*ROW_H;
-      el.push(<line key={`hg-${ri}`} x1={0} y1={y} x2={scrollW} y2={y} stroke={COLOR.grid} strokeWidth={0.5}/>);
+    // Horizontal grid lines
+    rows.forEach((_, ri) => {
+      el.push(
+        <line key={`hg-${ri}`} x1={0} y1={ri * ROW_H} x2={scrollW} y2={ri * ROW_H}
+          stroke={COLOR.grid} strokeWidth={0.5} />
+      );
     });
-    // Ligne de fin contrat dans le corps
-    if(contractEndDate&&baseDate){
-      const cH=countWorkDaysBetween(baseDate,contractEndDate)*HOURS_PER_DAY;
-      const cx=hToScrollX(cH,unit,colW);
-      if(isFinite(cx)&&cx>0){
-        el.push(<line key="clb" x1={cx} y1={0} x2={cx} y2={svgBodyH} stroke={isOD?COLOR.danger:COLOR.success} strokeWidth={2} strokeDasharray="6,3" opacity={0.6}/>);
-      }
-    }
-    // Jours fériés (mode day)
-    if(isPM&&baseDate&&showHolidays&&unit==="day"){
-      for(let i=0;i<nCols;i++){
-        const sd=addWorkDays(baseDate,i);
-        if(isHoliday(sd)){const cx=i*colW;el.push(<rect key={`hb-${i}`} x={cx} y={0} width={colW} height={svgBodyH} fill={COLOR.holiday} style={{pointerEvents:"none"}}/>);}
-      }
-    }
-    // Barres Gantt
-    rows.forEach((row,ri)=>{
-      const y=ri*ROW_H;const cy=y+ROW_H/2;
-      const bx=getBx(row.startH),bw=getBw(row.startH,row.endH);
-      const br=row.kind==="lot"?5:4;
-      const bH=row.kind==="lot"?5:row.kind==="phase"?ROW_H*0.65:row.kind==="sprint"?ROW_H*0.42:ROW_H*0.5;
-      const bY=cy-bH/2;
-      const isSel=selectedId===row.id,isPend=pending.has(row.id);
-      const isOv2=row.isOverridden,isLive=liveOv?.rowId===row.id;
-      let bc=row.color;if(isLive)bc=row.kind==="deliverable"?"#4a9c4a":row.kind==="sprint"?"#9c27b0":"#5a2d8c";
-      const rf=isSel?COLOR.selectedBg:row.kind==="lot"?COLOR.lotBg:row.kind==="sprint"?COLOR.sprintBg:isOv2?"#f8f2ff":COLOR.phaseBg;
 
-      el.push(<rect key={`rb-${row.id}`} x={0} y={y} width={scrollW} height={ROW_H} fill={rf} style={{cursor:"pointer"}} onClick={()=>setSelectedId(isSel?null:row.id)}/>);
+    // Bars
+    rows.forEach((row, ri) => {
+      const y = ri * ROW_H;
+      const cy = y + ROW_H / 2;
 
-      if(showGhosts&&isOv2&&row.kind!=="lot"&&row.kind!=="sprint"){
-        const gx=getBx(row.autoStartH),gw=getBw(row.autoStartH,row.autoEndH);
-        el.push(<rect key={`ghost-${row.id}`} x={gx} y={cy-(bH*0.45)/2} width={gw} height={bH*0.45} rx={br} fill={COLOR.ghost} opacity={0.8}/>);
+      if (row.kind === "deliverable") {
+        // No Gantt bar for deliverables
+        el.push(
+          <rect key={`delbg-${row.id}`} x={0} y={y} width={scrollW} height={ROW_H}
+            fill="#fafafa" style={{ pointerEvents: "none" }} />
+        );
+        return;
       }
-      if(row.kind==="lot"){
-        el.push(<rect key={`lot-${row.id}`} x={bx} y={cy-2.5} width={bw} height={5} rx={2} fill={COLOR.lotBar} opacity={0.7}/>);
+
+      const bx = dayToX(row.fromDay, unit, colW);
+      const bw = durationToW(row.toDay - row.fromDay + 1, unit, colW);
+      const isPending = row.kind === "sprint" && row.sprintId !== undefined &&
+        pendingOverrides.has(row.sprintId!);
+      const isLive = row.kind === "sprint" && row.sprintId !== undefined &&
+        liveOverrides.has(row.sprintId!);
+      const isSel = selectedId === row.id;
+
+      // Row background
+      const bgFill = isSel
+        ? "rgba(124,58,237,0.08)"
+        : row.kind === "lot"
+        ? COLOR.lotBg
+        : row.kind === "phase"
+        ? COLOR.phaseBg
+        : COLOR.sprintBg;
+
+      el.push(
+        <rect key={`rbg-${row.id}`} x={0} y={y} width={scrollW} height={ROW_H}
+          fill={bgFill} style={{ cursor: "pointer" }}
+          onClick={() => setSelectedId(isSel ? null : row.id)} />
+      );
+
+      if (row.kind === "lot") {
+        // Thin lot bar
+        el.push(
+          <rect key={`lot-${row.id}`} x={bx} y={cy - 3} width={bw} height={6}
+            rx={3} fill={COLOR.lotBar} opacity={0.75} />
+        );
+        // Start/end ticks
+        el.push(
+          <rect key={`lot-tick-l-${row.id}`} x={bx} y={cy - 8} width={2} height={16} fill={COLOR.lotBar} opacity={0.6} />,
+          <rect key={`lot-tick-r-${row.id}`} x={bx + bw - 2} y={cy - 8} width={2} height={16} fill={COLOR.lotBar} opacity={0.6} />
+        );
+        return;
       }
-      if(row.kind==="sprint"){
+
+      if (row.kind === "phase") {
+        const bH = ROW_H * 0.55;
+        const bY = cy - bH / 2;
+        el.push(
+          <rect key={`phase-${row.id}`} x={bx} y={bY} width={bw} height={bH}
+            rx={3} fill={COLOR.phaseBar} opacity={0.7} />,
+          bw > 50
+            ? <text key={`phase-lbl-${row.id}`} x={bx + bw / 2} y={cy + 3}
+                textAnchor="middle" fill="#fff" fontSize={8} fontWeight={700} fontFamily="inherit"
+                style={{ pointerEvents: "none" }}>
+                {baseDate
+                  ? `${fmtDateShort(addDays(baseDate, row.fromDay - 1))} → ${fmtDateShort(addDays(baseDate, row.toDay - 1))}`
+                  : `J${row.fromDay}→J${row.toDay}`}
+              </text>
+            : null
+        );
+        return;
+      }
+
+      if (row.kind === "sprint") {
+        const bH = ROW_H * 0.62;
+        const bY = cy - bH / 2;
+        const isBeingDragged = dragState?.sprintId === row.sprintId;
+        const barColor = isBeingDragged
+          ? COLOR.sprintDrag
+          : isPending
+          ? COLOR.sprintAlt
+          : COLOR.sprintBar;
+
         el.push(
           <g key={`sprint-${row.id}`}>
-            <rect x={0} y={bY} width={scrollW} height={bH} rx={3} fill="rgba(124,77,190,0.04)"/>
-            <rect x={bx} y={bY} width={bw} height={bH} rx={3} fill={bc} opacity={0.82}/>
-            <rect x={bx} y={bY} width={bw} height={bH} rx={3} fill="url(#sprintStripe)" style={{pointerEvents:"none"}}/>
-            {bw>50&&<text x={bx+bw/2} y={cy+2.5} textAnchor="middle" fill="#fff" fontSize={8} fontWeight={700} fontFamily="inherit" style={{pointerEvents:"none"}}>{row.label}{isPM&&baseDate?` · fin ${fds(owDate(baseDate,row.endH))}`:` · ${fmtDur(row.endH-row.startH)}`}</text>}
+            {isSel && (
+              <rect x={bx - 2} y={bY - 2} width={bw + 4} height={bH + 4}
+                rx={4} fill="rgba(124,58,237,0.2)" />
+            )}
+            <rect x={bx} y={bY} width={bw} height={bH} rx={3}
+              fill={barColor} opacity={isBeingDragged ? 0.85 : 1}
+              style={{ cursor: "grab" }}
+              onMouseDown={(e) =>
+                startDrag(e, row.sprintId!, "move", row.fromDay, row.toDay)
+              }
+            />
+            {/* Stripe pattern for pending */}
+            {isPending && (
+              <rect x={bx} y={bY} width={bw} height={bH} rx={3}
+                fill="url(#pendingStripe)" style={{ pointerEvents: "none" }} />
+            )}
+            {/* Resize handle right */}
+            {bw > HANDLE_W * 2 + 6 && (
+              <rect x={bx + bw - HANDLE_W} y={bY} width={HANDLE_W} height={bH}
+                rx={2} fill="rgba(0,0,0,0.18)"
+                style={{ cursor: "ew-resize" }}
+                onMouseDown={(e) =>
+                  startDrag(e, row.sprintId!, "resizeR", row.fromDay, row.toDay)
+                }
+              />
+            )}
+            {bw > 54 && (
+              <text x={bx + bw / 2} y={cy + 3}
+                textAnchor="middle" fill="#fff" fontSize={8} fontWeight={700}
+                fontFamily="inherit" style={{ pointerEvents: "none" }}>
+                {row.label}
+                {baseDate && ` · ${fmtDateShort(addDays(baseDate, row.toDay - 1))}`}
+              </text>
+            )}
           </g>
         );
-      }
-      if(row.kind==="phase"||row.kind==="deliverable"){
-        el.push(
-          <g key={`bar-${row.id}`} onClick={e=>{e.stopPropagation();setSelectedId(isSel?null:row.id);}}>
-            {isSel&&<rect x={bx-2} y={bY-2} width={bw+4} height={bH+4} rx={br+1} fill="rgba(123,63,190,0.18)"/>}
-            <rect x={bx} y={bY} width={bw} height={bH} rx={br} fill={bc} opacity={isLive?0.8:1}
-              style={{cursor:drag?"grabbing":"grab"}} onMouseDown={e=>startDrag(e,row.id,"move",row.startH,row.endH)}/>
-            {isPend&&<rect x={bx} y={bY} width={bw} height={bH} rx={br} fill="url(#pendingStripe)" style={{pointerEvents:"none"}}/>}
-            {bw>HANDLE_W*2+4&&<>
-              <rect x={bx} y={bY} width={HANDLE_W} height={bH} rx={br} fill="rgba(0,0,0,0.22)" style={{cursor:"ew-resize"}} onMouseDown={e=>startDrag(e,row.id,"resizeL",row.startH,row.endH)}/>
-              <rect x={bx+bw-HANDLE_W} y={bY} width={HANDLE_W} height={bH} rx={br} fill="rgba(0,0,0,0.22)" style={{cursor:"ew-resize"}} onMouseDown={e=>startDrag(e,row.id,"resizeR",row.startH,row.endH)}/>
-            </>}
-            {bw>52&&<text x={bx+bw/2} y={cy+3.5} textAnchor="middle" fill="#fff" fontSize={8.5} fontWeight={700} fontFamily="inherit" style={{pointerEvents:"none",userSelect:"none"}}>{isPM&&baseDate?fds(owDate(baseDate,row.endH)):fmtDur(row.endH-row.startH)}</text>}
-          </g>
-        );
-        if(isLive&&liveOv){
-          const tt=isPM&&baseDate?`→ ${fd(owDate(baseDate,row.startH+liveOv.h))}`:fmtDur(liveOv.h);
-          el.push(
-            <rect key={`tt-r-${row.id}`} x={bx} y={bY-24} width={130} height={19} rx={4} fill={COLOR.phaseManual} opacity={0.95}/>,
-            <text key={`tt-t-${row.id}`} x={bx+65} y={bY-11} textAnchor="middle" fill="#fff" fontSize={8.5} fontWeight={700} fontFamily="inherit">{fmtDur(liveOv.h)} {tt}</text>
-          );
-        }
       }
     });
+
     return el;
   };
 
-  // ─── COLONNE LABELS (fixe, non scrollable) ────────────────────────────────
-  const renderLabelsSVG=()=>{
-    const el:React.ReactNode[]=[];
-    rows.forEach((row,ri)=>{
-      const y=ri*ROW_H;
-      const isSel=selectedId===row.id;
-      const isPend=pending.has(row.id);
-      const isSav=overrides.has(row.id)&&!isPend;
-      const isOv2=row.isOverridden;
-      let bc=row.color;
-      const rf=isSel?COLOR.selectedBg:row.kind==="lot"?COLOR.lotBg:row.kind==="sprint"?COLOR.sprintBg:isOv2?"#f8f2ff":COLOR.phaseBg;
-      const rs=isPM&&baseDate?(row.realDateDebut?fdr(row.realDateDebut):fd(owDate(baseDate,row.startH))):null;
-      const re2=isPM&&baseDate?(row.realDateFin?fdr(row.realDateFin):fd(owDate(baseDate,row.endH))):null;
+  // ── Labels column ──────────────────────────────────────────────────────────
+  const renderLabelsSVG = () => {
+    const el: React.ReactNode[] = [];
+
+    rows.forEach((row, ri) => {
+      const y = ri * ROW_H;
+      const isSel = selectedId === row.id;
+      const isPending = row.kind === "sprint" && row.sprintId !== undefined &&
+        pendingOverrides.has(row.sprintId!);
+
+      const bgFill =
+        row.kind === "deliverable"
+          ? "#fafafa"
+          : isSel
+          ? "rgba(124,58,237,0.08)"
+          : row.kind === "lot"
+          ? COLOR.lotBg
+          : row.kind === "phase"
+          ? COLOR.phaseBg
+          : COLOR.sprintBg;
+
       el.push(
         <foreignObject key={`lbl-${row.id}`} x={0} y={y} width={LABEL_W} height={ROW_H}>
-          <div xmlns="http://www.w3.org/1999/xhtml"
-            style={{height:ROW_H,display:"flex",alignItems:"center",paddingLeft:8+row.depth*11,paddingRight:6,gap:4,overflow:"hidden",boxSizing:"border-box",background:rf,cursor:row.kind==="lot"?"pointer":"default",borderBottom:`1px solid ${COLOR.grid}`}}
-            onClick={e=>{e.stopPropagation();
-              if(row.kind==="lot")setCollapsed(prev=>{const n=new Set(prev);n.has(row.id)?n.delete(row.id):n.add(row.id);return n;});
-              else setSelectedId(isSel?null:row.id);
-            }}>
-            {row.kind==="lot"&&<span style={{fontSize:9,color:"#666",flexShrink:0,width:10}}>{collapsed.has(row.id)?"▸":"▾"}</span>}
-            {row.kind==="sprint"&&<span style={{fontSize:8,color:COLOR.sprintBar,flexShrink:0}}></span>}
-            <div style={{width:8,height:8,borderRadius:"50%",background:bc,flexShrink:0}}/>
-            <div style={{flex:1,overflow:"hidden",minWidth:0}}>
-              <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:row.kind==="lot"?11.5:row.kind==="phase"?10.5:row.kind==="sprint"?9.5:9,fontWeight:row.kind==="lot"?700:row.kind==="phase"?600:row.kind==="sprint"?600:400,fontStyle:row.kind==="deliverable"?"italic":"normal",color:row.kind==="lot"?COLOR.lotBar:row.kind==="sprint"?COLOR.sprintBar:isOv2?COLOR.phaseManual:"#2d3748",lineHeight:1.1}} title={row.label}>{row.label}</div>
-              {row.kind==="sprint"&&isPM&&baseDate&&<div style={{fontSize:7,color:COLOR.sprintBar,opacity:0.7,whiteSpace:"nowrap",lineHeight:1.1}}>{fd(owDate(baseDate,row.startH))} → {fd(owDate(baseDate,row.endH))}</div>}
-              {row.kind!=="sprint"&&(rs||re2)&&<div style={{fontSize:7.5,color:"#888",whiteSpace:"nowrap",lineHeight:1.1}}>{rs}{re2&&re2!==rs?` → ${re2}`:""}</div>}
+          <div
+            xmlns="http://www.w3.org/1999/xhtml"
+            style={{
+              height: ROW_H,
+              display: "flex",
+              alignItems: "center",
+              paddingLeft: 8 + row.depth * 10,
+              paddingRight: 6,
+              gap: 5,
+              overflow: "hidden",
+              boxSizing: "border-box",
+              background: bgFill,
+              cursor: row.kind === "lot" || row.kind === "phase" ? "pointer" : "default",
+              borderBottom: `1px solid ${COLOR.grid}`,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (row.kind === "lot" || row.kind === "phase") {
+                setCollapsed((prev) => {
+                  const n = new Set(prev);
+                  n.has(row.id) ? n.delete(row.id) : n.add(row.id);
+                  return n;
+                });
+              } else {
+                setSelectedId(isSel ? null : row.id);
+              }
+            }}
+          >
+            {(row.kind === "lot" || row.kind === "phase") && (
+              <span style={{ fontSize: 9, color: "#64748b", flexShrink: 0, width: 10 }}>
+                {collapsed.has(row.id) ? "▸" : "▾"}
+              </span>
+            )}
+            {row.kind === "deliverable" && (
+              <span style={{ fontSize: 8, color: COLOR.delivLabel, flexShrink: 0 }}>•</span>
+            )}
+            <div
+              style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: row.color, flexShrink: 0,
+                opacity: row.kind === "deliverable" ? 0.5 : 1,
+              }}
+            />
+            <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
+              <div
+                style={{
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  fontSize:
+                    row.kind === "lot" ? 11.5
+                    : row.kind === "phase" ? 10.5
+                    : row.kind === "sprint" ? 9.5
+                    : 8.5,
+                  fontWeight:
+                    row.kind === "lot" ? 700
+                    : row.kind === "phase" ? 600
+                    : row.kind === "sprint" ? 600 : 400,
+                  fontStyle: row.kind === "deliverable" ? "italic" : "normal",
+                  color:
+                    row.kind === "lot" ? COLOR.lotBar
+                    : row.kind === "phase" ? COLOR.phaseBar
+                    : row.kind === "sprint" ? COLOR.sprintBar
+                    : COLOR.delivLabel,
+                  lineHeight: 1.2,
+                }}
+                title={row.label}
+              >
+                {row.label}
+              </div>
+              {row.kind === "sprint" && baseDate && (
+                <div style={{ fontSize: 7, color: "#94a3b8", lineHeight: 1.1, whiteSpace: "nowrap" }}>
+                  {fmtDate(addDays(baseDate, row.fromDay - 1))} → {fmtDate(addDays(baseDate, row.toDay - 1))}
+                </div>
+              )}
+              {row.kind === "sprint" && !baseDate && (
+                <div style={{ fontSize: 7, color: "#94a3b8", lineHeight: 1.1 }}>
+                  J{row.fromDay} → J{row.toDay} ({row.toDay - row.fromDay + 1}j)
+                </div>
+              )}
             </div>
-            {isPend&&<span title="Non sauvegardé" style={{fontSize:7,color:COLOR.phaseManual,flexShrink:0}}>●</span>}
-            {isSav&&row.kind!=="lot"&&row.kind!=="sprint"&&<span title="Réinitialiser" style={{fontSize:9,color:"#aaa",cursor:"pointer",flexShrink:0}} onClick={e2=>{e2.stopPropagation();handleReset(row.id);}}>↺</span>}
-            {row.totalJH>0&&<span style={{fontSize:8.5,color:"#999",flexShrink:0}}>{row.totalJH.toFixed(1)}JH</span>}
-            {row.kind==="sprint"&&<span style={{fontSize:7.5,color:COLOR.sprintBar,flexShrink:0,opacity:0.8}}>{fmtDur(row.endH-row.startH)}</span>}
+            {isPending && (
+              <span title="Non sauvegardé" style={{ fontSize: 7, color: COLOR.sprintBar, flexShrink: 0 }}>●</span>
+            )}
+            {row.kind === "sprint" && (
+              <span style={{ fontSize: 7.5, color: "#94a3b8", flexShrink: 0 }}>
+                {row.toDay - row.fromDay + 1}j
+              </span>
+            )}
           </div>
         </foreignObject>
       );
     });
+
     return el;
   };
 
-  const selRow=selectedId?rows.find(r=>r.id===selectedId):null;
+  // ── Selected row detail ────────────────────────────────────────────────────
+  const selRow = selectedId ? rows.find((r) => r.id === selectedId) : null;
 
-  return(
-    <div style={{fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif"}}>
-      {/* Métriques */}
-      <div className="d-flex align-items-center gap-3 flex-wrap px-3 py-2 mb-2 rounded" style={{background:"#e8f5e9",border:"1px solid #a5d6a7",fontSize:"0.82rem"}}>
-        <strong style={{color:COLOR.lotBar}}>{apc} profil{apc>1?"s":""} actif{apc>1?"s":""}</strong>
+  if (!selectedBacklogId) {
+    return (
+      <div className="text-center text-muted py-5">
+        Veuillez sélectionner un backlog pour voir le planning prévisionnel.
+      </div>
+    );
+  }
+
+  const hasPending = pendingOverrides.size > 0;
+  const totalWeeks = Math.ceil(totalDays / DAYS_PER_WEEK);
+
+  return (
+    <div style={{ fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+      {/* ── Métriques ───────────────────────────────────────────────────────── */}
+      <div
+        className="d-flex align-items-center gap-3 flex-wrap px-3 py-2 mb-2 rounded"
+        style={{ background: "#e8f5e9", border: "1px solid #a5d6a7", fontSize: "0.82rem" }}
+      >
+        <strong style={{ color: COLOR.lotBar }}>
+          {computed.length} lot{computed.length > 1 ? "s" : ""}
+          {" · "}
+          {computed.reduce((s, l) => s + l.phases.length, 0)} phases
+          {" · "}
+          {computed.reduce((s, l) => s + l.phases.reduce((ps, p) => ps + p.sprints.length, 0), 0)} sprints
+        </strong>
         <span className="text-muted">|</span>
-        <span title="9h00–12h30 · Pause déj. 12h30–13h30 · 13h30–18h00 · Lun–Ven hors fériés MG" style={{fontSize:"0.75rem",color:"#555",cursor:"help"}}>9h–12h30 🍽 13h30–18h · Lun–Ven · J.fériés MG</span>
-        <span className="text-muted">|</span>
-        {isPM&&baseDate?(
+        <span>
+          Durée totale :{" "}
+          <strong>
+            {totalDays}j ({totalWeeks} sem.)
+          </strong>
+        </span>
+        {baseDate && (
           <>
-            <span>Durée : <strong>{fmtDur(totalHours)}</strong><span className="text-muted" style={{fontSize:"0.75rem",marginLeft:4}}>({(totalHours/HOURS_PER_WEEK).toFixed(1)} sem. · {(totalHours/HOURS_PER_DAY).toFixed(0)} j.ouv.)</span></span>
             <span className="text-muted">|</span>
-            <span><strong>{fd(baseDate)}</strong>{planEnd&&<>{" → "}<strong style={{color:isOD?COLOR.danger:"inherit"}}>{fd(planEnd)}</strong></>}</span>
-            {contractEndDate&&<><span className="text-muted">|</span><span style={{fontSize:"0.78rem"}}>Contrat : <strong style={{color:isOD?COLOR.danger:COLOR.success}}>{fd(contractEndDate)}</strong>{isOD&&planEnd&&<span style={{color:COLOR.danger,marginLeft:4,fontWeight:700}}>⚠ +{countWorkDaysBetween(contractEndDate,planEnd)} j.ouv.</span>}</span></>}
-          </>
-        ):(
-          <>
-            <span>Durée totale : <strong>{fmtDur(totalHours)}</strong></span>
-            <span className="text-muted">|</span>
-            <span>{(totalHours/HOURS_PER_WEEK).toFixed(1)} sem. · {(totalHours/HOURS_PER_MONTH).toFixed(1)} mois</span>
+            <span>
+              <strong>{fmtDate(baseDate)}</strong>
+              {totalDays > 0 && (
+                <>
+                  {" → "}
+                  <strong>{fmtDate(addDays(baseDate, totalDays - 1))}</strong>
+                </>
+              )}
+            </span>
           </>
         )}
-        {mc>0&&<><span className="text-muted">|</span><span style={{color:COLOR.phaseManual,fontWeight:700}}>{mc} phase{mc>1?"s":""} modifiée{mc>1?"s":""}</span></>}
-        <small className="ms-auto text-muted">◁▷ Resize · ←→ ou +/- · min:1h</small>
+        {hasPending && (
+          <>
+            <span className="text-muted">|</span>
+            <span style={{ color: COLOR.sprintBar, fontWeight: 700 }}>
+              {pendingOverrides.size} sprint{pendingOverrides.size > 1 ? "s" : ""} modifié{pendingOverrides.size > 1 ? "s" : ""}
+            </span>
+          </>
+        )}
+        <small className="ms-auto text-muted">
+          Glisser pour déplacer · bord droit pour redimensionner
+        </small>
       </div>
 
-      {isPM&&onUpdateProjectDates&&planEnd&&baseDate&&(
-        <div className="d-flex align-items-center gap-3 px-3 py-2 mb-2 rounded" style={{background:isOD?"#fdf0f0":"#f0fdf4",border:`1px solid ${isOD?"#f5c6cb":"#a5d6a7"}`,fontSize:"0.8rem"}}>
-          <span>{isOD?<span style={{color:COLOR.danger}}>⚠ Dépassement de {countWorkDaysBetween(contractEndDate!,planEnd)} j.ouv.</span>:<span style={{color:COLOR.success}}>✓ Planning dans les délais</span>}</span>
-          <span className="text-muted" style={{fontSize:"0.75rem"}}>Fin calculée : <strong>{fdl(planEnd)}</strong></span>
-          {datesUpdated?<span style={{color:COLOR.success,fontWeight:700}}>✓ Dates mises à jour</span>
-            :<button className="btn btn-sm ms-auto" style={{background:isOD?COLOR.danger:COLOR.success,color:"#fff",fontSize:"0.75rem",fontWeight:600}} onClick={handleUpdateDates} disabled={updatingDates}>
-              {updatingDates?<><span className="spinner-border spinner-border-sm me-1" style={{width:10,height:10}}/>…</>:`Mettre à jour → ${fd(planEnd)}`}
-            </button>}
+      {/* ── Date de début planning ──────────────────────────────────────────── */}
+      <div
+        className="d-flex align-items-center gap-3 px-3 py-2 mb-2 rounded"
+        style={{ background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
+      >
+        <span style={{ color: "#475569", fontWeight: 600 }}>Date de début :</span>
+        {editingDate ? (
+          <>
+            <input
+              type="date"
+              className="form-control form-control-sm"
+              style={{ width: 160, fontSize: "0.8rem" }}
+              value={startDateInput}
+              onChange={(e) => setStartDateInput(e.target.value)}
+            />
+            <button
+              className="btn btn-sm btn-success"
+              style={{ fontSize: "0.75rem" }}
+              onClick={handleSaveStartDate}
+              disabled={savingDate || !startDateInput}
+            >
+              {savingDate ? "…" : "✓ Confirmer"}
+            </button>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              style={{ fontSize: "0.75rem" }}
+              onClick={() => {
+                setEditingDate(false);
+                setStartDateInput(datedebutPlanning ?? "");
+              }}
+            >
+              Annuler
+            </button>
+          </>
+        ) : (
+          <>
+            <span style={{ color: baseDate ? COLOR.lotBar : "#94a3b8", fontWeight: 600 }}>
+              {baseDate ? fmtDate(baseDate) : "Non définie (mode J/S relatif)"}
+            </span>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              style={{ fontSize: "0.72rem" }}
+              onClick={() => setEditingDate(true)}
+            >
+              ✎ Modifier
+            </button>
+          </>
+        )}
+      </div>
+
+      {saveOk && (
+        <div className="alert alert-success py-2 mb-2 small">
+          ✓ Planning sauvegardé avec succès.
         </div>
       )}
+      {saveErr && (
+        <div className="alert alert-danger py-2 mb-2 small">✗ {saveErr}</div>
+      )}
 
-      {saveOk&&<div className="alert alert-success py-2 mb-2 small">✓ Planning sauvegardé.</div>}
-      {saveErr&&<div className="alert alert-danger py-2 mb-2 small">✗ {saveErr}</div>}
-
-      <div className="card shadow-sm mb-3" style={{border:pending.size>0?`2px solid ${COLOR.phaseManual}`:"1px solid #dee2e6"}}>
+      {/* ── Card principale ─────────────────────────────────────────────────── */}
+      <div
+        className="card shadow-sm mb-3"
+        style={{
+          border: hasPending
+            ? `2px solid ${COLOR.sprintBar}`
+            : "1px solid #dee2e6",
+        }}
+      >
         {/* Card header */}
-        <div className="card-header d-flex align-items-center justify-content-between flex-wrap gap-2" style={{background:COLOR.lotBar,padding:"10px 16px"}}>
+        <div
+          className="card-header d-flex align-items-center justify-content-between flex-wrap gap-2"
+          style={{ background: COLOR.lotBar, padding: "10px 16px" }}
+        >
           <div>
-            <h5 className="mb-0" style={{color:"#fff",fontSize:"1rem"}}>Planning Prévisionnel</h5>
-            {isPM&&baseDate&&planEnd&&<small style={{color:"rgba(255,255,255,0.65)",fontSize:"0.72rem"}}>{fd(baseDate)} → {fd(planEnd)} · {(totalHours/HOURS_PER_DAY).toFixed(0)} j.ouv.{isOD&&<span style={{color:"#ffcccc",marginLeft:6}}>⚠ Dépassement</span>}</small>}
+            <h5 className="mb-0" style={{ color: "#fff", fontSize: "1rem" }}>
+              Planning Prévisionnel
+            </h5>
+            {baseDate && totalDays > 0 && (
+              <small style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.72rem" }}>
+                {fmtDate(baseDate)} → {fmtDate(addDays(baseDate, totalDays - 1))} · {totalDays}j / {totalWeeks} sem.
+              </small>
+            )}
           </div>
           <div className="d-flex align-items-center gap-2 flex-wrap">
+            {/* Mode J / S */}
             <div className="btn-group btn-group-sm">
-              {(["hour","day","week","month"] as TimeUnit[]).map(u=>(
-                <button key={u} type="button" className={`btn ${unit===u?"btn-light":"btn-outline-light"}`}
-                  style={{fontSize:"0.72rem",fontWeight:unit===u?700:400,padding:"3px 8px"}} onClick={()=>setUnit(u)}>
-                  {u==="hour"?"H":u==="day"?"Jour":u==="week"?"Sem.":"Mois"}
+              {(["day", "week"] as TimeUnit[]).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  className={`btn ${unit === u ? "btn-light" : "btn-outline-light"}`}
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: unit === u ? 700 : 400,
+                    padding: "3px 10px",
+                  }}
+                  onClick={() => setUnit(u)}
+                >
+                  {u === "day" ? "Jours" : "Semaines"}
                 </button>
               ))}
             </div>
-            <button type="button" className={`btn btn-sm ${showSprints?"btn-light":"btn-outline-light"}`}
-              style={{fontSize:"0.72rem",padding:"3px 8px"}} onClick={()=>setShowSprints(v=>!v)}> Sprints</button>
-            <button type="button" className={`btn btn-sm ${showGhosts?"btn-light":"btn-outline-light"}`}
-              style={{fontSize:"0.72rem",padding:"3px 8px"}} onClick={()=>setShowGhosts(v=>!v)}>Orig.</button>
-            {isPM&&<button type="button" className={`btn btn-sm ${showHolidays?"btn-light":"btn-outline-light"}`}
-              style={{fontSize:"0.72rem",padding:"3px 8px"}} onClick={()=>setShowHolidays(v=>!v)}>J.fériés</button>}
-            {pending.size>0&&<>
-              <button className="btn btn-sm btn-outline-light" style={{fontSize:"0.72rem",padding:"3px 10px"}} onClick={()=>setPending(new Map())} disabled={saving}>Annuler</button>
-              <button className="btn btn-sm btn-light" style={{fontSize:"0.72rem",fontWeight:700,color:COLOR.phaseManual,padding:"3px 10px"}} onClick={handleSave} disabled={saving}>
-                {saving?<><span className="spinner-border spinner-border-sm me-1" style={{width:10,height:10}}/>…</>:`✓ Valider (${pending.size} modif.)`}
-              </button>
-            </>}
+            <button
+              type="button"
+              className={`btn btn-sm ${showDeliverables ? "btn-light" : "btn-outline-light"}`}
+              style={{ fontSize: "0.72rem", padding: "3px 8px" }}
+              onClick={() => setShowDeliverables((v) => !v)}
+            >
+              Livrables
+            </button>
+            {hasPending && (
+              <>
+                <button
+                  className="btn btn-sm btn-outline-light"
+                  style={{ fontSize: "0.72rem", padding: "3px 10px" }}
+                  onClick={handleCancelPending}
+                  disabled={saving}
+                >
+                  Annuler
+                </button>
+                <button
+                  className="btn btn-sm btn-light"
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: COLOR.sprintBar,
+                    padding: "3px 12px",
+                  }}
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <span
+                        className="spinner-border spinner-border-sm me-1"
+                        style={{ width: 10, height: 10 }}
+                      />
+                      …
+                    </>
+                  ) : (
+                    `✓ Valider (${pendingOverrides.size} modif.)`
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         {/* Légende */}
-        <div className="d-flex gap-3 flex-wrap align-items-center px-3 py-2" style={{background:"#f4faf4",borderBottom:"1px solid #dee2e6",fontSize:"0.74rem"}}>
-          <LDot color={COLOR.phaseAuto} label="Planning auto."/>
-          <LDot color={COLOR.phaseManual} label="Modifié manuellement"/>
-          <LDot color={COLOR.delivAuto} label="Livrable"/>
-          {showSprints&&<LDot color={COLOR.sprintBar} label="Sprint (2 sem. · 80h)"/>}
-          <LDot color={COLOR.ghost} label="Durée auto (ref.)"/>
-          <LDot color={COLOR.pauseBg} label="🍽 Pause 12h30–13h30" square/>
-          {isPM&&showHolidays&&<LDot color="rgba(220,50,50,0.3)" label="Jour férié" square/>}
-          {isPM&&contractEndDate&&<LDot color={isOD?COLOR.danger:COLOR.success} label="Fin contrat"/>}
-          {pending.size>0&&<span className="ms-auto" style={{color:COLOR.phaseManual,fontWeight:700}}>⚠ {pending.size} modif. non sauvegardée{pending.size>1?"s":""}</span>}
+        <div
+          className="d-flex gap-3 flex-wrap align-items-center px-3 py-2"
+          style={{
+            background: "#f8fafc",
+            borderBottom: "1px solid #dee2e6",
+            fontSize: "0.74rem",
+          }}
+        >
+          <LDot color={COLOR.lotBar} label="Lot" />
+          <LDot color={COLOR.phaseBar} label="Phase (auto)" />
+          <LDot color={COLOR.sprintBar} label="Sprint (déplaçable)" />
+          <LDot color={COLOR.sprintAlt} label="Sprint modifié" />
+          {showDeliverables && <LDot color={COLOR.delivLabel} label="Livrable" square />}
+          {hasPending && (
+            <span className="ms-auto" style={{ color: COLOR.sprintBar, fontWeight: 700 }}>
+              ⚠ {pendingOverrides.size} modif. non sauvegardée
+              {pendingOverrides.size > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
 
-        {/* ── GANTT LAYOUT ────────────────────────────────────────────────── */}
-        {rows.length===0
-          ?<div className="text-center text-muted py-5">Aucune phase. Ajoutez des lots et phases dans l'onglet Backlog.</div>
-          :<div style={{display:"flex",flexDirection:"column",maxHeight:580,position:"relative"}}>
-
-            {/* ── Ligne HEADER : label fixe + header scrollable (invisible overflow) */}
-            <div style={{display:"flex",flexShrink:0,position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 4px rgba(0,0,0,0.15)"}}>
-              {/* Cellule label fixe */}
-              <div style={{width:LABEL_W,flexShrink:0,height:HDR_H,background:COLOR.headerBg,display:"flex",flexDirection:"column",justifyContent:"center",padding:"0 12px",borderRight:`1.5px solid ${COLOR.gridMajor}`}}>
-                <div style={{color:COLOR.headerText,fontSize:11,fontWeight:700}}>Lot / Phase / Livrable</div>
-                {baseDate&&<div style={{color:"rgba(255,255,255,0.55)",fontSize:7.5,marginTop:4}}>
-                  Début : {fd(baseDate)}{contractEndDate?`  →  ${fd(contractEndDate)}`:""}<br/>9h–12h30 · 13h30–18h
-                </div>}
+        {/* ── Gantt layout ────────────────────────────────────────────────── */}
+        {rows.length === 0 ? (
+          <div className="text-center text-muted py-5">
+            Aucun sprint. Ajoutez des lots, phases et sprints dans l'onglet Backlog.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: 580,
+              position: "relative",
+            }}
+          >
+            {/* Header row */}
+            <div
+              style={{
+                display: "flex",
+                flexShrink: 0,
+                position: "sticky",
+                top: 0,
+                zIndex: 10,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
+              }}
+            >
+              {/* Fixed label header cell */}
+              <div
+                style={{
+                  width: LABEL_W,
+                  flexShrink: 0,
+                  height: HDR_H,
+                  background: COLOR.headerBg,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  padding: "0 12px",
+                  borderRight: `1.5px solid ${COLOR.gridMajor}`,
+                }}
+              >
+                <div style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>
+                  Lot / Phase / Sprint
+                </div>
+                {baseDate && (
+                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 7.5, marginTop: 3 }}>
+                    Début : {fmtDate(baseDate)}
+                  </div>
+                )}
+                {!baseDate && (
+                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 7.5, marginTop: 3 }}>
+                    Mode relatif (J / S)
+                  </div>
+                )}
               </div>
-              {/* Header scrollable (overflow hidden, synchronisé) */}
-                  <div
-                    ref={headerScrollRef}
-                    style={{
-                      flex: 1,
-                      overflowX: "auto",   
-                      overflowY: "hidden"
-                    }}
-                  >                
-                  <svg width={scrollW} height={HDR_H} style={{display:"block"}}>
+              {/* Scrollable header */}
+              <div
+                ref={headerScrollRef}
+                style={{ flex: 1, overflowX: "auto", overflowY: "hidden" }}
+              >
+                <svg width={scrollW} height={HDR_H} style={{ display: "block" }}>
                   {renderHeaderSVG()}
                 </svg>
               </div>
             </div>
 
-            {/* ── Corps scrollable : labels fixes + barres scrollables ── */}
-            <div style={{display:"flex",flex:1,overflow:"hidden",minHeight:0}}>
-              {/* Colonne labels fixe (scroll vertical uniquement) */}
-              <div style={{width:LABEL_W,flexShrink:0,overflowY:"auto",overflowX:"hidden",borderRight:`1.5px solid ${COLOR.gridMajor}`}}
-                onScroll={e=>{if(bodyScrollRef.current)bodyScrollRef.current.scrollTop=(e.target as HTMLElement).scrollTop;}}>
-                <svg width={LABEL_W} height={svgBodyH} style={{display:"block",userSelect:"none"}}>
+            {/* Body */}
+            <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
+              {/* Fixed labels */}
+              <div
+                style={{
+                  width: LABEL_W,
+                  flexShrink: 0,
+                  overflowY: "auto",
+                  overflowX: "hidden",
+                  borderRight: `1.5px solid ${COLOR.gridMajor}`,
+                }}
+                onScroll={(e) => {
+                  if (bodyScrollRef.current)
+                    bodyScrollRef.current.scrollTop = (
+                      e.target as HTMLElement
+                    ).scrollTop;
+                }}
+              >
+                <svg
+                  width={LABEL_W}
+                  height={svgBodyH}
+                  style={{ display: "block", userSelect: "none" }}
+                >
                   <defs>
-                    <pattern id="pendingStripe" patternUnits="userSpaceOnUse" width={8} height={8} patternTransform="rotate(45)"><line x1={0} y1={0} x2={0} y2={8} stroke="rgba(255,255,255,0.25)" strokeWidth={4}/></pattern>
-                    <pattern id="sprintStripe"  patternUnits="userSpaceOnUse" width={10} height={10} patternTransform="rotate(45)"><line x1={0} y1={0} x2={0} y2={10} stroke="rgba(255,255,255,0.15)" strokeWidth={5}/></pattern>
+                    <pattern
+                      id="pendingStripe"
+                      patternUnits="userSpaceOnUse"
+                      width={8}
+                      height={8}
+                      patternTransform="rotate(45)"
+                    >
+                      <line
+                        x1={0} y1={0} x2={0} y2={8}
+                        stroke="rgba(255,255,255,0.22)"
+                        strokeWidth={4}
+                      />
+                    </pattern>
                   </defs>
                   {renderLabelsSVG()}
                 </svg>
               </div>
-              {/* Zone barres scrollable dans les deux axes */}
-              <div ref={bodyScrollRef} style={{flex:1,overflowX:"auto",overflowY:"auto",maxHeight:500,cursor:drag?"grabbing":"default"}}>
-                <svg width={scrollW} height={svgBodyH} style={{display:"block",userSelect:"none"}}>
+
+              {/* Scrollable bars */}
+              <div
+                ref={bodyScrollRef}
+                style={{
+                  flex: 1,
+                  overflowX: "auto",
+                  overflowY: "auto",
+                  maxHeight: 500,
+                  cursor: dragState ? "grabbing" : "default",
+                }}
+              >
+                <svg
+                  width={scrollW}
+                  height={svgBodyH}
+                  style={{ display: "block", userSelect: "none" }}
+                >
                   <defs>
-                    <pattern id="pendingStripe2" patternUnits="userSpaceOnUse" width={8} height={8} patternTransform="rotate(45)"><line x1={0} y1={0} x2={0} y2={8} stroke="rgba(255,255,255,0.25)" strokeWidth={4}/></pattern>
-                    <pattern id="sprintStripe2"  patternUnits="userSpaceOnUse" width={10} height={10} patternTransform="rotate(45)"><line x1={0} y1={0} x2={0} y2={10} stroke="rgba(255,255,255,0.15)" strokeWidth={5}/></pattern>
+                    <pattern
+                      id="pendingStripe"
+                      patternUnits="userSpaceOnUse"
+                      width={8}
+                      height={8}
+                      patternTransform="rotate(45)"
+                    >
+                      <line
+                        x1={0} y1={0} x2={0} y2={8}
+                        stroke="rgba(255,255,255,0.22)"
+                        strokeWidth={4}
+                      />
+                    </pattern>
                   </defs>
-                  <rect width={scrollW} height={svgBodyH} fill="#f8fbf8"/>
+                  <rect width={scrollW} height={svgBodyH} fill="#f8fbfc" />
                   {renderBodySVG()}
                 </svg>
               </div>
             </div>
           </div>
-        }
+        )}
 
-        {/* Détail sélection */}
-        {selRow&&selRow.kind!=="lot"&&(
-          <div style={{borderTop:`2px solid ${selRow.kind==="sprint"?COLOR.sprintBar:COLOR.phaseManual}`,background:selRow.kind==="sprint"?"#f3eeff":"#f5f0ff"}}>
-            <div className="d-flex align-items-center gap-3 flex-wrap px-3 py-2" style={{fontSize:"0.8rem"}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                {selRow.kind==="sprint"&&<span style={{color:COLOR.sprintBar}}></span>}
-                <div style={{width:10,height:10,borderRadius:"50%",background:selRow.color}}/>
-                <strong style={{color:selRow.kind==="sprint"?COLOR.sprintBar:COLOR.phaseManual}}>{selRow.kind==="deliverable"?"• ":""}{selRow.label}</strong>
+        {/* ── Détail sélection ─────────────────────────────────────────────── */}
+        {selRow && selRow.kind === "sprint" && (
+          <div
+            style={{
+              borderTop: `2px solid ${COLOR.sprintBar}`,
+              background: "#f5f3ff",
+            }}
+          >
+            <div
+              className="d-flex align-items-center gap-3 flex-wrap px-3 py-2"
+              style={{ fontSize: "0.8rem" }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: COLOR.sprintBar,
+                  }}
+                />
+                <strong style={{ color: COLOR.sprintBar }}>
+                  {selRow.label}
+                </strong>
               </div>
-              <span>Durée : <strong>{fmtDur(selRow.endH-selRow.startH)}</strong></span>
-              {isPM&&baseDate?(
-                <>
-                  <span style={{color:COLOR.lotBar}}><strong>{fd(owDate(baseDate,selRow.startH))}</strong>{" → "}<strong>{fd(owDate(baseDate,selRow.endH))}</strong></span>
-                  {selRow.isOverridden&&<span className="text-muted" style={{fontSize:"0.72rem"}}>(auto : {fd(owDate(baseDate,selRow.autoStartH))} → {fd(owDate(baseDate,selRow.autoEndH))})</span>}
-                  <span className="text-muted" style={{fontSize:"0.72rem"}}>{countWorkDaysBetween(owDate(baseDate,selRow.startH),owDate(baseDate,selRow.endH))} j.ouv.</span>
-                </>
-              ):(
-                <>
-                  {selRow.kind!=="sprint"&&<span className="text-muted">Auto : {fmtDur(selRow.autoEndH-selRow.autoStartH)}</span>}
-                  <span className="text-muted">JH : {selRow.totalJH.toFixed(1)}</span>
-                </>
+              <span>
+                Durée :{" "}
+                <strong>{selRow.toDay - selRow.fromDay + 1} jours</strong>
+                {" "}(
+                {((selRow.toDay - selRow.fromDay + 1) / DAYS_PER_WEEK).toFixed(1)}{" "}
+                sem.)
+              </span>
+              {baseDate ? (
+                <span style={{ color: COLOR.lotBar }}>
+                  <strong>
+                    {fmtDate(addDays(baseDate, selRow.fromDay - 1))}
+                  </strong>
+                  {" → "}
+                  <strong>
+                    {fmtDate(addDays(baseDate, selRow.toDay - 1))}
+                  </strong>
+                </span>
+              ) : (
+                <span style={{ color: "#64748b" }}>
+                  J{selRow.fromDay} → J{selRow.toDay}
+                </span>
               )}
-              {selRow.realDateDebut&&<span style={{background:"#e8f5e9",padding:"2px 6px",borderRadius:4,fontSize:"0.72rem",color:"#2d6a4f"}}>BDD : {fdr(selRow.realDateDebut)}{selRow.realDateFin?` → ${fdr(selRow.realDateFin)}`:""}</span>}
-              {selRow.isOverridden&&selRow.kind!=="sprint"&&<button className="btn btn-link btn-sm p-0 ms-auto text-muted" onClick={()=>handleReset(selRow.id)}>↺ Réinitialiser</button>}
+              {pendingOverrides.has(selRow.sprintId!) && (
+                <span
+                  style={{ color: COLOR.sprintBar, fontSize: "0.75rem" }}
+                >
+                  ⚠ Modifié — en attente de sauvegarde
+                </span>
+              )}
+              {pendingOverrides.has(selRow.sprintId!) && (
+                <button
+                  className="btn btn-link btn-sm p-0 ms-auto text-muted"
+                  style={{ fontSize: "0.75rem" }}
+                  onClick={() => {
+                    setPendingOverrides((prev) => {
+                      const n = new Map(prev);
+                      n.delete(selRow.sprintId!);
+                      return n;
+                    });
+                  }}
+                >
+                  ↺ Réinitialiser
+                </button>
+              )}
             </div>
-            <div className="px-3 pb-2" style={{fontSize:"0.72rem",color:"#999"}}>
-              {selRow.kind==="sprint"?`Sprint de ${SPRINT_HOURS}h (2 sem. ouvrées) · 9h–12h30 🍽 13h30–18h · ${HOURS_PER_DAY}h/j`:`←→ ou +/- · pas : ${unit==="hour"?"1h":unit==="day"?"1j":unit==="week"?"1 sem.":"1 mois"} · min:1h`}
-            </div>
+            {selRow.deliverables && selRow.deliverables.length > 0 && (
+              <div
+                className="px-3 pb-2"
+                style={{ fontSize: "0.75rem", color: "#64748b" }}
+              >
+                <strong>Livrables :</strong>{" "}
+                {selRow.deliverables.map((d) => d.name).join(", ")}
+              </div>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 };
-
-const LDot:React.FC<{color:string;label:string;square?:boolean}>=({color,label,square})=>(
-  <div className="d-flex align-items-center gap-1">
-    <div style={{width:10,height:10,background:color,borderRadius:square?2:2,flexShrink:0,border:"1px solid rgba(0,0,0,0.1)"}}/>
-    <span className="text-muted">{label}</span>
-  </div>
-);
 
 export default PlanningTab;

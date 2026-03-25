@@ -2,37 +2,40 @@ import React, { useEffect, useRef, useState } from "react";
 import Sortable from "sortablejs";
 
 import Button from "../../../../components/button/Button.tsx";
-import { FaPlus, FaSpinner, FaEdit, FaTrash, FaEye, FaArrowLeft, FaCalendar, FaChevronDown, FaChevronRight } from "react-icons/fa";
+import {
+  FaPlus, FaSpinner, FaEdit, FaTrash, FaEye, FaArrowLeft,
+  FaCalendar, FaChevronDown, FaChevronRight, FaRunning,
+} from "react-icons/fa";
 import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
 import "./BacklogModal.css";
-import { BacklogService } from "../../../../services/lead/backlog/BacklogService.tsx";
-import { BacklogLotService } from "../../../../services/lead/backlog/BacklogLotService.tsx";
-import { BacklogPhaseService } from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
-import { BacklogProfilService } from "../../../../services/lead/backlog/BacklogProfilService.tsx";
-import { BacklogLineService } from "../../../../services/lead/backlog/BacklogLineService.tsx";
-import { BacklogProjetLineProfilService } from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
-import { BacklogDeliverableService } from "../../../../services/lead/backlog/BacklogdeliverableService.tsx";
-import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
-import { useAuth } from "../../../../context/AuthContext.tsx";
-import BacklogForm from "./BacklogForm.tsx";
-import PlanningTab from "./PlanningTab.tsx";
-import BudgetTab from "./BudgetTab.tsx";
-import ChargesAnnexesTab from "../../gestion-projet/tabs/ChargesAnnexesTab.tsx";
-import { ChargesAnnexesService } from "../../../../services/projet/backlog/ChargesAnnexesService.tsx";
+import { BacklogService }                   from "../../../../services/lead/backlog/BacklogService.tsx";
+import { BacklogProjetPhaseService }        from "../../../../services/projet/backlog/BacklogProjetPhaseService.tsx";
+import { BacklogLotService }                from "../../../../services/lead/backlog/BacklogLotService.tsx";
+import { BacklogPhaseService }              from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
+import { BacklogProfilService }             from "../../../../services/lead/backlog/BacklogProfilService.tsx";
+import { BacklogLineService }               from "../../../../services/lead/backlog/BacklogLineService.tsx";
+import { BacklogProjetLineProfilService }   from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
+import { useLeadTechFinDetailsService }     from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
+import { useAuth }                          from "../../../../context/AuthContext.tsx";
+import BacklogForm                          from "./BacklogForm.tsx";
+import PlanningTab                          from "./PlanningTab.tsx";
+import BudgetTab                            from "./BudgetTab.tsx";
+import ChargesAnnexesTab                    from "../../gestion-projet/tabs/ChargesAnnexesTab.tsx";
+import { ChargesAnnexesService }            from "../../../../services/projet/backlog/ChargesAnnexesService.tsx";
+import { BacklogPlanningService }           from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 
 import {
   Backlog,
   BacklogLot,
   BacklogPhase,
+  BacklogSprint,
   BacklogProfil,
   BacklogLine,
   BacklogLineProfil,
-  CreateBacklogRequest
+  BacklogDeliverable,
+  CreateBacklogRequest,
 } from "../../../../types/lead/Backlog/Backlog.tsx";
-
-import { BacklogDeliverable } from "../../../../types/lead/Backlog/Backlog.tsx";
-import { BacklogPlanningService } from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 
 interface BacklogModalProps {
   show: boolean;
@@ -43,111 +46,129 @@ interface BacklogModalProps {
 
 const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, leadName }) => {
   const { api } = useAuth();
-  const backlogService            = new BacklogService(api);
-  const backlogLotService         = new BacklogLotService(api);
-  const backlogPhaseService       = new BacklogPhaseService(api);
-  const backlogProfilService      = new BacklogProfilService(api);
-  const backlogLineService        = new BacklogLineService(api);
-  const backlogLineProfilService  = new BacklogProjetLineProfilService(api);
-  const backlogDeliverableService = new BacklogDeliverableService(api);
-  const backlogPlanningService    = new BacklogPlanningService(api);
-  const leadTechFinService        = useLeadTechFinDetailsService();
-  const chargesAnnexesService     = new ChargesAnnexesService(api);
 
-  // ── Liste des backlogs ────────────────────────────────────
+  // ── Services ──────────────────────────────────────────────────────────────
+  const backlogService          = new BacklogService(api);
+  const backlogLotService       = new BacklogLotService(api);
+  const backlogPhaseService     = new BacklogPhaseService(api);
+  const backlogProfilService    = new BacklogProfilService(api);
+  const backlogLineService      = new BacklogLineService(api);
+  const backlogLineProfilService = new BacklogProjetLineProfilService(api);
+  const backlogPlanningService  = new BacklogPlanningService(api);
+  const leadTechFinService      = useLeadTechFinDetailsService();
+  const chargesAnnexesService   = new ChargesAnnexesService(api);
+  // Réutilisation du service projet pour sprints + livrables (même table/endpoints)
+  const phaseService            = new BacklogProjetPhaseService(api);
+
+  // ── Liste des backlogs ────────────────────────────────────────────────────
   const [backlogs,          setBacklogs]          = useState<Backlog[]>([]);
   const [selectedBacklogId, setSelectedBacklogId] = useState<number | null>(null);
   const [loadingBacklogs,   setLoadingBacklogs]   = useState(true);
 
-  // ── Données du backlog sélectionné ────────────────────────
-  const [backlog,      setBacklog]      = useState<Backlog | null>(null);
-  const [lots,         setLots]         = useState<BacklogLot[]>([]);
-  const [profils,      setProfils]      = useState<BacklogProfil[]>([]);
-  const [lines,        setLines]        = useState<BacklogLine[]>([]);
-  const [lineProfils,  setLineProfils]  = useState<BacklogLineProfil[]>([]);
-  const [deliverables, setDeliverables] = useState<Map<number, BacklogDeliverable[]>>(new Map());
+  // ── Données du backlog sélectionné ───────────────────────────────────────
+  const [backlog,     setBacklog]     = useState<Backlog | null>(null);
+  const [lots,        setLots]        = useState<BacklogLot[]>([]);
+  const [profils,     setProfils]     = useState<BacklogProfil[]>([]);
+  const [lines,       setLines]       = useState<BacklogLine[]>([]);
+  const [lineProfils, setLineProfils] = useState<BacklogLineProfil[]>([]);
 
-  // ── Overrides planning pré-chargés ────────────────────────
-  // Clé : "phase-{id}", Valeur : { heures }
+  // Map sprintId → livrables
+  const [sprintDeliverables, setSprintDeliverables] = useState<Map<number, BacklogDeliverable[]>>(new Map());
+
+  // ── Overrides planning ────────────────────────────────────────────────────
   const [planningOverrides, setPlanningOverrides] = useState<Map<string, { heures: number }>>(new Map());
-  const [planningReady,     setPlanningReady]     = useState(false); // ← NOUVEAU
+  const [planningReady,     setPlanningReady]     = useState(false);
 
-  // ── Modaux ────────────────────────────────────────────────
-  const [showLotModal,          setShowLotModal]          = useState(false);
-  const [showPhaseModal,        setShowPhaseModal]        = useState(false);
-  const [showProfilModal,       setShowProfilModal]       = useState(false);
-  const [showLineModal,         setShowLineModal]         = useState(false);
-  const [showLineProfilModal,   setShowLineProfilModal]   = useState(false);
-  const [showDeliverableModal,  setShowDeliverableModal]  = useState(false);
-  const [showBacklogFormModal,  setShowBacklogFormModal]  = useState(false);
+  // ── Modaux ────────────────────────────────────────────────────────────────
+  const [showLotModal,         setShowLotModal]         = useState(false);
+  const [showPhaseModal,       setShowPhaseModal]       = useState(false);
+  const [showSprintModal,      setShowSprintModal]      = useState(false);
+  const [showProfilModal,      setShowProfilModal]      = useState(false);
+  const [showLineModal,        setShowLineModal]        = useState(false);
+  const [showLineProfilModal,  setShowLineProfilModal]  = useState(false);
+  const [showDeliverableModal, setShowDeliverableModal] = useState(false);
+  const [showBacklogFormModal, setShowBacklogFormModal] = useState(false);
 
-  // ── Entités en cours d'édition ───────────────────────────
+  // ── Entités en cours d'édition ────────────────────────────────────────────
   const [editingLot,         setEditingLot]         = useState<BacklogLot | null>(null);
   const [editingPhase,       setEditingPhase]       = useState<BacklogPhase | null>(null);
+  const [editingSprint,      setEditingSprint]      = useState<BacklogSprint | null>(null);
   const [editingProfil,      setEditingProfil]      = useState<BacklogProfil | null>(null);
   const [editingLine,        setEditingLine]        = useState<BacklogLine | null>(null);
   const [editingLineProfil,  setEditingLineProfil]  = useState<BacklogLineProfil | null>(null);
   const [editingDeliverable, setEditingDeliverable] = useState<BacklogDeliverable | null>(null);
 
-  // ── IDs courants ─────────────────────────────────────────
+  // ── IDs courants ──────────────────────────────────────────────────────────
   const [currentLotId,    setCurrentLotId]    = useState<number | null>(null);
+  const [currentPhaseId,  setCurrentPhaseId]  = useState<number | null>(null);
+  const [currentSprintId, setCurrentSprintId] = useState<number | null>(null);
   const [currentLineId,   setCurrentLineId]   = useState<number | null>(null);
   const [currentProfilId, setCurrentProfilId] = useState<number | null>(null);
-  const [currentPhaseId,  setCurrentPhaseId]  = useState<number | null>(null);
 
-  // ── Formulaires ──────────────────────────────────────────
+  // ── Formulaires ───────────────────────────────────────────────────────────
   const [newLot,         setNewLot]         = useState({ name: "", desc: "" });
   const [newPhase,       setNewPhase]       = useState({ name: "" });
+  const [newSprint,      setNewSprint]      = useState({ name: "" });
   const [newProfil,      setNewProfil]      = useState({ name: "", desc: "", tjm: 0 });
-  const [newLine,        setNewLine]        = useState({ epic: "", userStory: "", description: "", resultat: "", phaseId: null as number | null });
+  const [newLine,        setNewLine]        = useState({ epic: "", userStory: "", description: "", resultat: "", sprintId: null as number | null });
   const [newLineProfil,  setNewLineProfil]  = useState({ volume: 0 });
   const [newDeliverable, setNewDeliverable] = useState({ name: "", description: "" });
 
-  // ── États UI ─────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────────
   const [loading,             setLoading]             = useState(false);
   const [error,               setError]               = useState<string | null>(null);
   const [saving,              setSaving]              = useState(false);
   const [activeTab,           setActiveTab]           = useState<string>("backlog");
   const [expandedPhases,      setExpandedPhases]      = useState<Set<number>>(new Set());
+  const [expandedSprints,     setExpandedSprints]     = useState<Set<number>>(new Set());
   const [loadingDeliverables, setLoadingDeliverables] = useState<Set<number>>(new Set());
   const [deviseAbr,           setDeviseAbr]           = useState<string | null>(null);
   const [budgetRH,            setBudgetRH]            = useState<number>(0);
 
-  // ── Refs Sortable ─────────────────────────────────────────
-  const listRef                      = useRef<HTMLDivElement | null>(null);
-  const profilListRef                = useRef<HTMLDivElement | null>(null);
-  const sortableInstance             = useRef<Sortable | null>(null);
-  const profilSortableInstance       = useRef<Sortable | null>(null);
-  const phaseSortableInstances       = useRef<Map<number, Sortable>>(new Map());
-  const deliverableSortableInstances = useRef<Map<number, Sortable>>(new Map());
-  const lineTableBodyRef             = useRef<HTMLTableSectionElement | null>(null);
-  const lineSortableInstance         = useRef<Sortable | null>(null);
+  // ── Refs Sortable ─────────────────────────────────────────────────────────
+  const listRef                = useRef<HTMLDivElement | null>(null);
+  const profilListRef          = useRef<HTMLDivElement | null>(null);
+  const sortableInstance       = useRef<Sortable | null>(null);
+  const profilSortableInstance = useRef<Sortable | null>(null);
+  const phaseSortableInstances = useRef<Map<number, Sortable>>(new Map());
+  const lineTableBodyRef       = useRef<HTMLTableSectionElement | null>(null);
+  const lineSortableInstance   = useRef<Sortable | null>(null);
 
-  // ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const getAllPhases  = (): BacklogPhase[]  => lots.flatMap(lot => lot.phases || []);
+  const getAllSprints = (): BacklogSprint[] => getAllPhases().flatMap(p => p.sprints || []);
+
+  const getSprintNameById = (sprintId: number | null | undefined): string => {
+    if (!sprintId) return "—";
+    return getAllSprints().find(s => s.id === sprintId)?.name || "—";
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // CRÉATION BACKLOG
-  // ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const handleCreateBacklog = async (item: CreateBacklogRequest) => {
     if (!leadId) return;
     try {
       const created = await backlogService.createBacklog({
-        name:     item.name,
-        desc:     item.desc,
-        leadId:   item.leadId,
-        projetId: null,
-        type:     item.type, 
+        name: item.name, desc: item.desc, leadId: item.leadId, projetId: null, type: item.type,
       });
       setBacklogs(prev => [...prev, created]);
       setSelectedBacklogId(created.id);
       setShowBacklogFormModal(false);
     } catch (err) {
-      console.error("Erreur lors de la création du backlog:", err);
+      console.error("Erreur création backlog:", err);
       alert("Impossible de créer le backlog.");
     }
   };
 
-  // ─────────────────────────────────────────────────────────
-  // FETCH LISTE DES BACKLOGS
-  // ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FETCH LISTE
+  // ═══════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     if (show && leadId) fetchBacklogsList();
   }, [show, leadId]);
@@ -156,21 +177,22 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     try {
       setLoadingBacklogs(true);
       setError(null);
-      const fetchedBacklogs = await backlogService.getByLeadId(leadId);
-      const filtered = fetchedBacklogs.filter(b => b.type !== 1); 
+      const fetched  = await backlogService.getByLeadId(leadId);
+      const filtered = fetched.filter(b => b.type !== 1);
       setBacklogs(filtered);
       if (filtered.length === 1) setSelectedBacklogId(filtered[0].id);
     } catch (err) {
-      console.error("Erreur lors du chargement des backlogs:", err);
+      console.error(err);
       setError("Impossible de charger les backlogs. Veuillez réessayer.");
     } finally {
       setLoadingBacklogs(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────
-  // FETCH BACKLOG COMPLET + OVERRIDES PLANNING
-  // ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FETCH BACKLOG COMPLET
+  // ═══════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     if (selectedBacklogId) fetchBacklog();
   }, [selectedBacklogId]);
@@ -180,10 +202,9 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       try {
         if (!leadId) return;
         const techFin = await leadTechFinService.getByLeadId(leadId);
-        const abr = (techFin && (techFin.devise?.abrDevise || techFin.devise?.abrDevise)) || null;
-        setDeviseAbr(abr);
+        setDeviseAbr(techFin?.devise?.abrDevise || null);
       } catch (err) {
-        console.error("Erreur lors du chargement de la devise:", err);
+        console.error(err);
         setDeviseAbr(null);
       }
     };
@@ -192,8 +213,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
 
   const fetchBacklog = async () => {
     if (!selectedBacklogId) return;
-
-    // Reset planningReady à chaque nouveau chargement
     setPlanningReady(false);
 
     try {
@@ -203,54 +222,50 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       const fetchedBacklog = await backlogService.getCompleteById(selectedBacklogId);
       setBacklog(fetchedBacklog);
 
-      const sortedLots = [...(fetchedBacklog.lots || [])].sort((a, b) => a.order - b.order);
-      setLots(sortedLots);
-
+      const sortedLots    = [...(fetchedBacklog.lots    || [])].sort((a, b) => a.order - b.order);
       const sortedProfils = [...(fetchedBacklog.profils || [])].sort((a, b) => a.order - b.order);
-      setProfils(sortedProfils);
+      const sortedLines   = [...(fetchedBacklog.lines   || [])].sort((a, b) => a.order - b.order);
 
-      const sortedLines = [...(fetchedBacklog.lines || [])].sort((a, b) => a.order - b.order);
+      setLots(sortedLots);
+      setProfils(sortedProfils);
       setLines(sortedLines);
 
       const allLineProfils: BacklogLineProfil[] = [];
       sortedLines.forEach(line => {
-        if (line.profils && line.profils.length > 0) allLineProfils.push(...line.profils);
+        if (line.profils?.length) {
+          line.profils.forEach(lp => {
+            allLineProfils.push({ ...lp, lineId: line.id });
+          });
+        }
       });
       setLineProfils(allLineProfils);
 
-      const deliverablesMap = new Map<number, BacklogDeliverable[]>();
+      // ── Livrables par sprint (depuis les données déjà chargées) ─────────
+      const delivMap = new Map<number, BacklogDeliverable[]>();
       const allPhases = sortedLots.flatMap(lot => lot.phases || []);
       for (const phase of allPhases) {
-        try {
-          const phaseDeliverables = await backlogDeliverableService.getByPhaseId(phase.id);
-          const sorted = [...(phaseDeliverables || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-          deliverablesMap.set(phase.id, sorted);
-        } catch (err) {
-          console.error(`Erreur livrables phase ${phase.id}:`, err);
-          deliverablesMap.set(phase.id, []);
+        for (const sprint of phase.sprints || []) {
+          const sorted = [...(sprint.deliverables || [])].sort(
+            (a, b) => (a.order ?? 0) - (b.order ?? 0)
+          );
+          delivMap.set(sprint.id, sorted);
         }
       }
-      setDeliverables(deliverablesMap);
+      setSprintDeliverables(delivMap);
 
     } catch (err) {
-      console.error("Erreur lors du chargement du backlog:", err);
+      console.error(err);
       setError("Impossible de charger le backlog. Veuillez réessayer.");
     }
 
-    // ── Chargement conditionnel des overrides planning ──────────────────
-    // On utilise hasPlanning() pour éviter un appel inutile à getByBacklogId()
-    // si aucun override n'existe encore pour ce backlog.
-    // PlanningTab n'est monté QUE quand planningReady = true → initialOverrides
-    // est déjà rempli au moment du premier rendu du composant.
+    // ── Planning overrides ────────────────────────────────────────────────
     try {
       const hasChanges = await backlogPlanningService.hasPlanning(selectedBacklogId);
       if (hasChanges) {
         const planningEntries = await backlogPlanningService.getByBacklogId(selectedBacklogId);
         const map = new Map<string, { heures: number }>();
         planningEntries.forEach(e => {
-          if (isFinite(e.heures) && e.heures > 0) {
-            map.set(`phase-${e.phaseId}`, { heures: e.heures });
-          }
+          if (isFinite(e.heures) && e.heures > 0) map.set(`phase-${e.phaseId}`, { heures: e.heures });
         });
         setPlanningOverrides(map);
       } else {
@@ -260,13 +275,14 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       setPlanningOverrides(new Map());
     } finally {
       setLoading(false);
-      setPlanningReady(true); // ← overrides prêts (vides ou non) → PlanningTab peut être monté
+      setPlanningReady(true);
     }
   };
 
-  // ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   // RETOUR À LA LISTE
-  // ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const handleBackToList = () => {
     setSelectedBacklogId(null);
     setBacklog(null);
@@ -274,117 +290,108 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     setProfils([]);
     setLines([]);
     setLineProfils([]);
-    setDeliverables(new Map());
+    setSprintDeliverables(new Map());
     setPlanningOverrides(new Map());
-    setPlanningReady(false); // ← reset : PlanningTab sera démonté et remonté proprement
+    setPlanningReady(false);
   };
 
-  /* ================= SORTABLE LINES ================= */
-  useEffect(() => {
-    if (lineSortableInstance.current) {
-      lineSortableInstance.current.destroy();
-      lineSortableInstance.current = null;
-    }
-    if (!lineTableBodyRef.current || lines.length === 0 || !show || !selectedBacklogId) return;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SORTABLE — LINES
+  // ═══════════════════════════════════════════════════════════════════════════
 
+  useEffect(() => {
+    if (lineSortableInstance.current) { lineSortableInstance.current.destroy(); lineSortableInstance.current = null; }
+    if (!lineTableBodyRef.current || lines.length === 0 || !show || !selectedBacklogId) return;
     lineSortableInstance.current = Sortable.create(lineTableBodyRef.current, {
       animation: 150, handle: ".line-drag-handle",
       ghostClass: "sortable-ghost", chosenClass: "sortable-chosen", dragClass: "sortable-drag",
       filter: ".sortable-empty-row",
-      onEnd: async (evt) => {
-        if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
-        if (evt.oldIndex === evt.newIndex) return;
+      onEnd: async (evt: { oldIndex: number | undefined; newIndex: number | undefined; }) => {
+        if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return;
         const newLines = [...lines];
-        const [movedItem] = newLines.splice(evt.oldIndex, 1);
-        newLines.splice(evt.newIndex, 0, movedItem);
-        const reorderedLines = newLines.map((line, index) => ({ ...line, order: index + 1 }));
-        setLines(reorderedLines);
-        try {
-          await backlogLineService.updateOrder(reorderedLines.map(l => ({ id: l.id, order: l.order })));
-        } catch (err) {
-          console.error("Erreur ordre lignes:", err);
-          fetchBacklog();
-        }
+        const [moved] = newLines.splice(evt.oldIndex, 1);
+        newLines.splice(evt.newIndex, 0, moved);
+        const reordered = newLines.map((l, i) => ({ ...l, order: i + 1 }));
+        setLines(reordered);
+        try { await backlogLineService.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); }
+        catch (err) { console.error(err); fetchBacklog(); }
       },
     });
     return () => { lineSortableInstance.current?.destroy(); lineSortableInstance.current = null; };
   }, [lines, loading, show, selectedBacklogId]);
 
-  /* ================= SORTABLE LOTS ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SORTABLE — LOTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     if (!listRef.current || sortableInstance.current || lots.length === 0 || !show || !selectedBacklogId) return;
     sortableInstance.current = Sortable.create(listRef.current, {
       animation: 150, handle: ".drag-handle",
       ghostClass: "sortable-ghost", chosenClass: "sortable-chosen", dragClass: "sortable-drag",
-      onEnd: async (evt) => {
+      onEnd: async (evt: { oldIndex: number | undefined; newIndex: number | undefined; }) => {
         if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
         const newLots = [...lots];
-        const [movedItem] = newLots.splice(evt.oldIndex, 1);
-        newLots.splice(evt.newIndex, 0, movedItem);
-        const reorderedLots = newLots.map((lot, index) => ({ ...lot, order: index + 1 }));
-        setLots(reorderedLots);
-        try {
-          await backlogLotService.updateOrder(reorderedLots.map(l => ({ id: l.id, order: l.order })));
-        } catch (err) {
-          console.error("Erreur ordre lots:", err);
-          fetchBacklog();
-        }
+        const [moved] = newLots.splice(evt.oldIndex, 1);
+        newLots.splice(evt.newIndex, 0, moved);
+        const reordered = newLots.map((l, i) => ({ ...l, order: i + 1 }));
+        setLots(reordered);
+        try { await backlogLotService.updateOrder(reordered.map(l => ({ id: l.id, order: l.order }))); }
+        catch (err) { console.error(err); fetchBacklog(); }
       },
     });
     return () => { sortableInstance.current?.destroy(); sortableInstance.current = null; };
   }, [lots, loading, show, selectedBacklogId]);
 
-  /* ================= SORTABLE PROFILS ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SORTABLE — PROFILS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     if (!profilListRef.current || profilSortableInstance.current || profils.length === 0 || !show || !selectedBacklogId) return;
     profilSortableInstance.current = Sortable.create(profilListRef.current, {
       animation: 150, handle: ".drag-handle-profil",
       ghostClass: "sortable-ghost", chosenClass: "sortable-chosen", dragClass: "sortable-drag",
-      onEnd: async (evt) => {
+      onEnd: async (evt: { oldIndex: number | undefined; newIndex: number | undefined; }) => {
         if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
         const newProfils = [...profils];
-        const [movedItem] = newProfils.splice(evt.oldIndex, 1);
-        newProfils.splice(evt.newIndex, 0, movedItem);
-        const reorderedProfils = newProfils.map((p, index) => ({ ...p, order: index + 1 }));
-        setProfils(reorderedProfils);
-        try {
-          await backlogProfilService.updateOrder(reorderedProfils.map(p => ({ id: p.id, order: p.order })));
-        } catch (err) {
-          console.error("Erreur ordre profils:", err);
-          fetchBacklog();
-        }
+        const [moved] = newProfils.splice(evt.oldIndex, 1);
+        newProfils.splice(evt.newIndex, 0, moved);
+        const reordered = newProfils.map((p, i) => ({ ...p, order: i + 1 }));
+        setProfils(reordered);
+        try { await backlogProfilService.updateOrder(reordered.map(p => ({ id: p.id, order: p.order }))); }
+        catch (err) { console.error(err); fetchBacklog(); }
       },
     });
     return () => { profilSortableInstance.current?.destroy(); profilSortableInstance.current = null; };
   }, [profils, loading, show, selectedBacklogId]);
 
-  /* ================= SORTABLE PHASES ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SORTABLE — PHASES
+  // ═══════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     if (!show || !selectedBacklogId) return;
     phaseSortableInstances.current.forEach(i => i.destroy());
     phaseSortableInstances.current.clear();
     lots.forEach(lot => {
-      if (!lot.phases || lot.phases.length === 0) return;
+      if (!lot.phases?.length) return;
       const el = document.querySelector(`[data-lot-id="${lot.id}"] .phases-list-sortable`) as HTMLElement;
       if (!el) return;
       const sortable = Sortable.create(el, {
         animation: 150, handle: ".phase-drag-handle",
         ghostClass: "sortable-ghost", chosenClass: "sortable-chosen", dragClass: "sortable-drag",
-        onEnd: async (evt) => {
+        onEnd: async (evt: { oldIndex: number | undefined; newIndex: number | undefined; }) => {
           if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
           const lotToUpdate = lots.find(l => l.id === lot.id);
           if (!lotToUpdate?.phases) return;
           const newPhases = [...lotToUpdate.phases];
-          const [movedPhase] = newPhases.splice(evt.oldIndex, 1);
-          newPhases.splice(evt.newIndex, 0, movedPhase);
-          const reorderedPhases = newPhases.map((p, i) => ({ ...p, order: i + 1 }));
-          setLots(lots.map(l => l.id === lot.id ? { ...l, phases: reorderedPhases } : l));
-          try {
-            await backlogPhaseService.updateOrder(reorderedPhases.map(p => ({ id: p.id, order: p.order })));
-          } catch (err) {
-            console.error("Erreur ordre phases:", err);
-            fetchBacklog();
-          }
+          const [moved] = newPhases.splice(evt.oldIndex, 1);
+          newPhases.splice(evt.newIndex, 0, moved);
+          const reordered = newPhases.map((p, i) => ({ ...p, order: i + 1 }));
+          setLots(lots.map(l => l.id === lot.id ? { ...l, phases: reordered } : l));
+          try { await backlogPhaseService.updateOrder(reordered.map(p => ({ id: p.id, order: p.order }))); }
+          catch (err) { console.error(err); fetchBacklog(); }
         },
       });
       phaseSortableInstances.current.set(lot.id, sortable);
@@ -392,7 +399,10 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     return () => { phaseSortableInstances.current.forEach(i => i.destroy()); phaseSortableInstances.current.clear(); };
   }, [lots, show, selectedBacklogId]);
 
-  /* ================= LOT ACTIONS ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LOT ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const openAddLot  = () => { setEditingLot(null); setNewLot({ name: "", desc: "" }); setShowLotModal(true); };
   const openEditLot = (lot: BacklogLot) => { setEditingLot(lot); setNewLot({ name: lot.name, desc: lot.desc || "" }); setShowLotModal(true); };
 
@@ -402,12 +412,12 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     setSaving(true);
     try {
       if (editingLot) {
-        const updatedLot = await backlogLotService.update(editingLot.id, { name: newLot.name, desc: newLot.desc });
-        setLots(lots.map(l => l.id === editingLot.id ? updatedLot : l));
+        const updated = await backlogLotService.update(editingLot.id, { name: newLot.name, desc: newLot.desc });
+        setLots(lots.map(l => l.id === editingLot.id ? updated : l));
       } else {
         const nextOrder = Math.max(...lots.map(l => l.order), 0) + 1;
-        const createdLot = await backlogLotService.create({ name: newLot.name, desc: newLot.desc, order: nextOrder, backlogId: selectedBacklogId });
-        setLots([...lots, createdLot]);
+        const created   = await backlogLotService.create({ name: newLot.name, desc: newLot.desc, order: nextOrder, backlogId: selectedBacklogId });
+        setLots([...lots, created]);
       }
       setShowLotModal(false); setEditingLot(null); setNewLot({ name: "", desc: "" });
     } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
@@ -420,33 +430,16 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       await backlogLotService.delete(id);
       const updated = lots.filter(l => l.id !== id).map((l, i) => ({ ...l, order: i + 1 }));
       setLots(updated);
-      await backlogLotService.updateOrder(updated.map(lot => ({ id: lot.id, order: lot.order })));
+      await backlogLotService.updateOrder(updated.map(l => ({ id: l.id, order: l.order })));
     } catch (err) { console.error(err); alert("Impossible de supprimer le lot."); }
   };
 
-  /* ================= PHASE ACTIONS ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const openAddPhase  = (lotId: number) => { setCurrentLotId(lotId); setEditingPhase(null); setNewPhase({ name: "" }); setShowPhaseModal(true); };
   const openEditPhase = (phase: BacklogPhase, lotId: number) => { setCurrentLotId(lotId); setEditingPhase(phase); setNewPhase({ name: phase.name }); setShowPhaseModal(true); };
-
-  const togglePhase = async (phaseId: number) => {
-    if (expandedPhases.has(phaseId)) {
-      setExpandedPhases(prev => { const n = new Set(prev); n.delete(phaseId); return n; });
-      return;
-    }
-    if (deliverables.has(phaseId)) { setExpandedPhases(prev => new Set(prev).add(phaseId)); return; }
-    setLoadingDeliverables(prev => new Set(prev).add(phaseId));
-    try {
-      const phaseDeliverables = await backlogDeliverableService.getByPhaseId(phaseId);
-      const sorted = [...(phaseDeliverables || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-      setDeliverables(prev => { const n = new Map(prev); n.set(phaseId, sorted); return n; });
-      setExpandedPhases(prev => new Set(prev).add(phaseId));
-    } catch (err) {
-      console.error(err);
-      alert("Impossible de charger les livrables pour cette phase.");
-    } finally {
-      setLoadingDeliverables(prev => { const n = new Set(prev); n.delete(phaseId); return n; });
-    }
-  };
 
   const savePhase = async () => {
     if (!newPhase.name.trim()) { alert("Le nom de la phase est requis"); return; }
@@ -454,18 +447,17 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     setSaving(true);
     try {
       if (editingPhase) {
-        const updatedPhase = await backlogPhaseService.update(editingPhase.id, { name: newPhase.name });
+        const updated = await backlogPhaseService.update(editingPhase.id, { name: newPhase.name });
         setLots(lots.map(lot => lot.id === currentLotId
-          ? { ...lot, phases: lot.phases?.map(p => p.id === editingPhase.id ? updatedPhase : p) }
+          ? { ...lot, phases: lot.phases?.map(p => p.id === editingPhase.id ? { ...p, ...updated } : p) }
           : lot));
       } else {
         const currentLot = lots.find(l => l.id === currentLotId);
-        const nextOrder = Math.max(...(currentLot?.phases?.map(p => p.order) || [0]), 0) + 1;
-        const createdPhase = await backlogPhaseService.create({ name: newPhase.name, order: nextOrder, lotId: currentLotId });
-        setLots(lots.map(lot => lot.id === currentLotId ? { ...lot, phases: [...(lot.phases || []), createdPhase] } : lot));
-        const updatedMap = new Map(deliverables);
-        updatedMap.set(createdPhase.id, []);
-        setDeliverables(updatedMap);
+        const nextOrder  = Math.max(...(currentLot?.phases?.map(p => p.order) || [0]), 0) + 1;
+        const created    = await backlogPhaseService.create({ name: newPhase.name, order: nextOrder, lotId: currentLotId });
+        setLots(lots.map(lot => lot.id === currentLotId
+          ? { ...lot, phases: [...(lot.phases || []), { ...created, sprints: [] }] }
+          : lot));
       }
       setShowPhaseModal(false); setEditingPhase(null); setNewPhase({ name: "" }); setCurrentLotId(null);
     } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
@@ -481,9 +473,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         const updatedPhases = lot.phases?.filter(p => p.id !== phaseId).map((p, i) => ({ ...p, order: i + 1 }));
         return { ...lot, phases: updatedPhases };
       }));
-      const updatedMap = new Map(deliverables);
-      updatedMap.delete(phaseId);
-      setDeliverables(updatedMap);
       const currentLot = lots.find(l => l.id === lotId);
       if (currentLot?.phases) {
         await backlogPhaseService.updateOrder(
@@ -493,51 +482,173 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     } catch (err) { console.error(err); alert("Impossible de supprimer la phase."); }
   };
 
-  /* ================= DELIVERABLE ACTIONS ================= */
-  const openAddDeliverable  = (phaseId: number) => { setCurrentPhaseId(phaseId); setEditingDeliverable(null); setNewDeliverable({ name: "", description: "" }); setShowDeliverableModal(true); };
-  const openEditDeliverable = (d: BacklogDeliverable, phaseId: number) => { setCurrentPhaseId(phaseId); setEditingDeliverable(d); setNewDeliverable({ name: d.name, description: d.description }); setShowDeliverableModal(true); };
+  const togglePhase = (phaseId: number) => {
+    setExpandedPhases(prev => {
+      const next = new Set(prev);
+      next.has(phaseId) ? next.delete(phaseId) : next.add(phaseId);
+      return next;
+    });
+  };
 
-  const saveDeliverable = async () => {
-    if (!newDeliverable.name.trim()) { alert("Le nom du livrable est requis"); return; }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPRINT ACTIONS  (via BacklogProjetPhaseService — même table)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const openAddSprint  = (phaseId: number) => { setCurrentPhaseId(phaseId); setEditingSprint(null); setNewSprint({ name: "" }); setShowSprintModal(true); };
+  const openEditSprint = (sprint: BacklogSprint) => { setCurrentPhaseId(sprint.phaseId); setEditingSprint(sprint); setNewSprint({ name: sprint.name }); setShowSprintModal(true); };
+
+  const saveSprint = async () => {
+    if (!newSprint.name.trim()) { alert("Le nom du sprint est requis"); return; }
     if (currentPhaseId === null) return;
     setSaving(true);
     try {
-      if (editingDeliverable) {
-        const updated = await backlogDeliverableService.update(editingDeliverable.id, { name: newDeliverable.name, description: newDeliverable.description, phaseId: currentPhaseId ?? editingDeliverable.phaseId });
-        const updatedMap = new Map(deliverables);
-        updatedMap.set(currentPhaseId, (updatedMap.get(currentPhaseId) || []).map(d => d.id === editingDeliverable.id ? updated : d));
-        setDeliverables(updatedMap);
+      if (editingSprint) {
+        const updated = await phaseService.updateSprint(editingSprint.id, { name: newSprint.name, order: editingSprint.order });
+        setLots(lots.map(lot => ({
+          ...lot,
+          phases: lot.phases?.map(phase => phase.id === currentPhaseId
+            ? { 
+                ...phase, 
+                sprints: phase.sprints?.map(s => s.id === editingSprint.id ? { 
+                  ...s, 
+                  ...updated,
+                  deliverables: s.deliverables // Preserve existing deliverables to avoid type mismatch
+                } : s) 
+              }
+            : phase),
+        })));
       } else {
-        const created = await backlogDeliverableService.create({ name: newDeliverable.name, description: newDeliverable.description, phaseId: currentPhaseId });
-        const updatedMap = new Map(deliverables);
-        updatedMap.set(currentPhaseId, [...(updatedMap.get(currentPhaseId) || []), created]);
-        setDeliverables(updatedMap);
+        const currentPhase = getAllPhases().find(p => p.id === currentPhaseId);
+        const nextOrder    = Math.max(...(currentPhase?.sprints?.map(s => s.order) || [0]), 0) + 1;
+        const created      = await phaseService.createSprint({ name: newSprint.name, order: nextOrder, phaseId: currentPhaseId });
+        setLots(lots.map(lot => ({
+          ...lot,
+          phases: lot.phases?.map(phase => phase.id === currentPhaseId
+            ? { ...phase, sprints: [...(phase.sprints || []), { ...created, deliverables: [] }] }
+            : phase),
+        })));
+        // Initialiser la map de livrables pour ce sprint
+        setSprintDeliverables(prev => new Map(prev).set(created.id, []));
       }
-      setShowDeliverableModal(false); setEditingDeliverable(null); setNewDeliverable({ name: "", description: "" }); setCurrentPhaseId(null);
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
+      setShowSprintModal(false); setEditingSprint(null); setNewSprint({ name: "" }); setCurrentPhaseId(null);
+    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde du sprint."); }
     finally { setSaving(false); }
   };
 
-  const deleteDeliverable = async (deliverableId: number, phaseId: number) => {
+  const deleteSprint = async (sprintId: number, phaseId: number) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce sprint ?")) return;
+    try {
+      await phaseService.deleteSprint(sprintId);
+      setLots(lots.map(lot => ({
+        ...lot,
+        phases: lot.phases?.map(phase => phase.id === phaseId
+          ? { ...phase, sprints: phase.sprints?.filter(s => s.id !== sprintId).map((s, i) => ({ ...s, order: i + 1 })) }
+          : phase),
+      })));
+      setSprintDeliverables(prev => { const next = new Map(prev); next.delete(sprintId); return next; });
+      setExpandedSprints(prev => { const next = new Set(prev); next.delete(sprintId); return next; });
+    } catch (err) { console.error(err); alert("Impossible de supprimer le sprint."); }
+  };
+
+  const toggleSprint = (sprintId: number) => {
+    setExpandedSprints(prev => {
+      const next = new Set(prev);
+      next.has(sprintId) ? next.delete(sprintId) : next.add(sprintId);
+      return next;
+    });
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DELIVERABLE ACTIONS  (via BacklogProjetPhaseService — même table)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const openAddDeliverable = (sprintId: number, phaseId: number) => {
+    setCurrentSprintId(sprintId); setCurrentPhaseId(phaseId);
+    setEditingDeliverable(null); setNewDeliverable({ name: "", description: "" });
+    setShowDeliverableModal(true);
+  };
+
+  const openEditDeliverable = (d: BacklogDeliverable, sprintId: number, phaseId: number) => {
+    setCurrentSprintId(sprintId); setCurrentPhaseId(phaseId);
+    setEditingDeliverable(d); setNewDeliverable({ name: d.name, description: d.description });
+    setShowDeliverableModal(true);
+  };
+
+  const saveDeliverable = async () => {
+    if (!newDeliverable.name.trim()) { alert("Le nom du livrable est requis"); return; }
+    if (currentSprintId === null || currentPhaseId === null) return;
+    setSaving(true);
+    try {
+      if (editingDeliverable) {
+        const updated = await phaseService.updateDeliverable(editingDeliverable.id, {
+          name: newDeliverable.name,
+          description: newDeliverable.description,
+        });
+        setSprintDeliverables(prev => {
+          const next = new Map(prev);
+          const updatedList = (next.get(currentSprintId) || []).map(d => 
+            d.id === editingDeliverable.id ? { 
+              ...updated, 
+              description: updated.description ?? "",
+              phaseId: updated.phaseId ?? 0,
+              sprintId: updated.sprintId ?? 0,
+              deliveryDate: updated.deliveryDate ?? null
+            } as BacklogDeliverable : d
+          );
+          next.set(currentSprintId, updatedList);
+          return next;
+        });
+      } else {
+        const existing = sprintDeliverables.get(currentSprintId) || [];
+        const created  = await phaseService.createDeliverable({
+          name: newDeliverable.name,
+          description: newDeliverable.description,
+          phaseId: currentPhaseId,
+          sprintId: currentSprintId,
+          order: existing.length + 1,
+        });
+        setSprintDeliverables(prev => {
+          const next = new Map(prev);
+          const newDeliv: BacklogDeliverable = {
+            ...created,
+            description: created.description ?? "",
+            phaseId: created.phaseId ?? 0,
+            sprintId: created.sprintId ?? 0
+          };
+          next.set(currentSprintId, [...(next.get(currentSprintId) || []), newDeliv]);
+          return next;
+        });
+      }
+      setShowDeliverableModal(false); setEditingDeliverable(null); setNewDeliverable({ name: "", description: "" });
+      setCurrentSprintId(null); setCurrentPhaseId(null);
+    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde du livrable."); }
+    finally { setSaving(false); }
+  };
+
+  const deleteDeliverable = async (deliverableId: number, sprintId: number) => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce livrable ?")) return;
     try {
-      await backlogDeliverableService.delete(deliverableId);
-      const updatedMap = new Map(deliverables);
-      const updated = (updatedMap.get(phaseId) || []).filter(d => d.id !== deliverableId).map((d, i) => ({ ...d, order: i + 1 }));
-      updatedMap.set(phaseId, updated);
-      setDeliverables(updatedMap);
-      if (updated.length > 0) await backlogDeliverableService.updateOrder(updated.map(d => ({ id: d.id, order: d.order })));
+      await phaseService.deleteDeliverable(deliverableId);
+      setSprintDeliverables(prev => {
+        const next    = new Map(prev);
+        const updated = (next.get(sprintId) || []).filter(d => d.id !== deliverableId).map((d, i) => ({ ...d, order: i + 1 }));
+        next.set(sprintId, updated);
+        return next;
+      });
     } catch (err) { console.error(err); alert("Impossible de supprimer le livrable."); }
   };
 
-  /* ================= PROFIL ACTIONS ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PROFIL ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const openAddProfil  = () => { setEditingProfil(null); setNewProfil({ name: "", desc: "", tjm: 0 }); setShowProfilModal(true); };
   const openEditProfil = (profil: BacklogProfil) => { setEditingProfil(profil); setNewProfil({ name: profil.name, desc: profil.desc || "", tjm: profil.tjm }); setShowProfilModal(true); };
 
   const saveProfil = async () => {
     if (!newProfil.name.trim()) { alert("Le nom du profil est requis"); return; }
-    if (newProfil.tjm < 0) { alert("Le TJM doit être positif"); return; }
-    if (!selectedBacklogId) return;
+    if (newProfil.tjm < 0)     { alert("Le TJM doit être positif"); return; }
+    if (!selectedBacklogId)    return;
     setSaving(true);
     try {
       if (editingProfil) {
@@ -545,7 +656,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         setProfils(profils.map(p => p.id === editingProfil.id ? updated : p));
       } else {
         const nextOrder = Math.max(...profils.map(p => p.order), 0) + 1;
-        const created = await backlogProfilService.create({ name: newProfil.name, desc: newProfil.desc, tjm: newProfil.tjm, order: nextOrder, backlogId: selectedBacklogId });
+        const created   = await backlogProfilService.create({ name: newProfil.name, desc: newProfil.desc, tjm: newProfil.tjm, order: nextOrder, backlogId: selectedBacklogId });
         setProfils([...profils, created]);
       }
       setShowProfilModal(false); setEditingProfil(null); setNewProfil({ name: "", desc: "", tjm: 0 });
@@ -563,25 +674,35 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     } catch (err) { console.error(err); alert("Impossible de supprimer le profil."); }
   };
 
-  /* ================= LINE ACTIONS ================= */
-  const getAllPhases = (): BacklogPhase[] => lots.flatMap(lot => lot.phases || []);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LINE ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  const openAddLine  = () => { setEditingLine(null); setNewLine({ epic: "", userStory: "", description: "", resultat: "", phaseId: null }); setShowLineModal(true); };
-  const openEditLine = (line: BacklogLine) => { setEditingLine(line); setNewLine({ epic: line.epic || "", userStory: line.userStory || "", description: line.description || "", resultat: line.resultat || "", phaseId: line.phaseId }); setShowLineModal(true); };
+  const openAddLine  = () => { setEditingLine(null); setNewLine({ epic: "", userStory: "", description: "", resultat: "", sprintId: null }); setShowLineModal(true); };
+  const openEditLine = (line: BacklogLine) => { setEditingLine(line); setNewLine({ epic: line.epic || "", userStory: line.userStory || "", description: line.description || "", resultat: line.resultat || "", sprintId: line.sprintId ?? null }); setShowLineModal(true); };
 
   const saveLine = async () => {
-    if (!newLine.phaseId) { alert("La phase est requise"); return; }
+    if (!newLine.sprintId) { alert("Le sprint est requis"); return; }
+    // Récupérer le phaseId depuis le sprint sélectionné
+    const sprint = getAllSprints().find(s => s.id === newLine.sprintId);
+    if (!sprint) { alert("Sprint introuvable"); return; }
     setSaving(true);
     try {
       if (editingLine) {
-        const updated = await backlogLineService.update(editingLine.id, { epic: newLine.epic, userStory: newLine.userStory, description: newLine.description, resultat: newLine.resultat, phaseId: newLine.phaseId, order: editingLine.order });
+        const updated = await backlogLineService.update(editingLine.id, {
+          epic: newLine.epic, userStory: newLine.userStory, description: newLine.description,
+          resultat: newLine.resultat, phaseId: sprint.phaseId, sprintId: newLine.sprintId, order: editingLine.order,
+        });
         setLines(lines.map(l => l.id === editingLine.id ? updated : l));
       } else {
         const nextOrder = Math.max(...lines.map(l => l.order), 0) + 1;
-        const created = await backlogLineService.create({ epic: newLine.epic, userStory: newLine.userStory, description: newLine.description, resultat: newLine.resultat, order: nextOrder, phaseId: newLine.phaseId });
+        const created   = await backlogLineService.create({
+          epic: newLine.epic, userStory: newLine.userStory, description: newLine.description,
+          resultat: newLine.resultat, order: nextOrder, phaseId: sprint.phaseId, sprintId: newLine.sprintId,
+        });
         setLines([...lines, created]);
       }
-      setShowLineModal(false); setEditingLine(null); setNewLine({ epic: "", userStory: "", description: "", resultat: "", phaseId: null });
+      setShowLineModal(false); setEditingLine(null); setNewLine({ epic: "", userStory: "", description: "", resultat: "", sprintId: null });
     } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
     finally { setSaving(false); }
   };
@@ -597,7 +718,10 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     } catch (err) { console.error(err); alert("Impossible de supprimer la ligne."); }
   };
 
-  /* ================= LINE PROFIL ACTIONS ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LINE PROFIL ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const getLineProfilVolume = (lineId: number, profilId: number): number =>
     lineProfils.find(lp => lp.lineId === lineId && lp.profil.id === profilId)?.volume || 0;
 
@@ -605,7 +729,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     setCurrentLineId(lineId); setCurrentProfilId(profilId);
     const existing = lineProfils.find(lp => lp.lineId === lineId && lp.profil.id === profilId);
     if (existing) { setEditingLineProfil(existing); setNewLineProfil({ volume: existing.volume }); }
-    else { setEditingLineProfil(null); setNewLineProfil({ volume: 0 }); }
+    else          { setEditingLineProfil(null);     setNewLineProfil({ volume: 0 }); }
     setShowLineProfilModal(true);
   };
 
@@ -635,12 +759,10 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     } catch (err) { console.error(err); alert("Impossible de supprimer le volume."); }
   };
 
-  const getPhaseNameById = (phaseId: number | null): string => {
-    if (!phaseId) return "—";
-    return getAllPhases().find(p => p.id === phaseId)?.name || "—";
-  };
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CALCULS TOTAUX
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  /* ================= CALCULS TOTAUX ================= */
   const getProfilTotals = () => profils.map(profil => {
     const totalVolume = lineProfils.filter(lp => lp.profil.id === profil.id).reduce((s, lp) => s + lp.volume, 0);
     return { profil, totalVolume, totalAmount: totalVolume * profil.tjm };
@@ -648,16 +770,22 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
 
   const getLotTotals = () => lots.map(lot => {
     const phaseTotals = (lot.phases || []).map(phase => {
-      const phaseLineIds = lines.filter(l => l.phaseId === phase.id).map(l => l.id);
-      const phaseLP = lineProfils.filter(lp => phaseLineIds.includes(lp.lineId));
-      const totalVolume = phaseLP.reduce((s, lp) => s + lp.volume, 0);
-      const totalAmount = phaseLP.reduce((s, lp) => s + lp.volume * (profils.find(p => p.id === lp.profil.id)?.tjm || 0), 0);
+      const phaseLineIds = lines.filter(l => {
+        const sprint = getAllSprints().find(s => s.id === l.sprintId);
+        return sprint?.phaseId === phase.id;
+      }).map(l => l.id);
+      const phaseLP      = lineProfils.filter(lp => phaseLineIds.includes(lp.lineId));
+      const totalVolume  = phaseLP.reduce((s, lp) => s + lp.volume, 0);
+      const totalAmount  = phaseLP.reduce((s, lp) => s + lp.volume * (profils.find(p => p.id === lp.profil.id)?.tjm || 0), 0);
       return { phase, totalVolume, totalAmount };
     });
     return { lot, phaseTotals, lotTotalVolume: phaseTotals.reduce((s, pt) => s + pt.totalVolume, 0), lotTotalAmount: phaseTotals.reduce((s, pt) => s + pt.totalAmount, 0) };
   });
 
-  /* ================= RENDER ================= */
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
+
   if (loadingBacklogs) {
     return (
       <Modal show={show} onHide={onClose} size="xl" fullscreen>
@@ -692,42 +820,28 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
 
             <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || "backlog")} className="mb-4">
 
-              {/* ── TAB BACKLOG ── */}
+              {/* ──────────────────── TAB BACKLOG ──────────────────── */}
               <Tab eventKey="backlog" title="Backlog">
                 {!selectedBacklogId ? (
                   <div>
-                    {/* Bouton + formulaire de création : uniquement quand aucun backlog n'existe */}
                     {backlogs.length === 0 && (
                       <>
-                        <BacklogForm
-                          show={showBacklogFormModal}
-                          onClose={() => setShowBacklogFormModal(false)}
-                          onSubmit={handleCreateBacklog}
-                          leadId={leadId}
-                        />
-                        <Button
-                          label="Créer un backlog"
-                          icon={<FaPlus />}
-                          onClick={() => setShowBacklogFormModal(true)}
-                          variant="primary"
-                          className="mb-3"
-                        />
+                        <BacklogForm show={showBacklogFormModal} onClose={() => setShowBacklogFormModal(false)} onSubmit={handleCreateBacklog} leadId={leadId} />
+                        <Button label="Créer un backlog" icon={<FaPlus />} onClick={() => setShowBacklogFormModal(true)} variant="primary" className="mb-3" />
                         <div className="text-center text-muted py-5">
                           <p>Aucun backlog trouvé pour ce lead.</p>
                           <p className="small">Cliquez sur "Créer un backlog" pour commencer.</p>
                         </div>
                       </>
                     )}
-
-                    {/* Liste des backlogs existants */}
                     {backlogs.length > 0 && (
                       <div className="row">
-                        {backlogs.map(backlogItem => (
-                          <div key={backlogItem.id} className="col-md-6 col-lg-4 mb-3">
-                            <div className="card h-100 shadow-sm" style={{ cursor: 'pointer' }} onClick={() => setSelectedBacklogId(backlogItem.id)}>
+                        {backlogs.map(b => (
+                          <div key={b.id} className="col-md-6 col-lg-4 mb-3">
+                            <div className="card h-100 shadow-sm" style={{ cursor: 'pointer' }} onClick={() => setSelectedBacklogId(b.id)}>
                               <div className="card-body">
-                                <h5 className="card-title">{backlogItem.name}</h5>
-                                {backlogItem.desc && <p className="card-text text-muted small">{backlogItem.desc}</p>}
+                                <h5 className="card-title">{b.name}</h5>
+                                {b.desc && <p className="card-text text-muted small">{b.desc}</p>}
                                 <div className="d-flex justify-content-end mt-3">
                                   <small className="text-primary"><FaEye className="me-1" /> Cliquez pour voir les détails</small>
                                 </div>
@@ -759,14 +873,14 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                   <td><strong>{profil.name}</strong></td>
                                   <td className="text-end">{totalVolume.toFixed(2)}</td>
                                   <td className="text-end">{profil.tjm.toFixed(2)}</td>
-                                  <td className="text-end"><strong>{`${totalAmount.toFixed(2)} ${deviseAbr || ''}`}</strong></td>
+                                  <td className="text-end"><strong>{totalAmount.toFixed(2)} {deviseAbr || ''}</strong></td>
                                 </tr>
                               ))}
                               <tr className="table-active">
                                 <td><strong>TOTAL GÉNÉRAL</strong></td>
                                 <td className="text-end"><strong>{profilTotals.reduce((s, pt) => s + pt.totalVolume, 0).toFixed(2)}</strong></td>
                                 <td></td>
-                                <td className="text-end"><strong>{`${profilTotals.reduce((s, pt) => s + pt.totalAmount, 0).toFixed(2)} ${deviseAbr || ''}`}</strong></td>
+                                <td className="text-end"><strong>{profilTotals.reduce((s, pt) => s + pt.totalAmount, 0).toFixed(2)} {deviseAbr || ''}</strong></td>
                               </tr>
                             </tbody>
                           </table>
@@ -780,7 +894,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                       <div className="card-body">
                         {lotTotals.map(({ lot, phaseTotals, lotTotalVolume, lotTotalAmount }) => (
                           <div key={lot.id} className="mb-4">
-                            <h6 className="text-primary">{lot.name} - Volume: {lotTotalVolume.toFixed(2)} JH - Montant: {`${lotTotalAmount.toFixed(2)} ${deviseAbr || ''}`}</h6>
+                            <h6 className="text-primary">{lot.name} — Volume : {lotTotalVolume.toFixed(2)} JH — Montant : {lotTotalAmount.toFixed(2)} {deviseAbr || ''}</h6>
                             <div className="table-responsive">
                               <table className="table table-sm table-bordered">
                                 <thead><tr><th>Phase</th><th className="text-end">Volume (JH)</th><th className="text-end">Montant</th></tr></thead>
@@ -807,19 +921,20 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                       <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
                     </div>
 
+                    {/* Tableau des lignes */}
                     <div className="table-responsive">
                       <table className="table table-bordered backlog-table">
                         <thead>
                           <tr>
-                            <th style={{width:'30px'}}></th>
-                            <th style={{width:'50px'}}>Ordre</th>
-                            <th style={{width:'100px'}}>Phase</th>
-                            <th style={{width:'150px'}}>Epic</th>
-                            <th style={{width:'150px'}}>User Story</th>
-                            <th style={{width:'200px'}}>Description</th>
-                            <th style={{width:'200px'}}>Détails</th>
-                            {profils.map(profil => <th key={profil.id} style={{width:'100px'}}>{profil.name}</th>)}
-                            <th style={{width:'120px'}}>Actions</th>
+                            <th style={{ width: '30px' }}></th>
+                            <th style={{ width: '50px' }}>Ordre</th>
+                            <th style={{ width: '120px' }}>Sprint</th>
+                            <th style={{ width: '150px' }}>Epic</th>
+                            <th style={{ width: '150px' }}>User Story</th>
+                            <th style={{ width: '200px' }}>Description</th>
+                            <th style={{ width: '200px' }}>Détails</th>
+                            {profils.map(profil => <th key={profil.id} style={{ width: '100px' }}>{profil.name}</th>)}
+                            <th style={{ width: '120px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody ref={lineTableBodyRef}>
@@ -831,9 +946,9 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                             </tr>
                           ) : lines.map(line => (
                             <tr key={line.id}>
-                              <td className="line-drag-handle" style={{cursor:'grab',userSelect:'none',textAlign:'center',color:'#aaa'}}>⋮⋮</td>
+                              <td className="line-drag-handle" style={{ cursor: 'grab', userSelect: 'none', textAlign: 'center', color: '#aaa' }}>⋮⋮</td>
                               <td className="text-center">{line.order}</td>
-                              <td>{getPhaseNameById(line.phaseId)}</td>
+                              <td>{getSprintNameById(line.sprintId)}</td>
                               <td>{line.epic || "—"}</td>
                               <td>{line.userStory || "—"}</td>
                               <td>{line.description || "—"}</td>
@@ -841,8 +956,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                               {profils.map(profil => (
                                 <td key={profil.id} className="text-center backlog-profil-cell"
                                   onClick={() => openLineProfilModal(line.id, profil.id)}
-                                  style={{cursor:'pointer'}} title="Cliquez pour modifier le volume">
-                                  {getLineProfilVolume(line.id, profil.id)}                                
+                                  style={{ cursor: 'pointer' }} title="Cliquez pour modifier le volume">
+                                  {getLineProfilVolume(line.id, profil.id)}
                                 </td>
                               ))}
                               <td>
@@ -860,7 +975,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                 )}
               </Tab>
 
-              {/* ── TAB LOTS ET PHASES ── */}
+              {/* ──────────────────── TAB LOTS ET PHASES ──────────────────── */}
               <Tab eventKey="lots" title="Lots et Phases">
                 {!selectedBacklogId ? (
                   <div className="text-center text-muted py-5"><p>Veuillez sélectionner un backlog pour gérer les lots et phases.</p></div>
@@ -869,67 +984,116 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     <div className="d-flex justify-content-end mb-3">
                       <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
                     </div>
+
                     <div className="backlog-list" ref={listRef}>
                       {lots.length === 0 ? (
-                        <div className="text-muted py-3 text-center">Aucun lot pour le moment. Cliquez sur "Ajouter un lot" pour commencer.</div>
+                        <div className="text-muted py-3 text-center">Aucun lot. Cliquez sur "Ajouter un lot" pour commencer.</div>
                       ) : lots.map(lot => (
                         <div key={lot.id} className="backlog-item" data-lot-id={lot.id}>
                           <div className="drag-handle">⋮⋮</div>
                           <div className="backlog-content">
                             <div className="backlog-title"><span className="backlog-order">{lot.order}. </span>{lot.name}</div>
                             <div className="backlog-desc">{lot.desc || "—"}</div>
+
+                            {/* ── Phases ── */}
                             <div className="phases-section mt-3">
                               <div className="phases-header d-flex justify-content-between align-items-center mb-2">
                                 <strong>Phases :</strong>
                                 <Button label="Ajouter une phase" variant="secondary" icon={<FaPlus />} onClick={() => openAddPhase(lot.id)} />
                               </div>
+
                               {lot.phases && lot.phases.length > 0 ? (
                                 <div className="phases-list-sortable">
-                                  {lot.phases.sort((a, b) => a.order - b.order).map(phase => (
+                                  {[...lot.phases].sort((a, b) => a.order - b.order).map(phase => (
                                     <div key={phase.id} className="phase-item" data-phase-id={phase.id}>
                                       <div className="phase-drag-handle">⋮⋮</div>
                                       <div className="phase-content">
+
+                                        {/* En-tête de phase */}
                                         <div className="d-flex justify-content-between align-items-center mb-2">
-                                          <div>
-                                            <span className="phase-toggle d-inline-flex align-items-center phase-clickable" onClick={() => togglePhase(phase.id)} style={{ cursor:'pointer', gap:'6px' }}>
-                                              {expandedPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}
-                                              <span className="phase-order">{phase.order}.&nbsp;</span>
-                                              <span className="phase-name">{phase.name}</span>
-                                              <span className="badge bg-primary ms-2">{(deliverables.get(phase.id)?.length ?? 0)} livrable{(deliverables.get(phase.id)?.length ?? 0) > 1 ? 's' : ''}</span>
+                                          <span
+                                            className="phase-toggle d-inline-flex align-items-center phase-clickable"
+                                            onClick={() => togglePhase(phase.id)}
+                                            style={{ cursor: 'pointer', gap: '6px' }}
+                                          >
+                                            {expandedPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}
+                                            <span className="phase-order">{phase.order}.&nbsp;</span>
+                                            <span className="phase-name">{phase.name}</span>
+                                            <span className="badge bg-secondary ms-2">
+                                              {phase.sprints?.length ?? 0} sprint{(phase.sprints?.length ?? 0) > 1 ? 's' : ''}
                                             </span>
-                                          </div>
+                                          </span>
                                           <div className="phase-actions">
-                                            <button className="btn btn-sm btn-success me-1" onClick={e => { e.stopPropagation(); openAddDeliverable(phase.id); }} title="Ajouter un livrable">
-                                              <FaCalendar className="me-1" />Livrable
+                                            <button className="btn btn-sm btn-primary me-1" onClick={e => { e.stopPropagation(); openAddSprint(phase.id); }} title="Ajouter un sprint">
+                                              <FaRunning className="me-1" />Sprint
                                             </button>
-                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); openEditPhase(phase, lot.id); }} title="Modifier"><FaEdit /></button>
-                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); deletePhase(phase.id, lot.id); }} title="Supprimer"><FaTrash /></button>
+                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); openEditPhase(phase, lot.id); }} title="Modifier la phase"><FaEdit /></button>
+                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); deletePhase(phase.id, lot.id); }} title="Supprimer la phase"><FaTrash /></button>
                                           </div>
                                         </div>
+
+                                        {/* ── Sprints (dépliés) ── */}
                                         {expandedPhases.has(phase.id) && (
-                                          <div className="deliverables-section mt-2 ms-4">
-                                            {(deliverables.get(phase.id)?.length ?? 0) === 0 ? (
-                                              <div className="text-muted small">Aucun livrable pour cette phase.</div>
+                                          <div className="sprints-section mt-2 ms-3">
+                                            {!phase.sprints || phase.sprints.length === 0 ? (
+                                              <div className="text-muted small">Aucun sprint pour cette phase.</div>
                                             ) : (
-                                              <div className="deliverables-list-sortable">
-                                                {deliverables.get(phase.id)!.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(deliverable => (
-                                                  <div key={deliverable.id} className="deliverable-item">
-                                                    <div className="deliverable-drag-handle">⋮⋮</div>
-                                                    <div className="deliverable-content">
-                                                      <div className="d-flex justify-content-between align-items-start">
-                                                        <div>
-                                                          <strong>{deliverable.name}</strong>
-                                                          {deliverable.description && <div className="text-muted small mt-1">{deliverable.description}</div>}
-                                                        </div>
-                                                        <div className="deliverable-actions">
-                                                          <button className="btn-icon" onClick={e => { e.stopPropagation(); openEditDeliverable(deliverable, phase.id); }}><FaEdit /></button>
-                                                          <button className="btn-icon" onClick={e => { e.stopPropagation(); deleteDeliverable(deliverable.id, phase.id); }}><FaTrash /></button>
-                                                        </div>
-                                                      </div>
+                                              [...phase.sprints].sort((a, b) => a.order - b.order).map(sprint => (
+                                                <div key={sprint.id} className="sprint-item mb-2 border rounded p-2" style={{ background: '#f0f4ff' }}>
+
+                                                  {/* En-tête de sprint */}
+                                                  <div className="d-flex justify-content-between align-items-center">
+                                                    <span
+                                                      className="d-inline-flex align-items-center"
+                                                      style={{ cursor: 'pointer', gap: '6px', fontWeight: 500 }}
+                                                      onClick={() => toggleSprint(sprint.id)}
+                                                    >
+                                                      {expandedSprints.has(sprint.id) ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+                                                      <FaRunning size={13} className="text-primary" />
+                                                      {sprint.order}. {sprint.name}
+                                                      <span className="badge bg-success ms-2" style={{ fontSize: '0.7rem' }}>
+                                                        {(sprintDeliverables.get(sprint.id)?.length ?? 0)} livrable{(sprintDeliverables.get(sprint.id)?.length ?? 0) > 1 ? 's' : ''}
+                                                      </span>
+                                                    </span>
+                                                    <div className="d-flex gap-1">
+                                                      <button className="btn btn-sm btn-success" onClick={e => { e.stopPropagation(); openAddDeliverable(sprint.id, phase.id); }} title="Ajouter un livrable">
+                                                        <FaCalendar className="me-1" />Livrable
+                                                      </button>
+                                                      <button className="btn-icon" onClick={() => openEditSprint(sprint)} title="Modifier le sprint"><FaEdit /></button>
+                                                      <button className="btn-icon" onClick={() => deleteSprint(sprint.id, phase.id)} title="Supprimer le sprint"><FaTrash /></button>
                                                     </div>
                                                   </div>
-                                                ))}
-                                              </div>
+
+                                                  {/* Livrables du sprint */}
+                                                  {expandedSprints.has(sprint.id) && (
+                                                    <div className="deliverables-section mt-2 ms-3">
+                                                      {(sprintDeliverables.get(sprint.id)?.length ?? 0) === 0 ? (
+                                                        <div className="text-muted small">Aucun livrable pour ce sprint.</div>
+                                                      ) : (
+                                                        sprintDeliverables.get(sprint.id)!
+                                                          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                                                          .map(deliverable => (
+                                                            <div key={deliverable.id} className="deliverable-item">
+                                                              <div className="deliverable-content">
+                                                                <div className="d-flex justify-content-between align-items-start">
+                                                                  <div>
+                                                                    <strong>{deliverable.name}</strong>
+                                                                    {deliverable.description && <div className="text-muted small mt-1">{deliverable.description}</div>}
+                                                                    {deliverable.isDelivered && <span className="badge bg-success ms-1" style={{ fontSize: '0.65rem' }}>Livré</span>}
+                                                                  </div>
+                                                                  <div className="deliverable-actions">
+                                                                    <button className="btn-icon" onClick={() => openEditDeliverable(deliverable, sprint.id, phase.id)}><FaEdit /></button>
+                                                                    <button className="btn-icon" onClick={() => deleteDeliverable(deliverable.id, sprint.id)}><FaTrash /></button>
+                                                                  </div>
+                                                                </div>
+                                                              </div>
+                                                            </div>
+                                                          ))
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              ))
                                             )}
                                           </div>
                                         )}
@@ -942,6 +1106,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                               )}
                             </div>
                           </div>
+
                           <div className="backlog-actions">
                             <Button label="Modifier" variant="secondary" onClick={() => openEditLot(lot)} />
                             <Button label="Supprimer" variant="outline" onClick={() => deleteLot(lot.id)} />
@@ -953,7 +1118,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                 )}
               </Tab>
 
-              {/* ── TAB PROFILS ── */}
+              {/* ──────────────────── TAB PROFILS ──────────────────── */}
               <Tab eventKey="profils" title="Profils">
                 {!selectedBacklogId ? (
                   <div className="text-center text-muted py-5"><p>Veuillez sélectionner un backlog pour gérer les profils.</p></div>
@@ -964,7 +1129,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     </div>
                     <div className="profil-list" ref={profilListRef}>
                       {profils.length === 0 ? (
-                        <div className="text-muted py-3 text-center">Aucun profil pour le moment. Cliquez sur "Ajouter un profil" pour commencer.</div>
+                        <div className="text-muted py-3 text-center">Aucun profil. Cliquez sur "Ajouter un profil" pour commencer.</div>
                       ) : profils.map(profil => (
                         <div key={profil.id} className="backlog-item">
                           <div className="drag-handle-profil">⋮⋮</div>
@@ -984,7 +1149,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                 )}
               </Tab>
 
-              {/* ── TAB PLANNING ── */}
+              {/* ──────────────────── TAB PLANNING ──────────────────── */}
               <Tab
                 eventKey="planning"
                 title={
@@ -998,17 +1163,16 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                   </>
                 }
               >
-                {/* PlanningTab n'est monté QUE quand planningReady = true          */}
-                {/* → initialOverrides est déjà rempli au premier rendu du composant */}
                 {planningReady ? (
                   <PlanningTab
                     lots={lots}
                     lines={lines}
                     lineProfils={lineProfils}
-                    deliverables={deliverables}
+                    deliverables={sprintDeliverables}
                     selectedBacklogId={selectedBacklogId}
                     planningService={backlogPlanningService}
-                    initialOverrides={planningOverrides}
+                    // initialOverrides={planningOverrides}
+                    datedebutPlanning={backlog?.datedeButPlanning}
                   />
                 ) : (
                   <div className="d-flex justify-content-center align-items-center py-5">
@@ -1018,7 +1182,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                 )}
               </Tab>
 
-              {/* ── TAB BUDGET ── */}
+              {/* ──────────────────── TAB BUDGET ──────────────────── */}
               <Tab eventKey="budget" title="Budget">
                 <BudgetTab
                   lots={lots}
@@ -1031,7 +1195,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                 />
               </Tab>
 
-              {/* ── TAB CHARGES ANNEXES ── */}
+              {/* ──────────────────── TAB CHARGES ANNEXES ──────────────────── */}
               <Tab eventKey="charges_annexes" title="Charges Annexes">
                 <ChargesAnnexesTab
                   backlogId={selectedBacklogId}
@@ -1040,6 +1204,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                   service={chargesAnnexesService}
                 />
               </Tab>
+
             </Tabs>
           </div>
         </Modal.Body>
@@ -1049,7 +1214,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         </Modal.Footer>
       </Modal>
 
-      {/* ── SOUS-MODALS ── */}
+      {/* ═══════════════════════ SOUS-MODALS ═══════════════════════ */}
 
       {/* Lot */}
       <Modal show={showLotModal} onHide={() => !saving && setShowLotModal(false)} centered>
@@ -1086,6 +1251,23 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         <Modal.Footer>
           <Button label="Annuler" variant="outline" onClick={() => setShowPhaseModal(false)} />
           <Button label={editingPhase ? (saving ? "Enregistrement..." : "Enregistrer") : (saving ? "Ajout..." : "Ajouter")} onClick={savePhase} />
+        </Modal.Footer>
+      </Modal>
+
+      {/* Sprint */}
+      <Modal show={showSprintModal} onHide={() => !saving && setShowSprintModal(false)} centered>
+        <Modal.Header closeButton><Modal.Title>{editingSprint ? "Modifier le sprint" : "Ajouter un sprint"}</Modal.Title></Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label>Nom *</Form.Label>
+              <Form.Control value={newSprint.name} onChange={e => setNewSprint({ name: e.target.value })} placeholder="Entrez le nom du sprint" disabled={saving} />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button label="Annuler" variant="outline" onClick={() => setShowSprintModal(false)} />
+          <Button label={editingSprint ? (saving ? "Enregistrement..." : "Enregistrer") : (saving ? "Ajout..." : "Ajouter")} onClick={saveSprint} />
         </Modal.Footer>
       </Modal>
 
@@ -1141,10 +1323,16 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Phase *</Form.Label>
-              <Form.Select value={newLine.phaseId || ""} onChange={e => setNewLine({ ...newLine, phaseId: e.target.value ? parseInt(e.target.value) : null })} disabled={saving}>
-                <option value="">Sélectionnez une phase</option>
-                {getAllPhases().map(phase => <option key={phase.id} value={phase.id}>{phase.name}</option>)}
+              <Form.Label>Sprint *</Form.Label>
+              <Form.Select value={newLine.sprintId || ""} onChange={e => setNewLine({ ...newLine, sprintId: e.target.value ? parseInt(e.target.value) : null })} disabled={saving}>
+                <option value="">Sélectionnez un sprint</option>
+                {getAllPhases().map(phase => (
+                  <optgroup key={phase.id} label={phase.name}>
+                    {(phase.sprints || []).map(sprint => (
+                      <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </Form.Select>
             </Form.Group>
             <Form.Group className="mb-3">

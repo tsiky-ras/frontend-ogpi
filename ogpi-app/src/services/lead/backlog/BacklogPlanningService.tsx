@@ -11,6 +11,26 @@ export interface UpsertPlanningRequest {
   startDate: string | null; 
 }
 
+
+export interface SprintTimeDTO {
+  id: number;
+  fromDay: number;
+  toDay: number;
+  dateDebut?: string | null; // ISO yyyy-MM-dd
+  dateFin?: string | null;   // ISO yyyy-MM-dd
+}
+ 
+export interface BacklogTimeDTO {
+  lots: [];       // vide — calculé dynamiquement côté front
+  phases: [];     // vide — calculé dynamiquement côté front
+  sprints: SprintTimeDTO[];
+}
+ 
+export interface DateDebutPlanningDTO {
+  idBacklog: number;
+  dateDebut: string | null; // ISO yyyy-MM-dd
+}
+
 export class BacklogPlanningService {
   private api: any;
 
@@ -54,4 +74,38 @@ export class BacklogPlanningService {
         return false;
     }
     }
+
+    
+     /**
+   * Met à jour les dates (fromDay / toDay) des sprints modifiés.
+   * Lots et phases sont commentés côté back — on n'envoie que les sprints.
+   *
+   * PUT /api/projet/backlog-phases/planning/time
+   */
+  async updateSprintTimes(sprints: SprintTimeDTO[]): Promise<void> {
+    const payload: BacklogTimeDTO = {
+      lots: [],
+      phases: [],
+      sprints,
+    };
+    await this.api.put("/projet/backlog-phases/planning/time", payload);
+  }
+ 
+  /**
+   * Met à jour la date de début du planning d'un backlog.
+   *
+   * PUT /api/backlogs/start-planning/{backlogId}
+   */
+  async updateStartDate(
+    backlogId: number,
+    dateDebut: string | null
+  ): Promise<void> {
+    const payload: DateDebutPlanningDTO = {
+      idBacklog: backlogId,
+      dateDebut,
+    };
+    await this.api.put(`/backlogs/start-planning/${backlogId}`, payload);
+  }
+
+    
 }
