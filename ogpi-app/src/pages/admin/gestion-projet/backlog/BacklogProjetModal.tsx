@@ -49,6 +49,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import { BacklogDateService } from "../../../../services/projet/backlog/BacklogDateService.tsx";
   import CalendrierPaiementTab from "../tabs/CalendrierPaiementTab.tsx";
   import { CalendrierPaiementService } from "../../../../services/projet/paiement/CalendrierPaiementService.tsx";
+import { BurndownService } from "../../../../services/projet/backlog/BurndownService.tsx";
+import BurndownTab from "../tabs/BurndownTab.tsx";
 
   interface BacklogProjetModalProps {
     show:             boolean;
@@ -339,6 +341,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
       planning   : new BacklogPlanningService(api),
       date    : new BacklogDateService(api),
       paiement: new CalendrierPaiementService(api),
+      burndown: new BurndownService(api),
     }).current;
 
     // ── Appel API changeStatus OK/KO — toujours réouvrable (régression possible) ──
@@ -2107,8 +2110,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                       </Tab>
 
                       <Tab eventKey="planning" title="Planning">
-                        <PlanningTab lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} selectedBacklogId={selectedBacklogId} planningService={svc.planning} projectStartDate={projectStartDate} projectEndDate={projectEndDate}
-                          onUpdateProjectDates={async (newStart, newEnd) => { await projetService.updateDates(projetId, newStart, newEnd); }} />
+                        <PlanningTab 
+                        lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} 
+                        datedebutPlanning={backlog?.datedeButPlanning}
+                        selectedBacklogId={selectedBacklogId} planningService={svc.planning} 
+                        />
                       </Tab>
 
                       <Tab eventKey="budget" title="Budget">
@@ -2120,6 +2126,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
                           deviseAbr={deviseAbr}
                           budgetRH={budgetRH}
                           service={new ChargesAnnexesService(api)}
+                        />
+                      </Tab>
+                      <Tab eventKey="burndown" title="Burndown">
+                        <BurndownTab
+                          lots={lots}
+                          sprints={sprints}
+                          service={svc.burndown}
                         />
                       </Tab>
                       <Tab eventKey="facturation" title="Facturation ressources">

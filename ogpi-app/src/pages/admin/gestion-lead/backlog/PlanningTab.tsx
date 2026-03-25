@@ -12,6 +12,10 @@ import {
   BacklogDeliverable,
   BacklogSprint,
 } from "../../../../types/lead/Backlog/Backlog.tsx";
+
+import { BacklogDelivrableProjet } from "../../../../types/projet/backlog/BacklogProjet.tsx";
+
+
 import { BacklogPlanningService, SprintTimeDTO } from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -22,7 +26,7 @@ interface PlanningTabProps {
   lots: BacklogLot[];
   lines: BacklogLine[];
   lineProfils: BacklogLineProfil[];
-  deliverables: Map<number, BacklogDeliverable[]>;
+  deliverables: Map<number, BacklogDeliverable[]> | Map<number, BacklogDelivrableProjet[]>;
   selectedBacklogId: number | null;
   planningService: BacklogPlanningService;
   datedebutPlanning?: string | null;
