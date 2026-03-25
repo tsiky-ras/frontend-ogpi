@@ -2112,7 +2112,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                       <Tab eventKey="planning" title="Planning">
                         <PlanningTab 
                         lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} 
-                        datedebutPlanning={backlog?.datedeButPlanning}
+                        datedebutPlanning={backlog?.dateDebutPlanning}
                         selectedBacklogId={selectedBacklogId} planningService={svc.planning} 
                         />
                       </Tab>

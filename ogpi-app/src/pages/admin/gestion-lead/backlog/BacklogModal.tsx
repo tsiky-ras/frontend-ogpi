@@ -1172,7 +1172,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     selectedBacklogId={selectedBacklogId}
                     planningService={backlogPlanningService}
                     // initialOverrides={planningOverrides}
-                    datedebutPlanning={backlog?.datedeButPlanning}
+                    datedebutPlanning={backlog?.dateDebutPlanning}
                   />
                 ) : (
                   <div className="d-flex justify-content-center align-items-center py-5">
