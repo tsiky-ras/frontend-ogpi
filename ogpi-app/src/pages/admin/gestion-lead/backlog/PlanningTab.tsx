@@ -103,7 +103,6 @@ const COLOR = {
 // ─── DATE HELPERS ─────────────────────────────────────────────────────────────
 
 function dayToDate(base: Date, dayNum: number): Date {
-  // dayNum is 1-based: day 1 = base
   const d = new Date(base);
   d.setDate(d.getDate() + (dayNum - 1));
   return d;
@@ -133,36 +132,16 @@ function addDays(d: Date, n: number): Date {
 
 // ─── SPRINT DURATION CALCULATION ─────────────────────────────────────────────
 
-/**
- * Durée d'un sprint = maximum des sommes de volumes par profil.
- *
- * Algo :
- *  1. Filtrer les lignes par sprintId → récupérer leurs IDs
- *  2. Dans lineProfils, garder ceux dont lineId est dans ce set
- *  3. Sommer les volumes par profil
- *  4. Durée = max des sommes
- *
- * Exemple avec les données réelles :
- *   lineId:1 → profil 1 : 7.8 + 2.6 = 10.4 JH
- *   lineId:1 → profil 2 : 20 JH
- *   lineId:2 → profil 1 : 7 JH
- *   lineId:2 → profil 2 : 7.5 JH
- *   Profil 1 total : 10.4 + 7 = 17.4 JH
- *   Profil 2 total : 20 + 7.5 = 27.5 JH
- *   → Durée = ceil(27.5) = 28 jours
- */
 function calcSprintDuration(
   sprintId: number,
   lines: BacklogLine[],
   lineProfils: BacklogLineProfil[]
 ): number {
-  // 1. IDs des lignes de ce sprint
   const sprintLineIds = new Set(
     lines.filter((l) => l.sprintId === sprintId).map((l) => l.id)
   );
   if (sprintLineIds.size === 0) return 1;
 
-  // 2. Sommer les volumes par profil_id
   const profilTotals = new Map<number, number>();
   for (const lp of lineProfils) {
     if (!sprintLineIds.has(lp.lineId)) continue;
@@ -172,21 +151,11 @@ function calcSprintDuration(
 
   if (profilTotals.size === 0) return 1;
 
-  // 3. Durée = profil le plus chargé
   return Math.max(1, Math.ceil(Math.max(...profilTotals.values())));
 }
 
 // ─── PLANNING COMPUTATION ─────────────────────────────────────────────────────
 
-/**
- * Règles :
- * - Sprint manuel (fromDay + toDay définis) : position respectée telle quelle.
- * - Sprint auto : placé à la suite du précédent (curseur = toDay précédent + 1).
- * - Le curseur avance TOUJOURS après chaque sprint (manuel ou auto),
- *   donc les sprints suivants démarrent bien après le précédent.
- * - Phases s'enchaînent dans un lot, lots s'enchaînent globalement.
- * - Bounds phases/lots = min(fromDay) / max(toDay) des enfants.
- */
 function computePlanning(
   lots: BacklogLot[],
   lines: BacklogLine[],
@@ -195,7 +164,6 @@ function computePlanning(
 ): ComputedLot[] {
   const sortedLots = [...lots].sort((a, b) => a.order - b.order);
 
-  // Curseur global : avance lot par lot
   let cursor = 1;
 
   return sortedLots.map((lot) => {
@@ -204,7 +172,6 @@ function computePlanning(
     );
 
     const computedPhases: ComputedPhase[] = [];
-    // Le curseur de phase repart du curseur global en début de lot
     let phaseCursor = cursor;
 
     for (const phase of sortedPhases) {
@@ -213,7 +180,6 @@ function computePlanning(
       );
 
       const computedSprints: ComputedSprint[] = [];
-      // Le curseur de sprint repart du curseur de phase
       let sprintCursor = phaseCursor;
 
       for (const sprint of sortedSprints) {
@@ -229,18 +195,14 @@ function computePlanning(
         let toDay: number;
 
         if (isManual) {
-          // Position définie manuellement → on la respecte
           fromDay = sprint.fromDay!;
           toDay = sprint.toDay!;
         } else {
-          // Auto : démarre là où s'est arrêté le précédent
           const duration = calcSprintDuration(sprint.id, lines, lineProfils);
           fromDay = sprintCursor;
           toDay = sprintCursor + duration - 1;
         }
 
-        // ⚠️ Règle clé : le curseur avance TOUJOURS (manuel ou auto)
-        // → le sprint suivant démarre après ce sprint
         sprintCursor = toDay + 1;
 
         const sprintDelivs = (deliverables.get(phase.id) ?? []).filter(
@@ -261,7 +223,6 @@ function computePlanning(
         });
       }
 
-      // Bounds phase = min/max des sprints (guard Infinity si aucun sprint)
       const sprintFroms = computedSprints.map((s) => s.fromDay).filter(Number.isFinite);
       const sprintTos   = computedSprints.map((s) => s.toDay).filter(Number.isFinite);
       const phaseFrom   = sprintFroms.length > 0 ? Math.min(...sprintFroms) : phaseCursor;
@@ -277,17 +238,14 @@ function computePlanning(
         sprints: computedSprints,
       });
 
-      // Le curseur de phase avance jusqu'à la fin de cette phase
       phaseCursor = sprintCursor;
     }
 
-    // Bounds lot = min/max des phases (guard Infinity si aucune phase)
     const phaseFroms = computedPhases.map((p) => p.fromDay).filter(Number.isFinite);
     const phaseTos   = computedPhases.map((p) => p.toDay).filter(Number.isFinite);
     const lotFrom    = phaseFroms.length > 0 ? Math.min(...phaseFroms) : cursor;
     const lotTo      = phaseTos.length   > 0 ? Math.max(...phaseTos)   : cursor;
 
-    // Le curseur global avance jusqu'à la fin de ce lot
     cursor = phaseCursor;
 
     return {
@@ -381,7 +339,6 @@ function buildRows(
           deliverables: sprint.deliverables,
         });
 
-        // Deliverables as labels (no Gantt bar)
         if (showDeliverables && sprint.deliverables && sprint.deliverables.length > 0) {
           for (const deliv of sprint.deliverables) {
             rows.push({
@@ -428,7 +385,6 @@ function xToDay(px: number, unit: TimeUnit, colW: number): number {
 
 function snapToUnit(day: number, unit: TimeUnit): number {
   if (unit === "day") return Math.max(1, day);
-  // snap to week boundary (multiples of 5)
   return Math.max(1, Math.round((day - 1) / DAYS_PER_WEEK) * DAYS_PER_WEEK + 1);
 }
 
@@ -479,6 +435,8 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
   );
   const [editingDate, setEditingDate] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
+  // Confirmation effacement date
+  const [confirmClearDate, setConfirmClearDate] = useState(false);
 
   // Sprint drag state
   const [dragState, setDragState] = useState<{
@@ -494,10 +452,49 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     Map<number, { fromDay: number; toDay: number }>
   >(new Map());
 
-  // Pending overrides to save
+  // Pending overrides to save (drag modifications not yet confirmed)
   const [pendingOverrides, setPendingOverrides] = useState<
     Map<number, { fromDay: number; toDay: number }>
   >(new Map());
+
+  // ─── FIX BUG SAVE ──────────────────────────────────────────────────────────
+  // Après la sauvegarde, on NE vide PAS pendingOverrides immédiatement.
+  // On les transfère dans savedOverrides qui persiste jusqu'à ce que les lots
+  // props soient mis à jour par le parent (reload). Ainsi le Gantt ne "saute"
+  // pas à l'ancienne position pendant l'intervalle entre save et reload.
+  const [savedOverrides, setSavedOverrides] = useState<
+    Map<number, { fromDay: number; toDay: number }>
+  >(new Map());
+
+  // Dès que les lots props changent (après reload du parent), on nettoie
+  // les savedOverrides dont les sprints correspondent aux nouvelles valeurs.
+  useEffect(() => {
+    if (savedOverrides.size === 0) return;
+    setSavedOverrides((prev) => {
+      const next = new Map(prev);
+      for (const [sprintId, ov] of prev.entries()) {
+        // Chercher le sprint dans les lots props mis à jour
+        let found = false;
+        for (const lot of lots) {
+          for (const phase of lot.phases ?? []) {
+            for (const sprint of phase.sprints ?? []) {
+              if (sprint.id === sprintId) {
+                // Si les valeurs du sprint dans les props correspondent à ce qu'on a sauvegardé,
+                // les props sont à jour → on peut retirer cet override
+                if (sprint.fromDay === ov.fromDay && sprint.toDay === ov.toDay) {
+                  next.delete(sprintId);
+                }
+                found = true;
+              }
+            }
+          }
+        }
+        // Sprint introuvable (supprimé) → nettoyer
+        if (!found) next.delete(sprintId);
+      }
+      return next;
+    });
+  }, [lots]);
 
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
@@ -537,33 +534,31 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     };
   }, []);
 
-  // ── Base planning (lots originaux + pending sauvegardés seulement) ──────────
-  // On N'applique PAS liveOverrides ici pour éviter de recalculer à chaque px
-  // du drag. Les liveOverrides sont appliqués directement dans rows via un
-  // patch léger sur les ComputedSprints.
-  const lotsWithPending = useMemo<BacklogLot[]>(() => {
-    if (pendingOverrides.size === 0) return lots;
+  // ── Base planning : fusionne lots props + savedOverrides + pendingOverrides ─
+  // Ordre de priorité : liveOverrides > pendingOverrides > savedOverrides > lots props
+  const lotsWithOverrides = useMemo<BacklogLot[]>(() => {
+    const hasAny = savedOverrides.size > 0 || pendingOverrides.size > 0;
+    if (!hasAny) return lots;
     return lots.map((lot) => ({
       ...lot,
       phases: (lot.phases ?? []).map((phase) => ({
         ...phase,
         sprints: (phase.sprints ?? []).map((sprint) => {
-          const ov = pendingOverrides.get(sprint.id);
+          // pendingOverrides prime sur savedOverrides
+          const ov = pendingOverrides.get(sprint.id) ?? savedOverrides.get(sprint.id);
           if (ov) return { ...sprint, fromDay: ov.fromDay, toDay: ov.toDay };
           return sprint;
         }),
       })),
     }));
-  }, [lots, pendingOverrides]);
+  }, [lots, savedOverrides, pendingOverrides]);
 
-  // Planning de base (recalcul uniquement quand lots/lines/profils changent)
   const computedBase = useMemo(
-    () => computePlanning(lotsWithPending, lines, lineProfils, deliverables),
-    [lotsWithPending, lines, lineProfils, deliverables]
+    () => computePlanning(lotsWithOverrides, lines, lineProfils, deliverables),
+    [lotsWithOverrides, lines, lineProfils, deliverables]
   );
 
-  // Patch live : on applique liveOverrides directement sur les ComputedSprints
-  // sans recalculer tout le planning → rendu fluide pendant le drag
+  // Patch live : appliqué uniquement pendant le drag pour un rendu fluide
   const computed = useMemo<ComputedLot[]>(() => {
     if (liveOverrides.size === 0) return computedBase;
     return computedBase.map((lot) => {
@@ -636,22 +631,17 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
 
     const onMove = (e: MouseEvent) => {
       const dPx = e.clientX - dragState.startX;
-
-      // px → jours : day=1col/jour, week=1col/5jours
       const pxPerDay = unit === "day" ? colW : colW / DAYS_PER_WEEK;
       const dDays = Math.round(dPx / pxPerDay);
-
       const duration = dragState.origTo - dragState.origFrom + 1;
 
       let newFrom: number;
       let newTo: number;
 
       if (dragState.type === "move") {
-        // Déplacement : conserve la durée, translate la position
         newFrom = Math.max(1, dragState.origFrom + dDays);
         newTo   = newFrom + duration - 1;
       } else {
-        // ResizeR : fromDay fixe, toDay s'étire
         newFrom = dragState.origFrom;
         newTo   = Math.max(dragState.origFrom, dragState.origTo + dDays);
       }
@@ -695,10 +685,13 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     setSaveErr(null);
     setSaveOk(false);
 
+    // Snapshot des overrides à sauvegarder avant tout état-change
+    const toSave = new Map(pendingOverrides);
+
     try {
       const sprintPayloads: SprintTimeDTO[] = [];
 
-      for (const [sprintId, ov] of pendingOverrides.entries()) {
+      for (const [sprintId, ov] of toSave.entries()) {
         const payload: SprintTimeDTO = {
           id: sprintId,
           fromDay: ov.fromDay,
@@ -717,7 +710,22 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
 
       await planningService.updateSprintTimes(sprintPayloads);
 
-      setPendingOverrides(new Map());
+      // ─── FIX : on transfère pending → saved AVANT de vider pending ──────
+      // Ainsi le Gantt conserve les positions correctes jusqu'à ce que le
+      // parent ait rechargé les lots (et que savedOverrides soit nettoyé
+      // par l'effet useEffect([lots]) ci-dessus).
+      setSavedOverrides((prev) => {
+        const n = new Map(prev);
+        for (const [id, ov] of toSave.entries()) n.set(id, ov);
+        return n;
+      });
+      // Vider seulement les pending qui ont été sauvegardés
+      setPendingOverrides((prev) => {
+        const n = new Map(prev);
+        for (const id of toSave.keys()) n.delete(id);
+        return n;
+      });
+
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 3000);
     } catch (err: any) {
@@ -730,11 +738,29 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
   const handleSaveStartDate = async () => {
     if (!selectedBacklogId || !startDateInput) return;
     setSavingDate(true);
+    setSaveErr(null);
     try {
       await planningService.updateStartDate(selectedBacklogId, startDateInput);
       setEditingDate(false);
     } catch (err: any) {
       setSaveErr(err?.message ?? "Erreur date de début.");
+    } finally {
+      setSavingDate(false);
+    }
+  };
+
+  // ─── Effacement date de début ─────────────────────────────────────────────
+  const handleClearStartDate = async () => {
+    if (!selectedBacklogId) return;
+    setSavingDate(true);
+    setSaveErr(null);
+    try {
+      await planningService.updateStartDate(selectedBacklogId, null as any);
+      setStartDateInput("");
+      setConfirmClearDate(false);
+      setEditingDate(false);
+    } catch (err: any) {
+      setSaveErr(err?.message ?? "Erreur lors de la suppression de la date.");
     } finally {
       setSavingDate(false);
     }
@@ -750,7 +776,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     const el: React.ReactNode[] = [];
 
     if (unit === "day") {
-      // Row 1: weeks
       const nWeeks = Math.ceil(nCols / DAYS_PER_WEEK);
       for (let w = 0; w < nWeeks; w++) {
         const wx = w * DAYS_PER_WEEK * colW;
@@ -766,7 +791,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
           </text>
         );
       }
-      // Row 2: days
       for (let d = 0; d < nCols; d++) {
         const dx = d * colW;
         const label = baseDate
@@ -782,7 +806,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         );
       }
     } else {
-      // Week mode: Row 1 = months (approx), Row 2 = weeks
       const nMonths = Math.ceil(nCols / 4);
       for (let m = 0; m < nMonths; m++) {
         const mx = m * 4 * colW;
@@ -825,7 +848,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
   const renderBodySVG = () => {
     const el: React.ReactNode[] = [];
 
-    // Vertical grid lines
     for (let i = 0; i <= nCols; i++) {
       const x = i * colW;
       const isMajor = unit === "day" ? i % DAYS_PER_WEEK === 0 : true;
@@ -836,7 +858,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       );
     }
 
-    // Horizontal grid lines
     rows.forEach((_, ri) => {
       el.push(
         <line key={`hg-${ri}`} x1={0} y1={ri * ROW_H} x2={scrollW} y2={ri * ROW_H}
@@ -844,13 +865,11 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       );
     });
 
-    // Bars
     rows.forEach((row, ri) => {
       const y = ri * ROW_H;
       const cy = y + ROW_H / 2;
 
       if (row.kind === "deliverable") {
-        // No Gantt bar for deliverables
         el.push(
           <rect key={`delbg-${row.id}`} x={0} y={y} width={scrollW} height={ROW_H}
             fill="#fafafa" style={{ pointerEvents: "none" }} />
@@ -866,7 +885,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         liveOverrides.has(row.sprintId!);
       const isSel = selectedId === row.id;
 
-      // Row background
       const bgFill = isSel
         ? "rgba(124,58,237,0.08)"
         : row.kind === "lot"
@@ -882,13 +900,9 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       );
 
       if (row.kind === "lot") {
-        // Thin lot bar
         el.push(
           <rect key={`lot-${row.id}`} x={bx} y={cy - 3} width={bw} height={6}
-            rx={3} fill={COLOR.lotBar} opacity={0.75} />
-        );
-        // Start/end ticks
-        el.push(
+            rx={3} fill={COLOR.lotBar} opacity={0.75} />,
           <rect key={`lot-tick-l-${row.id}`} x={bx} y={cy - 8} width={2} height={16} fill={COLOR.lotBar} opacity={0.6} />,
           <rect key={`lot-tick-r-${row.id}`} x={bx + bw - 2} y={cy - 8} width={2} height={16} fill={COLOR.lotBar} opacity={0.6} />
         );
@@ -937,12 +951,10 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
                 startDrag(e, row.sprintId!, "move", row.fromDay, row.toDay)
               }
             />
-            {/* Stripe pattern for pending */}
             {isPending && (
               <rect x={bx} y={bY} width={bw} height={bH} rx={3}
                 fill="url(#pendingStripe)" style={{ pointerEvents: "none" }} />
             )}
-            {/* Resize handle right */}
             {bw > HANDLE_W * 2 + 6 && (
               <rect x={bx + bw - HANDLE_W} y={bY} width={HANDLE_W} height={bH}
                 rx={2} fill="rgba(0,0,0,0.18)"
@@ -1150,7 +1162,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
 
       {/* ── Date de début planning ──────────────────────────────────────────── */}
       <div
-        className="d-flex align-items-center gap-3 px-3 py-2 mb-2 rounded"
+        className="d-flex align-items-center gap-3 px-3 py-2 mb-2 rounded flex-wrap"
         style={{ background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
       >
         <span style={{ color: "#475569", fontWeight: 600 }}>Date de début :</span>
@@ -1176,11 +1188,46 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
               style={{ fontSize: "0.75rem" }}
               onClick={() => {
                 setEditingDate(false);
+                setConfirmClearDate(false);
                 setStartDateInput(datedebutPlanning ?? "");
               }}
             >
               Annuler
             </button>
+            {/* Bouton effacer date */}
+            {!confirmClearDate ? (
+              <button
+                className="btn btn-sm btn-outline-danger"
+                style={{ fontSize: "0.75rem", marginLeft: "auto" }}
+                onClick={() => setConfirmClearDate(true)}
+                disabled={savingDate}
+                title="Supprimer la date de début (mode relatif J/S)"
+              >
+                ✕ Effacer la date
+              </button>
+            ) : (
+              <div className="d-flex align-items-center gap-2 ms-auto">
+                <span style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>
+                  Confirmer la suppression ?
+                </span>
+                <button
+                  className="btn btn-sm btn-danger"
+                  style={{ fontSize: "0.72rem" }}
+                  onClick={handleClearStartDate}
+                  disabled={savingDate}
+                >
+                  {savingDate ? "…" : "Oui, effacer"}
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  style={{ fontSize: "0.72rem" }}
+                  onClick={() => setConfirmClearDate(false)}
+                  disabled={savingDate}
+                >
+                  Non
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -1190,7 +1237,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             <button
               className="btn btn-sm btn-outline-secondary"
               style={{ fontSize: "0.72rem" }}
-              onClick={() => setEditingDate(true)}
+              onClick={() => { setEditingDate(true); setConfirmClearDate(false); }}
             >
               ✎ Modifier
             </button>
@@ -1232,7 +1279,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             )}
           </div>
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {/* Mode J / S */}
             <div className="btn-group btn-group-sm">
               {(["day", "week"] as TimeUnit[]).map((u) => (
                 <button
@@ -1343,7 +1389,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
                 boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
               }}
             >
-              {/* Fixed label header cell */}
               <div
                 style={{
                   width: LABEL_W,
@@ -1371,7 +1416,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
                   </div>
                 )}
               </div>
-              {/* Scrollable header */}
               <div
                 ref={headerScrollRef}
                 style={{ flex: 1, overflowX: "auto", overflowY: "hidden" }}
@@ -1475,9 +1519,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
               className="d-flex align-items-center gap-3 flex-wrap px-3 py-2"
               style={{ fontSize: "0.8rem" }}
             >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: 6 }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div
                   style={{
                     width: 10,
@@ -1513,9 +1555,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
                 </span>
               )}
               {pendingOverrides.has(selRow.sprintId!) && (
-                <span
-                  style={{ color: COLOR.sprintBar, fontSize: "0.75rem" }}
-                >
+                <span style={{ color: COLOR.sprintBar, fontSize: "0.75rem" }}>
                   ⚠ Modifié — en attente de sauvegarde
                 </span>
               )}
