@@ -1,49 +1,50 @@
 /**
- * Service frontend pour les avancements projet.
- * GET /api/projets/avancements  → tableau de ProjetAvancement
- * GET /api/projets/{id}/avancement → un seul ProjetAvancement
+ * ProjetAvancementService.tsx
+ * Correspond à ProjetAvancementController.java
+ *
+ * GET /api/projets/avancements       → tous les avancements (1 requête SQL)
+ * GET /api/projets/{id}/avancement   → avancement d'un projet précis
  */
+import { AxiosInstance } from 'axios';
 
 export interface ProjetAvancement {
-  projetId: number;
-  tachesValidees: number;
-  tachesTotal: number;
-  /** % tâches VALIDE / total (0–100) */
-  avancementTaches: number;
-  totalPaye: number;
-  montantOffre: number;
-  /** % payé / montant offre (0–100) */
-  avancementPaiement: number;
+  projetId:            number;
+  tachesValidees:      number;
+  tachesTotal:         number;
+  avancementTaches:    number;  // 0–100 %
+  totalPaye:           number;
+  montantOffre:        number;
+  avancementPaiement:  number;  // 0–100 %
 }
 
 export class ProjetAvancementService {
-  private readonly api: any;
+  private api: AxiosInstance;
 
-  constructor(api: any) {
+  constructor(api: AxiosInstance) {
     this.api = api;
   }
 
-  /** Récupère les avancements de tous les projets en une seule requête. */
+  /** Charge tous les avancements en une seule requête SQL côté back. */
   async getAll(): Promise<ProjetAvancement[]> {
     try {
-      const r = await this.api.get("/projets/avancements");
+      const r = await this.api.get('/projets/avancements');
       return r.data ?? [];
     } catch {
       return [];
     }
   }
 
-  /** Avancement d'un projet précis. */
-  async getByProjetId(id: number): Promise<ProjetAvancement | null> {
+  /** Rafraîchit l'avancement d'un seul projet (après paiement, validation tâche…). */
+  async getByProjetId(projetId: number): Promise<ProjetAvancement | null> {
     try {
-      const r = await this.api.get(`/projets/${id}/avancement`);
-      return r.data ?? null;
+      const r = await this.api.get(`/projets/${projetId}/avancement`);
+      return r.data;
     } catch {
       return null;
     }
   }
 
-  /** Transforme le tableau en Map projetId → ProjetAvancement */
+  /** Convertit un tableau en Map<projetId, avancement> pour lookup O(1). */
   static toMap(list: ProjetAvancement[]): Map<number, ProjetAvancement> {
     const m = new Map<number, ProjetAvancement>();
     list.forEach(a => m.set(a.projetId, a));

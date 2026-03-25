@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Header from '../../../../components/header/Header.tsx';
 import Button from '../../../../components/button/Button.tsx';
 import { FaPlus } from 'react-icons/fa';
@@ -10,15 +10,11 @@ import FormProjet from '../form/FormProjet.tsx';
 import ProjetDetails from '../form/details/ProjetDetails.tsx';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ListeProjet.css';
-import { ProjetService } from '../../../../services/projet/ProjetService.tsx';
-import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Projet } from '../../../../types/projet/Projet.tsx';
 import BacklogProjetModal from '../backlog/BacklogProjetModal.tsx';
-import { ProjetAvancementService, ProjetAvancement } from '../../../../services/projet/ProjetAvancementService.tsx';
-import { ProjetStatutService, ProjetStatut } from '../../../../services/projet/statut/ProjetStatutService.tsx';
+import { ProjetAvancement } from '../../../../services/projet/ProjetAvancementService.tsx';
 
-// ─── Méta-données des 9 statuts kanban (miroir de KanbanProjet.tsx) ──────────
-// Doit rester synchronisé avec COLUMNS dans KanbanProjet.tsx
+// ─── Méta-données des 9 statuts kanban ────────────────────────────────────────
 
 interface StatutMeta {
   label: string;
@@ -38,7 +34,7 @@ const STATUT_META: Record<number, StatutMeta> = {
   9: { label: 'Terminé',      color: '#14b8a6', bg: '#f0fdfa' },
 };
 
-// ─── Badge statut inline ──────────────────────────────────────────────────────
+// ─── Badge statut ─────────────────────────────────────────────────────────────
 
 const StatutBadge: React.FC<{ statutId: number | null; loading: boolean }> = ({
   statutId,
@@ -62,21 +58,32 @@ const StatutBadge: React.FC<{ statutId: number | null; loading: boolean }> = ({
       className="projet-statut-badge"
       style={{ color: meta.color, background: meta.bg, borderColor: meta.color + '44' }}
     >
-      <span
-        className="projet-statut-dot"
-        style={{ background: meta.color }}
-      />
+      <span className="projet-statut-dot" style={{ background: meta.color }} />
       {meta.label}
     </span>
   );
 };
 
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+interface ListeProjetProps {
+  projets:     Projet[];
+  statutMap:   Map<number, number>;
+  avancements: Map<number, ProjetAvancement>;
+  loading:     boolean;
+  onProjetSaved: () => Promise<void>;
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 
-const ListeProjet: React.FC = () => {
-  const { api } = useAuth();
+const ListeProjet: React.FC<ListeProjetProps> = ({
+  projets,
+  statutMap,
+  avancements,
+  loading,
+  onProjetSaved,
+}) => {
   const [search, setSearch] = useState('');
-  const [projets, setProjets] = useState<Projet[]>([]);
   const [showFormProjet, setShowFormProjet] = useState(false);
   const [selectedProjet, setSelectedProjet] = useState<Projet | null>(null);
   const [showProjetDetails, setShowProjetDetails] = useState(false);
@@ -86,73 +93,27 @@ const ListeProjet: React.FC = () => {
   const [showBacklogModal, setShowBacklogModal] = useState(false);
   const [selectedProjetForBacklog, setSelectedProjetForBacklog] = useState<Projet | null>(null);
 
-  // ── Services (stables entre rendus) ───────────────────────────────────────
-  const projetService     = useMemo(() => new ProjetService(api),          [api]);
-  const avancementService = useMemo(() => new ProjetAvancementService(api), [api]);
-  const statutService     = useMemo(() => new ProjetStatutService(api),     [api]);
+  // ── KPIs (recalculés depuis les projets reçus en prop) ────────────────────
+  const kpis = useMemo(() => ({
+    totalProjets:    projets.length,
+    totalCP:         projets.filter(p => p.userCp).length,
+    totalSuppleante: projets.filter(p => p.userSuppleante).length,
+  }), [projets]);
 
-  const [kpis, setKpis] = useState({ totalProjets: 0, totalCP: 0, totalSuppleante: 0 });
-
-  // Map projetId → ProjetAvancement
-  const [avancements, setAvancements]           = useState<Map<number, ProjetAvancement>>(new Map());
-  const [loadingAvancement, setLoadingAvancement] = useState(false);
-
-  // Map projetId → statutId  (alimenté par le même endpoint que le kanban)
-  const [statutMap, setStatutMap]           = useState<Map<number, number>>(new Map());
-  const [loadingStatut, setLoadingStatut]   = useState(false);
-
-  // ── Chargement projets ────────────────────────────────────────────────────
-  const loadProjets = async () => {
-    try {
-      const data = await projetService.getAll();
-      setProjets(data);
-      setKpis({
-        totalProjets:    data.length,
-        totalCP:         data.filter(p => p.userCp).length,
-        totalSuppleante: data.filter(p => p.userSuppleante).length,
-      });
-    } catch (error) {
-      console.error('Erreur chargement projets', error);
-    }
-  };
-
-  // ── Chargement avancements ────────────────────────────────────────────────
-  const loadAvancements = async () => {
-    setLoadingAvancement(true);
-    try {
-      const data = await avancementService.getAll();
-      setAvancements(ProjetAvancementService.toMap(data));
-    } catch {
-      // silencieux
-    } finally {
-      setLoadingAvancement(false);
-    }
-  };
-
-  // ── Chargement statuts kanban ─────────────────────────────────────────────
-  const loadStatuts = async () => {
-    setLoadingStatut(true);
-    try {
-      const map = await statutService.getStatutsCourants(); // Map<projetId, ProjetStatut>
-      // On ne garde que l'id pour la Map locale
-      const idMap = new Map<number, number>();
-      map.forEach((statut, projetId) => idMap.set(projetId, statut.id));
-      setStatutMap(idMap);
-    } catch {
-      // silencieux — la colonne affichera "Non défini"
-    } finally {
-      setLoadingStatut(false);
-    }
-  };
-
-  useEffect(() => {
-    loadProjets();
-    loadAvancements();
-    loadStatuts();
-  }, []);
+  // ── Données filtrées ─────────────────────────────────────────────────────
+  const filteredProjets = useMemo(() => {
+    if (!search.trim()) return projets;
+    const q = search.toLowerCase();
+    return projets.filter(p =>
+      p.nomProjet?.toLowerCase().includes(q) ||
+      (p.refBC ?? '').toLowerCase().includes(q) ||
+      (p.userCp?.username ?? '').toLowerCase().includes(q) ||
+      (p.lead?.leadName ?? '').toLowerCase().includes(q)
+    );
+  }, [projets, search]);
 
   // ── Handlers Backlog ──────────────────────────────────────────────────────
-  const handleOpenBacklog = (projet: any) => {
+  const handleOpenBacklog = (projet: Projet) => {
     setSelectedProjetForBacklog(projet);
     setShowBacklogModal(true);
   };
@@ -204,69 +165,19 @@ const ListeProjet: React.FC = () => {
       render: (row: Projet) => row.userSuppleante?.username || '-',
     },
     {
-      key: 'typeFacturation',
-      label: 'Type de facturation',
-      render: (row: Projet) => row.typeFacturation?.nomTypeFacturation || '-',
-    },
-    {
-      key: 'description',
-      label: 'Description',
-      render: (row: Projet) => (
-        <div style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {row.description || '-'}
-        </div>
-      ),
-    },
-
-    // ── Colonne Statut kanban ────────────────────────────────────────────────
-    {
-      key: 'statutKanban',
+      key: 'statut',
       label: 'Statut',
-      render: (row: Projet) => (
-        <StatutBadge
-          statutId={statutMap.get(row.idProjet ?? 0) ?? null}
-          loading={loadingStatut}
-        />
-      ),
-    },
-
-    // ── Avancement tâches ────────────────────────────────────────────────────
-    {
-      key: 'avancementTaches',
-      label: 'Avancement tâches',
       render: (row: Projet) => {
-        const a = avancements.get(row.idProjet ?? 0);
-        if (loadingAvancement) return <div className="avancement-skeleton" />;
-        if (!a || a.tachesTotal === 0)
-          return <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Aucune tâche</span>;
-        const pct   = a.avancementTaches;
-        const color = pct >= 100 ? '#2d8f47' : pct >= 60 ? '#EABF5B' : '#C93C29';
-        return (
-          <div style={{ minWidth: 120 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: 3 }}>
-              <span style={{ color: '#5F6F6E', fontWeight: 500 }}>
-                {a.tachesValidees}/{a.tachesTotal} tâches
-              </span>
-              <span style={{ fontWeight: 700, color }}>{pct.toFixed(0)} %</span>
-            </div>
-            <div style={{ height: 7, background: '#E8E5D7', borderRadius: 999, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', width: `${Math.min(100, pct)}%`,
-                background: color, borderRadius: 999, transition: 'width .4s',
-              }} />
-            </div>
-          </div>
-        );
+        const sid = statutMap.get(row.idProjet ?? 0) ?? null;
+        return <StatutBadge statutId={sid} loading={loading} />;
       },
     },
-
-    // ── Avancement paiement ───────────────────────────────────────────────────
     {
-      key: 'avancementPaiement',
+      key: 'avancement',
       label: 'Avancement paiement',
       render: (row: Projet) => {
         const a = avancements.get(row.idProjet ?? 0);
-        if (loadingAvancement) return <div className="avancement-skeleton" />;
+        if (loading) return <div className="avancement-skeleton" />;
         if (!a || a.montantOffre === 0)
           return (
             <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
@@ -357,10 +268,9 @@ const ListeProjet: React.FC = () => {
           </div>
         </div>
 
-        {/* Statut kanban dans le détail expansé */}
         <div className="row g-3 mt-3">
           <div className="col-md-4">
-            <label className="expanded-label">Statut kanban</label>
+            <label className="expanded-label">Statut</label>
             <p className="expanded-text" style={{ marginTop: 4 }}>
               {meta ? (
                 <span
@@ -411,10 +321,10 @@ const ListeProjet: React.FC = () => {
             {/* KPIs */}
             <div className="row mb-4">
               <div className="col-lg-4 col-md-6 mb-3">
-                <StatCard title="Total projets"          value={kpis.totalProjets}    subtitle="" variant={['tomato',  'charcoal']} />
+                <StatCard title="Total projets"           value={kpis.totalProjets}    subtitle="" variant={['tomato',  'charcoal']} />
               </div>
               <div className="col-lg-4 col-md-6 mb-3">
-                <StatCard title="Projets avec CP"        value={kpis.totalCP}         subtitle="" variant={['dim',    'linen']}    />
+                <StatCard title="Projets avec CP"         value={kpis.totalCP}         subtitle="" variant={['dim',    'linen']}    />
               </div>
               <div className="col-lg-4 col-md-6 mb-3">
                 <StatCard title="Projets avec suppléante" value={kpis.totalSuppleante} subtitle="" variant={['tuscan', 'linen']}   />
@@ -425,7 +335,7 @@ const ListeProjet: React.FC = () => {
             <div className="table-responsive mt-3">
               <Table
                 columns={columns}
-                data={projets}
+                data={filteredProjets}
                 expandedRowId={expandedRowId}
                 expandedRow={renderExpandedRow}
               />
@@ -440,8 +350,7 @@ const ListeProjet: React.FC = () => {
         onClose={() => { setShowFormProjet(false); setSelectedProjet(null); }}
         projet={selectedProjet}
         onSubmit={async () => {
-          await loadProjets();
-          await loadStatuts(); // rafraîchit aussi les statuts après édition
+          await onProjetSaved();
         }}
       />
 

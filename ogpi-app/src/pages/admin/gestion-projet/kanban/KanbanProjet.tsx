@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useAuth } from '../../../../context/AuthContext.tsx';
-import { ProjetService } from '../../../../services/projet/ProjetService.tsx';
-import { ProjetStatutService, ProjetStatut } from '../../../../services/projet/statut/ProjetStatutService.tsx'
+import { ProjetStatutService } from '../../../../services/projet/statut/ProjetStatutService.tsx';
 import { Projet } from '../../../../types/projet/Projet.tsx';
 import MenuListeProjet from '../menu/MenuListeProjet.tsx';
 import FormProjet from '../form/FormProjet.tsx';
@@ -39,9 +38,7 @@ const COLUMNS: KanbanColumn[] = [
   { statutId: 9, label: 'Terminé',      color: '#14b8a6', Icon: FaFlagCheckered },
 ];
 
-// Couleur par statutId pour accès rapide
-const COLOR_BY_ID: Record<number, string> = {};
-COLUMNS.forEach(c => { COLOR_BY_ID[c.statutId] = c.color; });
+const DEFAULT_STATUT_ID = 1;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,9 +51,6 @@ const initials = (nom: string) => {
     ? (p[0][0] + p[p.length - 1][0]).toUpperCase()
     : (nom[0] || '?').toUpperCase();
 };
-
-// Statut par défaut quand un projet n'a pas encore de statut kanban
-const DEFAULT_STATUT_ID = 1;
 
 // ─── Carte projet ─────────────────────────────────────────────────────────────
 
@@ -81,7 +75,6 @@ const ProjetCard: React.FC<CardProps> = ({
       draggable
       onDragStart={e => onDragStart(e, projet)}
     >
-      {/* Header */}
       <div className="kbp-card-header">
         <div
           className="kbp-avatar"
@@ -89,12 +82,10 @@ const ProjetCard: React.FC<CardProps> = ({
         >
           {initials(projet.nomProjet)}
         </div>
-
         <div className="kbp-card-info">
           <span className="kbp-card-name">{projet.nomProjet}</span>
           {projet.refBC && <span className="kbp-card-ref">{projet.refBC}</span>}
         </div>
-
         <div className="kbp-card-menu" onMouseDown={e => e.stopPropagation()}>
           <MenuListeProjet
             onDetails={onDetails}
@@ -104,7 +95,6 @@ const ProjetCard: React.FC<CardProps> = ({
         </div>
       </div>
 
-      {/* Body */}
       <div className="kbp-card-body">
         {projet.userCp && (
           <div className="kbp-card-row">
@@ -137,7 +127,6 @@ const ProjetCard: React.FC<CardProps> = ({
         )}
       </div>
 
-      {/* Footer : statut courant */}
       <div className="kbp-card-footer">
         <span
           className="kbp-badge kbp-badge--statut"
@@ -158,7 +147,7 @@ interface ColProps {
   projets: Projet[];
   onDragStart: (e: React.DragEvent, p: Projet) => void;
   onDrop: (e: React.DragEvent, statutId: number) => void;
-  statutMap: Map<number, number>; // projetId → statutId
+  statutMap: Map<number, number>;
   onDetails: (p: Projet) => void;
   onEdit: (p: Projet) => void;
   onBacklog: (p: Projet) => void;
@@ -178,14 +167,12 @@ const KanbanColonne: React.FC<ColProps> = ({
       onDragLeave={() => setOver(false)}
       onDrop={e => { setOver(false); onDrop(e, col.statutId); }}
     >
-      {/* En-tête colonne */}
       <div className="kbp-column-header">
         <col.Icon className="kbp-column-icon" />
         <span className="kbp-column-label">{col.label}</span>
         <span className="kbp-column-count">{projets.length}</span>
       </div>
 
-      {/* Corps colonne */}
       <div className="kbp-column-body">
         {projets.length === 0 && (
           <div className="kbp-empty">
@@ -209,23 +196,31 @@ const KanbanColonne: React.FC<ColProps> = ({
   );
 };
 
-// ─── KanbanProjet (page principale) ──────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────────
 
-const KanbanProjet: React.FC = () => {
+interface KanbanProjetProps {
+  projets:         Projet[];
+  statutMap:       Map<number, number>;
+  loading:         boolean;
+  onProjetSaved:   () => Promise<void>;
+  onStatutChange:  (projetId: number, newStatutId: number) => void;
+}
+
+// ─── KanbanProjet ─────────────────────────────────────────────────────────────
+
+const KanbanProjet: React.FC<KanbanProjetProps> = ({
+  projets,
+  statutMap,
+  loading,
+  onProjetSaved,
+  onStatutChange,
+}) => {
   const { api } = useAuth();
-  const projetService  = useMemo(() => new ProjetService(api), [api]);
-  const statutService  = useMemo(() => new ProjetStatutService(api), [api]);
-
-  const [projets, setProjets]       = useState<Projet[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-
-  // Map projetId → statutId (chargé depuis le backend)
-  const [statutMap, setStatutMap]   = useState<Map<number, number>>(new Map());
+  const statutService = useMemo(() => new ProjetStatutService(api), [api]);
 
   // Filtres
-  const [search, setSearch]         = useState('');
-  const [filterCP, setFilterCP]     = useState('');
+  const [search, setSearch]           = useState('');
+  const [filterCP, setFilterCP]       = useState('');
   const [filterStatut, setFilterStatut] = useState('');
 
   // Modals
@@ -236,32 +231,6 @@ const KanbanProjet: React.FC = () => {
   const [selectedForBacklog, setSelectedForBacklog] = useState<Projet | null>(null);
 
   const dragging = useRef<Projet | null>(null);
-
-  // ── Chargement ─────────────────────────────────────────────────────────────
-  const loadProjets = async () => {
-    setLoading(true);
-    try {
-      const [data, courants] = await Promise.all([
-        projetService.getAll(),
-        statutService.getStatutsCourants(),
-      ]);
-      setProjets(data);
-
-      // Projets sans statut → DEFAULT_STATUT_ID
-      const map = new Map<number, number>();
-      data.forEach(p => {
-        const id = p.idProjet ?? 0;
-        map.set(id, courants.get(id)?.id ?? DEFAULT_STATUT_ID);
-      });
-      setStatutMap(map);
-    } catch {
-      setError('Impossible de charger les projets.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadProjets(); }, []);
 
   // ── Drag & Drop ────────────────────────────────────────────────────────────
   const handleDragStart = (_e: React.DragEvent, p: Projet) => {
@@ -276,14 +245,14 @@ const KanbanProjet: React.FC = () => {
     const current = statutMap.get(p.idProjet);
     if (current === targetStatutId) return;
 
-    // Mise à jour optimiste
-    setStatutMap(prev => new Map(prev).set(p.idProjet!, targetStatutId));
+    // Mise à jour optimiste immédiate — remonte au ProjetPage
+    onStatutChange(p.idProjet, targetStatutId);
 
     try {
       await statutService.changerStatut(p.idProjet, targetStatutId);
     } catch {
-      // Rollback si l'API échoue
-      setStatutMap(prev => new Map(prev).set(p.idProjet!, current ?? DEFAULT_STATUT_ID));
+      // Rollback si l'API échoue — remet l'ancienne valeur
+      onStatutChange(p.idProjet, current ?? DEFAULT_STATUT_ID);
     }
   };
 
@@ -308,7 +277,6 @@ const KanbanProjet: React.FC = () => {
     });
   }, [projets, search, filterCP, filterStatut, statutMap]);
 
-  // Groupement par colonne
   const grouped = useMemo(() => {
     const g: Record<number, Projet[]> = {};
     COLUMNS.forEach(c => { g[c.statutId] = []; });
@@ -320,22 +288,15 @@ const KanbanProjet: React.FC = () => {
     return g;
   }, [filtered, statutMap]);
 
-  // KPIs
-  const totalProjets  = filtered.length;
-  const termines      = grouped[9]?.length ?? 0;
-  const enCours       = grouped[3]?.length ?? 0;
+  const totalProjets = filtered.length;
+  const termines     = grouped[9]?.length ?? 0;
+  const enCours      = grouped[3]?.length ?? 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="kbp-loading">
       <div className="kbp-spinner" />
       <span>Chargement du kanban…</span>
-    </div>
-  );
-
-  if (error) return (
-    <div className="kbp-error">
-      <FaTimes style={{ marginRight: 6 }} />{error}
     </div>
   );
 
@@ -346,8 +307,6 @@ const KanbanProjet: React.FC = () => {
         {/* ── Toolbar ──────────────────────────────────────────────────────── */}
         <div className="kbp-toolbar">
           <div className="kbp-toolbar-left">
-
-            {/* Recherche */}
             <div className="kbp-search-wrap">
               <FaSearch className="kbp-search-icon" />
               <input
@@ -359,7 +318,6 @@ const KanbanProjet: React.FC = () => {
               />
             </div>
 
-            {/* Filtre CP */}
             <div className="kbp-select-wrap">
               <FiFilter className="kbp-select-icon" />
               <select
@@ -374,7 +332,6 @@ const KanbanProjet: React.FC = () => {
               </select>
             </div>
 
-            {/* Filtre statut */}
             <div className="kbp-select-wrap">
               <FaSyncAlt className="kbp-select-icon" />
               <select
@@ -390,7 +347,6 @@ const KanbanProjet: React.FC = () => {
             </div>
           </div>
 
-          {/* KPIs */}
           <div className="kbp-toolbar-right">
             <div className="kbp-kpi">
               <FaLayerGroup className="kbp-kpi-icon" />
@@ -410,7 +366,7 @@ const KanbanProjet: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Légende récapitulative ────────────────────────────────────────── */}
+        {/* ── Légende ──────────────────────────────────────────────────────── */}
         <div className="kbp-legend">
           {COLUMNS.map(col => (
             <span
@@ -450,7 +406,7 @@ const KanbanProjet: React.FC = () => {
         show={showForm}
         onClose={() => { setShowForm(false); setSelectedProjet(null); }}
         projet={selectedProjet}
-        onSubmit={async () => { await loadProjets(); }}
+        onSubmit={async () => { await onProjetSaved(); }}
       />
 
       <ProjetDetails
