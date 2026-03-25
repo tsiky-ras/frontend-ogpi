@@ -350,8 +350,9 @@ const ListeLead: React.FC = () => {
           7: ['bg-warning', 'Rédaction'],
           8: ['bg-warning', 'Revue qualité'],
           9: ['bg-success', 'Soumission offre'],
-          10: ['bg-success', 'Gagnée'],
-          11: ['bg-secondary', 'Perdue'],
+          10: ['bg-warning', 'En cours d evaluation'],
+          11: ['bg-success', 'Gagnée'],
+          12: ['bg-secondary', 'Perdue'],
         };
         
         const stepId = row.currentLeadStep?.leadStep?.id;

@@ -59,8 +59,9 @@ const COLUMNS: KanbanColumn[] = [
   { key: "redaction",            label: "Rédaction",             color: "#f97316", Icon: FaPencilAlt,       stepIds: [7],  statusIds: [3] },
   { key: "revue_qualite",        label: "Revue qualité",         color: "#14b8a6", Icon: FaMagic,           stepIds: [8],  statusIds: [4] },
   { key: "soumission",           label: "Soumission offre",      color: "#0ea5e9", Icon: FaRocket,          stepIds: [9],  statusIds: [] },
-  { key: "gagnee",               label: "Gagnée",                color: "#10b981", Icon: FaTrophy,          stepIds: [10], statusIds: [5] },
-  { key: "perdue",               label: "Perdue",                color: "#64748b", Icon: FaTimes,           stepIds: [11], statusIds: [6] },
+  { key: "en_cours_evaluation",  label: "En cours d'evaluation", color: "#0ea5e9", Icon: FaRocket,          stepIds: [10],  statusIds: [] },
+  { key: "gagnee",               label: "Gagnée",                color: "#10b981", Icon: FaTrophy,          stepIds: [11], statusIds: [5] },
+  { key: "perdue",               label: "Perdue",                color: "#64748b", Icon: FaTimes,           stepIds: [12], statusIds: [6] },
 ];
 
 const STATUS_MAP: Record<number, { cls: string; label: string }> = {
@@ -82,8 +83,9 @@ const STEP_MAP: Record<number, { cls: string; label: string }> = {
   7:  { cls: "badge-warning",   label: "Rédaction" },
   8:  { cls: "badge-warning",   label: "Revue qualité" },
   9:  { cls: "badge-success",   label: "Soumission offre" },
-  10: { cls: "badge-success",   label: "Gagnée" },
-  11: { cls: "badge-secondary", label: "Perdue" },
+  10:  { cls: "badge-warning",   label: "En cours d'evaluation" },
+  11: { cls: "badge-success",   label: "Gagnée" },
+  12: { cls: "badge-secondary", label: "Perdue" },
 };
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
