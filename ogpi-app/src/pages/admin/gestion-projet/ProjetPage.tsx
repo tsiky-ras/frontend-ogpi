@@ -43,20 +43,17 @@ const ProjetPage: React.FC = () => {
     }
   }, [projetService]);
 
-  const loadStatuts = useCallback(async (data?: Projet[]) => {
+  const loadStatuts = useCallback(async (data: Projet[]) => {
     try {
       const courants = await statutService.getStatutsCourants();
-      const src = data ?? projets;
       const map = new Map<number, number>();
-      src.forEach(p => {
+      data.forEach(p => {
         const id = p.idProjet ?? 0;
         map.set(id, courants.get(id)?.id ?? DEFAULT_STATUT_ID);
       });
       setStatutMap(map);
-    } catch {
-      // silencieux
-    }
-  }, [statutService, projets]);
+    } catch {}
+  }, [statutService]); 
 
   const loadAvancements = useCallback(async () => {
     try {
@@ -99,10 +96,8 @@ const ProjetPage: React.FC = () => {
 
   // Callback appelé après création/édition d'un projet (depuis FormProjet)
   const handleProjetSaved = useCallback(async () => {
-    const data = await loadProjets();
-    await loadStatuts(data);
-    await loadAvancements();
-  }, [loadProjets, loadStatuts, loadAvancements]);
+    await loadAll();
+  }, [loadAll]);
 
   // Callback appelé quand le kanban déplace un projet
   const handleStatutChange = useCallback((projetId: number, newStatutId: number) => {

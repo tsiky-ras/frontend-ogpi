@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import Button from "../../../../components/button/Button.tsx";
   import {
     FaPlus, FaSpinner, FaEdit, FaTrash, FaCalendar,
-    FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle,
+    FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash,
+    FaCheckCircle, FaTimesCircle, FaClock, FaExclamationTriangle,
   } from "react-icons/fa";
   import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
@@ -20,7 +21,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import { BacklogPlanningService }     from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
   import { useProfilService }           from "../../../../services/profil/ProfilService.tsx";
   import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
-
+  
   import {
     Backlog,
     BacklogLot,
@@ -150,26 +151,33 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     VALIDE:                6,
   } as const;
 
-  // ── StatusPanel : colonne OK/KO unique, toujours réouvrable ────────────────
-  // Permet de marquer une tâche OK ou KO à tout moment (régression possible).
-  // KO = REATTRIBUE (2) → la tâche retourne dans "Mes tâches" du collaborateur.
-  // OK = VALIDE (6)     → tâche validée / test passé.
-  // ── TestStatusPanel : colonne "Statut de test" ──────────────────────────────
-  // Permet de marquer une tâche OK ou KO côté test, même après validation.
-  // KO = REATTRIBUE (2) → la tâche retourne dans "Mes tâches" du collaborateur.
-  // OK = VALIDE (6)     → confirme que le test est passé.
-  // Contrairement à ValidationPanel, le panel reste toujours réouvrable.
+  // ── TestStatusPanel modifié : logique conditionnelle selon le statut ──────────
+  // Bouton OK visible si statut = EN_COURS(4) ou SOUMIS(5)
+  // Bouton KO visible si statut = VALIDE(6) (régression possible)
+  // Aucun bouton si statut ne le permet pas
   interface TestStatusPanelProps {
     taskId: number;
+    currentStatusId?: number | null;   // statut actuel de la tâche (depuis currentStatus)
     currentTestStatus?: "ok" | "ko" | null;
     onDone: (taskId: number, result: "ok" | "ko", comment: string) => Promise<void>;
   }
 
-  const TestStatusPanel: React.FC<TestStatusPanelProps> = ({ taskId, currentTestStatus, onDone }) => {
+  const TestStatusPanel: React.FC<TestStatusPanelProps> = ({
+    taskId,
+    currentStatusId,
+    currentTestStatus,
+    onDone,
+  }) => {
     const [mode, setMode]       = React.useState<"ok" | "ko" | null>(null);
     const [comment, setComment] = React.useState("");
     const [saving, setSaving]   = React.useState(false);
     const [error, setError]     = React.useState<string | null>(null);
+
+    // Logique d'affichage conditionnelle :
+    // OK disponible si EN_COURS(4) ou SOUMIS(5)
+    // KO disponible si VALIDE(6)
+    const canOK = currentStatusId === TASK_STATUS.EN_COURS || currentStatusId === TASK_STATUS.EN_ATTENTE_VALIDATION;
+    const canKO = currentStatusId === TASK_STATUS.VALIDE;
 
     const handleSubmit = async () => {
       if (!mode) return;
@@ -185,8 +193,12 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       finally { setSaving(false); }
     };
 
-    // Si un statut de test existe déjà et qu'on n'est pas en mode saisie :
-    // on affiche le badge + petits boutons pour changer
+    // Si ni OK ni KO n'est disponible (statut ne le permet pas)
+    if (!canOK && !canKO && !currentTestStatus) {
+      return <span style={{ fontSize: "0.62rem", color: "#94a3b8" }}>—</span>;
+    }
+
+    // Si un statut de test existe déjà et qu'on n'est pas en mode saisie
     if (!mode && currentTestStatus) {
       return (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -201,60 +213,72 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
             {currentTestStatus === "ok" ? <FaCheckCircle size={9} /> : <FaTimesCircle size={9} />}
             Test {currentTestStatus.toUpperCase()}
           </span>
-          {/* Toujours permettre de re-décider */}
+          {/* Boutons conditionnels pour changer */}
           <div style={{ display: "flex", gap: 3 }}>
-            <button
-              style={{
-                fontSize: "0.58rem", padding: "1px 6px", borderRadius: 5,
-                background: "transparent", border: "1px solid #86efac",
-                color: "#16a34a", cursor: "pointer",
-              }}
-              onClick={() => { setMode("ok"); setComment(""); setError(null); }}>
-              OK
-            </button>
-            <button
-              style={{
-                fontSize: "0.58rem", padding: "1px 6px", borderRadius: 5,
-                background: "transparent", border: "1px solid #fca5a5",
-                color: "#dc2626", cursor: "pointer",
-              }}
-              onClick={() => { setMode("ko"); setComment(""); setError(null); }}>
-              KO
-            </button>
+            {canOK && (
+              <button
+                style={{
+                  fontSize: "0.58rem", padding: "1px 6px", borderRadius: 5,
+                  background: "transparent", border: "1px solid #86efac",
+                  color: "#16a34a", cursor: "pointer",
+                }}
+                onClick={() => { setMode("ok"); setComment(""); setError(null); }}>
+                OK
+              </button>
+            )}
+            {canKO && (
+              <button
+                style={{
+                  fontSize: "0.58rem", padding: "1px 6px", borderRadius: 5,
+                  background: "transparent", border: "1px solid #fca5a5",
+                  color: "#dc2626", cursor: "pointer",
+                }}
+                onClick={() => { setMode("ko"); setComment(""); setError(null); }}>
+                KO
+              </button>
+            )}
           </div>
         </div>
       );
     }
 
-    // Pas encore de statut → boutons principaux
+    // Boutons principaux — affichés selon statut
     if (!mode) return (
-      <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-        <button
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 4,
-            padding: "3px 9px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 700,
-            color: "#16a34a", background: "#f0fdf4", border: "1.5px solid #86efac",
-            cursor: "pointer", transition: "all .1s",
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#16a34a"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#f0fdf4"; (e.currentTarget as HTMLButtonElement).style.color = "#16a34a"; }}
-          onClick={() => { setMode("ok"); setComment(""); setError(null); }}
-          title="Test passé — OK">
-          <FaCheckCircle size={10} /> OK
-        </button>
-        <button
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 4,
-            padding: "3px 9px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 700,
-            color: "#dc2626", background: "#fff5f5", border: "1.5px solid #fca5a5",
-            cursor: "pointer", transition: "all .1s",
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#dc2626"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff5f5"; (e.currentTarget as HTMLButtonElement).style.color = "#dc2626"; }}
-          onClick={() => { setMode("ko"); setComment(""); setError(null); }}
-          title="Test échoué — KO, ré-affectation">
-          <FaTimesCircle size={10} /> KO
-        </button>
+      <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap" }}>
+        {canOK && (
+          <button
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "3px 9px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 700,
+              color: "#16a34a", background: "#f0fdf4", border: "1.5px solid #86efac",
+              cursor: "pointer", transition: "all .1s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#16a34a"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#f0fdf4"; (e.currentTarget as HTMLButtonElement).style.color = "#16a34a"; }}
+            onClick={() => { setMode("ok"); setComment(""); setError(null); }}
+            title="Test passé — OK">
+            <FaCheckCircle size={10} /> OK
+          </button>
+        )}
+        {canKO && (
+          <button
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "3px 9px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 700,
+              color: "#dc2626", background: "#fff5f5", border: "1.5px solid #fca5a5",
+              cursor: "pointer", transition: "all .1s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#dc2626"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff5f5"; (e.currentTarget as HTMLButtonElement).style.color = "#dc2626"; }}
+            onClick={() => { setMode("ko"); setComment(""); setError(null); }}
+            title="Test échoué — KO, ré-affectation">
+            <FaTimesCircle size={10} /> KO
+          </button>
+        )}
+        {/* Si aucun bouton disponible mais pas de statut test non plus */}
+        {!canOK && !canKO && (
+          <span style={{ fontSize: "0.62rem", color: "#94a3b8" }}>—</span>
+        )}
       </div>
     );
 
@@ -344,9 +368,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       burndown: new BurndownService(api),
     }).current;
 
-    // ── Appel API changeStatus OK/KO — toujours réouvrable (régression possible) ──
-    // KO = REATTRIBUE (2) → la tâche retourne dans "Mes tâches" du collaborateur
-    // OK = VALIDE (6)     → tâche validée
+    // ── Appel API changeStatus OK/KO ──────────────────────────────────────────
     const handleTestStatus = React.useCallback(async (
       taskId: number, result: "ok" | "ko", comment: string
     ) => {
@@ -396,7 +418,6 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     const leadTechFinService = useLeadTechFinDetailsService();
     const [deviseAbr, setDeviseAbr] = useState<string>("€");
     const [budgetRH, setBudgetRH]   = useState<number>(0);
-    // montantOffre = budget de l'offre technique du lead (lead_tech_fin_details_montant)
     const [montantOffre, setMontantOffre] = useState<number>(0);
 
     const [showProfilCols, setShowProfilCols] = useState(true);
@@ -452,6 +473,10 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     const [fTimeSpent, setFTimeSpent] = useState<number | null>(null);
     const [fCol,       setFCol]       = useState({ name: "", type: "TEXT" as BacklogColumnType });
     const [fCellVal,   setFCellVal]   = useState("");
+
+    // ── État sélection ressource dans le modal volume ─────────────────────────
+    // "profilId-collaborateurId" ou "profilId-null"
+    const [fSelectedRessource, setFSelectedRessource] = useState<string>("");
 
     const lineBodyRef    = useRef<HTMLTableSectionElement | null>(null);
     const lotsRef        = useRef<HTMLDivElement | null>(null);
@@ -586,8 +611,6 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         try {
           const techFin = await leadTechFinService.getByLeadId(leadId);
           setDeviseAbr((techFin && techFin.devise?.abrDevise) || "€");
-          // montantOffre = "Budget nécessaire" = lead_tech_fin_details_montant
-          // Le frontend le stocke parfois sous "budget", parfois sous "montantOffre"
           setMontantOffre(techFin?.montantOffre || techFin?.budget || 0);
         }
         catch { setDeviseAbr("€"); setMontantOffre(0); }
@@ -602,8 +625,8 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       setError(null); setShowBacklogForm(false); setActiveTab("backlog");
       setSelectedBacklogId(null);
       setExpandedPhases(new Set()); setExpandedSprints(new Map()); setExpandedLines(new Set());
-      setTestStatuses(new Map()); // reset statuts de test à l'ouverture
-      setMontantOffre(0); // sera rechargé par l'effet leadId
+      setTestStatuses(new Map());
+      setMontantOffre(0);
       fetchBacklogHeader();
     }, [show, projetId]);
 
@@ -1053,15 +1076,47 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     };
 
     // ══════════════════════════════════════════════════════════════════════
-    // VOLUMES
+    // VOLUMES — modal amélioré avec sélecteur de ressource
     // ══════════════════════════════════════════════════════════════════════
+
+    // ── Construit la liste des ressources disponibles pour une ligne ──────────
+    // Format de la valeur du select : "profilId|collaborateurId" ou "profilId|"
+    const buildRessourceOptions = () => {
+      const opts: { value: string; label: string; profilId: number; collabId: number | null }[] = [];
+      for (const profil of profils) {
+        if (profil.collaborateurs.length === 0) {
+          opts.push({
+            value: `${profil.id}|`,
+            label: `${profil.name}${profil.desc ? ` (${profil.desc})` : ""}`,
+            profilId: profil.id,
+            collabId: null,
+          });
+        } else {
+          for (const c of profil.collaborateurs) {
+            const collabLabel = c.appellation ?? `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
+            opts.push({
+              value: `${profil.id}|${c.id}`,
+              label: `${profil.name} — ${collabLabel}`,
+              profilId: profil.id,
+              collabId: c.id,
+            });
+          }
+        }
+      }
+      return opts;
+    };
 
     const openVolModal = (lineId: number, profilId: number) => {
       setCtxLineId(lineId); setCtxProfilId(profilId);
       const existing = lineProfils.find(lp => lp.lineId === lineId && (lp.profil as any)?.id === profilId);
       setEditLineProfil(existing ?? null);
       setFVolume(existing?.volume ?? 0);
-      setFCollabId(existing?.collaborateur?.id ?? null);
+
+      // Initialiser le sélecteur de ressource
+      const collabId = existing?.collaborateur?.id ?? null;
+      setFCollabId(collabId);
+      setFSelectedRessource(collabId ? `${profilId}|${collabId}` : `${profilId}|`);
+
       if (existing?.deadLine) {
         const date = new Date(existing.deadLine);
         const year = date.getFullYear();
@@ -1077,35 +1132,129 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       setShowVolModal(true);
     };
 
-    const saveVolume = async () => {
-      if (ctxLineId === null || ctxProfilId === null) return;
-      setSaving(true);
-      try {
-        let deadLineToSend = null;
-        if (fDeadline) {
-          const localDate = new Date(fDeadline);
-          deadLineToSend = localDate.toISOString();
-        }
-        const payload = {
-          volume: fVolume,
-          lineId: ctxLineId,
-          profilId: ctxProfilId,
-          collaborateurId: fCollabId,
-          deadLine: deadLineToSend,
-          timeSpent: fTimeSpent,
-        };
-        if (editLineProfil) {
-          const updated = await svc.lineProfil.update(editLineProfil.id, payload);
-          setLineProfils(prev => prev.map(lp => lp.id === editLineProfil.id ? updated : lp));
-        } else {
-          const created = await svc.lineProfil.create(payload);
-          setLineProfils(prev => [...prev, created]);
-        }
-        setShowVolModal(false);
-      } catch { alert("Erreur lors de la sauvegarde du volume."); }
-      finally { setSaving(false); setCtxLineId(null); setCtxProfilId(null); }
+    // ── Ouvre le modal volume sans profil pré-sélectionné (depuis colonne Ressources) ──
+    const openVolModalForLine = (lineId: number) => {
+      setCtxLineId(lineId);
+      setCtxProfilId(null);
+      setEditLineProfil(null);
+      setFVolume(0);
+      setFCollabId(null);
+      setFSelectedRessource("");
+      setFDeadline("");
+      setFTimeSpent(null);
+      setShowVolModal(true);
     };
 
+    // ── Handler changement de ressource dans le select ────────────────────────
+    const handleRessourceChange = (value: string) => {
+      setFSelectedRessource(value);
+      if (!value) {
+        setCtxProfilId(null);
+        setFCollabId(null);
+        return;
+      }
+      const [profilIdStr, collabIdStr] = value.split("|");
+      const profilId = parseInt(profilIdStr, 10);
+      const collabId = collabIdStr ? parseInt(collabIdStr, 10) : null;
+      setCtxProfilId(profilId);
+      setFCollabId(collabId);
+
+      // Si une affectation existe déjà pour ce profil/collab sur cette ligne, la charger
+      if (ctxLineId !== null) {
+        const existing = lineProfils.find(
+          lp => lp.lineId === ctxLineId && (lp.profil as any)?.id === profilId
+        );
+        if (existing) {
+          setEditLineProfil(existing);
+          setFVolume(existing.volume ?? 0);
+          setFTimeSpent(existing.timeSpent ?? null);
+          if (existing.deadLine) {
+            const date = new Date(existing.deadLine);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            setFDeadline(`${year}-${month}-${day}T${hours}:${minutes}`);
+          } else {
+            setFDeadline("");
+          }
+        } else {
+          setEditLineProfil(null);
+          setFVolume(0);
+          setFTimeSpent(null);
+          setFDeadline("");
+        }
+      }
+    };
+
+  const saveVolume = async () => {
+    if (ctxLineId === null || ctxProfilId === null) return;
+    setSaving(true);
+    try {
+      const payload = {
+        volume: fVolume,
+        lineId: ctxLineId,
+        profilId: ctxProfilId,
+        collaborateurId: fCollabId,
+        deadLine: fDeadline ? new Date(fDeadline).toISOString() : null,
+        timeSpent: fTimeSpent,
+      };
+
+      let saved: BacklogProjetLineProfil;
+      if (editLineProfil) {
+        saved = await svc.lineProfil.update(editLineProfil.id, payload);
+        // ── Mise à jour optimiste immédiate ──────────────────────────────
+        setLineProfils(prev =>
+          prev.map(lp =>
+            lp.id === editLineProfil.id
+              ? {
+                  ...lp,
+                  volume: fVolume,
+                  timeSpent: fTimeSpent,
+                  deadLine: fDeadline ? new Date(fDeadline).toISOString() : null,
+                  collaborateur: fCollabId
+                    ? allCollabs.find((c: any) => c.id === fCollabId) ?? lp.collaborateur
+                    : null,
+                }
+              : lp
+          )
+        );
+      } else {
+        saved = await svc.lineProfil.create(payload);
+        // ── Ajout optimiste immédiat ─────────────────────────────────────
+        const profilObj = profils.find(p => p.id === ctxProfilId);
+        const collabObj = fCollabId
+          ? allCollabs.find((c: any) => c.id === fCollabId) ?? null
+          : null;
+        setLineProfils(prev => [
+          ...prev,
+          {
+            ...saved,
+            lineId: ctxLineId,
+            volume: fVolume,
+            timeSpent: fTimeSpent,
+            deadLine: fDeadline ? new Date(fDeadline).toISOString() : null,
+            profil: profilObj ?? { id: ctxProfilId, name: "", tjm: 0, order: 0 },
+            collaborateur: collabObj,
+          } as BacklogProjetLineProfil,
+        ]);
+      }
+
+      setShowVolModal(false);
+
+      // ── Reload serveur en arrière-plan (sans bloquer l'UI) ───────────
+      if (selectedBacklogId) {
+        loadLineProfils(selectedBacklogId).catch(console.warn);
+      }
+    } catch {
+      alert("Erreur lors de la sauvegarde du volume.");
+    } finally {
+      setSaving(false);
+      setCtxLineId(null);
+      setCtxProfilId(null);
+    }
+  };
     const deleteVolume = async () => {
       if (!editLineProfil || !window.confirm("Supprimer ce volume ?")) return;
       try {
@@ -1285,6 +1434,9 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     const grandTotalVol = profilTotals.reduce((s, t) => s + t.vol, 0);
     const grandTotalTs  = profilTotals.reduce((s, t) => s + t.ts, 0);
     const grandTotalAmt = profilTotals.reduce((s, t) => s + t.amount, 0);
+
+    // ── Ressource options memoized ────────────────────────────────────────
+    const ressourceOptions = React.useMemo(() => buildRessourceOptions(), [profils]);
 
     // ══════════════════════════════════════════════════════════════════════
     // RENDU
@@ -1641,12 +1793,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                         )}
 
                         {/* ── Tableau lignes ── */}
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                          <button className={`btn btn-sm d-flex align-items-center gap-2 ${showProfilCols ? "btn-outline-secondary" : "btn-warning"}`} onClick={() => setShowProfilCols(v => !v)}>
-                            {showProfilCols ? <FaEyeSlash /> : <FaEye />}
-                            {showProfilCols ? "Masquer" : "Afficher"} colonnes profils
-                            <span className="badge bg-secondary">{profils.length}</span>
-                          </button>
+                        <div className="d-flex justify-content-end mb-3">
                           <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
                         </div>
                         <div className="table-responsive shadow-sm rounded">
@@ -1656,37 +1803,21 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                 <th style={{ width: 32 }} /><th style={{ width: 40 }}>#</th>
                                 <th style={{ minWidth: 180 }}>Lot / Phase / Sprint</th>
                                 <th>Epic</th><th>User Story</th><th>Description</th><th>Détails</th>
-                                <th style={{ minWidth: 130 }}>Statut / Décision</th>
-                                {showProfilCols && profils.map(p => (
-                                  <th key={p.id} className="text-center" style={{ minWidth: 160 }}>
-                                    <div className="fw-bold">{p.name}</div>
-                                    {p.collaborateurs.length > 0 && (
-                                      <div className="d-flex flex-column gap-1 mt-1">
-                                        {p.collaborateurs.map((c: any) => (
-                                          <span key={c.id} className="badge bg-info text-dark fw-normal" style={{ fontSize: "0.65rem", whiteSpace: "nowrap" }}>{c.prenom} {c.nom}</span>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <div className="d-flex justify-content-center gap-1 mt-1 flex-wrap" style={{ fontSize: "0.58rem", color: "#adb5bd", fontWeight: "normal" }}>
-                                      <span>JH</span><span>·</span><span>Réalisation</span><span>·</span>
-                                      <span style={{ color: "#f97316" }}>Décision</span>
-                                    </div>
-                                  </th>
-                                ))}
-
-                                {/* ── En-tête Statut OK/KO — 1 colonne par profil, toujours modifiable ── */}
-                                {showProfilCols && profils.map(p => (
-                                  <th key={`status-th-${p.id}`} className="text-center"
-                                    style={{ minWidth: 140, backgroundColor: "#0f766e", color: "#fff" }}>
-                                    <div className="fw-bold" style={{ fontSize: "0.78rem" }}>Statut OK / KO</div>
-                                    <div style={{ fontSize: "0.62rem", opacity: 0.85, fontWeight: 400 }}>{p.name}</div>
-                                    <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 3 }}>
-                                      <span style={{ fontSize: "0.6rem", background: "#f0fdf4", color: "#16a34a", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>OK</span>
-                                      <span style={{ fontSize: "0.6rem", background: "#fff5f5", color: "#dc2626", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>KO</span>
-                                    </div>
-                                  </th>
-                                ))}
-
+                                {/* ── Colonne Ressources unique (remplace N colonnes profil) ── */}
+                                <th style={{ minWidth: 220, backgroundColor: "#1e3a5f", color: "#fff" }}>
+                                  <div className="fw-bold">Ressources</div>
+                                  <div style={{ fontSize: "0.62rem", opacity: 0.8, fontWeight: 400, marginTop: 2 }}>
+                                    Profil · JH · Réalisation · Tps passé · Statut
+                                  </div>
+                                </th>
+                                {/* ── Colonne OK/KO unique ── */}
+                                <th className="text-center" style={{ minWidth: 130, backgroundColor: "#0f766e", color: "#fff" }}>
+                                  <div className="fw-bold" style={{ fontSize: "0.8rem" }}>Statut test</div>
+                                  <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 3 }}>
+                                    <span style={{ fontSize: "0.6rem", background: "#f0fdf4", color: "#16a34a", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>OK</span>
+                                    <span style={{ fontSize: "0.6rem", background: "#fff5f5", color: "#dc2626", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>KO</span>
+                                  </div>
+                                </th>
                                 <th className="text-center" style={{ minWidth: 75, backgroundColor: "#495057" }}>
                                   <div className="fw-bold text-warning">Total JH</div>
                                 </th>
@@ -1696,7 +1827,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                             <tbody ref={lineBodyRef}>
                               {lines.length === 0 ? (
                                 <tr className="empty-row">
-                                  <td colSpan={9 + (showProfilCols ? profils.length * 2 : 0) + 1} className="text-center text-muted fst-italic py-4">
+                                  <td colSpan={11} className="text-center text-muted fst-italic py-4">
                                     Aucune ligne — cliquez sur « Ajouter une ligne »
                                   </td>
                                 </tr>
@@ -1706,6 +1837,9 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                 const sprintId = (line as any).sprintId;
                                 const sprintName = sprintId ? (sprints.get((line as any).phaseId) ?? []).find(s => s.id === sprintId)?.name ?? null : null;
                                 const lineJH = getLineJH(line.id);
+                                // Toutes les affectations pour cette ligne (ayant un volume > 0)
+                                const lpsForLine = lineProfils.filter(lp => lp.lineId === line.id && lp.volume > 0);
+
                                 return (
                                   <tr key={line.id}>
                                     <td className="drag-line text-center text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</td>
@@ -1727,136 +1861,166 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                     <td>{line.description ?? "—"}</td>
                                     <td>{line.resultat ?? "—"}</td>
 
-                                    {/* ── Colonne Statut : badges lecture seule ── */}
-                                    <td className="text-center" style={{ verticalAlign: "middle", padding: "4px 8px", minWidth: 110 }}>
-                                      {(() => {
-                                        const lpsForLine = lineProfils.filter(lp => lp.lineId === line.id && lp.volume > 0);
-                                        if (!lpsForLine.length) return <span className="text-muted small">—</span>;
-                                        return (
-                                          <div className="d-flex flex-column align-items-center gap-1">
-                                            {lpsForLine.map(lp => {
-                                              const sid = (lp as any)?.currentStatus?.status?.id ?? null;
-                                              const collab = lp?.collaborateur;
-                                              const collabLabel = collab
-                                                ? (collab as any).appellation ?? `${(collab as any).prenom ?? ""} ${(collab as any).nom ?? ""}`.trim()
-                                                : null;
-                                              const m = sid != null ? taskStatusMeta(sid) : null;
-                                              return (
-                                                <div key={lp.id} className="d-flex flex-column align-items-center" style={{ gap: 2 }}>
-                                                  {m ? (
+                                    {/* ══ Colonne Ressources — groupée ══════════════════════════════════ */}
+                                    <td style={{ verticalAlign: "top", padding: "6px 8px", backgroundColor: "#f8faff" }}>
+                                      {lpsForLine.length === 0 ? (
+                                        <button
+                                          className="btn btn-sm btn-outline-primary w-100"
+                                          style={{ fontSize: "0.7rem" }}
+                                          onClick={() => openVolModalForLine(line.id)}>
+                                          <FaPlus size={9} className="me-1" />Affecter une ressource
+                                        </button>
+                                      ) : (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                          {lpsForLine.map(lp => {
+                                            const profilObj = profils.find(p => p.id === (lp.profil as any)?.id);
+                                            const profilName = profilObj?.name ?? (lp.profil as any)?.name ?? "—";
+                                            const collab = lp.collaborateur;
+                                            const collabNom = collab
+                                              ? (() => {
+                                                  const fullName = `${(collab as any).prenom ?? ""} ${(collab as any).nom ?? ""}`.trim();
+                                                  const appellation = (collab as any).appellation;
+                                                  if (fullName && appellation) return `${fullName} (${appellation})`;
+                                                  return fullName || appellation || null;
+                                                })()
+                                              : null;
+                                            const vol = lp.volume;
+                                            const timeSpent = lp.timeSpent ?? null;
+                                            const deadline = lp.deadLine ?? null;
+                                            const lpStatusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
+                                            const statusMeta = taskStatusMeta(lpStatusId);
+                                            const ecart = vol > 0 && timeSpent != null ? vol - timeSpent : null;
+                                            const pct = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
+                                            const isOverdue = deadline && new Date(deadline) < new Date() && lpStatusId !== TASK_STATUS.VALIDE;
+
+                                            return (
+                                              <div
+                                                key={lp.id}
+                                                style={{
+                                                  background: "#fff",
+                                                  border: "1px solid #dbeafe",
+                                                  borderRadius: 7,
+                                                  padding: "5px 8px",
+                                                  cursor: "pointer",
+                                                  transition: "box-shadow 0.15s",
+                                                }}
+                                                onClick={() => openVolModal(line.id, (lp.profil as any)?.id)}
+                                                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.15)")}
+                                                onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
+                                                title="Cliquer pour modifier"
+                                              >
+                                                {/* Profil + Collaborateur */}
+                                                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3, flexWrap: "wrap" }}>
+                                                  <span style={{
+                                                    fontSize: "0.68rem", fontWeight: 700, color: "#1e40af",
+                                                    background: "#eff6ff", border: "1px solid #bfdbfe",
+                                                    borderRadius: 4, padding: "1px 5px",
+                                                  }}>
+                                                    {profilName}
+                                                  </span>
+                                                  {collabNom && (
+                                                    <span style={{ fontSize: "0.62rem", color: "#64748b", fontStyle: "italic" }}>
+                                                      {collabNom}
+                                                    </span>
+                                                  )}
+                                                  {statusMeta && (
                                                     <span style={{
                                                       display: "inline-flex", alignItems: "center", gap: 3,
-                                                      fontSize: "0.62rem", fontWeight: 700, color: m.color,
-                                                      background: m.bg, border: `1px solid ${m.color}33`,
-                                                      borderRadius: 10, padding: "2px 7px", whiteSpace: "nowrap",
+                                                      fontSize: "0.6rem", fontWeight: 600, color: statusMeta.color,
+                                                      background: statusMeta.bg, border: `1px solid ${statusMeta.color}33`,
+                                                      borderRadius: 10, padding: "1px 5px", whiteSpace: "nowrap",
                                                     }}>
-                                                      <span style={{ width:5, height:5, borderRadius:"50%", background:m.dot, flexShrink:0 }} />
-                                                      {m.label}
-                                                    </span>
-                                                  ) : (
-                                                    <span style={{ fontSize:"0.62rem", color:"#94a3b8" }}>—</span>
-                                                  )}
-                                                  {collabLabel && (
-                                                    <span style={{ fontSize:"0.58rem", color:"#94a3b8", whiteSpace:"nowrap" }}>
-                                                      {collabLabel}
+                                                      <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: statusMeta.dot, flexShrink: 0 }} />
+                                                      {statusMeta.label}
                                                     </span>
                                                   )}
                                                 </div>
-                                              );
-                                            })}
-                                          </div>
-                                        );
-                                      })()}
-                                    </td>
 
-                                    {/* ── Colonnes JH / Réalisation par profil ── */}
-                                    {showProfilCols && profils.map(p => {
-                                      const lp         = getLineProfil(line.id, p.id);
-                                      const vol        = lp?.volume ?? 0;
-                                      const collab     = lp?.collaborateur;
-                                      const deadline   = lp?.deadLine ?? null;
-                                      const timeSpent  = lp?.timeSpent ?? null;
-                                      const ecart      = vol > 0 && timeSpent != null ? vol - timeSpent : null;
-                                      const pct        = vol > 0 && timeSpent != null ? Math.round((timeSpent / vol) * 100) : null;
-                                      const lpStatusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
-                                      const isOverdue  = deadline && new Date(deadline) < new Date() && lpStatusId !== TASK_STATUS.VALIDE;
-                                      const collabNom  = collab ? (collab.appellation ?? `${collab.prenom} ${collab.nom}`) : null;
-                                      return (
-                                        <td key={p.id} className="text-center" style={{ verticalAlign: "middle", padding: "4px 6px" }}>
-                                          {vol > 0 ? (
-                                            <div className="d-flex flex-column align-items-center gap-1">
-                                              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-center">
-                                                <span className="badge bg-primary"
-                                                  style={{ fontSize: "0.7rem", cursor: "pointer" }}
-                                                  onClick={() => openVolModal(line.id, p.id)}>
-                                                  {vol} JH
-                                                </span>
-                                                {timeSpent != null && (
-                                                  <span className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`}
-                                                    style={{ fontSize: "0.65rem", cursor: "pointer" }}
-                                                    onClick={() => openVolModal(line.id, p.id)}
-                                                    title={`Réalisation : ${timeSpent} JH sur ${vol} JH planifiés`}>
-                                                    {timeSpent} réal.
-                                                  </span>
-                                                )}
-                                                {ecart !== null && (
-                                                  <span style={{
-                                                    fontSize: "0.6rem", fontWeight: 700,
-                                                    color: ecartColor(ecart),
-                                                    background: ecart < 0 ? "#fef2f2" : ecart === 0 ? "#f3f4f6" : "#ecfdf5",
-                                                    border: `1px solid ${ecartColor(ecart)}44`,
-                                                    borderRadius: 10, padding: "1px 5px", whiteSpace: "nowrap",
-                                                    cursor: "pointer",
-                                                  }}
-                                                    onClick={() => openVolModal(line.id, p.id)}
-                                                    title={ecart >= 0 ? `${ecart} JH restants` : `Dépassement de ${Math.abs(ecart)} JH`}>
-                                                    {fmtEcart(ecart)} passé
-                                                  </span>
+                                                {/* JH / Réalisation / Écart */}
+                                                <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                                                  <span className="badge bg-primary" style={{ fontSize: "0.65rem" }}>{vol} JH</span>
+                                                  {timeSpent != null && (
+                                                    <span className={`badge ${pct! > 100 ? "bg-danger" : pct! >= 80 ? "bg-warning text-dark" : "bg-success"}`}
+                                                      style={{ fontSize: "0.6rem" }}>
+                                                      {timeSpent} réal.
+                                                    </span>
+                                                  )}
+                                                  {ecart !== null && (
+                                                    <span style={{
+                                                      fontSize: "0.58rem", fontWeight: 700,
+                                                      color: ecartColor(ecart),
+                                                      background: ecart < 0 ? "#fef2f2" : ecart === 0 ? "#f3f4f6" : "#ecfdf5",
+                                                      border: `1px solid ${ecartColor(ecart)}44`,
+                                                      borderRadius: 10, padding: "1px 4px",
+                                                    }}>
+                                                      {fmtEcart(ecart)} passé
+                                                    </span>
+                                                  )}
+                                                </div>
+
+                                                {/* Deadline */}
+                                                {deadline && (
+                                                  <div style={{
+                                                    fontSize: "0.58rem", marginTop: 2,
+                                                    color: lpStatusId === TASK_STATUS.VALIDE ? "#10b981" : isOverdue ? "#dc3545" : "#6c757d",
+                                                    fontWeight: (isOverdue || lpStatusId === TASK_STATUS.VALIDE) ? "bold" : "normal",
+                                                  }}>
+                                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                                      {isOverdue
+                                                        ? <FaExclamationTriangle size={9} style={{ flexShrink: 0 }} />
+                                                        : <FaClock size={9} style={{ flexShrink: 0 }} />
+                                                      }
+                                                      {fmtDateTime(deadline)}
+                                                    </span>
+                                                  </div>
                                                 )}
                                               </div>
-                                              {deadline && (
-                                                <span style={{
-                                                  fontSize: "0.6rem",
-                                                  color: lpStatusId === TASK_STATUS.VALIDE ? "#10b981" : isOverdue ? "#dc3545" : "#6c757d",
-                                                  fontWeight: (isOverdue || lpStatusId === TASK_STATUS.VALIDE) ? "bold" : "normal",
-                                                  whiteSpace: "nowrap",
-                                                }}
-                                                  title={isOverdue ? "Deadline dépassée !" : `Deadline : ${fmtDateTime(deadline)}`}>
-                                                  {isOverdue ? "⚠ " : ""}{fmtDateTime(deadline)}
-                                                </span>
-                                              )}
-                                              {collabNom && (
-                                                <small className="text-muted" style={{ fontSize: "0.6rem", lineHeight: 1.1 }}>{collabNom}</small>
-                                              )}
-                                            </div>
-                                          ) : (
-                                            <span className="text-muted small" style={{ cursor: "pointer" }} onClick={() => openVolModal(line.id, p.id)}>—</span>
-                                          )}
-                                        </td>
-                                      );
-                                    })}
+                                            );
+                                          })}
+                                          {/* Bouton pour ajouter une autre ressource */}
+                                          <button
+                                            className="btn btn-sm btn-outline-secondary"
+                                            style={{ fontSize: "0.65rem", padding: "2px 6px" }}
+                                            onClick={() => openVolModalForLine(line.id)}>
+                                            <FaPlus size={8} className="me-1" />Ajouter
+                                          </button>
+                                        </div>
+                                      )}
+                                    </td>
 
-                                    {/* ══ Colonne Statut OK/KO — 1 par profil, toujours modifiable ══ */}
-                                    {showProfilCols && profils.map(p => {
-                                      const lp = getLineProfil(line.id, p.id);
-                                      if (!lp) return (
-                                        <td key={`status-${p.id}`} className="text-center"
-                                          style={{ verticalAlign: "middle", padding: "4px 6px", minWidth: 140, backgroundColor: "#f0fdfa" }}>
-                                          <span className="text-muted" style={{ fontSize: "0.62rem" }}>—</span>
-                                        </td>
-                                      );
-                                      const currentTest = testStatuses.get(lp.id) ?? null;
-                                      return (
-                                        <td key={`status-${p.id}`} className="text-center"
-                                          style={{ verticalAlign: "middle", padding: "4px 6px", minWidth: 140, backgroundColor: "#f0fdfa" }}>
-                                          <TestStatusPanel
-                                            taskId={lp.id}
-                                            currentTestStatus={currentTest}
-                                            onDone={handleTestStatus}
-                                          />
-                                        </td>
-                                      );
-                                    })}
+                                    {/* ══ Colonne Statut OK/KO — groupée pour toutes les ressources de la ligne ══ */}
+                                    <td className="text-center" style={{ verticalAlign: "top", padding: "6px 6px", minWidth: 130, backgroundColor: "#f0fdfa" }}>
+                                      {lpsForLine.length === 0 ? (
+                                        <span className="text-muted" style={{ fontSize: "0.62rem" }}>—</span>
+                                      ) : (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                          {lpsForLine.map(lp => {
+                                            const profilObj = profils.find(p => p.id === (lp.profil as any)?.id);
+                                            const profilName = profilObj?.name ?? "—";
+                                            const lpStatusId: number | null = (lp as any)?.currentStatus?.status?.id ?? (lp as any)?.statusId ?? null;
+                                            const currentTest = testStatuses.get(lp.id) ?? null;
+                                            return (
+                                              <div key={lp.id} style={{
+                                                background: "#fff",
+                                                border: "1px solid #ccfbf1",
+                                                borderRadius: 7,
+                                                padding: "4px 6px",
+                                              }}>
+                                                <div style={{ fontSize: "0.6rem", color: "#64748b", marginBottom: 3, fontWeight: 600 }}>
+                                                  {profilName}
+                                                </div>
+                                                <TestStatusPanel
+                                                  taskId={lp.id}
+                                                  currentStatusId={lpStatusId}
+                                                  currentTestStatus={currentTest}
+                                                  onDone={handleTestStatus}
+                                                />
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </td>
 
                                     {/* ── Total JH ligne ── */}
                                     <td className="text-center" style={{ backgroundColor: lineJH > 0 && !line.facturable ? "#f8f9fa" : "#fffbea" }}>
@@ -1888,47 +2052,45 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                             {lines.length > 0 && (
                               <tfoot>
                                 <tr className="table-warning fw-bold">
-                                  <td colSpan={8} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
-                                  {showProfilCols && profils.map(p => {
-                                    const pVol  = profilTotals.find(t => t.profil.id === p.id)?.vol ?? 0;
-                                    const pTs   = profilTotals.find(t => t.profil.id === p.id)?.ts ?? 0;
-                                    const pPct  = pVol > 0 && pTs > 0 ? Math.round((pTs / pVol) * 100) : null;
-                                    const pEcart = pTs > 0 ? pVol - pTs : null;
-                                    return (
-                                      <td key={p.id} className="text-center">
-                                        {pVol > 0 ? (
-                                          <div className="d-flex flex-column align-items-center gap-1">
-                                            <span>{fmtJH(pVol)} JH</span>
-                                            {pTs > 0 && <span style={{ color: progressColor(pPct ?? 0), fontSize: "0.75rem" }}>{fmtJH(pTs)} réal.</span>}
-                                            {pEcart !== null && <span style={{ color: ecartColor(pEcart), fontSize: "0.75rem", fontWeight: 700 }}>{fmtEcart(pEcart)} passé</span>}
-                                            {pPct != null && <MiniProgressBar spent={pTs} planned={pVol} />}
+                                  <td colSpan={7} className="text-end pe-3 text-muted" style={{ fontSize: "0.85rem" }}>TOTAL ↓</td>
+                                  {/* Footer Ressources */}
+                                  <td style={{ verticalAlign: "middle", padding: "6px 8px" }}>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                      {profilTotals.filter(t => t.vol > 0).map(({ profil, vol, ts }) => {
+                                        const pct = vol > 0 && ts > 0 ? Math.round((ts / vol) * 100) : null;
+                                        const ecart = ts > 0 ? vol - ts : null;
+                                        return (
+                                          <div key={profil.id} style={{
+                                            background: "#eff6ff", border: "1px solid #bfdbfe",
+                                            borderRadius: 6, padding: "3px 7px", fontSize: "0.68rem",
+                                          }}>
+                                            <span style={{ fontWeight: 700, color: "#1e40af" }}>{profil.name}</span>
+                                            <span className="ms-1 badge bg-primary" style={{ fontSize: "0.6rem" }}>{fmtJH(vol)} JH</span>
+                                            {ts > 0 && <span className="ms-1 badge" style={{ fontSize: "0.6rem", backgroundColor: progressColor(pct ?? 0) }}>{fmtJH(ts)} réal.</span>}
+                                            {ecart !== null && <span className="ms-1" style={{ color: ecartColor(ecart), fontWeight: 700, fontSize: "0.6rem" }}>{fmtEcart(ecart)}</span>}
                                           </div>
-                                        ) : "—"}
-                                      </td>
-                                    );
-                                  })}
-                                  {/* Footer Statut OK/KO — compteur par profil */}
-                                  {showProfilCols && profils.map(p => {
-                                    const okCount = lines.filter(line => {
-                                      const lp = getLineProfil(line.id, p.id);
-                                      return lp && testStatuses.get(lp.id) === "ok";
-                                    }).length;
-                                    const koCount = lines.filter(line => {
-                                      const lp = getLineProfil(line.id, p.id);
-                                      return lp && testStatuses.get(lp.id) === "ko";
-                                    }).length;
-                                    return (
-                                      <td key={`status-foot-${p.id}`} className="text-center"
-                                        style={{ fontSize: "0.72rem", backgroundColor: "#f0fdfa" }}>
-                                        {(okCount > 0 || koCount > 0) ? (
-                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                                            {okCount > 0 && <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ {okCount} OK</span>}
-                                            {koCount > 0 && <span style={{ color: "#dc2626", fontWeight: 700 }}>✗ {koCount} KO</span>}
-                                          </div>
-                                        ) : <span className="text-muted">—</span>}
-                                      </td>
-                                    );
-                                  })}
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                  {/* Footer OK/KO — compteur global */}
+                                  <td className="text-center" style={{ fontSize: "0.72rem", backgroundColor: "#f0fdfa" }}>
+                                    {(() => {
+                                      let okCount = 0;
+                                      let koCount = 0;
+                                      lineProfils.forEach(lp => {
+                                        const ts = testStatuses.get(lp.id);
+                                        if (ts === "ok") okCount++;
+                                        else if (ts === "ko") koCount++;
+                                      });
+                                      return (okCount > 0 || koCount > 0) ? (
+                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                                          {okCount > 0 && <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ {okCount} OK</span>}
+                                          {koCount > 0 && <span style={{ color: "#dc2626", fontWeight: 700 }}>✗ {koCount} KO</span>}
+                                        </div>
+                                      ) : <span className="text-muted">—</span>;
+                                    })()}
+                                  </td>
                                   <td className="text-center">
                                     <div className="d-flex flex-column align-items-center gap-1">
                                       <span className="badge bg-dark">{fmtJH(tableGrandJH)} JH</span>
@@ -2092,9 +2254,17 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                     <div className="mt-1"><span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span></div>
                                     {profil.collaborateurs.length > 0 && (
                                       <div className="mt-2 d-flex flex-wrap gap-1">
-                                        {profil.collaborateurs.map((c: any) => (
-                                          <span key={c.id} className="badge bg-info text-dark">{c.nom} {c.prenom}{c.appellation && <em className="ms-1 opacity-75">({c.appellation})</em>}</span>
-                                        ))}
+                                        {profil.collaborateurs.map((c: any) => {
+                                            const fullName = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
+                                            const collabLabel = fullName && c.appellation
+                                              ? `${fullName} (${c.appellation})`
+                                              : fullName || c.appellation || "—";
+                                            return (
+                                              <option key={c.id} value={`${profil.id}|${c.id}`}>
+                                                {collabLabel}
+                                              </option>
+                                            );
+                                          })}
                                       </div>
                                     )}
                                   </div>
@@ -2364,28 +2534,109 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           </Modal.Footer>
         </Modal>
 
-        {/* ══ Modal Volume JH ══════════════════════════════════════════════ */}
-        <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered>
-          <Modal.Header closeButton><Modal.Title>Volume JH — {currentProfil?.name ?? "Profil"}</Modal.Title></Modal.Header>
+        {/* ══ Modal Volume JH — avec sélecteur de ressource ════════════════════ */}
+        <Modal show={showVolModal} onHide={() => !saving && setShowVolModal(false)} centered size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title>
+              Affecter une ressource
+              {currentProfil ? ` — ${currentProfil.name}` : ""}
+            </Modal.Title>
+          </Modal.Header>
           <Modal.Body>
+
+            {/* ── Sélecteur de ressource (profil + collaborateur) ── */}
+            <Form.Group className="mb-4">
+              <Form.Label className="fw-semibold">
+                Ressource *
+                <small className="text-muted fw-normal ms-2">Profil et collaborateur du projet</small>
+              </Form.Label>
+              <Form.Select
+                value={fSelectedRessource}
+                onChange={e => handleRessourceChange(e.target.value)}
+                disabled={saving}
+                style={{
+                  borderColor: fSelectedRessource ? "#6366f1" : "#dee2e6",
+                  boxShadow: fSelectedRessource ? "0 0 0 0.15rem rgba(99,102,241,0.15)" : "none",
+                }}
+              >
+                <option value="">— Sélectionner une ressource —</option>
+                {profils.map(profil => (
+                  <optgroup key={profil.id} label={`${profil.name}${profil.desc ? ` (${profil.desc})` : ""} — ${profil.tjm} ${deviseAbr}/j`}>
+                    {profil.collaborateurs.length === 0 ? (
+                      <option value={`${profil.id}|`}>
+                        {profil.name} (sans collaborateur assigné)
+                      </option>
+                    ) : (
+                      profil.collaborateurs.map((c: any) => {
+                        const fullName = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
+                        const collabLabel = fullName && c.appellation
+                          ? `${fullName} (${c.appellation})`
+                          : fullName || c.appellation || "—";
+                        return (
+                          <option key={c.id} value={`${profil.id}|${c.id}`}>
+                            {collabLabel}
+                          </option>
+                        );
+                      })
+                    )}
+                  </optgroup>
+                ))}
+              </Form.Select>
+              {fSelectedRessource && currentProfil && (
+                <div className="mt-2 d-flex align-items-center gap-2">
+                  <span className="badge bg-warning text-dark" style={{ fontSize: "0.75rem" }}>
+                    TJM : {currentProfil.tjm} {deviseAbr}/j
+                  </span>
+                  {fCollabId && (
+                    <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>
+                      {(() => {
+                        const c = currentProfil.collaborateurs.find((x: any) => x.id === fCollabId);
+                        if (!c) return "";
+                        const fullName = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
+                        return fullName && c.appellation
+                          ? `${fullName} (${c.appellation})`
+                          : fullName || c.appellation || "—";
+                      })()}
+                    </span>
+                  )}
+                </div>
+              )}
+            </Form.Group>
+
+            <hr className="my-3" />
+
             <Form.Group className="mb-3">
               <Form.Label>Jours-Homme planifiés</Form.Label>
-              <Form.Control type="number" step="0.5" min="0" value={fVolume} onChange={e => setFVolume(+e.target.value || 0)} onWheel={e => (e.target as HTMLInputElement).blur()} disabled={saving} autoFocus />
+              <Form.Control
+                type="number" step="0.5" min="0" value={fVolume}
+                onChange={e => setFVolume(+e.target.value || 0)}
+                onWheel={e => (e.target as HTMLInputElement).blur()}
+                disabled={saving || !fSelectedRessource}
+                autoFocus={!fSelectedRessource}
+              />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Deadline</Form.Label>
-              <Form.Control type="datetime-local" value={fDeadline} onChange={e => setFDeadline(e.target.value)} disabled={saving} />
+              <Form.Control
+                type="datetime-local" value={fDeadline}
+                onChange={e => setFDeadline(e.target.value)}
+                disabled={saving || !fSelectedRessource}
+              />
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label className="d-flex align-items-center gap-2">Temps de réalisation (JH)</Form.Label>
-              <Form.Control type="number" step="0.5" min="0" placeholder="0" value={fTimeSpent ?? ""} onChange={e => setFTimeSpent(e.target.value ? +e.target.value : null)} onWheel={e => (e.target as HTMLInputElement).blur()} disabled={saving} />
+              <Form.Label>Temps de réalisation (JH)</Form.Label>
+              <Form.Control
+                type="number" step="0.5" min="0" placeholder="0"
+                value={fTimeSpent ?? ""}
+                onChange={e => setFTimeSpent(e.target.value ? +e.target.value : null)}
+                onWheel={e => (e.target as HTMLInputElement).blur()}
+                disabled={saving || !fSelectedRessource}
+              />
               {fVolume > 0 && fTimeSpent != null && (
-                <div className="mt-2">
-                  <div className="text-muted small mt-1">
-                    {fTimeSpent} JH réalisés sur {fVolume} JH planifiés
-                    {fTimeSpent > fVolume && <span className="text-danger fw-bold ms-2">⚠ Dépassement</span>}
-                  </div>
+                <div className="text-muted small mt-1">
+                  {fTimeSpent} JH réalisés sur {fVolume} JH planifiés
+                  {fTimeSpent > fVolume && <span className="text-danger fw-bold ms-2">⚠ Dépassement</span>}
                 </div>
               )}
             </Form.Group>
@@ -2398,7 +2649,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                     const ecart = fVolume - fTimeSpent;
                     return (
                       <span style={{ fontSize: "1rem", fontWeight: 700, color: ecartColor(ecart) }}
-                        title={ecart >= 0 ? `${ecart.toFixed(1)} JH restants sur le planning` : `Dépassement de ${Math.abs(ecart).toFixed(1)} JH`}>
+                        title={ecart >= 0 ? `${ecart.toFixed(1)} JH restants` : `Dépassement de ${Math.abs(ecart).toFixed(1)} JH`}>
                         {fmtEcart(ecart)} JH
                         {ecart < 0 && <span className="ms-1" style={{ fontSize: "0.8rem" }}></span>}
                       </span>
@@ -2417,28 +2668,6 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
               </div>
             )}
 
-            {currentProfil && (currentProfil.collaborateurs?.length ?? 0) > 0 && (
-              <Form.Group className="mb-3">
-                <Form.Label>Collaborateur assigné</Form.Label>
-                {(() => {
-                  const assigned = currentProfil.collaborateurs!.find((c: any) => c.id === fCollabId);
-                  return assigned ? (
-                    <div className="d-flex align-items-center justify-content-between border rounded px-3 py-2" style={{ backgroundColor: "#f0f9ff", borderColor: "#90cdf4" }}>
-                      <div><span className="fw-semibold">{assigned.prenom} {assigned.nom}</span>{assigned.appellation && <small className="text-muted ms-2">({assigned.appellation})</small>}</div>
-                      <button type="button" className="btn btn-sm btn-link text-danger p-0" onClick={() => setFCollabId(null)} disabled={saving}>✕</button>
-                    </div>
-                  ) : (
-                    <div className="d-flex flex-wrap gap-2 border rounded p-2" style={{ backgroundColor: "#fafafa" }}>
-                      {currentProfil.collaborateurs!.map((c: any) => (
-                        <button key={c.id} type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setFCollabId(c.id)} disabled={saving}>
-                          {c.prenom} {c.nom}{c.appellation && <small className="text-muted ms-1">({c.appellation})</small>}
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </Form.Group>
-            )}
             {currentProfil && (() => {
               const line = lines.find(l => l.id === ctxLineId);
               const isFacturable = line?.facturable !== false;
@@ -2459,6 +2688,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                 </div>
               );
             })()}
+
             {editLineProfil && (() => {
               const statusId: number | null = (editLineProfil as any)?.currentStatus?.status?.id ?? (editLineProfil as any)?.statusId ?? null;
               const m = taskStatusMeta(statusId);
@@ -2474,7 +2704,10 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           <Modal.Footer>
             {editLineProfil && <Button label="Supprimer" variant="outline" onClick={deleteVolume} />}
             <Button label="Annuler" variant="outline" onClick={() => setShowVolModal(false)} />
-            <Button label={saving ? "…" : editLineProfil ? "Mettre à jour" : "Ajouter"} onClick={saveVolume} />
+            <Button
+              label={saving ? "…" : editLineProfil ? "Mettre à jour" : "Ajouter"}
+              onClick={saveVolume}
+            />
           </Modal.Footer>
         </Modal>
 

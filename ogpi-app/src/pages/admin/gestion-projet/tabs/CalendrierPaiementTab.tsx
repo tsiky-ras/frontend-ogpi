@@ -370,9 +370,9 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
       <div className="cp-kpi-grid">
         {[
           { label: "Budget offre technique", value: fmt(montantOffre, deviseAbr),        cls: "cp-kpi-card--charcoal", icon: <FaShieldAlt /> },
-          { label: "Planifié",               value: fmt(totaux.totalPlanifie, deviseAbr), cls: "cp-kpi-card--tuscan",   icon: <FaCalendarAlt /> },
-          { label: "Encaissé",               value: fmt(totaux.totalPaye, deviseAbr),     cls: "cp-kpi-card--success",  icon: <FaCheckCircle /> },
-          { label: "Reste à payer",          value: fmt(resteAPayer, deviseAbr),          cls: resteAPayer <= 0 && montantOffre > 0 ? "cp-kpi-card--success" : "cp-kpi-card--tomato", icon: <FaMoneyBillWave /> },
+          { label: "Paiement planifié",               value: fmt(totaux.totalPlanifie, deviseAbr), cls: "cp-kpi-card--tuscan",   icon: <FaCalendarAlt /> },
+          { label: "Payé par le client",               value: fmt(totaux.totalPaye, deviseAbr),     cls: "cp-kpi-card--success",  icon: <FaCheckCircle /> },
+          { label: "Reste à encaisser",          value: fmt(resteAPayer, deviseAbr),          cls: resteAPayer <= 0 && montantOffre > 0 ? "cp-kpi-card--success" : "cp-kpi-card--tomato", icon: <FaMoneyBillWave /> },
           { label: "CA Projet",              value: fmt(totaux.caProjet, deviseAbr),      cls: "cp-kpi-card--blue",     icon: <FaMoneyBillWave /> },
         ].map(k => (
           <div key={k.label} className={`cp-kpi-card ${k.cls}`}>

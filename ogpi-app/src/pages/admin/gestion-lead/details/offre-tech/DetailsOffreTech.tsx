@@ -71,17 +71,6 @@ const DetailsOffreTech: React.FC<DetailsOffreTechProps> = ({ lead }) => {
               </p>
             </div>
           </Col>
-
-          <Col md={4}>
-            <div className="detail-item">
-              <label>Budget nécessaire</label>
-              <p>
-                {techFin.budget != null && techFin.budget !== 0
-                  ? `${techFin.budget.toLocaleString()} ${techFin.devise?.abrDevise || ""}`
-                  : "-"}
-              </p>
-            </div>
-          </Col>
         </Row>
       </section>
 
