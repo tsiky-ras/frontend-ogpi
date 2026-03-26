@@ -593,13 +593,26 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         if (!full) return;
         const sortedLots: BacklogLot[] = (full.lots ?? []).sort((a: any, b: any) => a.order - b.order);
         setLots(sortedLots);
-        const spMap = new Map<number, BacklogSprint[]>();
+        const spMap  = new Map<number, BacklogSprint[]>();
+        const dlvMap = new Map<number, BacklogDelivrableProjet[]>();
         for (const lot of sortedLots) {
           for (const phase of (lot.phases ?? []) as any[]) {
-            spMap.set(phase.id, (phase.sprints ?? []).sort((a: any, b: any) => a.order - b.order));
+            const phaseSprints = (phase.sprints ?? []).sort((a: any, b: any) => a.order - b.order);
+            spMap.set(phase.id, phaseSprints);
+            const phaseDelivs: any[] = phase.deliverables ?? [];
+            const sprintDelivs: any[] = phaseSprints.flatMap((s: any) =>
+              (s.deliverables ?? []).map((d: any) => ({ ...d, sprintId: d.sprintId ?? s.id }))
+            );
+            const allDelivs = [...phaseDelivs, ...sprintDelivs].filter(
+              (d, i, arr) => arr.findIndex(x => x.id === d.id) === i
+            );
+            dlvMap.set(phase.id, allDelivs.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)));
           }
         }
         setSprints(spMap);
+        setDeliverables(dlvMap);
+        // ── Met aussi à jour le backlog header pour avoir la bonne date de début ──
+        setBacklog(full);
       } catch (err) {
         console.warn("reloadLots échoué (non bloquant):", err);
       }
@@ -2280,10 +2293,19 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                       </Tab>
 
                       <Tab eventKey="planning" title="Planning">
-                        <PlanningTab 
-                        lots={lots} lines={lines} lineProfils={lineProfils} deliverables={deliverables} 
-                        datedebutPlanning={backlog?.dateDebutPlanning}
-                        selectedBacklogId={selectedBacklogId} planningService={svc.planning} 
+                        <PlanningTab
+                          lots={lots}
+                          lines={lines}
+                          lineProfils={lineProfils}
+                          deliverables={deliverables}
+                          datedebutPlanning={
+                            (backlog as any)?.datedeButPlanning   
+                            ?? (backlog as any)?.dateDebutPlanning
+                            ?? null
+                          }
+                          selectedBacklogId={selectedBacklogId}
+                          planningService={svc.planning}
+                          onPlanningUpdated={reloadLots}  
                         />
                       </Tab>
 

@@ -1413,7 +1413,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
           <FaAngleRight size={12} color="rgba(232,229,215,0.5)" />
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: P.dim, opacity: 0.7 }} />
-            <Pill color={P.dim} bg={`${P.linen}`}>Réalisé (time_spent)</Pill>
+            <Pill color={P.dim} bg={`${P.linen}`}>Réalisation</Pill>
           </div>
         </div>
       </div>
