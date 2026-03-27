@@ -149,11 +149,19 @@ const Bar: React.FC<{ value: number; max: number; color: string; height?: number
   </div>
 );
 
-const Delta: React.FC<{ value: number; unit: string; invert?: boolean; zeroLabel?: string; size?: "sm" | "md" }> = ({ value, unit, invert = false, zeroLabel = "✓", size = "md" }) => {
+/**
+ * Delta — règle de couleur unifiée, sans invert :
+ *   valeur > 0  → VERT  (marge positive, bonne situation)
+ *   valeur < 0  → ROUGE (dépassement, mauvaise situation)
+ *   valeur = 0  → VERT  (conforme)
+ * Pour le planning : deltaJH = gauche − droite  (ex: offre − projet)
+ *   +2 JH → offre > projet → marge → VERT
+ *   −2 JH → offre < projet → dépassement → ROUGE
+ */
+const Delta: React.FC<{ value: number; unit: string; zeroLabel?: string; size?: "sm" | "md" }> = ({ value, unit, zeroLabel = "✓", size = "md" }) => {
   const z = Math.abs(value) < 0.01;
-  const bad = invert ? value > 0 : value < 0;
-  const c = z ? P.success : bad ? P.tomato : P.success;
-  const bg = z ? "#d1fae5" : bad ? "#fee2e2" : "#d1fae5";
+  const c  = z ? P.success : value > 0 ? P.success : P.tomato;
+  const bg = z ? "#d1fae5" : value > 0 ? "#d1fae5" : "#fee2e2";
   return (
     <span style={{ background: bg, color: c, borderRadius: 99, padding: size === "sm" ? "2px 8px" : "3px 12px", fontSize: size === "sm" ? 11 : 13, fontWeight: 700, whiteSpace: "nowrap" }}>
       {z ? zeroLabel : `${value > 0 ? "+" : ""}${fmt(value, Math.abs(value) < 10 && value % 1 !== 0 ? 1 : 0)} ${unit}`}
@@ -176,54 +184,6 @@ const KpiCard: React.FC<{ title: string; icon: React.ReactNode; leadLabel: strin
     </div>
   </div>
 );
-
-const LegendePanneau: React.FC<{ deviseAbr: string }> = ({ deviseAbr: _ }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <button onClick={() => setOpen(v => !v)} style={{ display: "flex", alignItems: "center", gap: 7, background: "transparent", border: `1px solid ${P.linen}`, borderRadius: 7, padding: "6px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.dim }}>
-        <FaInfoCircle size={12} color={P.phase} /> Guide de lecture <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.7 }}>{open ? "▲" : "▼"}</span>
-      </button>
-      {open && (
-        <div style={{ marginTop: 8, background: P.white, border: `1px solid ${P.linen}`, borderRadius: 10, padding: "18px 20px", boxShadow: "0 2px 8px rgba(34,58,70,.08)" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-            <button onClick={() => setOpen(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: P.dim }}><FaTimes size={13} /></button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: P.dim, marginBottom: 8 }}>Les 4 niveaux (ordre décroissant)</div>
-              {[
-                { color: P.offre, label: "Offre technique vendue", sub: "JH vendus prorata · lead_tech_fin_details → onglet Marge Comm." },
-                { color: P.phase, label: "Backlog offre",          sub: "JH proposition tech · référence contractuelle" },
-                { color: P.lot,   label: "Backlog projet",         sub: "JH planifiés en exécution → CET ONGLET" },
-                { color: P.dim,   label: "Réalisé",                sub: "JH time_spent · indicatif → CET ONGLET", dashed: true },
-              ].map(({ color, label, sub, dashed }) => (
-                <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
-                  <div style={{ flexShrink: 0, width: 12, height: 12, marginTop: 2, borderRadius: 3, background: color, border: dashed ? `1.5px dashed ${color}` : "none", opacity: dashed ? 0.7 : 1 }} />
-                  <div><span style={{ fontSize: 12, fontWeight: 600, color: P.charcoal }}>{label}</span><span style={{ fontSize: 11, color: P.dim, marginLeft: 5 }}>{sub}</span></div>
-                </div>
-              ))}
-              <div style={{ marginTop: 10, background: "#fffbeb", border: `1px solid ${P.tuscan}55`, borderLeft: `3px solid ${P.tuscan}`, borderRadius: 6, padding: "8px 12px", fontSize: 11, color: "#92400e" }}>
-                <strong>Cet onglet</strong> compare : Backlog offre ↔ Backlog projet ↔ Réalisé<br />
-                <strong>Onglet Marge Comm.</strong> compare : Offre technique vendue ↔ Backlog offre
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: P.dim, marginBottom: 8 }}>Facturation CA</div>
-              <div style={{ fontSize: 11, color: P.dim }}>Base = <strong>Budget backlog offre</strong> (JH offre × TJM offre). Référence contractuelle, indépendante du backlog projet.</div>
-              <div style={{ marginTop: 8, background: P.linen, borderRadius: 7, padding: "10px 12px", fontSize: 11, color: P.dim }}>
-                <strong>Marge brute</strong> = CA encaissé − Budget backlog offre − Charges annexes
-              </div>
-              <div style={{ marginTop: 8, background: "#fef9ec", border: `1px solid ${P.tuscan}44`, borderRadius: 7, padding: "10px 12px", fontSize: 11, color: "#92400e" }}>
-                <strong>Charges annexes</strong> incluses dans tous les calculs de marge nette.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const LegendeGantt: React.FC = () => (
   <div style={{ borderTop: `1px solid ${P.linen}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -419,7 +379,12 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
   //  (JH pour planning · JH+budget pour marge_planning)
   // ══════════════════════════════════════════════════════════════════════════
 
-  // Sections JH planning : JH vendu ↔ Backlog offre · Backlog offre ↔ Backlog projet · Backlog projet ↔ Réalisé · Backlog offre ↔ Réalisé
+  // ──────────────────────────────────────────────────────────────────────────
+  //  PLANNING COMPARISONS — règle unique : deltaJH = gauche − droite
+  //    + = gauche > droite = marge = VERT
+  //    − = gauche < droite = dépassement = ROUGE
+  //  Pas d'invert, pas de signe négatif artificiel.
+  // ──────────────────────────────────────────────────────────────────────────
   const planningComparisons = useMemo(() => [
     {
       key: "vendu_vs_offre",
@@ -430,11 +395,14 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
       border: "#7c3aed44",
       gauche: { label: "JH vendu (offre tech.)", jh: jhOffreComm,    color: P.offre },
       droite: { label: "Backlog offre",           jh: jhLeadBacklog,  color: P.phase },
-      deltaJH: margeCommerciale,
-      hint: "+ = JH vendu > backlog offre (marge favorable) · − = backlog offre dépasse le vendu",
+      // + = vendu > backlog offre → marge commerciale → VERT
+      // − = backlog offre > vendu → dépassement commercial → ROUGE
+      deltaJH: jhOffreComm - jhLeadBacklog,
+      hint: "+ = marge commerciale (vendu > backlog) · − = backlog dépasse le vendu",
       profils: profils.map((p, i) => ({
         name: p.name, tjm: p.tjm,
-        jhG: p.volumeOffreCommerciale ?? 0, jhD: p.volumeLead ?? 0,
+        jhG: p.volumeOffreCommerciale ?? 0,
+        jhD: p.volumeLead ?? 0,
         deltaJH: (p.volumeOffreCommerciale ?? 0) - (p.volumeLead ?? 0),
         charges: chargesParProfil[i],
       })),
@@ -446,13 +414,16 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
       color: P.phase,
       bg: "#e0f5f7",
       border: "#00848e44",
-      gauche: { label: "Backlog offre",   jh: jhLeadBacklog, color: P.phase },
-      droite: { label: "Backlog projet",  jh: jhPlanifie,    color: P.lot },
-      deltaJH: margeOffre,
-      hint: "+ = planifié dans l'enveloppe · − = dépassement backlog offre",
+      gauche: { label: "Backlog offre",  jh: jhLeadBacklog, color: P.phase },
+      droite: { label: "Backlog projet", jh: jhPlanifie,    color: P.lot },
+      // + = offre > projet → planifié dans l'enveloppe → VERT
+      // − = projet > offre → dépassement du backlog offre → ROUGE
+      deltaJH: jhLeadBacklog - jhPlanifie,
+      hint: "+ = planifié dans l'enveloppe (offre > projet) · − = dépassement backlog offre",
       profils: profils.map((p, i) => ({
         name: p.name, tjm: p.tjm,
-        jhG: p.volumeLead ?? 0, jhD: p.volumeBacklogProjet ?? 0,
+        jhG: p.volumeLead ?? 0,
+        jhD: p.volumeBacklogProjet ?? 0,
         deltaJH: (p.volumeLead ?? 0) - (p.volumeBacklogProjet ?? 0),
         charges: chargesParProfil[i],
       })),
@@ -464,37 +435,39 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
       color: P.lot,
       bg: "#eef0fc",
       border: "#5c6ac444",
-      gauche: { label: "Backlog projet", jh: jhPlanifie,  color: P.lot },
-      droite: { label: "Réalisé",        jh: jhRealise,   color: P.dim },
-      deltaJH: -ecartRealise,   // positif = en avance
-      invert: true,             // rouge si réalisé > planifié
+      gauche: { label: "Backlog projet", jh: jhPlanifie, color: P.lot },
+      droite: { label: "Réalisé",        jh: jhRealise,  color: P.dim },
+      // + = projet > réalisé → en avance, reste de la marge → VERT
+      // − = réalisé > projet → retard, dépassement → ROUGE
+      deltaJH: jhPlanifie - jhRealise,
       hint: "+ = en avance (réalisé < planifié) · − = retard (réalisé > planifié)",
       profils: profils.map((p, i) => ({
         name: p.name, tjm: p.tjm,
-        jhG: p.volumeBacklogProjet ?? 0, jhD: p.volumeProjet ?? 0,
+        jhG: p.volumeBacklogProjet ?? 0,
+        jhD: p.volumeProjet ?? 0,
         deltaJH: (p.volumeBacklogProjet ?? 0) - (p.volumeProjet ?? 0),
         charges: chargesParProfil[i],
-        invertDelta: true,
       })),
     },
     {
       key: "offre_vs_realise",
       title: "Backlog offre ↔ Réalisé",
-      desc: "Vision globale : JH vendus dans l'offre vs consommation réelle à date. Indicatif.",
+      desc: "Vision globale : JH du backlog offre vs consommation réelle à date. Indicatif.",
       color: "#5c6ac4",
       bg: "#eef0fc",
       border: "#5c6ac444",
-      gauche: { label: "Backlog offre",  jh: jhLeadBacklog, color: P.phase },
-      droite: { label: "Réalisé",        jh: jhRealise,     color: P.dim },
+      gauche: { label: "Backlog offre", jh: jhLeadBacklog, color: P.phase },
+      droite: { label: "Réalisé",       jh: jhRealise,     color: P.dim },
+      // + = offre > réalisé → reste de la marge → VERT
+      // − = réalisé > offre → consommation dépasse le backlog → ROUGE
       deltaJH: jhLeadBacklog - jhRealise,
-      invert: true,
-      hint: "+ = en avance · − = consommation dépasse le backlog offre",
+      hint: "+ = marge restante (réalisé < offre) · − = consommation dépasse le backlog offre",
       profils: profils.map((p, i) => ({
         name: p.name, tjm: p.tjm,
-        jhG: p.volumeLead ?? 0, jhD: p.volumeProjet ?? 0,
+        jhG: p.volumeLead ?? 0,
+        jhD: p.volumeProjet ?? 0,
         deltaJH: (p.volumeLead ?? 0) - (p.volumeProjet ?? 0),
         charges: chargesParProfil[i],
-        invertDelta: true,
       })),
     },
   ], [profils, jhOffreComm, jhLeadBacklog, jhPlanifie, jhRealise, margeCommerciale, margeOffre, ecartRealise, chargesParProfil]);
@@ -505,11 +478,11 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
       {/* ── En-tête ── */}
       <div style={{ background: P.charcoal, borderRadius: 10, padding: "18px 24px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, boxShadow: "0 2px 8px rgba(34,58,70,.15)" }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: P.white }}>Comparaison Backlog offre ↔ Backlog projet ↔ Réalisé</h2>
-          <p style={{ margin: "5px 0 0", fontSize: 12, color: "rgba(232,229,215,.7)" }}>JH backlog offre vs JH backlog projet · Écart temps réalisé · Facturation (JH offre × TJM) · CA encaissé · Charges annexes incluses</p>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: P.white }}>Comparaison : Offre financière vendue  ↔ Backlog offre ↔ Backlog projet ↔ Réalisation</h2>
+          <p style={{ margin: "5px 0 0", fontSize: 12, color: "rgba(232,229,215,.7)" }}>JH - Budget - CA & Marge</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <Pill color={P.offre} bg="#ede9fe">Offre tech. vendue → Marge Comm.</Pill>
+          <Pill color={P.offre} bg="#ede9fe">Offre fin.</Pill>
           <FaAngleRight size={12} color="rgba(232,229,215,.5)" />
           <Pill color={P.phase} bg="#e0f5f7">Backlog offre</Pill>
           <FaAngleRight size={12} color="rgba(232,229,215,.5)" />
@@ -518,15 +491,12 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
           <Pill color={P.dim} bg={P.linen}>Réalisé</Pill>
         </div>
       </div>
-
-      <LegendePanneau deviseAbr={deviseAbr} />
-
       {/* ── KPIs ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 20 }}>
         {[
           { label: "JH VENDU vs JH BACKLOG OFFRE", sub: `Offre tech. (${fmt(jhOffreComm,1)}) − Backlog offre (${fmt(jhLeadBacklog,1)})`, hint: "+ = favorable · voir onglet Marge Comm.", accentColor: margeCommerciale >= 0 ? P.offre : P.tomato, content: <Delta value={margeCommerciale} unit="JH" zeroLabel="✓ Exact" />, icon: <FaUsers size={11} /> },
           { label: "JH BACKLOG OFFRE vs JH BACKLOG PROJET", sub: `JH OFFRE (${fmt(jhLeadBacklog,1)}) − JH PROJET (${fmt(jhPlanifie,1)})`, hint: "+ = planifié dans l'enveloppe · − = dépassement", accentColor: margeOffre >= 0 ? P.success : P.tomato, content: <Delta value={margeOffre} unit="JH" zeroLabel="✓ Conforme" />, icon: <FaClock size={11} /> },
-          { label: "ÉCART PLANNING RÉALISÉ", sub: `JH PASSE (${fmt(jhRealise,1)}) − JH PLANIFIE (${fmt(jhPlanifie,1)})`, hint: "− = en avance · + = retard", accentColor: ecartRealise > 0 ? P.tomato : P.success, content: <Delta value={ecartRealise} unit="JH" invert zeroLabel="✓ Dans le planifié" />, icon: <FaCalendarCheck size={11} /> },
+          { label: "ÉCART PLANNING RÉALISÉ", sub: `JH PLANIFIE (${fmt(jhPlanifie,1)}) − JH PASSE (${fmt(jhRealise,1)})`, hint: "+ = en avance · − = retard (réalisé dépasse planifié)", accentColor: (jhPlanifie - jhRealise) < 0 ? P.tomato : P.success, content: <Delta value={jhPlanifie - jhRealise} unit="JH" zeroLabel="✓ Dans le planifié" />, icon: <FaCalendarCheck size={11} /> },
           { label: "BÉNÉFICE COMMERCIAL PRÉVISIONNEL", sub: "CA backlog offre − (Budget backlog offre + Charges)", hint: "+ = projet rentable · − = déficitaire", accentColor: marge >= 0 ? P.success : P.tomato, content: <span style={{ fontSize: 20, fontWeight: 800, color: marge >= 0 ? P.success : P.tomato }}>{marge >= 0 ? "+" : ""}{fmt(marge, 0)} {deviseAbr}</span>, icon: <FaTrophy size={11} /> },
           { label: "BÉNÉFICE COMMERCIAL RÉEL", sub: `Offre fin. (${fmt(budgetOffComm,0)}) − (Budget projet + Charges)`, hint: "+ = rentable · − = déficitaire", accentColor: margeOffreBudgetAvecCharges >= 0 ? P.success : P.tomato, content: <Delta value={margeOffreBudgetAvecCharges} unit={deviseAbr} zeroLabel="✓ Équilibré" />, icon: <FaMoneyBillWave size={11} /> },
         ].map((k, i) => (
@@ -542,9 +512,9 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
       {/* ── Onglets ── */}
       <div style={{ background: P.white, padding: "10px 12px", borderRadius: 8, border: `1px solid ${P.linen}`, marginBottom: 16, display: "flex", gap: 4, flexWrap: "wrap" }}>
         {([
-          ["planning",      "Planning",   <FaCalendarAlt size={12} />],
-          ["budget",        "Budget",     <FaChartBar size={12} />],
-          ["marge_planning","Marges",     <FaBalanceScale size={12} />],
+          ["marge_planning","Comparaison générale",     <FaBalanceScale size={12} />],
+          ["planning",      "Comparaison planning",   <FaCalendarAlt size={12} />],
+          ["budget",        "Comparaison budgetaire",     <FaChartBar size={12} />],
           ["ca",            "CA & Marge", <FaChartLine size={12} />],
         ] as const).map(([key, label, icon]) => (
           <button key={key} onClick={() => setActiveTab(key as any)} style={{ background: activeTab === key ? P.charcoal : "transparent", color: activeTab === key ? P.white : P.dim, border: "none", borderRadius: 6, padding: "7px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>
@@ -558,10 +528,9 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "planning" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-          {/* Bandeau statut global */}
+          {/* Bandeau statut global
           {(() => {
-            const bad = margeOffre < 0 || ecartRealise > 0 || margeOffreBudgetAvecCharges < 0;
+            const bad = margeOffre < 0 || (jhPlanifie - jhRealise) < 0 || margeOffreBudgetAvecCharges < 0;
             const color = bad ? P.tomato : P.success;
             const Icon = bad ? FaExclamationTriangle : FaCheckCircle;
             return (
@@ -573,14 +542,14 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                   </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 12, color: P.dim }}>Backlog offre↔projet : <Delta value={margeOffre} unit="JH" zeroLabel="✓" size="sm" /></span>
-                    <span style={{ fontSize: 12, color: P.dim }}>Écart réalisé : <Delta value={ecartRealise} unit="JH" invert zeroLabel="✓" size="sm" /></span>
+                    <span style={{ fontSize: 12, color: P.dim }}>Projet↔Réalisé : <Delta value={jhPlanifie - jhRealise} unit="JH" zeroLabel="✓" size="sm" /></span>
                     <span style={{ fontSize: 12, color: P.dim }}>Marge nette avec charges : <Delta value={margeOffreBudgetAvecCharges} unit={deviseAbr} zeroLabel="✓" size="sm" /></span>
                     {decalageJours !== null && <span style={{ fontSize: 12, color: P.dim }}>Décalage dates : <Delta value={decalageJours} unit="j.ouv." zeroLabel="✓" size="sm" /></span>}
                   </div>
                 </div>
               </div>
             );
-          })()}
+          })()} */}
 
           {/* KPIs dates */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
@@ -595,7 +564,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11, color: P.dim, minWidth: 140 }}>Réalisé (indicatif) :</span><span style={{ fontSize: 13, fontWeight: 800, color: P.dim }}>{fmt(jhRealise,1)} JH</span></div>
                   <div style={{ borderTop: `1px solid ${P.linen}`, paddingTop: 5 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ fontSize: 11, color: P.dim, minWidth: 140 }}>Marge offre↔projet (+=bien) :</span><Delta value={margeOffre} unit="JH" zeroLabel="✓" size="sm" /></div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11, color: P.dim, minWidth: 140 }}>Écart réalisé (−=bien) :</span><Delta value={ecartRealise} unit="JH" invert zeroLabel="✓" size="sm" /></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11, color: P.dim, minWidth: 140 }}>Projet↔Réalisé (+=bien) :</span><Delta value={jhPlanifie - jhRealise} unit="JH" zeroLabel="✓" size="sm" /></div>
                   </div>
                 </div>
               }
@@ -613,7 +582,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
             />
           </div>
 
-          {/* Charges annexes */}
+          {/* Charges annexes
           {chargesAnnexes > 0 && (
             <div style={{ background: "#fffbeb", border: "1px solid #fcd34d55", borderLeft: "4px solid #d97706", borderRadius: 8, padding: "14px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -636,7 +605,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                 ))}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* ── 3 tableaux de comparaison JH par profil (style Marges, sans budgets) ── */}
           {planningComparisons.map(comp => (
@@ -658,7 +627,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "14px 28px", borderLeft: `1px solid ${P.linen}`, borderRight: `1px solid ${P.linen}`, minWidth: 140, gap: 6 }}>
                   <div style={{ fontSize: 9, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>Écart JH</div>
-                  <Delta value={comp.deltaJH} unit="JH" invert={comp.invert} />
+                  <Delta value={comp.deltaJH} unit="JH" />
                   <div style={{ fontSize: 9, color: "#6b7280", fontStyle: "italic", textAlign: "center" }}>{comp.hint.split("·")[0].trim()}</div>
                 </div>
                 <div style={{ padding: "14px 20px" }}>
@@ -668,16 +637,16 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
               </div>
 
               {/* Barre visuelle */}
-              <div style={{ padding: "10px 20px", borderBottom: `1px solid ${P.linen}` }}>
+              {/* <div style={{ padding: "10px 20px", borderBottom: `1px solid ${P.linen}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6b7280", marginBottom: 4 }}>
                   <span style={{ color: comp.color, fontWeight: 600 }}>{comp.gauche.label} — {fmt(comp.gauche.jh,1)} JH</span>
                   <span style={{ color: comp.droite.color, fontWeight: 600 }}>{comp.droite.label} — {fmt(comp.droite.jh,1)} JH</span>
                 </div>
                 <div style={{ background: P.linen, borderRadius: 999, height: 10, overflow: "hidden" }}>
-                  <div style={{ width: `${Math.min(100, comp.gauche.jh > 0 ? (comp.droite.jh / comp.gauche.jh) * 100 : 0)}%`, height: "100%", background: comp.deltaJH >= 0 !== !!comp.invert ? comp.color : P.tomato, borderRadius: 999, transition: "width 0.5s" }} />
+                  <div style={{ width: `${Math.min(100, comp.gauche.jh > 0 ? (comp.droite.jh / comp.gauche.jh) * 100 : 0)}%`, height: "100%", background: comp.deltaJH >= 0 ? comp.color : P.tomato, borderRadius: 999, transition: "width 0.5s" }} />
                 </div>
                 <div style={{ fontSize: 10, color: "#6b7280", marginTop: 3, fontStyle: "italic" }}>{comp.hint}</div>
-              </div>
+              </div> */}
 
               {/* Tableau par profil */}
               {comp.profils.length > 0 && (
@@ -690,14 +659,11 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                         <th style={{ ...th, textAlign: "right", color: comp.color }}>JH {comp.gauche.label}</th>
                         <th style={{ ...th, textAlign: "right", color: comp.droite.color }}>JH {comp.droite.label}</th>
                         <th style={{ ...th, textAlign: "center" }}>ΔJH<br /><span style={{ fontWeight: 400, fontSize: 9 }}>gauche − droite</span></th>
-                        <th style={{ ...th, textAlign: "right", color: P.charges }}>Charges Annexes</th>
-                        {/* <th style={{ ...th, textAlign: "center" }}>% utilisation</th> */}
                       </tr>
                     </thead>
                     <tbody>
                       {comp.profils.map((p: any, i: number) => {
                         const pctUtil = p.jhG > 0 ? (p.jhD / p.jhG) * 100 : 0;
-                        const dJH = p.invertDelta ? -p.deltaJH : p.deltaJH;
                         return (
                           <tr key={i}>
                             <td style={{ ...td(i), fontWeight: 700, color: P.charcoal }}>{p.name}</td>
@@ -705,16 +671,8 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                             <td style={{ ...td(i), textAlign: "right", color: comp.color, fontWeight: 600 }}>{fmt(p.jhG, 1)} JH</td>
                             <td style={{ ...td(i), textAlign: "right", color: comp.droite.color, fontWeight: 600 }}>{fmt(p.jhD, 1)} JH</td>
                             <td style={{ ...td(i), textAlign: "center" }}>
-                              <Delta value={p.invertDelta ? -p.deltaJH : p.deltaJH} unit="JH" invert={p.invertDelta} zeroLabel="✓" size="sm" />
+                              <Delta value={p.deltaJH} unit="JH" zeroLabel="✓" size="sm" />
                             </td>
-                            <td style={{ ...td(i), textAlign: "right", color: P.charges, fontWeight: 600 }}>
-                              {/* {fmt(p.charges, 0)} {deviseAbr} */}
-                            </td>
-                            {/* <td style={{ ...td(i), textAlign: "center" }}> */}
-                              {/* <span style={{ fontSize: 11, fontWeight: 700, color: pctUtil > 100 ? P.tomato : pctUtil > 90 ? "#b45309" : P.success }}>
-                                {fmt(pctUtil, 1)} %
-                              </span> */}
-                            {/* </td> */}
                           </tr>
                         );
                       })}
@@ -726,15 +684,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                         <td style={{ padding: "9px 12px", textAlign: "right", color: comp.color, fontWeight: 700 }}>{fmt(comp.gauche.jh, 1)} JH</td>
                         <td style={{ padding: "9px 12px", textAlign: "right", color: comp.droite.color, fontWeight: 700 }}>{fmt(comp.droite.jh, 1)} JH</td>
                         <td style={{ padding: "9px 12px", textAlign: "center" }}>
-                          <Delta value={comp.invert ? -comp.deltaJH : comp.deltaJH} unit="JH" invert={comp.invert} zeroLabel="✓" size="sm" />
-                        </td>
-                        <td style={{ padding: "9px 12px", textAlign: "right", color: P.charges, fontWeight: 700 }}>
-                          {fmt(chargesAnnexes, 0)} {deviseAbr}
-                        </td>
-                        <td style={{ padding: "9px 12px", textAlign: "center" }}>
-                          {/* <span style={{ fontSize: 11, fontWeight: 700, color: comp.gauche.jh > 0 ? (comp.droite.jh / comp.gauche.jh > 1 ? P.tomato : P.success) : P.dim }}>
-                            {fmt(comp.gauche.jh > 0 ? (comp.droite.jh / comp.gauche.jh) * 100 : 0, 1)} %
-                          </span> */}
+                          <Delta value={comp.deltaJH} unit="JH" zeroLabel="✓" size="sm" />
                         </td>
                       </tr>
                     </tfoot>
@@ -744,16 +694,28 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
             </div>
           ))}
 
-          {/* Gantt
-          <div style={card}>
-            <div style={sh}><FaCalendarAlt size={13} /> Chronologie comparative — Backlog offre vs Backlog projet</div>
-            <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-              {leadLots.length > 0 && <GanttRiche globalStart={ganttStart} globalEnd={ganttEnd} lots={leadLots} compareLots={projetLots} barColor={P.phase} compareColor={P.lot} label="Backlog offre — référence contractuelle tech" labelColor={P.phase} />}
-              {projetLots.length > 0 && <GanttRiche globalStart={ganttStart} globalEnd={ganttEnd} lots={projetLots} compareLots={leadLots} barColor={P.lot} compareColor={P.phase} label="Backlog projet — planification en cours" labelColor={P.lot} />}
-              {leadLots.length === 0 && projetLots.length === 0 && <div style={{ color: P.dim, fontSize: 12, textAlign: "center", padding: 20, fontStyle: "italic" }}>Aucune donnée de planning disponible.</div>}
-              <LegendeGantt />
-            </div>
-          </div> */}
+          {/* Comparaison JH par lot/phase */}
+          {(() => {
+            // Fusionner les lots lead et projet par order pour comparer les JH
+            const allLotOrders = Array.from(new Set([
+              ...leadLots.map(l => l.order),
+              ...projetLots.map(l => l.order),
+            ])).sort((a, b) => a - b);
+
+            if (allLotOrders.length === 0) return null;
+
+            // Calculer le max JH global pour l'échelle des barres
+            const allJH: number[] = [];
+            allLotOrders.forEach(order => {
+              const lLot = leadLots.find(l => l.order === order);
+              const pLot = projetLots.find(l => l.order === order);
+              const jhLead = lLot?.phases.reduce((s, ph) => s + (ph.heures ?? 0) / 8, 0) ?? 0;
+              const jhProj = pLot?.phases.reduce((s, ph) => s + (ph.heures ?? 0) / 8, 0) ?? 0;
+              if (jhLead > 0) allJH.push(jhLead);
+              if (jhProj > 0) allJH.push(jhProj);
+            });
+            const maxJH = Math.max(...allJH, 1);
+          })()}
         </div>
       )}
 
@@ -859,27 +821,27 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                   <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 8, fontStyle: "italic" }}>{s.subtitle}</div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 6 }}>
                     <div>
-                      <div style={{ fontSize: 9, color: "#6b7280", marginBottom: 2 }}>Δ hors charges</div>
+                      <div style={{ fontSize: 9, color: "#6b7280", marginBottom: 2 }}>hors charges annexes</div>
                       <Delta value={s.deltaHT} unit={deviseAbr} zeroLabel="✓" />
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 9, color: P.charges, marginBottom: 2, fontWeight: 600 }}>Δ après charges</div>
+                      <div style={{ fontSize: 9, color: P.charges, marginBottom: 2, fontWeight: 600 }}>avec charges annexes</div>
                       <Delta value={s.deltaNet} unit={deviseAbr} zeroLabel="✓" />
                     </div>
                   </div>
-                  <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 6, padding: "5px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  {/* <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 6, padding: "5px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: s.tauxPct >= 0 ? P.success : P.tomato }}>{s.tauxPct >= 0 ? "+" : ""}{fmt(s.tauxPct, 1)} %</span>
                     <span style={{ fontSize: 9, color: "#6b7280", fontStyle: "italic" }}>{s.hint.split("·")[0].trim()}</span>
-                  </div>
+                  </div> */}
                 </div>
               ))}
             </div>
 
             {/* Cascade budgétaire */}
             <div style={card}>
-              <div style={sh}><FaChartBar size={12} /> Cascade budgétaire — 4 niveaux avec charges annexes</div>
+              <div style={sh}><FaChartBar size={12} /> Comparaison budgétaire</div>
               <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-                {[
+                {/* {[
                   { label: "Offre fin. vendue", value: budgetOffComm, color: P.offre, jh: jhOffreComm, badge: null },
                   { label: "Budget backlog offre", value: budgetLeadCalc, color: P.phase, jh: jhLeadBacklog,
                     badge: { val: mnt_1_ht, label: `marge comm. HT ${mnt_1_ht >= 0 ? "+" : ""}${fmt(mnt_1_ht, 0)} ${deviseAbr}`, ok: mnt_1_ht >= 0 } },
@@ -900,7 +862,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                       <div style={{ width: `${Math.min(100, budgetOffComm > 0 ? (row.value / budgetOffComm) * 100 : 0)}%`, height: "100%", background: row.color, opacity: idx === 3 ? 0.7 : 0.85, borderRadius: 999 }} />
                     </div>
                   </div>
-                ))}
+                ))} */}
                 {/* Récap des 3 marges */}
                 <div style={{ borderTop: `1px solid ${P.linen}`, paddingTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   {[
@@ -913,9 +875,9 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                       <div style={{ fontSize: 10, color: P.dim, marginBottom: 6 }}>{m.sub}</div>
                       <div style={{ fontSize: 10, color: P.dim, marginBottom: 2 }}>Hors charges : <strong style={{ color: m.ht >= 0 ? P.success : P.tomato }}>{m.ht >= 0 ? "+" : ""}{fmt(m.ht, 0)} {deviseAbr}</strong></div>
                       <div style={{ fontSize: 18, fontWeight: 800, color: m.color, marginBottom: 2 }}>{m.net >= 0 ? "+" : ""}{fmt(m.net, 0)} <span style={{ fontSize: 11, fontWeight: 400, color: "#6b7280" }}>{deviseAbr} net</span></div>
-                      <div style={{ fontSize: 10, color: m.color, fontWeight: 700 }}>
+                      {/* <div style={{ fontSize: 10, color: m.color, fontWeight: 700 }}>
                         {budgetOffComm > 0 ? `${(m.net / budgetOffComm * 100) >= 0 ? "+" : ""}${fmt(m.net / budgetOffComm * 100, 1)} %` : "—"}
-                      </div>
+                      </div> */}
                     </div>
                   ))}
                 </div>
@@ -947,12 +909,12 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                     <div style={{ fontSize: 9, color: "#6b7280", marginBottom: 2 }}>Hors charges</div>
                     <Delta value={s.deltaHT} unit={deviseAbr} />
                     <div style={{ fontSize: 9, color: P.charges, fontWeight: 600, marginTop: 6, marginBottom: 2 }}>Charges : −{fmt(s.charges, 0)} {deviseAbr}</div>
-                    <div style={{ fontSize: 9, color: P.charges, fontWeight: 600, marginBottom: 2 }}>Après charges</div>
+                    <div style={{ fontSize: 9, color: P.charges, fontWeight: 600, marginBottom: 2 }}>Avec les charges</div>
                     <Delta value={s.deltaNet} unit={deviseAbr} />
-                    <div style={{ fontSize: 13, fontWeight: 800, color: s.tauxPct >= 0 ? P.success : P.tomato, marginTop: 6 }}>
+                    {/* <div style={{ fontSize: 13, fontWeight: 800, color: s.tauxPct >= 0 ? P.success : P.tomato, marginTop: 6 }}>
                       {s.tauxPct >= 0 ? "+" : ""}{fmt(s.tauxPct, 1)} %
                     </div>
-                    <div style={{ fontSize: 8, color: "#6b7280", textAlign: "center" }}>taux marge nette</div>
+                    <div style={{ fontSize: 8, color: "#6b7280", textAlign: "center" }}>taux marge nette</div> */}
                   </div>
 
                   <div style={{ padding: "16px 20px" }}>
@@ -974,7 +936,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                 </div>
 
                 {/* Barre */}
-                <div style={{ padding: "10px 20px", borderBottom: `1px solid ${P.linen}` }}>
+                {/* <div style={{ padding: "10px 20px", borderBottom: `1px solid ${P.linen}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6b7280", marginBottom: 4 }}>
                     <span style={{ color: s.color, fontWeight: 600 }}>{s.gauche.label} — {fmt(s.gauche.mnt, 0)} {deviseAbr}</span>
                     <span style={{ color: "#5c6ac4", fontWeight: 600 }}>Coût total (projet+charges) — {fmt(s.droite.mnt + s.charges, 0)} {deviseAbr}</span>
@@ -990,7 +952,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                     <span><span style={{ display: "inline-block", width: 8, height: 8, background: P.charges, borderRadius: 2, marginRight: 3 }} />Charges {fmt(s.charges, 0)}</span>
                     <span style={{ fontStyle: "italic" }}>{s.hint}</span>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Tableau par profil avec charges */}
                 {s.profils.length > 0 && (
@@ -1002,9 +964,9 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5F6F6E", textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>TJM</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: s.color, textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>{s.gauche.label}</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5c6ac4", textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>{s.droite.label}</th>
-                          <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: P.charges, textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>Charges Annexes</th>
+                          <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: P.charges, textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>Charges annexes</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5F6F6E", textAlign: "center", borderBottom: `1px solid ${P.linen}` }}>Δ HT</th>
-                          <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: P.charges, textAlign: "center", borderBottom: `1px solid ${P.linen}` }}>Δ Net (après charges)</th>
+                          <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: P.charges, textAlign: "center", borderBottom: `1px solid ${P.linen}` }}>Δ Net (Avec les charges)</th>
                           {/* <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5F6F6E", textAlign: "center", borderBottom: `1px solid ${P.linen}` }}>% marge nette</th> */}
                         </tr>
                       </thead>
@@ -1015,7 +977,6 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                             <td style={{ padding: "9px 12px", fontSize: 11, color: "#6b7280", textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}>{fmt(p.tjm, 0)} {deviseAbr}</td>
                             <td style={{ padding: "9px 12px", fontSize: 12, color: s.color, fontWeight: 600, textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}>{fmt(p.mntG, 0)} {deviseAbr}</td>
                             <td style={{ padding: "9px 12px", fontSize: 12, color: "#5c6ac4", fontWeight: 600, textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}>{fmt(p.mntD, 0)} {deviseAbr}</td>
-                            {/* <td style={{ padding: "9px 12px", fontSize: 12, color: P.charges, fontWeight: 600, textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}>{fmt(p.charges, 0)} {deviseAbr}</td> */}
                             <td style={{ padding: "9px 12px", fontSize: 12, color: P.charges, fontWeight: 600, textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}></td>
                             <td style={{ padding: "9px 12px", textAlign: "center", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}><Delta value={p.deltaHT} unit={deviseAbr} zeroLabel="✓" size="sm" /></td>
                             <td style={{ padding: "9px 12px", textAlign: "center", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}><Delta value={p.deltaNet} unit={deviseAbr} zeroLabel="✓" size="sm" /></td>
@@ -1108,7 +1069,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
             gauche: { label: "Offre tech. vendue",     jh: jhOffreComm,  mnt: budgetOffComm, src: "lead_tech_fin_details" },
             droite: { label: "Budget backlog projet",  jh: jhPlanifie,   mnt: factProjet,    src: "backlog projet (Σ JH×TJM)" },
             deltaJH: jh_3, mnt_ht: mnt_3_ht, mnt_net: mnt_3_net, charges: chargesAnnexes, tauxPct: taux_3,
-            hint: "+ = marge nette positive · − = projet déficitaire après charges",
+            hint: "+ = marge nette positive · − = projet déficitaire Avec les charges",
             profils: profils.map((p: any, i: number) => {
               const bOffre = (p.volumeOffreCommerciale ?? 0) * (p.tjm ?? 0);
               const bProj  = (p.volumeBacklogProjet ?? 0) * (p.tjmProjet ?? p.tjm ?? 0);
@@ -1140,7 +1101,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                     </div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.6)", borderRadius: 6, padding: "5px 8px", display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: s.tauxPct >= 0 ? P.success : P.tomato }}>{s.tauxPct >= 0 ? "+" : ""}{fmt(s.tauxPct, 1)} % net</span>
+                    {/* <span style={{ fontSize: 11, fontWeight: 700, color: s.tauxPct >= 0 ? P.success : P.tomato }}>{s.tauxPct >= 0 ? "+" : ""}{fmt(s.tauxPct, 1)} % net</span> */}
                     <span style={{ fontSize: 9, color: P.charges }}>charges : −{fmt(s.charges, 0)} {deviseAbr}</span>
                   </div>
                 </div>
@@ -1177,13 +1138,13 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                     <Delta value={s.mnt_ht} unit={deviseAbr} />
                     {s.charges > 0 && <>
                       <div style={{ fontSize: 9, color: P.charges, fontWeight: 600, marginTop: 5, marginBottom: 1 }}>− Charges ({fmt(s.charges, 0)} {deviseAbr})</div>
-                      <div style={{ fontSize: 9, color: P.charges, fontWeight: 600, marginBottom: 1 }}>Δ Net après charges</div>
+                      <div style={{ fontSize: 9, color: P.charges, fontWeight: 600, marginBottom: 1 }}>Δ Net Avec les charges</div>
                       <Delta value={s.mnt_net} unit={deviseAbr} />
                     </>}
-                    <div style={{ fontSize: 13, fontWeight: 800, color: s.tauxPct >= 0 ? P.success : P.tomato, marginTop: 6 }}>
+                    {/* <div style={{ fontSize: 13, fontWeight: 800, color: s.tauxPct >= 0 ? P.success : P.tomato, marginTop: 6 }}>
                       {s.tauxPct >= 0 ? "+" : ""}{fmt(s.tauxPct, 1)} %
                     </div>
-                    <div style={{ fontSize: 9, color: "#6b7280", fontStyle: "italic" }}>taux marge nette</div>
+                    <div style={{ fontSize: 9, color: "#6b7280", fontStyle: "italic" }}>taux marge nette</div> */}
                   </div>
 
                   <div style={{ padding: "16px 20px" }}>
@@ -1203,7 +1164,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                 </div>
 
                 {/* Barres HT et nette */}
-                <div style={{ padding: "12px 20px", borderBottom: `1px solid ${P.linen}` }}>
+                {/* <div style={{ padding: "12px 20px", borderBottom: `1px solid ${P.linen}` }}>
                   <div style={{ marginBottom: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6b7280", marginBottom: 3 }}>
                       <span style={{ color: s.color, fontWeight: 600 }}>{s.gauche.label}</span>
@@ -1224,10 +1185,10 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                         <div style={{ width: `${Math.min(100, s.gauche.mnt > 0 ? (s.droite.mnt / s.gauche.mnt) * 100 : 0)}%`, height: "100%", background: "#5c6ac4", opacity: 0.85, borderRadius: "999px 0 0 999px" }} />
                         <div style={{ width: `${Math.min(100, s.gauche.mnt > 0 ? (s.charges / s.gauche.mnt) * 100 : 0)}%`, height: "100%", background: P.charges, opacity: 0.8, borderRadius: "0 999px 999px 0" }} />
                       </div>
-                      <div style={{ fontSize: 9, color: "#6b7280", marginTop: 2, fontStyle: "italic" }}>Après charges — marge nette : {s.mnt_net >= 0 ? "+" : ""}{fmt(s.mnt_net, 0)} {deviseAbr}</div>
+                      <div style={{ fontSize: 9, color: "#6b7280", marginTop: 2, fontStyle: "italic" }}>Avec les charges — marge nette : {s.mnt_net >= 0 ? "+" : ""}{fmt(s.mnt_net, 0)} {deviseAbr}</div>
                     </div>
                   )}
-                </div>
+                </div> */}
 
                 {/* Tableau par profil */}
                 {s.profils.length > 0 && (
@@ -1239,7 +1200,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5F6F6E", textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>TJM</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: s.color, textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>JH / {deviseAbr} gauche</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5c6ac4", textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>JH / {deviseAbr} droite</th>
-                          <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: P.charges, textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>Charges</th>
+                          <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: P.charges, textAlign: "right", borderBottom: `1px solid ${P.linen}` }}>Charges annexes</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5F6F6E", textAlign: "center", borderBottom: `1px solid ${P.linen}` }}>ΔJH</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: "#5F6F6E", textAlign: "center", borderBottom: `1px solid ${P.linen}` }}>Δ HT</th>
                           <th style={{ padding: "9px 12px", fontSize: 11, fontWeight: 600, background: "#f4f6f7", color: P.charges, textAlign: "center", borderBottom: `1px solid ${P.linen}` }}>Δ Net</th>
@@ -1257,7 +1218,6 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                             <td style={{ padding: "9px 12px", fontSize: 11, color: "#5c6ac4", fontWeight: 600, textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}>
                               {fmt(p.jhD, 1)} JH<br /><span style={{ fontSize: 10, color: P.dim }}>{fmt(p.mntD, 0)} {deviseAbr}</span>
                             </td>
-                            {/* <td style={{ padding: "9px 12px", fontSize: 12, color: P.charges, fontWeight: 600, textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}>{fmt(p.charges, 0)} {deviseAbr}</td> */}
                             <td style={{ padding: "9px 12px", fontSize: 12, color: P.charges, fontWeight: 600, textAlign: "right", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}></td>
                             <td style={{ padding: "9px 12px", textAlign: "center", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}><Delta value={p.dJH} unit="JH" zeroLabel="✓" size="sm" /></td>
                             <td style={{ padding: "9px 12px", textAlign: "center", background: i % 2 === 0 ? P.white : "#fafbfc", borderBottom: `1px solid ${P.linen}` }}><Delta value={p.dHT} unit={deviseAbr} zeroLabel="✓" size="sm" /></td>
@@ -1299,17 +1259,16 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
       {/* ═══════════ CA & MARGE ═══════════ */}
       {activeTab === "ca" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ background: "#eff6ff", border: "1px solid #bee3f8", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1e40af", display: "flex", gap: 8, alignItems: "flex-start" }}>
+          {/* <div style={{ background: "#eff6ff", border: "1px solid #bee3f8", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1e40af", display: "flex", gap: 8, alignItems: "flex-start" }}>
             <FaCoins size={14} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>
               <strong>Facturation</strong> = Budget backlog offre ({fmt(factLeadTotal,0)} {deviseAbr} = {fmt(jhLeadBacklog,1)} JH × TJM) — référence contractuelle.{" "}
               <strong>Marge brute</strong> = CA encaissé − Facturation backlog offre − Charges annexes.
             </span>
-          </div>
-
+          </div> */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={card}>
-              <div style={sh}><FaChartLine size={13} /> Progression CA client</div>
+              <div style={sh}><FaChartLine size={13} /> Progression du paiment client</div>
               <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -1328,7 +1287,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                   <div style={{ fontSize: 10, color: P.dim, marginTop: 4 }}>{fmt(tauxCouv,1)} % couverture totale attendue</div>
                 </div>
                 <div style={{ borderTop: `1px solid ${P.linen}`, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: P.dim }}>Offre tech. vendue (objectif)</span>
+                  <span style={{ fontSize: 12, color: P.dim }}>Offre tech. vendue</span>
                   <span style={{ fontSize: 15, fontWeight: 800, color: P.charcoal }}>{fmt(montantOffreLead,0)} {deviseAbr}</span>
                 </div>
                 {resteAEnc > 0
@@ -1344,20 +1303,20 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
             </div>
 
             <div style={card}>
-              <div style={sh}><FaTrophy size={13} /> Analyse de marge — CA encaissé</div>
+              <div style={sh}><FaTrophy size={13} /> Marge prévisionnelle</div>
               <div style={{ padding: 18 }}>
                 {[
-                  { label: "CA encaissé (client)",                                    value: caEncaisse,      color: P.success, bold: false },
-                  { label: `− Facturation backlog offre (${fmt(jhLeadBacklog,1)} JH × TJM)`, value: -factLeadTotal, color: P.tomato, bold: false },
+                  { label: "Paiement client encaissé", value: caEncaisse,      color: P.success, bold: false },
+                  { label: `− Facturation des ressources prévisionnelle (backlog offre) (${fmt(jhLeadBacklog,1)} JH × TJM)`, value: -factLeadTotal, color: P.tomato, bold: false },
                   { label: "− Charges annexes",                                       value: -chargesAnnexes, color: "#b45309", bold: false },
-                  { label: "= Marge brute encaissée",                                value: marge,            color: marge >= 0 ? P.success : P.tomato, bold: true },
+                  { label: "= Marge prévisionnelle",                                value: marge,            color: marge >= 0 ? P.success : P.tomato, bold: true },
                 ].map((row, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: `${row.bold ? "10px" : "0"} 0 8px`, borderBottom: row.bold ? "none" : `1px solid ${P.linen}`, borderTop: row.bold ? `2px solid ${P.linen}` : "none" }}>
                     <span style={{ fontSize: 12, color: row.bold ? P.charcoal : P.dim, fontWeight: row.bold ? 700 : 400 }}>{row.label}</span>
                     <span style={{ fontSize: row.bold ? 18 : 13, fontWeight: row.bold ? 800 : 600, color: row.color }}>{row.value >= 0 ? "+" : ""}{fmt(row.value,0)} {deviseAbr}</span>
                   </div>
                 ))}
-                {caEncaisse > 0 && <div style={{ marginTop: 8, fontSize: 12, color: P.dim }}>Taux de marge : <strong style={{ color: marge >= 0 ? P.success : P.tomato }}>{fmt(tauxMarge,1)} %</strong></div>}
+                {/* {caEncaisse > 0 && <div style={{ marginTop: 8, fontSize: 12, color: P.dim }}>Taux de marge : <strong style={{ color: marge >= 0 ? P.success : P.tomato }}>{fmt(tauxMarge,1)} %</strong></div>} */}
               </div>
             </div>
           </div>
@@ -1367,16 +1326,16 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
               <FaTrophy size={20} color={margeNetteSvsP >= 0 ? P.success : P.tomato} />
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: P.charcoal }}>Marge nette réelle — Offre tech. vendue ↔ Backlog projet après charges</div>
-                <div style={{ fontSize: 11, color: P.dim, marginTop: 2 }}>Offre tech. vendue − Budget backlog projet − Charges annexes · Référence CA tableau de bord</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: P.charcoal }}>Marge nette réelle — Offre tech. vendue ↔ Backlog projet avec charges annexes</div>
+                <div style={{ fontSize: 11, color: P.dim, marginTop: 2 }}>Offre tech. vendue − (Budget backlog projet + Charges annexes)</div>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
               {[
-                { label: "Offre tech. vendue",      value: budgetOffComm,    color: P.offre, sub: "lead_tech_fin_details" },
+                { label: "Offre tech. vendue",      value: budgetOffComm,    color: P.offre, sub: "Budget dans l'offre financière" },
                 { label: "− Budget backlog projet",  value: -factProjet,      color: P.lot,   sub: `${fmt(jhPlanifie, 1)} JH × TJM` },
                 { label: "− Charges annexes",        value: -chargesAnnexes,  color: P.charges, sub: "transport, hébergement…" },
-                { label: "= Marge nette",            value: margeNetteSvsP,   color: margeNetteSvsP >= 0 ? P.success : P.tomato, sub: `${fmt(tauxMargeNetteSvsP, 1)} % du montant`, bold: true },
+                { label: "= Marge réelle",            value: margeNetteSvsP,   color: margeNetteSvsP >= 0 ? P.success : P.tomato, sub: `Marge réelle (projet)`, bold: true },
               ].map((item: any, i) => (
                 <div key={i} style={{ background: i === 3 ? (margeNetteSvsP >= 0 ? "#dcfce7" : "#fee2e2") : P.white, borderRadius: 8, padding: "12px 14px", border: i === 3 ? `2px solid ${item.color}44` : `1px solid ${P.linen}` }}>
                   <div style={{ fontSize: 10, color: item.color, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>{item.label}</div>
@@ -1389,11 +1348,11 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, borderTop: `1px solid ${margeNetteSvsP >= 0 ? "#bbf7d0" : "#fecaca"}`, paddingTop: 16 }}>
               <div>
-                <div style={{ fontSize: 11, color: P.dim, fontWeight: 600, marginBottom: 8 }}>Comparaison marge brute vs marge nette</div>
+                <div style={{ fontSize: 11, color: P.dim, fontWeight: 600, marginBottom: 8 }}>Comparaison marge prévisionnelle vs marge réelle</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {[
-                    { label: "Marge brute (CA encaissé)",          value: marge,           color: marge >= 0 ? P.success : P.tomato },
-                    { label: "Marge nette (Offre↔Backlog projet)",  value: margeNetteSvsP,  color: margeNetteSvsP >= 0 ? P.success : P.tomato },
+                    { label: "Marge prévisionnelle", value: marge, color: marge >= 0 ? P.success : P.tomato },
+                    { label: "Marge réelle",  value: margeNetteSvsP,  color: margeNetteSvsP >= 0 ? P.success : P.tomato },
                     { label: "Reste à encaisser",                   value: resteAEnc,       color: resteAEnc > 0 ? "#b45309" : P.success },
                   ].map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1403,7 +1362,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                   ))}
                 </div>
               </div>
-              <div>
+              {/* <div>
                 <div style={{ fontSize: 11, color: P.dim, fontWeight: 600, marginBottom: 8 }}>Indicateurs de rentabilité</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {[
@@ -1417,10 +1376,7 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-            <div style={{ marginTop: 14, background: "rgba(0,0,0,0.04)", borderRadius: 7, padding: "8px 12px", fontSize: 11, color: P.dim, fontStyle: "italic" }}>
-              💡 Ce chiffre (<strong style={{ color: margeNetteSvsP >= 0 ? P.success : P.tomato }}>{margeNetteSvsP >= 0 ? "+" : ""}{fmt(margeNetteSvsP, 0)} {deviseAbr}</strong>) est utilisé comme indicateur de rentabilité dans le tableau de bord ListeProjet (colonne "Rentabilité").
+              </div> */}
             </div>
           </div>
 
