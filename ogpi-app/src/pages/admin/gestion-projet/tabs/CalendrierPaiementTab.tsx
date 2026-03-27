@@ -93,6 +93,7 @@ const EMPTY_FORM = {
   typePaiement: "POURCENTAGE" as TypePaiement,
   pourcentage: null as number | null,
   montantAPayer: 0,
+  chargeAnnexe: 0, 
   datePaiement: "",
   commentaire: "",
 };
@@ -206,15 +207,16 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
   const openEdit = (e: CalendrierPaiement) => {
     setEditItem(e);
     setForm({
-      libelle:       e.libelle,
+      libelle: e.libelle,
       typeReference: e.typeReference,
-      referenceId:   e.referenceId,
-      referenceNom:  e.referenceNom ?? "",
-      typePaiement:  e.typePaiement,
-      pourcentage:   e.pourcentage ?? null,
+      referenceId: e.referenceId,
+      referenceNom: e.referenceNom ?? "",
+      typePaiement: e.typePaiement,
+      pourcentage: e.pourcentage ?? null,
       montantAPayer: e.montantAPayer,
-      datePaiement:  e.datePaiement,
-      commentaire:   e.commentaire ?? "",
+      chargeAnnexe: e.chargeAnnexe ?? 0, 
+      datePaiement: e.datePaiement,
+      commentaire: e.commentaire ?? "",
     });
     setFormError(null);
     setShowModal(true);
@@ -235,7 +237,11 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
     });
   };
 
-  const formMontant  = form.typePaiement === "POURCENTAGE" ? calcMontantPct(form.pourcentage) : form.montantAPayer;
+  const montantBase = form.typePaiement === "POURCENTAGE"
+  ? calcMontantPct(form.pourcentage)
+  : form.montantAPayer;
+
+  const formMontant = montantBase + (form.chargeAnnexe || 0); 
   const formExcedent = calcExcedentSiAjout(formMontant);
 
   const saveForm = async () => {
@@ -262,6 +268,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
         montantAPayer: formMontant,
         datePaiement:  form.datePaiement,
         commentaire:   form.commentaire || undefined,
+        chargeAnnexe: form.chargeAnnexe || 0,
         backlogId,
       };
       if (editItem) {
@@ -567,6 +574,11 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
                 <option value="MONTANT_FIXE">Montant fixe</option>
               </select>
             </div>
+            <div className="cp-field">
+              <label className="cp-label">Date de paiement prévue *</label>
+              <input className="cp-input" type="date" value={form.datePaiement}
+                onChange={e => setF("datePaiement", e.target.value)} disabled={saving} />
+            </div>
             {form.typePaiement === "POURCENTAGE" ? (
               <div className="cp-field">
                 <label className="cp-label">Pourcentage * (% du budget offre)</label>
@@ -583,22 +595,50 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
                 )}
               </div>
             ) : (
-              <div className="cp-field">
-                <label className="cp-label">Montant ({deviseAbr}) *</label>
-                <input className="cp-input" type="number" min="0" step="0.01"
-                  value={form.montantAPayer}
-                  onChange={e => setF("montantAPayer", +e.target.value || 0)}
-                  onWheel={e => (e.target as HTMLInputElement).blur()}
-                  disabled={saving} />
-                {resteAPayer > 0 && montantOffre > 0 && (
-                  <div className="cp-hint">Reste disponible : {fmt(resteAPayer, deviseAbr)}</div>
-                )}
-              </div>
+                  <div className="cp-form-row-2">
+                    <div className="cp-field">
+                      <label className="cp-label">Montant ({deviseAbr}) *</label>
+                      <input
+                        className="cp-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.montantAPayer}
+                        onChange={e => setF("montantAPayer", +e.target.value || 0)}
+                        onWheel={e => (e.target as HTMLInputElement).blur()}
+                        disabled={saving}
+                      />
+                      {resteAPayer > 0 && montantOffre > 0 && (
+                        <div className="cp-hint">
+                          Reste disponible : {fmt(resteAPayer, deviseAbr)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="cp-field">
+                      <label className="cp-label">Charge annexe ({deviseAbr})</label>
+                      <input
+                        className="cp-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.chargeAnnexe}
+                        onChange={e => setF("chargeAnnexe", +e.target.value || 0)}
+                        disabled={saving}
+                      />
+                    </div>
+                  </div>
+              
             )}
-            <div className="cp-field">
-              <label className="cp-label">Date de paiement prévue *</label>
-              <input className="cp-input" type="date" value={form.datePaiement}
-                onChange={e => setF("datePaiement", e.target.value)} disabled={saving} />
+            <div className="cp-recap-box cp-form-full">
+              <FaInfoCircle size={12} />
+              <span>
+                Montant : <strong>{fmt(montantBase, deviseAbr)}</strong>
+                {" + "}
+                Charge annexe : <strong>{fmt(form.chargeAnnexe || 0, deviseAbr)}</strong>
+                {" = "}
+                <strong>{fmt(formMontant, deviseAbr)}</strong>
+              </span>
             </div>
             <div className="cp-field cp-form-full">
               <label className="cp-label">Commentaire</label>

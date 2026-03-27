@@ -15,7 +15,6 @@ import {
 
 import { BacklogDelivrableProjet } from "../../../../types/projet/backlog/BacklogProjet.tsx";
 
-
 import { BacklogPlanningService, SprintTimeDTO } from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -30,8 +29,8 @@ interface PlanningTabProps {
   selectedBacklogId: number | null;
   planningService: BacklogPlanningService;
   datedebutPlanning?: string | null;
+  onPlanningUpdated?: () => void;
 }
-
 
 // Computed sprint for rendering
 interface ComputedSprint {
@@ -40,10 +39,10 @@ interface ComputedSprint {
   lotId: number;
   name: string;
   order: number;
-  fromDay: number; // 1-based
-  toDay: number;   // 1-based inclusive
-  duration: number; // days
-  isManual: boolean; // has explicit fromDay/toDay
+  fromDay: number;
+  toDay: number;
+  duration: number;
+  isManual: boolean;
   deliverables: BacklogDeliverable[];
 }
 
@@ -102,13 +101,6 @@ const COLOR = {
 
 // ─── DATE HELPERS ─────────────────────────────────────────────────────────────
 
-function dayToDate(base: Date, dayNum: number): Date {
-  // dayNum is 1-based: day 1 = base
-  const d = new Date(base);
-  d.setDate(d.getDate() + (dayNum - 1));
-  return d;
-}
-
 function fmtDate(d: Date): string {
   return d.toLocaleDateString("fr-FR", {
     day: "2-digit",
@@ -121,48 +113,59 @@ function fmtDateShort(d: Date): string {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
 
-function isoToDate(iso: string): Date {
-  return new Date(iso);
-}
-
 function addDays(d: Date, n: number): Date {
   const r = new Date(d);
   r.setDate(r.getDate() + n);
   return r;
 }
 
+function daysBetween(d1: Date, d2: Date): number {
+  return Math.round((d2.getTime() - d1.getTime()) / 86_400_000);
+}
+
+function isoToFromDay(iso: string, baseDate: Date): number {
+  const d = new Date(iso);
+  return Math.max(1, daysBetween(baseDate, d) + 1);
+}
+
+function isoToToDay(iso: string, baseDate: Date): number {
+  const d = new Date(iso);
+  return Math.max(1, daysBetween(baseDate, d) + 1);
+}
+
+// ─── AUTO BASE DATE DETECTION ─────────────────────────────────────────────────
+
+function detectBaseDateFromLots(lots: BacklogLot[]): Date | null {
+  let minDate: Date | null = null;
+  for (const lot of lots) {
+    for (const phase of (lot.phases ?? []) as any[]) {
+      if (phase.dateDebut) {
+        const d = new Date(phase.dateDebut);
+        if (!isNaN(d.getTime()) && (!minDate || d < minDate)) minDate = d;
+      }
+      for (const sprint of (phase.sprints ?? []) as any[]) {
+        if (sprint.dateDebut) {
+          const d = new Date(sprint.dateDebut);
+          if (!isNaN(d.getTime()) && (!minDate || d < minDate)) minDate = d;
+        }
+      }
+    }
+  }
+  return minDate;
+}
+
 // ─── SPRINT DURATION CALCULATION ─────────────────────────────────────────────
 
-/**
- * Durée d'un sprint = maximum des sommes de volumes par profil.
- *
- * Algo :
- *  1. Filtrer les lignes par sprintId → récupérer leurs IDs
- *  2. Dans lineProfils, garder ceux dont lineId est dans ce set
- *  3. Sommer les volumes par profil
- *  4. Durée = max des sommes
- *
- * Exemple avec les données réelles :
- *   lineId:1 → profil 1 : 7.8 + 2.6 = 10.4 JH
- *   lineId:1 → profil 2 : 20 JH
- *   lineId:2 → profil 1 : 7 JH
- *   lineId:2 → profil 2 : 7.5 JH
- *   Profil 1 total : 10.4 + 7 = 17.4 JH
- *   Profil 2 total : 20 + 7.5 = 27.5 JH
- *   → Durée = ceil(27.5) = 28 jours
- */
 function calcSprintDuration(
   sprintId: number,
   lines: BacklogLine[],
   lineProfils: BacklogLineProfil[]
 ): number {
-  // 1. IDs des lignes de ce sprint
   const sprintLineIds = new Set(
     lines.filter((l) => l.sprintId === sprintId).map((l) => l.id)
   );
   if (sprintLineIds.size === 0) return 1;
 
-  // 2. Sommer les volumes par profil_id
   const profilTotals = new Map<number, number>();
   for (const lp of lineProfils) {
     if (!sprintLineIds.has(lp.lineId)) continue;
@@ -172,79 +175,63 @@ function calcSprintDuration(
 
   if (profilTotals.size === 0) return 1;
 
-  // 3. Durée = profil le plus chargé
   return Math.max(1, Math.ceil(Math.max(...profilTotals.values())));
 }
 
 // ─── PLANNING COMPUTATION ─────────────────────────────────────────────────────
 
-/**
- * Règles :
- * - Sprint manuel (fromDay + toDay définis) : position respectée telle quelle.
- * - Sprint auto : placé à la suite du précédent (curseur = toDay précédent + 1).
- * - Le curseur avance TOUJOURS après chaque sprint (manuel ou auto),
- *   donc les sprints suivants démarrent bien après le précédent.
- * - Phases s'enchaînent dans un lot, lots s'enchaînent globalement.
- * - Bounds phases/lots = min(fromDay) / max(toDay) des enfants.
- */
 function computePlanning(
   lots: BacklogLot[],
   lines: BacklogLine[],
   lineProfils: BacklogLineProfil[],
-  deliverables: Map<number, BacklogDeliverable[]>
+  deliverables: Map<number, BacklogDeliverable[]>,
+  baseDate: Date | null
 ): ComputedLot[] {
   const sortedLots = [...lots].sort((a, b) => a.order - b.order);
-
-  // Curseur global : avance lot par lot
   let cursor = 1;
 
   return sortedLots.map((lot) => {
-    const sortedPhases = [...(lot.phases ?? [])].sort(
+    const sortedPhases = [...((lot.phases ?? []) as any[])].sort(
       (a, b) => a.order - b.order
     );
 
     const computedPhases: ComputedPhase[] = [];
-    // Le curseur de phase repart du curseur global en début de lot
     let phaseCursor = cursor;
 
     for (const phase of sortedPhases) {
-      const sortedSprints = [...(phase.sprints ?? [])].sort(
+      const sortedSprints = [...((phase.sprints ?? []) as any[])].sort(
         (a, b) => a.order - b.order
       );
 
       const computedSprints: ComputedSprint[] = [];
-      // Le curseur de sprint repart du curseur de phase
       let sprintCursor = phaseCursor;
 
       for (const sprint of sortedSprints) {
-        const isManual =
-          sprint.fromDay !== null &&
-          sprint.fromDay !== undefined &&
-          sprint.toDay !== null &&
-          sprint.toDay !== undefined &&
-          sprint.fromDay > 0 &&
-          sprint.toDay > 0;
-
         let fromDay: number;
         let toDay: number;
+        let isManual = false;
 
-        if (isManual) {
-          // Position définie manuellement → on la respecte
-          fromDay = sprint.fromDay!;
-          toDay = sprint.toDay!;
+        if (baseDate && sprint.dateDebut && sprint.dateFin) {
+          fromDay = isoToFromDay(sprint.dateDebut, baseDate);
+          toDay   = isoToToDay(sprint.dateFin, baseDate);
+          isManual = true;
+        } else if (
+          sprint.fromDay != null && sprint.fromDay > 0 &&
+          sprint.toDay   != null && sprint.toDay   > 0
+        ) {
+          fromDay  = sprint.fromDay;
+          toDay    = sprint.toDay;
+          isManual = true;
         } else {
-          // Auto : démarre là où s'est arrêté le précédent
           const duration = calcSprintDuration(sprint.id, lines, lineProfils);
           fromDay = sprintCursor;
-          toDay = sprintCursor + duration - 1;
+          toDay   = sprintCursor + duration - 1;
         }
 
-        // ⚠️ Règle clé : le curseur avance TOUJOURS (manuel ou auto)
-        // → le sprint suivant démarre après ce sprint
-        sprintCursor = toDay + 1;
+        if (toDay >= sprintCursor) sprintCursor = toDay + 1;
 
-        const sprintDelivs = (deliverables.get(phase.id) ?? []).filter(
-          (d) => d.sprintId === sprint.id
+        const sprintDelivs = ((deliverables as any).get(phase.id) ?? []).filter(
+          (d: any) => d.sprintId === sprint.id
         );
 
         computedSprints.push({
@@ -261,11 +248,18 @@ function computePlanning(
         });
       }
 
-      // Bounds phase = min/max des sprints (guard Infinity si aucun sprint)
-      const sprintFroms = computedSprints.map((s) => s.fromDay).filter(Number.isFinite);
-      const sprintTos   = computedSprints.map((s) => s.toDay).filter(Number.isFinite);
-      const phaseFrom   = sprintFroms.length > 0 ? Math.min(...sprintFroms) : phaseCursor;
-      const phaseTo     = sprintTos.length   > 0 ? Math.max(...sprintTos)   : phaseCursor;
+      let phaseFrom: number;
+      let phaseTo: number;
+
+      if (baseDate && (phase as any).dateDebut && (phase as any).dateFin) {
+        phaseFrom = isoToFromDay((phase as any).dateDebut, baseDate);
+        phaseTo   = isoToToDay((phase as any).dateFin, baseDate);
+      } else {
+        const sprintFroms = computedSprints.map((s) => s.fromDay).filter(Number.isFinite);
+        const sprintTos   = computedSprints.map((s) => s.toDay).filter(Number.isFinite);
+        phaseFrom = sprintFroms.length > 0 ? Math.min(...sprintFroms) : phaseCursor;
+        phaseTo   = sprintTos.length   > 0 ? Math.max(...sprintTos)   : phaseCursor;
+      }
 
       computedPhases.push({
         id: phase.id,
@@ -277,17 +271,23 @@ function computePlanning(
         sprints: computedSprints,
       });
 
-      // Le curseur de phase avance jusqu'à la fin de cette phase
-      phaseCursor = sprintCursor;
+      phaseCursor = Math.max(phaseCursor, sprintCursor);
     }
 
-    // Bounds lot = min/max des phases (guard Infinity si aucune phase)
-    const phaseFroms = computedPhases.map((p) => p.fromDay).filter(Number.isFinite);
-    const phaseTos   = computedPhases.map((p) => p.toDay).filter(Number.isFinite);
-    const lotFrom    = phaseFroms.length > 0 ? Math.min(...phaseFroms) : cursor;
-    const lotTo      = phaseTos.length   > 0 ? Math.max(...phaseTos)   : cursor;
+    let lotFrom: number;
+    let lotTo: number;
 
-    // Le curseur global avance jusqu'à la fin de ce lot
+    const lotAny = lot as any;
+    if (baseDate && lotAny.dateDebut && lotAny.dateFin) {
+      lotFrom = isoToFromDay(lotAny.dateDebut, baseDate);
+      lotTo   = isoToToDay(lotAny.dateFin, baseDate);
+    } else {
+      const phaseFroms = computedPhases.map((p) => p.fromDay).filter(Number.isFinite);
+      const phaseTos   = computedPhases.map((p) => p.toDay).filter(Number.isFinite);
+      lotFrom = phaseFroms.length > 0 ? Math.min(...phaseFroms) : cursor;
+      lotTo   = phaseTos.length   > 0 ? Math.max(...phaseTos)   : cursor;
+    }
+
     cursor = phaseCursor;
 
     return {
@@ -300,6 +300,271 @@ function computePlanning(
     };
   });
 }
+
+// ─── BURNDOWN COMPUTATION ─────────────────────────────────────────────────────
+
+interface BurndownPoint {
+  day: number;          // 1-based
+  date?: Date;          // si baseDate définie
+  label: string;        // libellé axe X
+  ideal: number;        // charge restante idéale (JH)
+  remaining: number;    // charge restante réelle (complétée à chaque fin de sprint)
+  sprintName?: string;  // sprint terminé à ce jour
+}
+
+/**
+ * Calcule les points du burndown à partir des sprints calculés et des volumes JH.
+ * - Charge totale = somme de toutes les JH du backlog (par profil, max par sprint)
+ * - Idéal : décroît linéairement de totalJH à 0 sur la durée totale
+ * - Réel  : décroit au fur et à mesure que les sprints se terminent
+ */
+function computeBurndown(
+  computed: ComputedLot[],
+  lines: BacklogLine[],
+  lineProfils: BacklogLineProfil[],
+  totalDays: number,
+  baseDate: Date | null
+): BurndownPoint[] {
+  if (totalDays <= 0) return [];
+
+  // Collecte tous les sprints avec leur charge JH et leur toDay
+  const allSprints: { id: number; toDay: number; name: string; jhLoad: number }[] = [];
+
+  for (const lot of computed) {
+    for (const phase of lot.phases) {
+      for (const sprint of phase.sprints) {
+        // Charge JH du sprint = max parmi tous les profils du sprint
+        const sprintLineIds = new Set(
+          lines.filter((l) => l.sprintId === sprint.id).map((l) => l.id)
+        );
+        const profilTotals = new Map<number, number>();
+        for (const lp of lineProfils) {
+          if (!sprintLineIds.has(lp.lineId)) continue;
+          profilTotals.set(lp.profil.id, (profilTotals.get(lp.profil.id) ?? 0) + lp.volume);
+        }
+        const jhLoad = profilTotals.size > 0
+          ? Math.max(...profilTotals.values())
+          : sprint.duration; // fallback: durée en jours
+
+        allSprints.push({
+          id: sprint.id,
+          toDay: sprint.toDay,
+          name: sprint.name,
+          jhLoad,
+        });
+      }
+    }
+  }
+
+  const totalJH = allSprints.reduce((s, sp) => s + sp.jhLoad, 0);
+  if (totalJH === 0) return [];
+
+  // Trier les sprints par toDay
+  const sortedSprints = [...allSprints].sort((a, b) => a.toDay - b.toDay);
+
+  // Construire les points burndown : un point par fin de sprint + point initial + point final
+  const points: BurndownPoint[] = [];
+
+  // Point initial (jour 0)
+  points.push({
+    day: 0,
+    date: baseDate ?? undefined,
+    label: baseDate ? fmtDateShort(baseDate) : "Début",
+    ideal: totalJH,
+    remaining: totalJH,
+  });
+
+  let jhDone = 0;
+  for (const sprint of sortedSprints) {
+    jhDone += sprint.jhLoad;
+    const remaining = Math.max(0, totalJH - jhDone);
+    const date = baseDate ? addDays(baseDate, sprint.toDay - 1) : undefined;
+    points.push({
+      day: sprint.toDay,
+      date,
+      label: baseDate ? fmtDateShort(date!) : `J${sprint.toDay}`,
+      ideal: Math.max(0, totalJH - (totalJH * sprint.toDay) / totalDays),
+      remaining,
+      sprintName: sprint.name,
+    });
+  }
+
+  // Point final (si le dernier sprint ne couvre pas totalDays)
+  const lastPoint = points[points.length - 1];
+  if (lastPoint.day < totalDays) {
+    const date = baseDate ? addDays(baseDate, totalDays - 1) : undefined;
+    points.push({
+      day: totalDays,
+      date,
+      label: baseDate ? fmtDateShort(date!) : `J${totalDays}`,
+      ideal: 0,
+      remaining: lastPoint.remaining,
+    });
+  }
+
+  return points;
+}
+
+// ─── BURNDOWN CHART COMPONENT ────────────────────────────────────────────────
+
+interface BurndownChartProps {
+  points: BurndownPoint[];
+  totalJH: number;
+  totalDays: number;
+  baseDate: Date | null;
+  unit: TimeUnit;
+}
+
+const BurndownChart: React.FC<BurndownChartProps> = ({
+  points,
+  totalJH,
+  totalDays,
+  baseDate,
+  unit,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || points.length < 2) return;
+
+    // Lazy load Chart.js depuis CDN si nécessaire
+    const initChart = () => {
+      const canvas = canvasRef.current!;
+      const ctx = canvas.getContext("2d")!;
+
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+
+      const labels = points.map((p) => p.label);
+      const idealData = points.map((p) => Math.round(p.ideal * 10) / 10);
+      const realData = points.map((p) => Math.round(p.remaining * 10) / 10);
+
+      const Chart = (window as any).Chart;
+      if (!Chart) return;
+
+      chartRef.current = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Idéal",
+              data: idealData,
+              borderColor: "#0e7490",
+              backgroundColor: "rgba(14,116,144,0.08)",
+              borderWidth: 2,
+              borderDash: [6, 3],
+              pointRadius: 3,
+              pointBackgroundColor: "#0e7490",
+              fill: false,
+              tension: 0,
+            },
+            {
+              label: "Réel",
+              data: realData,
+              borderColor: "#7c3aed",
+              backgroundColor: "rgba(124,58,237,0.10)",
+              borderWidth: 2.5,
+              pointRadius: 4,
+              pointBackgroundColor: "#7c3aed",
+              fill: true,
+              tension: 0.15,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: "index",
+            intersect: false,
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items: any[]) => {
+                  const idx = items[0]?.dataIndex;
+                  const p = points[idx];
+                  if (p?.sprintName) return `Fin de sprint : ${p.sprintName}`;
+                  return items[0]?.label ?? "";
+                },
+                label: (item: any) => {
+                  const suffix = " JH";
+                  return ` ${item.dataset.label} : ${item.formattedValue}${suffix}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: {
+                font: { size: 10, family: "'DM Sans','Segoe UI',system-ui,sans-serif" },
+                color: "#64748b",
+                maxRotation: 35,
+                autoSkip: true,
+                maxTicksLimit: 12,
+              },
+              grid: { color: "#dde8ed", lineWidth: 0.5 },
+            },
+            y: {
+              min: 0,
+              suggestedMax: Math.ceil(totalJH * 1.05),
+              ticks: {
+                font: { size: 10, family: "'DM Sans','Segoe UI',system-ui,sans-serif" },
+                color: "#64748b",
+                callback: (v: number) => `${v} JH`,
+              },
+              grid: { color: "#dde8ed", lineWidth: 0.5 },
+              title: {
+                display: true,
+                text: "Charge restante (JH)",
+                font: { size: 10, family: "'DM Sans','Segoe UI',system-ui,sans-serif" },
+                color: "#94a3b8",
+              },
+            },
+          },
+        },
+      });
+    };
+
+    // Si Chart.js déjà chargé
+    if ((window as any).Chart) {
+      initChart();
+      return;
+    }
+
+    // Sinon charger le script
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js";
+    script.onload = initChart;
+    document.head.appendChild(script);
+
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, [points, totalJH]);
+
+  if (points.length < 2) {
+    return (
+      <div className="text-center text-muted py-3" style={{ fontSize: "0.8rem" }}>
+        Données insuffisantes pour le burndown (ajoutez des volumes JH).
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: 260 }}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
+};
 
 // ─── RENDER ROWS ──────────────────────────────────────────────────────────────
 
@@ -381,7 +646,6 @@ function buildRows(
           deliverables: sprint.deliverables,
         });
 
-        // Deliverables as labels (no Gantt bar)
         if (showDeliverables && sprint.deliverables && sprint.deliverables.length > 0) {
           for (const deliv of sprint.deliverables) {
             rows.push({
@@ -421,35 +685,33 @@ function durationToW(days: number, unit: TimeUnit, colW: number): number {
   return Math.max(MIN_BAR, (days / DAYS_PER_WEEK) * colW);
 }
 
-function xToDay(px: number, unit: TimeUnit, colW: number): number {
-  if (unit === "day") return Math.round(px / colW) + 1;
-  return Math.round((px / colW) * DAYS_PER_WEEK) + 1;
-}
-
-function snapToUnit(day: number, unit: TimeUnit): number {
-  if (unit === "day") return Math.max(1, day);
-  // snap to week boundary (multiples of 5)
-  return Math.max(1, Math.round((day - 1) / DAYS_PER_WEEK) * DAYS_PER_WEEK + 1);
-}
-
 // ─── LEGEND DOT ───────────────────────────────────────────────────────────────
 
-const LDot: React.FC<{ color: string; label: string; square?: boolean }> = ({
+const LDot: React.FC<{ color: string; label: string; square?: boolean; dashed?: boolean }> = ({
   color,
   label,
   square,
+  dashed,
 }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-    <div
-      style={{
-        width: 10,
-        height: 10,
-        background: color,
-        borderRadius: square ? 2 : 5,
-        border: "1px solid rgba(0,0,0,0.12)",
-        flexShrink: 0,
-      }}
-    />
+    {dashed ? (
+      <svg width={18} height={10} style={{ flexShrink: 0 }}>
+        <line x1={0} y1={5} x2={18} y2={5}
+          stroke={color} strokeWidth={2}
+          strokeDasharray="5,3" />
+      </svg>
+    ) : (
+      <div
+        style={{
+          width: 10,
+          height: 10,
+          background: color,
+          borderRadius: square ? 2 : 5,
+          border: "1px solid rgba(0,0,0,0.12)",
+          flexShrink: 0,
+        }}
+      />
+    )}
     <span style={{ color: "#64748b", fontSize: "0.72rem" }}>{label}</span>
   </div>
 );
@@ -464,23 +726,23 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
   selectedBacklogId,
   planningService,
   datedebutPlanning,
+  onPlanningUpdated,
 }) => {
   const [unit, setUnit] = useState<TimeUnit>("week");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showDeliverables, setShowDeliverables] = useState(true);
+  const [showBurndown, setShowBurndown] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveOk, setSaveOk] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
-  // Date de début planning
   const [startDateInput, setStartDateInput] = useState<string>(
     datedebutPlanning ?? ""
   );
   const [editingDate, setEditingDate] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
 
-  // Sprint drag state
   const [dragState, setDragState] = useState<{
     sprintId: number;
     type: "move" | "resizeR";
@@ -489,12 +751,10 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     origTo: number;
   } | null>(null);
 
-  // Live override for drag preview (sprintId → {fromDay, toDay})
   const [liveOverrides, setLiveOverrides] = useState<
     Map<number, { fromDay: number; toDay: number }>
   >(new Map());
 
-  // Pending overrides to save
   const [pendingOverrides, setPendingOverrides] = useState<
     Map<number, { fromDay: number; toDay: number }>
   >(new Map());
@@ -505,14 +765,28 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
 
   const colW = COL_PX[unit];
 
-  const baseDate = useMemo<Date | null>(() => {
-    const d = startDateInput || datedebutPlanning;
-    if (!d) return null;
-    const parsed = new Date(d);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }, [startDateInput, datedebutPlanning]);
+  const autoBaseDate = useMemo(() => detectBaseDateFromLots(lots), [lots]);
 
-  // ── Sync scroll ────────────────────────────────────────────────────────────
+  const baseDate = useMemo<Date | null>(() => {
+    const explicit = startDateInput || datedebutPlanning;
+    if (explicit) {
+      const parsed = new Date(explicit);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+    return autoBaseDate;
+  }, [startDateInput, datedebutPlanning, autoBaseDate]);
+
+  useEffect(() => {
+    if (!startDateInput && !datedebutPlanning && autoBaseDate) {
+      const iso = autoBaseDate.toISOString().slice(0, 10);
+      setStartDateInput(iso);
+    }
+  }, [autoBaseDate]);
+
+  useEffect(() => {
+    if (datedebutPlanning) setStartDateInput(datedebutPlanning);
+  }, [datedebutPlanning]);
+
   useEffect(() => {
     const hEl = headerScrollRef.current;
     const bEl = bodyScrollRef.current;
@@ -537,17 +811,13 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     };
   }, []);
 
-  // ── Base planning (lots originaux + pending sauvegardés seulement) ──────────
-  // On N'applique PAS liveOverrides ici pour éviter de recalculer à chaque px
-  // du drag. Les liveOverrides sont appliqués directement dans rows via un
-  // patch léger sur les ComputedSprints.
   const lotsWithPending = useMemo<BacklogLot[]>(() => {
     if (pendingOverrides.size === 0) return lots;
     return lots.map((lot) => ({
       ...lot,
-      phases: (lot.phases ?? []).map((phase) => ({
+      phases: ((lot.phases ?? []) as any[]).map((phase: any) => ({
         ...phase,
-        sprints: (phase.sprints ?? []).map((sprint) => {
+        sprints: (phase.sprints ?? []).map((sprint: any) => {
           const ov = pendingOverrides.get(sprint.id);
           if (ov) return { ...sprint, fromDay: ov.fromDay, toDay: ov.toDay };
           return sprint;
@@ -556,14 +826,11 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     }));
   }, [lots, pendingOverrides]);
 
-  // Planning de base (recalcul uniquement quand lots/lines/profils changent)
   const computedBase = useMemo(
-    () => computePlanning(lotsWithPending, lines, lineProfils, deliverables),
-    [lotsWithPending, lines, lineProfils, deliverables]
+    () => computePlanning(lotsWithPending, lines, lineProfils, deliverables as any, baseDate),
+    [lotsWithPending, lines, lineProfils, deliverables, baseDate]
   );
 
-  // Patch live : on applique liveOverrides directement sur les ComputedSprints
-  // sans recalculer tout le planning → rendu fluide pendant le drag
   const computed = useMemo<ComputedLot[]>(() => {
     if (liveOverrides.size === 0) return computedBase;
     return computedBase.map((lot) => {
@@ -581,9 +848,12 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         });
         const froms = patchedSprints.map((s) => s.fromDay).filter(isFinite);
         const tos   = patchedSprints.map((s) => s.toDay).filter(isFinite);
-        const phaseFrom = froms.length > 0 ? Math.min(...froms) : phase.fromDay;
-        const phaseTo   = tos.length   > 0 ? Math.max(...tos)   : phase.toDay;
-        return { ...phase, fromDay: phaseFrom, toDay: phaseTo, sprints: patchedSprints };
+        return {
+          ...phase,
+          fromDay: froms.length > 0 ? Math.min(...froms) : phase.fromDay,
+          toDay:   tos.length   > 0 ? Math.max(...tos)   : phase.toDay,
+          sprints: patchedSprints,
+        };
       });
       const lFroms = patchedPhases.map((p) => p.fromDay).filter(isFinite);
       const lTos   = patchedPhases.map((p) => p.toDay).filter(isFinite);
@@ -615,6 +885,17 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
   const scrollW = nCols * colW;
   const svgBodyH = Math.max(1, rows.length) * ROW_H;
 
+  // ── Burndown data — synchronisé avec computed ──────────────────────────────
+  const burndownPoints = useMemo(
+    () => computeBurndown(computed, lines, lineProfils, totalDays, baseDate),
+    [computed, lines, lineProfils, totalDays, baseDate]
+  );
+
+  const totalJH = useMemo(
+    () => burndownPoints.length > 0 ? burndownPoints[0].remaining : 0,
+    [burndownPoints]
+  );
+
   // ── Drag & Drop ────────────────────────────────────────────────────────────
   const startDrag = useCallback(
     (
@@ -636,22 +917,17 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
 
     const onMove = (e: MouseEvent) => {
       const dPx = e.clientX - dragState.startX;
-
-      // px → jours : day=1col/jour, week=1col/5jours
       const pxPerDay = unit === "day" ? colW : colW / DAYS_PER_WEEK;
       const dDays = Math.round(dPx / pxPerDay);
-
       const duration = dragState.origTo - dragState.origFrom + 1;
 
       let newFrom: number;
       let newTo: number;
 
       if (dragState.type === "move") {
-        // Déplacement : conserve la durée, translate la position
         newFrom = Math.max(1, dragState.origFrom + dDays);
         newTo   = newFrom + duration - 1;
       } else {
-        // ResizeR : fromDay fixe, toDay s'étire
         newFrom = dragState.origFrom;
         newTo   = Math.max(dragState.origFrom, dragState.origTo + dDays);
       }
@@ -705,12 +981,8 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
           toDay: ov.toDay,
         };
         if (baseDate) {
-          payload.dateDebut = addDays(baseDate, ov.fromDay - 1)
-            .toISOString()
-            .slice(0, 10);
-          payload.dateFin = addDays(baseDate, ov.toDay - 1)
-            .toISOString()
-            .slice(0, 10);
+          payload.dateDebut = addDays(baseDate, ov.fromDay - 1).toISOString().slice(0, 10);
+          payload.dateFin   = addDays(baseDate, ov.toDay - 1).toISOString().slice(0, 10);
         }
         sprintPayloads.push(payload);
       }
@@ -720,6 +992,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       setPendingOverrides(new Map());
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 3000);
+      onPlanningUpdated?.();
     } catch (err: any) {
       setSaveErr(err?.message ?? "Erreur lors de la sauvegarde.");
     } finally {
@@ -733,6 +1006,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     try {
       await planningService.updateStartDate(selectedBacklogId, startDateInput);
       setEditingDate(false);
+      onPlanningUpdated?.();
     } catch (err: any) {
       setSaveErr(err?.message ?? "Erreur date de début.");
     } finally {
@@ -750,7 +1024,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     const el: React.ReactNode[] = [];
 
     if (unit === "day") {
-      // Row 1: weeks
       const nWeeks = Math.ceil(nCols / DAYS_PER_WEEK);
       for (let w = 0; w < nWeeks; w++) {
         const wx = w * DAYS_PER_WEEK * colW;
@@ -760,18 +1033,13 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             fill={w % 2 === 0 ? COLOR.headerBg : COLOR.headerSub} />,
           <text key={`wlbl-${w}`} x={wx + ww / 2} y={HDR_ROW1 / 2 + 4}
             textAnchor="middle" fill="#fff" fontSize={9} fontWeight={700} fontFamily="inherit">
-            {baseDate
-              ? `Sem. ${fmtDateShort(addDays(baseDate, w * DAYS_PER_WEEK))}`
-              : `Sem. ${w + 1}`}
+            {baseDate ? `Sem. ${fmtDateShort(addDays(baseDate, w * DAYS_PER_WEEK))}` : `Sem. ${w + 1}`}
           </text>
         );
       }
-      // Row 2: days
       for (let d = 0; d < nCols; d++) {
         const dx = d * colW;
-        const label = baseDate
-          ? fmtDateShort(addDays(baseDate, d))
-          : `J${d + 1}`;
+        const label = baseDate ? fmtDateShort(addDays(baseDate, d)) : `J${d + 1}`;
         el.push(
           <rect key={`dbg-${d}`} x={dx} y={HDR_ROW1} width={colW} height={HDR_H - HDR_ROW1}
             fill={d % 2 === 0 ? "#f0f6f9" : "#e4eff5"} stroke={COLOR.grid} strokeWidth={0.5} />,
@@ -782,7 +1050,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         );
       }
     } else {
-      // Week mode: Row 1 = months (approx), Row 2 = weeks
       const nMonths = Math.ceil(nCols / 4);
       for (let m = 0; m < nMonths; m++) {
         const mx = m * 4 * colW;
@@ -825,7 +1092,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
   const renderBodySVG = () => {
     const el: React.ReactNode[] = [];
 
-    // Vertical grid lines
     for (let i = 0; i <= nCols; i++) {
       const x = i * colW;
       const isMajor = unit === "day" ? i % DAYS_PER_WEEK === 0 : true;
@@ -836,7 +1102,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       );
     }
 
-    // Horizontal grid lines
     rows.forEach((_, ri) => {
       el.push(
         <line key={`hg-${ri}`} x1={0} y1={ri * ROW_H} x2={scrollW} y2={ri * ROW_H}
@@ -844,13 +1109,11 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       );
     });
 
-    // Bars
     rows.forEach((row, ri) => {
       const y = ri * ROW_H;
       const cy = y + ROW_H / 2;
 
       if (row.kind === "deliverable") {
-        // No Gantt bar for deliverables
         el.push(
           <rect key={`delbg-${row.id}`} x={0} y={y} width={scrollW} height={ROW_H}
             fill="#fafafa" style={{ pointerEvents: "none" }} />
@@ -862,17 +1125,12 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       const bw = durationToW(row.toDay - row.fromDay + 1, unit, colW);
       const isPending = row.kind === "sprint" && row.sprintId !== undefined &&
         pendingOverrides.has(row.sprintId!);
-      const isLive = row.kind === "sprint" && row.sprintId !== undefined &&
-        liveOverrides.has(row.sprintId!);
       const isSel = selectedId === row.id;
 
-      // Row background
       const bgFill = isSel
         ? "rgba(124,58,237,0.08)"
-        : row.kind === "lot"
-        ? COLOR.lotBg
-        : row.kind === "phase"
-        ? COLOR.phaseBg
+        : row.kind === "lot" ? COLOR.lotBg
+        : row.kind === "phase" ? COLOR.phaseBg
         : COLOR.sprintBg;
 
       el.push(
@@ -882,13 +1140,9 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       );
 
       if (row.kind === "lot") {
-        // Thin lot bar
         el.push(
           <rect key={`lot-${row.id}`} x={bx} y={cy - 3} width={bw} height={6}
-            rx={3} fill={COLOR.lotBar} opacity={0.75} />
-        );
-        // Start/end ticks
-        el.push(
+            rx={3} fill={COLOR.lotBar} opacity={0.75} />,
           <rect key={`lot-tick-l-${row.id}`} x={bx} y={cy - 8} width={2} height={16} fill={COLOR.lotBar} opacity={0.6} />,
           <rect key={`lot-tick-r-${row.id}`} x={bx + bw - 2} y={cy - 8} width={2} height={16} fill={COLOR.lotBar} opacity={0.6} />
         );
@@ -918,10 +1172,8 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         const bH = ROW_H * 0.62;
         const bY = cy - bH / 2;
         const isBeingDragged = dragState?.sprintId === row.sprintId;
-        const barColor = isBeingDragged
-          ? COLOR.sprintDrag
-          : isPending
-          ? COLOR.sprintAlt
+        const barColor = isBeingDragged ? COLOR.sprintDrag
+          : isPending ? COLOR.sprintAlt
           : COLOR.sprintBar;
 
         el.push(
@@ -933,23 +1185,16 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             <rect x={bx} y={bY} width={bw} height={bH} rx={3}
               fill={barColor} opacity={isBeingDragged ? 0.85 : 1}
               style={{ cursor: "grab" }}
-              onMouseDown={(e) =>
-                startDrag(e, row.sprintId!, "move", row.fromDay, row.toDay)
-              }
+              onMouseDown={(e) => startDrag(e, row.sprintId!, "move", row.fromDay, row.toDay)}
             />
-            {/* Stripe pattern for pending */}
             {isPending && (
               <rect x={bx} y={bY} width={bw} height={bH} rx={3}
                 fill="url(#pendingStripe)" style={{ pointerEvents: "none" }} />
             )}
-            {/* Resize handle right */}
             {bw > HANDLE_W * 2 + 6 && (
               <rect x={bx + bw - HANDLE_W} y={bY} width={HANDLE_W} height={bH}
-                rx={2} fill="rgba(0,0,0,0.18)"
-                style={{ cursor: "ew-resize" }}
-                onMouseDown={(e) =>
-                  startDrag(e, row.sprintId!, "resizeR", row.fromDay, row.toDay)
-                }
+                rx={2} fill="rgba(0,0,0,0.18)" style={{ cursor: "ew-resize" }}
+                onMouseDown={(e) => startDrag(e, row.sprintId!, "resizeR", row.fromDay, row.toDay)}
               />
             )}
             {bw > 54 && (
@@ -979,15 +1224,11 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         pendingOverrides.has(row.sprintId!);
 
       const bgFill =
-        row.kind === "deliverable"
-          ? "#fafafa"
-          : isSel
-          ? "rgba(124,58,237,0.08)"
-          : row.kind === "lot"
-          ? COLOR.lotBg
-          : row.kind === "phase"
-          ? COLOR.phaseBg
-          : COLOR.sprintBg;
+        row.kind === "deliverable" ? "#fafafa"
+        : isSel ? "rgba(124,58,237,0.08)"
+        : row.kind === "lot" ? COLOR.lotBg
+        : row.kind === "phase" ? COLOR.phaseBg
+        : COLOR.sprintBg;
 
       el.push(
         <foreignObject key={`lbl-${row.id}`} x={0} y={y} width={LABEL_W} height={ROW_H}>
@@ -1041,8 +1282,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
                   fontSize:
                     row.kind === "lot" ? 11.5
                     : row.kind === "phase" ? 10.5
-                    : row.kind === "sprint" ? 9.5
-                    : 8.5,
+                    : row.kind === "sprint" ? 9.5 : 8.5,
                   fontWeight:
                     row.kind === "lot" ? 700
                     : row.kind === "phase" ? 600
@@ -1086,7 +1326,6 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
     return el;
   };
 
-  // ── Selected row detail ────────────────────────────────────────────────────
   const selRow = selectedId ? rows.find((r) => r.id === selectedId) : null;
 
   if (!selectedBacklogId) {
@@ -1100,9 +1339,16 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
   const hasPending = pendingOverrides.size > 0;
   const totalWeeks = Math.ceil(totalDays / DAYS_PER_WEEK);
 
+  const dateSource: "manual" | "prop" | "auto" | null =
+    startDateInput && startDateInput !== datedebutPlanning ? "manual"
+    : datedebutPlanning ? "prop"
+    : autoBaseDate ? "auto"
+    : null;
+
   return (
     <div style={{ fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
-      {/* ── Métriques ───────────────────────────────────────────────────────── */}
+
+      {/* ── Métriques ─────────────────────────────────────────────────────── */}
       <div
         className="d-flex align-items-center gap-3 flex-wrap px-3 py-2 mb-2 rounded"
         style={{ background: "#e8f5e9", border: "1px solid #a5d6a7", fontSize: "0.82rem" }}
@@ -1116,22 +1362,22 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         </strong>
         <span className="text-muted">|</span>
         <span>
-          Durée totale :{" "}
-          <strong>
-            {totalDays}j ({totalWeeks} sem.)
-          </strong>
+          Durée totale : <strong>{totalDays}j ({totalWeeks} sem.)</strong>
         </span>
+        {totalJH > 0 && (
+          <>
+            <span className="text-muted">|</span>
+            <span>
+              Charge totale : <strong>{Math.round(totalJH)} JH</strong>
+            </span>
+          </>
+        )}
         {baseDate && (
           <>
             <span className="text-muted">|</span>
             <span>
               <strong>{fmtDate(baseDate)}</strong>
-              {totalDays > 0 && (
-                <>
-                  {" → "}
-                  <strong>{fmtDate(addDays(baseDate, totalDays - 1))}</strong>
-                </>
-              )}
+              {totalDays > 0 && <> {" → "} <strong>{fmtDate(addDays(baseDate, totalDays - 1))}</strong></>}
             </span>
           </>
         )}
@@ -1176,7 +1422,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
               style={{ fontSize: "0.75rem" }}
               onClick={() => {
                 setEditingDate(false);
-                setStartDateInput(datedebutPlanning ?? "");
+                setStartDateInput(datedebutPlanning ?? autoBaseDate?.toISOString().slice(0, 10) ?? "");
               }}
             >
               Annuler
@@ -1185,8 +1431,31 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         ) : (
           <>
             <span style={{ color: baseDate ? COLOR.lotBar : "#94a3b8", fontWeight: 600 }}>
-              {baseDate ? fmtDate(baseDate) : "Non définie (mode J/S relatif)"}
+              {baseDate ? fmtDate(baseDate) : "Non définie"}
             </span>
+            {dateSource === "auto" && (
+              <span
+                title="Date détectée automatiquement depuis le premier sprint"
+                style={{
+                  fontSize: "0.65rem", padding: "1px 6px",
+                  background: "#fef3c7", color: "#92400e",
+                  border: "1px solid #fcd34d", borderRadius: 8,
+                }}
+              >
+                auto-détectée
+              </span>
+            )}
+            {dateSource === "prop" && (
+              <span
+                style={{
+                  fontSize: "0.65rem", padding: "1px 6px",
+                  background: "#ecfdf5", color: "#065f46",
+                  border: "1px solid #6ee7b7", borderRadius: 8,
+                }}
+              >
+                définie sur le backlog
+              </span>
+            )}
             <button
               className="btn btn-sm btn-outline-secondary"
               style={{ fontSize: "0.72rem" }}
@@ -1199,22 +1468,16 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
       </div>
 
       {saveOk && (
-        <div className="alert alert-success py-2 mb-2 small">
-          ✓ Planning sauvegardé avec succès.
-        </div>
+        <div className="alert alert-success py-2 mb-2 small">✓ Planning sauvegardé avec succès.</div>
       )}
       {saveErr && (
         <div className="alert alert-danger py-2 mb-2 small">✗ {saveErr}</div>
       )}
 
-      {/* ── Card principale ─────────────────────────────────────────────────── */}
+      {/* ── Card principale Gantt ────────────────────────────────────────────── */}
       <div
         className="card shadow-sm mb-3"
-        style={{
-          border: hasPending
-            ? `2px solid ${COLOR.sprintBar}`
-            : "1px solid #dee2e6",
-        }}
+        style={{ border: hasPending ? `2px solid ${COLOR.sprintBar}` : "1px solid #dee2e6" }}
       >
         {/* Card header */}
         <div
@@ -1232,18 +1495,13 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             )}
           </div>
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {/* Mode J / S */}
             <div className="btn-group btn-group-sm">
               {(["day", "week"] as TimeUnit[]).map((u) => (
                 <button
                   key={u}
                   type="button"
                   className={`btn ${unit === u ? "btn-light" : "btn-outline-light"}`}
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: unit === u ? 700 : 400,
-                    padding: "3px 10px",
-                  }}
+                  style={{ fontSize: "0.72rem", fontWeight: unit === u ? 700 : 400, padding: "3px 10px" }}
                   onClick={() => setUnit(u)}
                 >
                   {u === "day" ? "Jours" : "Semaines"}
@@ -1270,21 +1528,13 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
                 </button>
                 <button
                   className="btn btn-sm btn-light"
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    color: COLOR.sprintBar,
-                    padding: "3px 12px",
-                  }}
+                  style={{ fontSize: "0.72rem", fontWeight: 700, color: COLOR.sprintBar, padding: "3px 12px" }}
                   onClick={handleSave}
                   disabled={saving}
                 >
                   {saving ? (
                     <>
-                      <span
-                        className="spinner-border spinner-border-sm me-1"
-                        style={{ width: 10, height: 10 }}
-                      />
+                      <span className="spinner-border spinner-border-sm me-1" style={{ width: 10, height: 10 }} />
                       …
                     </>
                   ) : (
@@ -1299,70 +1549,41 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
         {/* Légende */}
         <div
           className="d-flex gap-3 flex-wrap align-items-center px-3 py-2"
-          style={{
-            background: "#f8fafc",
-            borderBottom: "1px solid #dee2e6",
-            fontSize: "0.74rem",
-          }}
+          style={{ background: "#f8fafc", borderBottom: "1px solid #dee2e6", fontSize: "0.74rem" }}
         >
           <LDot color={COLOR.lotBar} label="Lot" />
-          <LDot color={COLOR.phaseBar} label="Phase (auto)" />
+          <LDot color={COLOR.phaseBar} label="Phase" />
           <LDot color={COLOR.sprintBar} label="Sprint (déplaçable)" />
           <LDot color={COLOR.sprintAlt} label="Sprint modifié" />
           {showDeliverables && <LDot color={COLOR.delivLabel} label="Livrable" square />}
           {hasPending && (
             <span className="ms-auto" style={{ color: COLOR.sprintBar, fontWeight: 700 }}>
-              ⚠ {pendingOverrides.size} modif. non sauvegardée
-              {pendingOverrides.size > 1 ? "s" : ""}
+              ⚠ {pendingOverrides.size} modif. non sauvegardée{pendingOverrides.size > 1 ? "s" : ""}
             </span>
           )}
         </div>
 
-        {/* ── Gantt layout ────────────────────────────────────────────────── */}
+        {/* ── Gantt layout ──────────────────────────────────────────────────── */}
         {rows.length === 0 ? (
           <div className="text-center text-muted py-5">
             Aucun sprint. Ajoutez des lots, phases et sprints dans l'onglet Backlog.
           </div>
         ) : (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              maxHeight: 580,
-              position: "relative",
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", maxHeight: 580, position: "relative" }}>
             {/* Header row */}
-            <div
-              style={{
-                display: "flex",
-                flexShrink: 0,
-                position: "sticky",
-                top: 0,
-                zIndex: 10,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
-              }}
-            >
-              {/* Fixed label header cell */}
+            <div style={{ display: "flex", flexShrink: 0, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 2px 6px rgba(0,0,0,0.12)" }}>
               <div
                 style={{
-                  width: LABEL_W,
-                  flexShrink: 0,
-                  height: HDR_H,
+                  width: LABEL_W, flexShrink: 0, height: HDR_H,
                   background: COLOR.headerBg,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  padding: "0 12px",
-                  borderRight: `1.5px solid ${COLOR.gridMajor}`,
+                  display: "flex", flexDirection: "column", justifyContent: "center",
+                  padding: "0 12px", borderRight: `1.5px solid ${COLOR.gridMajor}`,
                 }}
               >
-                <div style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>
-                  Lot / Phase / Sprint
-                </div>
+                <div style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>Lot / Phase / Sprint</div>
                 {baseDate && (
                   <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 7.5, marginTop: 3 }}>
-                    Début : {fmtDate(baseDate)}
+                    Début : {fmtDate(baseDate)}{dateSource === "auto" && " (auto)"}
                   </div>
                 )}
                 {!baseDate && (
@@ -1371,11 +1592,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
                   </div>
                 )}
               </div>
-              {/* Scrollable header */}
-              <div
-                ref={headerScrollRef}
-                style={{ flex: 1, overflowX: "auto", overflowY: "hidden" }}
-              >
+              <div ref={headerScrollRef} style={{ flex: 1, overflowX: "auto", overflowY: "hidden" }}>
                 <svg width={scrollW} height={HDR_H} style={{ display: "block" }}>
                   {renderHeaderSVG()}
                 </svg>
@@ -1386,38 +1603,16 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
             <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
               {/* Fixed labels */}
               <div
-                style={{
-                  width: LABEL_W,
-                  flexShrink: 0,
-                  overflowY: "auto",
-                  overflowX: "hidden",
-                  borderRight: `1.5px solid ${COLOR.gridMajor}`,
-                }}
+                style={{ width: LABEL_W, flexShrink: 0, overflowY: "auto", overflowX: "hidden", borderRight: `1.5px solid ${COLOR.gridMajor}` }}
                 onScroll={(e) => {
                   if (bodyScrollRef.current)
-                    bodyScrollRef.current.scrollTop = (
-                      e.target as HTMLElement
-                    ).scrollTop;
+                    bodyScrollRef.current.scrollTop = (e.target as HTMLElement).scrollTop;
                 }}
               >
-                <svg
-                  width={LABEL_W}
-                  height={svgBodyH}
-                  style={{ display: "block", userSelect: "none" }}
-                >
+                <svg width={LABEL_W} height={svgBodyH} style={{ display: "block", userSelect: "none" }}>
                   <defs>
-                    <pattern
-                      id="pendingStripe"
-                      patternUnits="userSpaceOnUse"
-                      width={8}
-                      height={8}
-                      patternTransform="rotate(45)"
-                    >
-                      <line
-                        x1={0} y1={0} x2={0} y2={8}
-                        stroke="rgba(255,255,255,0.22)"
-                        strokeWidth={4}
-                      />
+                    <pattern id="pendingStripe" patternUnits="userSpaceOnUse" width={8} height={8} patternTransform="rotate(45)">
+                      <line x1={0} y1={0} x2={0} y2={8} stroke="rgba(255,255,255,0.22)" strokeWidth={4} />
                     </pattern>
                   </defs>
                   {renderLabelsSVG()}
@@ -1427,32 +1622,12 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
               {/* Scrollable bars */}
               <div
                 ref={bodyScrollRef}
-                style={{
-                  flex: 1,
-                  overflowX: "auto",
-                  overflowY: "auto",
-                  maxHeight: 500,
-                  cursor: dragState ? "grabbing" : "default",
-                }}
+                style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 500, cursor: dragState ? "grabbing" : "default" }}
               >
-                <svg
-                  width={scrollW}
-                  height={svgBodyH}
-                  style={{ display: "block", userSelect: "none" }}
-                >
+                <svg width={scrollW} height={svgBodyH} style={{ display: "block", userSelect: "none" }}>
                   <defs>
-                    <pattern
-                      id="pendingStripe"
-                      patternUnits="userSpaceOnUse"
-                      width={8}
-                      height={8}
-                      patternTransform="rotate(45)"
-                    >
-                      <line
-                        x1={0} y1={0} x2={0} y2={8}
-                        stroke="rgba(255,255,255,0.22)"
-                        strokeWidth={4}
-                      />
+                    <pattern id="pendingStripe" patternUnits="userSpaceOnUse" width={8} height={8} patternTransform="rotate(45)">
+                      <line x1={0} y1={0} x2={0} y2={8} stroke="rgba(255,255,255,0.22)" strokeWidth={4} />
                     </pattern>
                   </defs>
                   <rect width={scrollW} height={svgBodyH} fill="#f8fbfc" />
@@ -1463,61 +1638,29 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
           </div>
         )}
 
-        {/* ── Détail sélection ─────────────────────────────────────────────── */}
+        {/* ── Détail sélection ──────────────────────────────────────────────── */}
         {selRow && selRow.kind === "sprint" && (
-          <div
-            style={{
-              borderTop: `2px solid ${COLOR.sprintBar}`,
-              background: "#f5f3ff",
-            }}
-          >
-            <div
-              className="d-flex align-items-center gap-3 flex-wrap px-3 py-2"
-              style={{ fontSize: "0.8rem" }}
-            >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: 6 }}
-              >
-                <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: COLOR.sprintBar,
-                  }}
-                />
-                <strong style={{ color: COLOR.sprintBar }}>
-                  {selRow.label}
-                </strong>
+          <div style={{ borderTop: `2px solid ${COLOR.sprintBar}`, background: "#f5f3ff" }}>
+            <div className="d-flex align-items-center gap-3 flex-wrap px-3 py-2" style={{ fontSize: "0.8rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: COLOR.sprintBar }} />
+                <strong style={{ color: COLOR.sprintBar }}>{selRow.label}</strong>
               </div>
               <span>
-                Durée :{" "}
-                <strong>{selRow.toDay - selRow.fromDay + 1} jours</strong>
-                {" "}(
-                {((selRow.toDay - selRow.fromDay + 1) / DAYS_PER_WEEK).toFixed(1)}{" "}
-                sem.)
+                Durée : <strong>{selRow.toDay - selRow.fromDay + 1} jours</strong>
+                {" "}({((selRow.toDay - selRow.fromDay + 1) / DAYS_PER_WEEK).toFixed(1)} sem.)
               </span>
               {baseDate ? (
                 <span style={{ color: COLOR.lotBar }}>
-                  <strong>
-                    {fmtDate(addDays(baseDate, selRow.fromDay - 1))}
-                  </strong>
+                  <strong>{fmtDate(addDays(baseDate, selRow.fromDay - 1))}</strong>
                   {" → "}
-                  <strong>
-                    {fmtDate(addDays(baseDate, selRow.toDay - 1))}
-                  </strong>
+                  <strong>{fmtDate(addDays(baseDate, selRow.toDay - 1))}</strong>
                 </span>
               ) : (
-                <span style={{ color: "#64748b" }}>
-                  J{selRow.fromDay} → J{selRow.toDay}
-                </span>
+                <span style={{ color: "#64748b" }}>J{selRow.fromDay} → J{selRow.toDay}</span>
               )}
               {pendingOverrides.has(selRow.sprintId!) && (
-                <span
-                  style={{ color: COLOR.sprintBar, fontSize: "0.75rem" }}
-                >
-                  ⚠ Modifié — en attente de sauvegarde
-                </span>
+                <span style={{ color: COLOR.sprintBar, fontSize: "0.75rem" }}>⚠ Modifié — en attente de sauvegarde</span>
               )}
               {pendingOverrides.has(selRow.sprintId!) && (
                 <button
@@ -1536,18 +1679,14 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
               )}
             </div>
             {selRow.deliverables && selRow.deliverables.length > 0 && (
-              <div
-                className="px-3 pb-2"
-                style={{ fontSize: "0.75rem", color: "#64748b" }}
-              >
-                <strong>Livrables :</strong>{" "}
-                {selRow.deliverables.map((d) => d.name).join(", ")}
+              <div className="px-3 pb-2" style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                <strong>Livrables :</strong> {selRow.deliverables.map((d) => d.name).join(", ")}
               </div>
             )}
           </div>
         )}
       </div>
-    </div>
+</div>
   );
 };
 

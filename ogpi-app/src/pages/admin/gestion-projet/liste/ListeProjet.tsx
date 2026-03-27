@@ -278,10 +278,14 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
   }, [statutMap]);
 
   const handleOpenBacklog     = (p: Projet) => { setSelectedProjetForBacklog(p); setShowBacklogModal(true); };
-  const handleCloseBacklog    = ()           => { setShowBacklogModal(false); setSelectedProjetForBacklog(null); };
+  const handleCloseBacklog = async () => {
+    setShowBacklogModal(false);
+    setSelectedProjetForBacklog(null);
+    await onProjetSaved(); 
+  };
   const handleCloseFormProjet = async () => {
     setShowFormProjet(false); setSelectedProjet(null);
-    if (formDirty) { setFormDirty(false); await onProjetSaved(); }
+    setFormDirty(false); await onProjetSaved(); // ← toujours refresh
   };
 
   // ── Styles ────────────────────────────────────────────────────────────────
@@ -378,7 +382,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
             <span style={{ fontWeight: 700, color: mc, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
               {fin.margeNette >= 0 ? '+' : ''}{fmt(fin.margeNette)} {fin.deviseAbr}
             </span>
-            <span style={{ fontSize: 9, color: '#9ca3af' }}>Signé − Projet − Charges</span>
           </div>
         );
       },
@@ -523,7 +526,7 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
               <div style={{ ...cardBase, borderLeft: `4px solid ${margeColor}` }}>
                 <div style={cardHeader(P.charcoal)}>
                   <FaTrophy size={12} style={{ opacity: 0.85 }} />
-                  Marge nette totale
+                  Bénefice
                 </div>
                 <div style={{ padding: '16px 20px' }}>
                   <div style={{ fontSize: 11, color: P.dim, marginBottom: 12 }}>
@@ -549,14 +552,14 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
                     <span style={{ fontSize: 32, fontWeight: 800, color: margeColor, lineHeight: 1 }}>
                       {dashStats.loadedInPeriode === 0 && !dashStats.allDone
                         ? skl(120)
-                        : `${dashStats.margeNetteTotale >= 0 ? '+' : ''}${fmt(dashStats.margeNetteTotale)}`
+                        : `${dashStats.margeNetteTotale >= 0 ? '+' : ''}${fmt(dashStats.margeNetteTotale)} MGA`
                       }
                       {!dashStats.allDone && dashStats.loadedInPeriode > 0 && (
                         <span style={{ fontSize: 16, color: P.dim, fontWeight: 400, marginLeft: 4 }}>…</span>
                       )}
                     </span>
                     {dashStats.loadedInPeriode > 0 && deviseGlobale === 'multi' && (
-                      <span style={{ fontSize: 11, color: P.dim, fontStyle: 'italic', alignSelf: 'center' }}>multi-devises</span>
+                      <span style={{ fontSize: 11, color: P.dim, fontStyle: 'italic', alignSelf: 'center' }}></span>
                     )}
                     {dashStats.loadedInPeriode > 0 && deviseGlobale && deviseGlobale !== 'multi' && (
                       <span style={{ fontSize: 20, fontWeight: 700, color: margeColor, opacity: 0.85 }}>{deviseGlobale}</span>
@@ -565,14 +568,10 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
 
                   {dashStats.tauxMarge !== null && dashStats.caEncaisseTot > 0 && (
                     <div style={{ fontSize: 11, color: P.dim }}>
-                      CA encaissé : <strong style={{ color: P.success }}>{fmt(dashStats.caEncaisseTot)}</strong>
+                      CA encaissé : <strong style={{ color: P.success }}>{fmt(dashStats.caEncaisseTot)} MGA</strong>
                       {deviseGlobale !== 'multi' && deviseGlobale && ` ${deviseGlobale}`}
-                      {" · "}Taux : <strong style={{ color: margeColor }}>{dashStats.tauxMarge >= 0 ? '+' : ''}{fmtDec(dashStats.tauxMarge)} %</strong>
                     </div>
                   )}
-                  <div style={{ fontSize: 11, color: P.dim, fontStyle: 'italic', marginTop: 4 }}>
-                    + = rentable · − = déficitaire
-                  </div>
                 </div>
               </div>
 

@@ -12,6 +12,12 @@
   color: #223A46;
 }
 
+.cp-form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 /* ── KPI grid ────────────────────────────────────────────────── */
 .cp-kpi-grid {
   display: grid;
