@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from '../../../../components/header/Header.tsx';
 import Button from '../../../../components/button/Button.tsx';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaTrophy } from 'react-icons/fa';
 import FilterBar from '../../../../components/filters/FilterBar.tsx';
 import Table from '../../../../components/table/Table.tsx';
 import MenuListeProjet from '../menu/MenuListeProjet.tsx';
@@ -12,6 +12,64 @@ import './ListeProjet.css';
 import { Projet } from '../../../../types/projet/Projet.tsx';
 import BacklogProjetModal from '../backlog/BacklogProjetModal.tsx';
 import { ProjetAvancement } from '../../../../services/projet/ProjetAvancementService.tsx';
+import { useComparaisonService } from '../../../../services/projet/comparaison/ComparaisonService.tsx';
+import { useLeadTechFinDetailsService } from '../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx';
+import { useAuth } from '../../../../context/AuthContext.tsx';
+
+// ─── Palette ──────────────────────────────────────────────────────────────────
+
+const P = {
+  charcoal: '#223A46',
+  tomato:   '#C93C29',
+  success:  '#2d8f47',
+  dim:      '#5F6F6E',
+  linen:    '#E8E5D7',
+  white:    '#ffffff',
+};
+
+// ─── Filtre temporel ──────────────────────────────────────────────────────────
+
+type FiltrePeriode = 'tous' | 'semaine' | 'mois' | 'annee';
+
+interface PeriodeBorne { debut: Date; fin: Date; }
+
+function getBornes(periode: FiltrePeriode): PeriodeBorne | null {
+  if (periode === 'tous') return null;
+  const now   = new Date();
+  const debut = new Date(now);
+  const fin   = new Date(now);
+
+  if (periode === 'semaine') {
+    const jour = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    debut.setDate(now.getDate() - jour);
+    fin.setDate(debut.getDate() + 6);
+  } else if (periode === 'mois') {
+    debut.setDate(1);
+    fin.setMonth(now.getMonth() + 1, 0);
+  } else if (periode === 'annee') {
+    debut.setMonth(0, 1);
+    fin.setMonth(11, 31);
+  }
+
+  debut.setHours(0, 0, 0, 0);
+  fin.setHours(23, 59, 59, 999);
+  return { debut, fin };
+}
+
+function projetDansPeriode(p: Projet, bornes: PeriodeBorne | null): boolean {
+  if (!bornes) return true;
+  const { debut, fin } = bornes;
+  if (p.dateDebutPrevu || p.dateFinPrevu) {
+    const starts = p.dateDebutPrevu ? new Date(p.dateDebutPrevu) : new Date(0);
+    const ends   = p.dateFinPrevu   ? new Date(p.dateFinPrevu)   : new Date('9999-12-31');
+    if (starts <= fin && ends >= debut) return true;
+  }
+  if (p.dateAttribution) {
+    const da = new Date(p.dateAttribution);
+    if (da >= debut && da <= fin) return true;
+  }
+  return false;
+}
 
 // ─── Statuts ──────────────────────────────────────────────────────────────────
 
@@ -29,7 +87,8 @@ const STATUT_META: Record<number, StatutMeta> = {
   9: { label: 'Terminé',      color: '#14b8a6', bg: '#f0fdfa' },
 };
 
-// ─── Composants utilitaires ───────────────────────────────────────────────────
+const fmt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+const fmtDec = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const StatutBadge: React.FC<{ statutId: number | null; loading: boolean }> = ({ statutId, loading }) => {
   if (loading) return <div className="avancement-skeleton" style={{ width: 90 }} />;
@@ -44,228 +103,15 @@ const StatutBadge: React.FC<{ statutId: number | null; loading: boolean }> = ({ 
   );
 };
 
-const MiniBar: React.FC<{ pct: number; color: string }> = ({ pct, color }) => (
-  <div style={{ height: 5, background: '#e5e7eb', borderRadius: 999, overflow: 'hidden', marginTop: 4 }}>
-    <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: color, borderRadius: 999, transition: 'width .4s' }} />
-  </div>
-);
+// ─── Type financier par projet ─────────────────────────────────────────────────
+// Alimenté depuis l'endpoint /api/comparaison/projet/{id} — un seul appel par projet.
+// margeNette = Signé − Budget backlog projet − Charges annexes
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
-
-interface DashboardProps {
-  projets: Projet[]; statutMap: Map<number, number>;
-  avancements: Map<number, ProjetAvancement>; loading: boolean;
+interface ProjetFin {
+  margeNette:  number;   // Signé ↔ Projet après charges (valeur dashboard)
+  deviseAbr:   string;
+  loaded:      boolean;
 }
-
-const Dashboard: React.FC<DashboardProps> = ({ projets, statutMap, avancements, loading }) => {
-  const stats = useMemo(() => {
-    const now = new Date();
-
-    const parStatut = new Map<number, number>();
-    statutMap.forEach(sid => parStatut.set(sid, (parStatut.get(sid) ?? 0) + 1));
-
-    let totalPaye = 0, totalOffre = 0;
-    avancements.forEach(a => { totalPaye += a.totalPaye; totalOffre += a.montantOffre; });
-    const pctPaiement = totalOffre > 0 ? Math.round((totalPaye / totalOffre) * 100) : null;
-
-    const enRetard = projets.filter(p => {
-      if (!p.dateFinPrevu) return false;
-      return new Date(p.dateFinPrevu) < now && statutMap.get(p.idProjet ?? 0) !== 9;
-    }).length;
-
-    const sansCP = projets.filter(p => !p.userCp).length;
-
-    const cpCount = new Map<string, number>();
-    projets.forEach(p => { const k = p.userCp?.username ?? '__sans__'; cpCount.set(k, (cpCount.get(k) ?? 0) + 1); });
-    const topCP  = [...cpCount.entries()].filter(([k]) => k !== '__sans__').sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const maxCP  = topCP[0]?.[1] ?? 1;
-
-    const topPay = [...avancements.entries()]
-      .filter(([, a]) => a.montantOffre > 0)
-      .map(([id, a]) => ({
-        id,
-        nom: projets.find(p => (p.idProjet ?? 0) === id)?.nomProjet ?? `Projet #${id}`,
-        pct: Math.round(a.avancementPaiement),
-        paye: a.totalPaye,
-        offre: a.montantOffre,
-      }))
-      .sort((a, b) => b.offre - a.offre)
-      .slice(0, 5);
-
-    const statutsSorted = [...parStatut.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const maxStatut     = statutsSorted[0]?.[1] ?? 1;
-
-    const soon = projets.filter(p => {
-      if (!p.dateFinPrevu) return false;
-      const diff = (new Date(p.dateFinPrevu).getTime() - now.getTime()) / 86400000;
-      return diff >= 0 && diff <= 30 && statutMap.get(p.idProjet ?? 0) !== 9;
-    }).length;
-
-    return { parStatut, pctPaiement, totalPaye, totalOffre, enRetard, sansCP, topCP, maxCP, topPay, statutsSorted, maxStatut, soon, total: projets.length };
-  }, [projets, statutMap, avancements]);
-
-  const skl = (w = 80) => <div style={{ height: 14, width: w, background: '#e5e7eb', borderRadius: 4, display: 'inline-block' }} />;
-
-  const card: React.CSSProperties   = { background: 'white', border: '1px solid #f1f0ea', borderRadius: 12, padding: '16px 18px' };
-  const metric: React.CSSProperties = { background: '#f9f8f5', borderRadius: 10, padding: '12px 14px' };
-
-  return (
-    <div style={{ marginBottom: 28 }}>
-
-      {/* ── 4 métriques ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10, marginBottom: 12 }}>
-
-        <div style={metric}>
-          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Projets actifs</div>
-          <div style={{ fontSize: 24, fontWeight: 500, color: '#111827', lineHeight: 1 }}>{loading ? skl(40) : stats.total}</div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{loading ? skl(60) : `${stats.total - (stats.parStatut.get(9) ?? 0)} en cours`}</div>
-        </div>
-
-        <div style={metric}>
-          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Encaissement global</div>
-          <div style={{ fontSize: 24, fontWeight: 500, lineHeight: 1, color: stats.pctPaiement != null && stats.pctPaiement >= 75 ? '#059669' : '#111827' }}>
-            {loading ? skl(50) : stats.pctPaiement != null ? `${stats.pctPaiement} %` : '—'}
-          </div>
-          {!loading && stats.totalOffre > 0 && (
-            <>
-              <MiniBar pct={stats.pctPaiement ?? 0} color={stats.pctPaiement! >= 75 ? '#059669' : stats.pctPaiement! >= 40 ? '#3b82f6' : '#f59e0b'} />
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                {stats.totalPaye.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} / {stats.totalOffre.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ ...metric, borderLeft: stats.enRetard > 0 ? '3px solid #ef4444' : '3px solid #10b981' }}>
-          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>En retard</div>
-          <div style={{ fontSize: 24, fontWeight: 500, lineHeight: 1, color: stats.enRetard > 0 ? '#dc2626' : '#059669' }}>{loading ? skl(30) : stats.enRetard}</div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{loading ? skl(70) : stats.enRetard > 0 ? 'Date de fin dépassée' : 'Tous dans les délais'}</div>
-        </div>
-
-        <div style={{ ...metric, borderLeft: '3px solid #6366f1' }}>
-          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>CA projet</div>
-          <div style={{ fontSize: 22, fontWeight: 500, lineHeight: 1, color: '#111827' }}>
-            {loading ? skl(50) : stats.totalOffre > 0
-              ? stats.totalOffre.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
-              : '—'}
-          </div>
-          {!loading && stats.totalOffre > 0 && (
-            <>
-              <MiniBar pct={stats.pctPaiement ?? 0} color="#6366f1" />
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                {stats.totalPaye.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} encaissé · {stats.pctPaiement ?? 0} %
-              </div>
-            </>
-          )}
-          {!loading && stats.totalOffre === 0 && (
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Aucune offre renseignée</div>
-          )}
-        </div>      
-      </div>
-
-      {/* ── 3 panels ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1fr) minmax(0,0.9fr)', gap: 12 }}>
-
-        {/* Statuts */}
-        <div style={card}>
-          <div style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 12 }}>Répartition des statuts</div>
-          {loading
-            ? [1,2,3,4].map(i => <div key={i} style={{ height: 20, background: '#f3f4f6', borderRadius: 4, marginBottom: 8 }} />)
-            : stats.statutsSorted.length === 0
-              ? <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>Aucun statut enregistré</div>
-              : stats.statutsSorted.map(([sid, count]) => {
-                  const meta = STATUT_META[sid]; if (!meta) return null;
-                  return (
-                    <div key={sid} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, color: '#374151', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.label}</span>
-                      <div style={{ flex: 2, height: 5, background: '#f3f4f6', borderRadius: 999, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.round((count / stats.maxStatut) * 100)}%`, background: meta.color, borderRadius: 999 }} />
-                      </div>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: '#111827', minWidth: 20, textAlign: 'right' }}>{count}</span>
-                    </div>
-                  );
-                })
-          }
-          {!loading && (
-            <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid #f3f4f6', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, background: '#ecfdf5', color: '#059669', borderRadius: 20, padding: '2px 8px', fontWeight: 500 }}>{stats.parStatut.get(9) ?? 0} terminés</span>
-              {stats.enRetard > 0 && <span style={{ fontSize: 11, background: '#fef2f2', color: '#dc2626', borderRadius: 20, padding: '2px 8px', fontWeight: 500 }}>{stats.enRetard} en retard</span>}
-              {stats.soon > 0 && <span style={{ fontSize: 11, background: '#fffbeb', color: '#d97706', borderRadius: 20, padding: '2px 8px', fontWeight: 500 }}>{stats.soon} échéances &lt; 30j</span>}
-            </div>
-          )}
-        </div>
-
-        {/* Paiements */}
-        <div style={card}>
-          <div style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 12 }}>Avancement paiements</div>
-          {loading
-            ? [1,2,3,4,5].map(i => <div key={i} style={{ height: 32, background: '#f3f4f6', borderRadius: 4, marginBottom: 8 }} />)
-            : stats.topPay.length === 0
-              ? <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>Aucune offre renseignée</div>
-              : stats.topPay.map(({ id, nom, pct, paye, offre }) => {
-                  const color = pct >= 100 ? '#059669' : pct >= 50 ? '#3b82f6' : '#f59e0b';
-                  return (
-                    <div key={id} style={{ marginBottom: 11 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-                        <span style={{ color: '#374151', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{nom}</span>
-                        <span style={{ fontWeight: 500, color, flexShrink: 0 }}>{pct} %</span>
-                      </div>
-                      <div style={{ height: 5, background: '#f3f4f6', borderRadius: 999, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: color, borderRadius: 999 }} />
-                      </div>
-                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                        {paye.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} / {offre.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-                      </div>
-                    </div>
-                  );
-                })
-          }
-        </div>
-
-        {/* Charge CP */}
-        <div style={card}>
-          <div style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 12 }}>Charge par chef de projet</div>
-          {loading
-            ? [1,2,3,4].map(i => <div key={i} style={{ height: 28, background: '#f3f4f6', borderRadius: 4, marginBottom: 8 }} />)
-            : stats.topCP.length === 0
-              ? <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>Aucun CP assigné</div>
-              : stats.topCP.map(([nom, count], idx) => {
-                  const colors = ['#6366f1','#3b82f6','#10b981','#f59e0b','#8b5cf6'];
-                  const color  = colors[idx % colors.length];
-                  const initials = nom.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
-                  return (
-                    <div key={nom} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
-                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: color + '22', color, fontSize: 10, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{initials}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                          <span style={{ fontSize: 12, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nom}</span>
-                          <span style={{ fontSize: 12, fontWeight: 500, color: '#111827', flexShrink: 0, marginLeft: 4 }}>{count}</span>
-                        </div>
-                        <div style={{ height: 4, background: '#f3f4f6', borderRadius: 999, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${Math.round((count / stats.maxCP) * 100)}%`, background: color, borderRadius: 999 }} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-          }
-          {!loading && stats.sansCP > 0 && (
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', fontSize: 10, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>?</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 12, color: '#dc2626' }}>Sans CP</span>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: '#dc2626' }}>{stats.sansCP}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -282,47 +128,184 @@ interface ListeProjetProps {
 const ListeProjet: React.FC<ListeProjetProps> = ({
   projets, statutMap, avancements, loading, onProjetSaved,
 }) => {
+  const { getByProjetId } = useComparaisonService();
+  const leadTechFinService = useLeadTechFinDetailsService();
+
+  // ── deviseMap (fallback si la comparaison ne renvoie pas la devise) ──────
+  const [deviseMap,      setDeviseMap]      = useState<Map<number, string>>(new Map());
+  const [loadingDevises, setLoadingDevises] = useState(false);
+
+  useEffect(() => {
+    if (!projets.length) return;
+    const leadIds = [
+      ...new Set(projets.map(p => p.lead?.leadId).filter((id): id is number => id != null && id > 0)),
+    ];
+    if (!leadIds.length) return;
+    setLoadingDevises(true);
+    Promise.allSettled(
+      leadIds.map(leadId =>
+        leadTechFinService.getByLeadId(leadId)
+          .then(tf => ({ leadId, devise: tf?.devise?.abrDevise ?? null }))
+          .catch(() => ({ leadId, devise: null }))
+      )
+    ).then(results => {
+      const leadDeviseMap = new Map<number, string>();
+      results.forEach(r => {
+        if (r.status === 'fulfilled' && r.value.devise)
+          leadDeviseMap.set(r.value.leadId, r.value.devise);
+      });
+      const map = new Map<number, string>();
+      projets.forEach(p => {
+        const pid    = p.idProjet ?? 0;
+        const leadId = p.lead?.leadId;
+        map.set(pid, (leadId ? leadDeviseMap.get(leadId) : null) ?? '€');
+      });
+      setDeviseMap(map);
+    }).finally(() => setLoadingDevises(false));
+  }, [projets]);
+
+  const deviseGlobale = useMemo(() => {
+    if (!deviseMap.size) return '';
+    const count = new Map<string, number>();
+    deviseMap.forEach(d => count.set(d, (count.get(d) ?? 0) + 1));
+    let best = ''; let bestN = 0;
+    count.forEach((n, d) => { if (n > bestN) { best = d; bestN = n; } });
+    return count.size === 1 ? best : 'multi';
+  }, [deviseMap]);
+
+  // ── Marge nette depuis /api/comparaison/projet/{id} ──────────────────────
+  // Un seul appel par projet lié à un lead.
+  // La valeur = montantSigne − budgetProjet − chargesAnnexes (Signé ↔ Projet après charges)
+  const [finMap,      setFinMap]      = useState<Map<number, ProjetFin>>(new Map());
+  const [loadedCount, setLoadedCount] = useState(0);
+
+  const loadFinForProjet = useCallback(async (p: Projet) => {
+    const projetId = p.idProjet ?? 0;
+    if (!projetId || !p.lead?.leadId) {
+      setFinMap(prev => new Map(prev).set(projetId, { margeNette: 0, deviseAbr: '€', loaded: true }));
+      setLoadedCount(c => c + 1);
+      return;
+    }
+    try {
+      const data = await getByProjetId(projetId);
+      // margeNette = Signé − Budget backlog projet − Charges annexes
+      const margeNette = (data.offreMontantSigne ?? 0)
+        - (data.montantBacklogProjet ?? 0)
+        - (data.totalChargesAnnexes ?? 0);
+      const deviseAbr = data.deviseAbr ?? '€';
+      setFinMap(prev => new Map(prev).set(projetId, { margeNette, deviseAbr, loaded: true }));
+      // Mettre à jour la deviseMap avec la valeur du backend (plus fiable)
+      setDeviseMap(prev => new Map(prev).set(projetId, deviseAbr));
+    } catch {
+      setFinMap(prev => new Map(prev).set(projetId, { margeNette: 0, deviseAbr: deviseMap.get(projetId) ?? '€', loaded: true }));
+    } finally {
+      setLoadedCount(c => c + 1);
+    }
+  }, [getByProjetId, deviseMap]);
+
+  useEffect(() => {
+    if (!projets.length) return;
+    setFinMap(new Map());
+    setLoadedCount(0);
+    projets.forEach(p => loadFinForProjet(p));
+  }, [projets]);
+
+  // ── States UI ─────────────────────────────────────────────────────────────
   const [search,                   setSearch]                   = useState('');
+  const [filtreStatutId,           setFiltreStatutId]           = useState<number>(0);
+  const [filtrePeriode,            setFiltrePeriode]            = useState<FiltrePeriode>('tous');
   const [showFormProjet,           setShowFormProjet]           = useState(false);
   const [selectedProjet,           setSelectedProjet]           = useState<Projet | null>(null);
   const [showProjetDetails,        setShowProjetDetails]        = useState(false);
   const [expandedRowId,            setExpandedRowId]            = useState<number | null>(null);
   const [showBacklogModal,         setShowBacklogModal]         = useState(false);
   const [selectedProjetForBacklog, setSelectedProjetForBacklog] = useState<Projet | null>(null);
+  const [formDirty,                setFormDirty]                = useState(false);
 
-  /**
-   * formDirty : passe à true dès que FormProjet appelle onSubmit avec succès.
-   * handleCloseFormProjet déclenche onProjetSaved si formDirty=true à la fermeture.
-   * Cela couvre le cas où l'utilisateur ferme via la croix après une création réussie
-   * (FormProjet ferme le modal avec setTimeout interne après onSubmit).
-   */
-  const [formDirty, setFormDirty] = useState(false);
+  // ── Filtres ───────────────────────────────────────────────────────────────
+  const bornes         = useMemo(() => getBornes(filtrePeriode), [filtrePeriode]);
+  const projetsPeriode = useMemo(() => projets.filter(p => projetDansPeriode(p, bornes)), [projets, bornes]);
 
-  // ── Données filtrées ──────────────────────────────────────────────────────
   const filteredProjets = useMemo(() => {
-    if (!search.trim()) return projets;
-    const q = search.toLowerCase();
-    return projets.filter(p =>
-      p.nomProjet?.toLowerCase().includes(q) ||
-      (p.refBC ?? '').toLowerCase().includes(q) ||
-      (p.userCp?.username ?? '').toLowerCase().includes(q) ||
-      (p.lead?.leadName ?? '').toLowerCase().includes(q)
-    );
-  }, [projets, search]);
-
-  // ── Handlers Backlog ──────────────────────────────────────────────────────
-  const handleOpenBacklog  = (p: Projet) => { setSelectedProjetForBacklog(p); setShowBacklogModal(true); };
-  const handleCloseBacklog = ()          => { setShowBacklogModal(false); setSelectedProjetForBacklog(null); };
-
-  // ── Fermeture FormProjet ─────────────────────────────────────────────────
-  const handleCloseFormProjet = async () => {
-    setShowFormProjet(false);
-    setSelectedProjet(null);
-    if (formDirty) {
-      setFormDirty(false);
-      await onProjetSaved();
+    let result = projetsPeriode;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(p =>
+        p.nomProjet?.toLowerCase().includes(q) ||
+        (p.refBC ?? '').toLowerCase().includes(q) ||
+        (p.userCp?.username ?? '').toLowerCase().includes(q) ||
+        (p.lead?.leadName ?? '').toLowerCase().includes(q)
+      );
     }
+    if (filtreStatutId !== 0)
+      result = result.filter(p => statutMap.get(p.idProjet ?? 0) === filtreStatutId);
+    return result;
+  }, [projetsPeriode, search, filtreStatutId, statutMap]);
+
+  // ── Agrégats dashboard ────────────────────────────────────────────────────
+  const dashStats = useMemo(() => {
+    const now = new Date();
+    const enRetard = projetsPeriode.filter(p => {
+      if (!p.dateFinPrevu) return false;
+      return new Date(p.dateFinPrevu) < now && statutMap.get(p.idProjet ?? 0) !== 9;
+    }).length;
+
+    let margeNetteTotale = 0;
+    let caEncaisseTot    = 0;
+
+    projetsPeriode.forEach(p => {
+      const pid = p.idProjet ?? 0;
+      const fin = finMap.get(pid);
+      if (!fin?.loaded) return;
+      margeNetteTotale += fin.margeNette;
+      caEncaisseTot    += avancements.get(pid)?.totalPaye ?? 0;
+    });
+
+    const loadedInPeriode = projetsPeriode.filter(p => finMap.get(p.idProjet ?? 0)?.loaded).length;
+    const allDone   = loadedInPeriode >= projetsPeriode.length && projetsPeriode.length > 0;
+    const pctLoaded = projetsPeriode.length > 0 ? Math.round((loadedInPeriode / projetsPeriode.length) * 100) : 0;
+    const tauxMarge = caEncaisseTot > 0 ? (margeNetteTotale / caEncaisseTot) * 100 : null;
+
+    return { enRetard, margeNetteTotale, caEncaisseTot, tauxMarge, allDone, pctLoaded, loadedInPeriode, total: projetsPeriode.length };
+  }, [projetsPeriode, statutMap, avancements, finMap, loadedCount]);
+
+  const statutOptions = useMemo(() => {
+    const used = new Set<number>();
+    statutMap.forEach(sid => used.add(sid));
+    return Object.entries(STATUT_META)
+      .map(([id, meta]) => ({ id: Number(id), ...meta }))
+      .filter(s => used.has(s.id));
+  }, [statutMap]);
+
+  const handleOpenBacklog     = (p: Projet) => { setSelectedProjetForBacklog(p); setShowBacklogModal(true); };
+  const handleCloseBacklog    = ()           => { setShowBacklogModal(false); setSelectedProjetForBacklog(null); };
+  const handleCloseFormProjet = async () => {
+    setShowFormProjet(false); setSelectedProjet(null);
+    if (formDirty) { setFormDirty(false); await onProjetSaved(); }
   };
+
+  // ── Styles ────────────────────────────────────────────────────────────────
+  const margeColor = dashStats.margeNetteTotale >= 0 ? P.success : P.tomato;
+  const skl = (w = 60) => (
+    <div style={{ height: 13, width: w, background: '#e5e7eb', borderRadius: 4, display: 'inline-block' }} />
+  );
+  const cardBase: React.CSSProperties = {
+    background: P.white, border: `1px solid ${P.linen}`,
+    borderRadius: 10, overflow: 'hidden',
+    boxShadow: '0 1px 4px rgba(34,58,70,0.07)',
+  };
+  const cardHeader = (color: string): React.CSSProperties => ({
+    background: color, color: P.white,
+    padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8,
+    fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' as const,
+  });
+
+  const periodes: { key: FiltrePeriode; label: string }[] = [
+    { key: 'tous',    label: 'Tous' },
+    { key: 'semaine', label: 'Semaine' },
+    { key: 'mois',    label: 'Mois' },
+    { key: 'annee',   label: 'Année' },
+  ];
 
   // ── Colonnes ──────────────────────────────────────────────────────────────
   const columns = [
@@ -368,30 +351,34 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
       render: (row: Projet) => <StatutBadge statutId={statutMap.get(row.idProjet ?? 0) ?? null} loading={loading} />,
     },
     {
-      key: 'avancement', label: 'Avancement paiement',
+      key: 'ca', label: 'Chiffre d\'affaire brute',
       render: (row: Projet) => {
-        const a = avancements.get(row.idProjet ?? 0);
-        if (loading) return <div className="avancement-skeleton" />;
-        if (!a || a.montantOffre === 0)
-          return (
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              {a && a.totalPaye > 0 ? `${a.totalPaye.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} encaissé` : "Pas d'offre"}
-            </span>
-          );
-        const pct   = a.avancementPaiement;
-        const color = pct >= 100 ? '#059669' : pct >= 50 ? '#3b82f6' : '#f59e0b';
+        const a      = avancements.get(row.idProjet ?? 0);
+        const devise = finMap.get(row.idProjet ?? 0)?.deviseAbr ?? deviseMap.get(row.idProjet ?? 0) ?? '€';
+        if (loading || loadingDevises) return <div className="avancement-skeleton" style={{ width: 80 }} />;
+        if (!a || a.totalPaye === 0) return <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>—</span>;
         return (
-          <div style={{ minWidth: 140 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: 3 }}>
-              <span style={{ color: '#6b7280', fontWeight: 500 }}>
-                {a.totalPaye.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
-                <span style={{ color: '#9ca3af' }}> / {a.montantOffre.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>
-              </span>
-              <span style={{ fontWeight: 700, color }}>{pct.toFixed(0)} %</span>
-            </div>
-            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 999, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: color, borderRadius: 999, transition: 'width .4s' }} />
-            </div>
+          <span style={{ fontWeight: 600, color: P.success, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+            {fmt(a.totalPaye)} {devise}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'marge_nette', label: 'Bénéfice',
+      render: (row: Projet) => {
+        const pid  = row.idProjet ?? 0;
+        const fin  = finMap.get(pid);
+        if (!fin?.loaded) return <div className="avancement-skeleton" style={{ width: 90 }} />;
+        // Projets sans lead → pas de comparaison possible
+        if (!row.lead?.leadId) return <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>—</span>;
+        const mc = fin.margeNette >= 0 ? P.success : P.tomato;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <span style={{ fontWeight: 700, color: mc, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+              {fin.margeNette >= 0 ? '+' : ''}{fmt(fin.margeNette)} {fin.deviseAbr}
+            </span>
+            <span style={{ fontSize: 9, color: '#9ca3af' }}>Signé − Projet − Charges</span>
           </div>
         );
       },
@@ -408,7 +395,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
     },
   ];
 
-  // ── Expanded row ──────────────────────────────────────────────────────────
   const renderExpandedRow = (row: Projet) => {
     const sid  = statutMap.get(row.idProjet ?? 0) ?? null;
     const meta = sid !== null ? STATUT_META[sid] : null;
@@ -447,7 +433,9 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
             <label className="expanded-label">Statut</label>
             <p className="expanded-text" style={{ marginTop: 4 }}>
               {meta
-                ? <span className="projet-statut-badge" style={{ color: meta.color, background: meta.bg, borderColor: meta.color + '44' }}><span className="projet-statut-dot" style={{ background: meta.color }} />{meta.label}</span>
+                ? <span className="projet-statut-badge" style={{ color: meta.color, background: meta.bg, borderColor: meta.color + '44' }}>
+                    <span className="projet-statut-dot" style={{ background: meta.color }} />{meta.label}
+                  </span>
                 : <span className="projet-statut-badge projet-statut-badge--none">Non défini</span>}
             </p>
           </div>
@@ -460,7 +448,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
     );
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="liste-projet-layout">
       <Header />
@@ -468,11 +455,9 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
         <main className="liste-projet-main">
           <div className="container-fluid">
 
-            {/* Filtres + créer */}
-            <div className="row align-items-center mb-4">
-              <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
-                <FilterBar filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]} />
-              </div>
+            {/* Bouton créer */}
+            <div className="row align-items-center mb-3">
+              <div className="col-lg-8 col-md-12 mb-2 mb-lg-0" />
               <div className="col-lg-4 col-md-12 text-lg-end">
                 <Button
                   label="Créer un projet"
@@ -482,11 +467,162 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
               </div>
             </div>
 
-            {/* Dashboard */}
-            <Dashboard projets={projets} statutMap={statutMap} avancements={avancements} loading={loading} />
+            {/* ── Filtre période ── */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              background: P.linen, borderRadius: 8, padding: '4px 6px',
+              marginBottom: 18,
+            }}>
+              {periodes.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setFiltrePeriode(key)}
+                  style={{
+                    padding: '5px 16px', fontSize: 12, fontWeight: 600,
+                    border: 'none', borderRadius: 6, cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    background: filtrePeriode === key ? P.charcoal : 'transparent',
+                    color:      filtrePeriode === key ? P.white     : P.dim,
+                    boxShadow:  filtrePeriode === key ? '0 1px 4px rgba(34,58,70,0.18)' : 'none',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Dashboard : 3 cartes ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 12, marginBottom: 24 }}>
+
+              {/* 1. Projets actifs */}
+              <div style={cardBase}>
+                <div style={cardHeader(P.charcoal)}>Projets actifs</div>
+                <div style={{ padding: '18px 20px' }}>
+                  <div style={{ fontSize: 36, fontWeight: 800, color: P.charcoal, lineHeight: 1 }}>
+                    {loading ? skl(40) : dashStats.total}
+                  </div>
+                  <div style={{ fontSize: 12, color: P.dim, marginTop: 8 }}>
+                    {loading ? skl(90) : (() => {
+                      const termines = projetsPeriode.filter(p => statutMap.get(p.idProjet ?? 0) === 9).length;
+                      return `${dashStats.total - termines} en cours · ${termines} terminés`;
+                    })()}
+                  </div>
+                  {filtrePeriode !== 'tous' && !loading && (
+                    <div style={{
+                      display: 'inline-block', marginTop: 6,
+                      fontSize: 10, color: P.charcoal, fontWeight: 600,
+                      background: P.linen, borderRadius: 99, padding: '2px 8px',
+                    }}>
+                      {projets.length} total · filtre {periodes.find(p => p.key === filtrePeriode)?.label}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Marge nette totale (Signé ↔ Projet après charges) */}
+              <div style={{ ...cardBase, borderLeft: `4px solid ${margeColor}` }}>
+                <div style={cardHeader(P.charcoal)}>
+                  <FaTrophy size={12} style={{ opacity: 0.85 }} />
+                  Marge nette totale
+                </div>
+                <div style={{ padding: '16px 20px' }}>
+                  <div style={{ fontSize: 11, color: P.dim, marginBottom: 12 }}>
+                    Σ (Montant signé − Budget projet − Charges annexes) · Signé↔Projet
+                  </div>
+
+                  {/* Barre de chargement progressive */}
+                  {!dashStats.allDone && dashStats.total > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ height: 3, background: P.linen, borderRadius: 999, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', width: `${dashStats.pctLoaded}%`,
+                          background: margeColor, borderRadius: 999, transition: 'width 0.3s',
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 10, color: P.dim, marginTop: 3 }}>
+                        {dashStats.loadedInPeriode}/{dashStats.total} projets analysés…
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                    <span style={{ fontSize: 32, fontWeight: 800, color: margeColor, lineHeight: 1 }}>
+                      {dashStats.loadedInPeriode === 0 && !dashStats.allDone
+                        ? skl(120)
+                        : `${dashStats.margeNetteTotale >= 0 ? '+' : ''}${fmt(dashStats.margeNetteTotale)}`
+                      }
+                      {!dashStats.allDone && dashStats.loadedInPeriode > 0 && (
+                        <span style={{ fontSize: 16, color: P.dim, fontWeight: 400, marginLeft: 4 }}>…</span>
+                      )}
+                    </span>
+                    {dashStats.loadedInPeriode > 0 && deviseGlobale === 'multi' && (
+                      <span style={{ fontSize: 11, color: P.dim, fontStyle: 'italic', alignSelf: 'center' }}>multi-devises</span>
+                    )}
+                    {dashStats.loadedInPeriode > 0 && deviseGlobale && deviseGlobale !== 'multi' && (
+                      <span style={{ fontSize: 20, fontWeight: 700, color: margeColor, opacity: 0.85 }}>{deviseGlobale}</span>
+                    )}
+                  </div>
+
+                  {dashStats.tauxMarge !== null && dashStats.caEncaisseTot > 0 && (
+                    <div style={{ fontSize: 11, color: P.dim }}>
+                      CA encaissé : <strong style={{ color: P.success }}>{fmt(dashStats.caEncaisseTot)}</strong>
+                      {deviseGlobale !== 'multi' && deviseGlobale && ` ${deviseGlobale}`}
+                      {" · "}Taux : <strong style={{ color: margeColor }}>{dashStats.tauxMarge >= 0 ? '+' : ''}{fmtDec(dashStats.tauxMarge)} %</strong>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: P.dim, fontStyle: 'italic', marginTop: 4 }}>
+                    + = rentable · − = déficitaire
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Projets en retard */}
+              <div style={{
+                ...cardBase,
+                borderLeft: dashStats.enRetard > 0 ? `4px solid ${P.tomato}` : `4px solid ${P.success}`,
+              }}>
+                <div style={cardHeader(dashStats.enRetard > 0 ? P.tomato : P.charcoal)}>
+                  {dashStats.enRetard > 0 ? '⚠ Projets en retard' : '✓ Délais respectés'}
+                </div>
+                <div style={{ padding: '18px 20px' }}>
+                  <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1, color: dashStats.enRetard > 0 ? P.tomato : P.success }}>
+                    {loading ? skl(40) : dashStats.enRetard}
+                  </div>
+                  <div style={{ fontSize: 12, color: P.dim, marginTop: 8 }}>
+                    {loading ? skl(80) : dashStats.enRetard > 0
+                      ? 'Date de fin dépassée'
+                      : 'Tous les projets sont dans les délais'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Filtres ── */}
+            <div className="d-flex align-items-center gap-2 flex-wrap mb-3">
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <FilterBar filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]} />
+              </div>
+              <select
+                value={filtreStatutId}
+                onChange={e => setFiltreStatutId(Number(e.target.value))}
+                className="form-select form-select-sm"
+                style={{ width: 160 }}
+              >
+                <option value={0}>Tous les statuts</option>
+                {statutOptions.map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+              {(filtreStatutId !== 0 || search.trim() || filtrePeriode !== 'tous') && (
+                <span style={{ fontSize: '0.78rem', color: '#6b7280', flexShrink: 0 }}>
+                  <strong style={{ color: '#4338ca' }}>{filteredProjets.length}</strong>
+                  {' '}/ {projets.length} projet{projets.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
 
             {/* Table */}
-            <div className="table-responsive mt-3">
+            <div className="table-responsive mt-2">
               <Table
                 columns={columns}
                 data={filteredProjets}
@@ -498,30 +634,19 @@ const ListeProjet: React.FC<ListeProjetProps> = ({
         </main>
       </div>
 
-      {/*
-        FormProjet
-        - onSubmit : marque formDirty=true (sauvegarde réussie côté API)
-        - onClose  : via handleCloseFormProjet → rafraîchit la liste si formDirty
-        FormProjet appelle lui-même onClose après un setTimeout(1500ms) interne ;
-        handleCloseFormProjet sera appelé à ce moment-là et déclenchera onProjetSaved.
-      */}
       <FormProjet
         show={showFormProjet}
         onClose={handleCloseFormProjet}
         projet={selectedProjet}
-        onSubmit={async (_saved) => {
-          setFormDirty(true);
-        }}
+        onSubmit={async (_saved) => { setFormDirty(true); }}
       />
 
-      {/* Détails Projet */}
       <ProjetDetails
         show={showProjetDetails}
         onClose={() => { setShowProjetDetails(false); setSelectedProjet(null); }}
         projet={selectedProjet}
       />
 
-      {/* Backlog */}
       <BacklogProjetModal
         show={showBacklogModal}
         onClose={handleCloseBacklog}
