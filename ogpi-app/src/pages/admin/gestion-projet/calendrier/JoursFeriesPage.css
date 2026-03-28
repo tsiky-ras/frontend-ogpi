@@ -1,0 +1,337 @@
+/* src/pages/admin/gestion-projet/calendrier/JoursFeriesPage.css */
+@import '../../../../styles/shared-lists.css';
+
+/* ── Layout (même pattern que ListeProfils) ─────────────────────────────── */
+.jf-layout {
+  min-height: 100vh;
+  background: #f7f9fc;
+  padding-top: 60px;
+}
+
+.jf-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.jf-sidebar {
+  width: 200px;
+  min-width: 200px;
+}
+
+.jf-main {
+  flex: 1;
+  padding: 24px;
+  overflow-x: auto;
+  background: #f7f9fc;
+}
+
+/* ── Barre d'outils ─────────────────────────────────────────────────────── */
+.jf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.jf-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.jf-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.jf-filter-select {
+  min-width: 160px;
+  font-size: 0.85rem !important;
+  color: #223A46 !important;
+  border-color: #E8E5D7 !important;
+}
+
+.jf-year-input {
+  width: 88px;
+  font-size: 0.85rem !important;
+  border-color: #E8E5D7 !important;
+  color: #223A46 !important;
+}
+
+.jf-btn-generate {
+  background: #059669;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: none;
+  padding: 0.35rem 0.9rem;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: background 0.15s;
+}
+.jf-btn-generate:hover    { background: #047857; color: #fff; }
+.jf-btn-generate:disabled { background: #6ee7b7; cursor: not-allowed; }
+
+/* ── Tableau ─────────────────────────────────────────────────────────────── */
+.jf-table-wrapper {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  overflow: hidden;
+  margin-top: 0;
+  padding: 0;
+}
+
+.jf-table {
+  margin-bottom: 0;
+  font-size: 0.875rem;
+}
+
+.jf-table thead {
+  background: linear-gradient(180deg, rgba(34,58,70,0.05), #fff);
+  border-bottom: 2px solid #E8E5D7;
+}
+
+.jf-table thead th {
+  padding: 0.9rem 1rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #5F6F6E;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border: none;
+  white-space: nowrap;
+}
+
+.jf-table tbody td {
+  padding: 0.78rem 1rem;
+  border-bottom: 1px solid #f1f3f5;
+  vertical-align: middle;
+  color: #223A46;
+  border-top: none;
+}
+
+.jf-table tbody tr:last-child td { border-bottom: none; }
+
+.jf-table tbody tr {
+  transition: background 0.13s;
+}
+.jf-table tbody tr:hover td {
+  background: rgba(232,229,215,0.22);
+}
+
+.fw-600 { font-weight: 600; }
+
+/* ── Badges type ─────────────────────────────────────────────────────────── */
+.badge-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.badge-type.fixe {
+  background: rgba(34,58,70,0.08);
+  color: #223A46;
+  border: 1px solid rgba(34,58,70,0.14);
+}
+.badge-type.variable {
+  background: rgba(234,191,91,0.15);
+  color: #7a5a00;
+  border: 1px solid rgba(234,191,91,0.4);
+}
+
+/* ── Badges statut ────────────────────────────────────────────────────────── */
+.badge-actif {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.badge-actif.on {
+  background: rgba(5,150,105,0.1);
+  color: #065f46;
+  border: 1px solid rgba(5,150,105,0.22);
+}
+.badge-actif.off {
+  background: rgba(201,60,41,0.08);
+  color: #C93C29;
+  border: 1px solid rgba(201,60,41,0.18);
+}
+
+/* ── Boutons action ───────────────────────────────────────────────────────── */
+.jf-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  color: #5F6F6E;
+  transition: background 0.13s, color 0.13s;
+}
+.btn-icon:hover        { background: #E8E5D7; }
+.btn-icon.edit         { color: #223A46; }
+.btn-icon.edit:hover   { background: rgba(34,58,70,0.1); }
+.btn-icon.toggle-off   { color: #C93C29; }
+.btn-icon.toggle-off:hover { background: rgba(201,60,41,0.08); }
+.btn-icon.toggle-on    { color: #059669; }
+.btn-icon.toggle-on:hover  { background: rgba(5,150,105,0.08); }
+.btn-icon.delete       { color: #C93C29; }
+.btn-icon.delete:hover { background: rgba(201,60,41,0.08); }
+
+/* ── Modal ────────────────────────────────────────────────────────────────── */
+.jf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(34,58,70,0.45);
+  z-index: 1055;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: jf-fadeIn 0.18s ease;
+}
+@keyframes jf-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.jf-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 520px;
+  max-width: 95vw;
+  box-shadow: 0 12px 40px rgba(34,58,70,0.18);
+  overflow: hidden;
+  animation: jf-slideUp 0.2s ease;
+}
+@keyframes jf-slideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.jf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.5rem;
+  background: linear-gradient(135deg, #223A46, #2e4f60);
+  border-bottom: 3px solid #C93C29;
+}
+.jf-modal-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+.jf-modal-header .btn-icon { color: rgba(255,255,255,0.7); }
+.jf-modal-header .btn-icon:hover { color: #fff; background: rgba(255,255,255,0.15); }
+
+.jf-modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.jf-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid #E8E5D7;
+  background: #f7f9fc;
+}
+
+.jf-btn-save {
+  background: #0b0b45;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  padding: 0.4rem 1.1rem;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: background 0.15s;
+}
+.jf-btn-save:hover    { background: #1a1a66; color: #fff; }
+.jf-btn-save:disabled { background: #8b8bb8; cursor: not-allowed; }
+
+/* ── Champs formulaire modal ──────────────────────────────────────────────── */
+.jf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.jf-field label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #5F6F6E;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.jf-field input,
+.jf-field select,
+.jf-field textarea {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #E8E5D7;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #223A46;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.jf-field input:focus,
+.jf-field select:focus,
+.jf-field textarea:focus {
+  outline: none;
+  border-color: #223A46;
+  box-shadow: 0 0 0 3px rgba(34,58,70,0.1);
+}
+.jf-field-row { display: flex; gap: 1rem; }
+.jf-field-row .jf-field { flex: 1; }
+
+/* ── État vide ────────────────────────────────────────────────────────────── */
+.jf-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #5F6F6E;
+}
+.jf-empty svg {
+  font-size: 2.8rem;
+  margin-bottom: 0.75rem;
+  color: #E8E5D7;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+.jf-empty p { margin: 0; font-size: 0.9rem; }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .jf-main { padding: 1rem; }
+  .jf-toolbar { flex-direction: column; align-items: flex-start; }
+  .jf-toolbar-right { margin-left: 0; flex-wrap: wrap; }
+  .jf-table thead th:nth-child(5),
+  .jf-table tbody td:nth-child(5) { display: none; }
+}

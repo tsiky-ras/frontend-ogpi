@@ -16,13 +16,29 @@ export interface SprintTimeDTO {
   id: number;
   fromDay: number;
   toDay: number;
-  dateDebut?: string | null; // ISO yyyy-MM-dd
-  dateFin?: string | null;   // ISO yyyy-MM-dd
+  dateDebut?: string | null; 
+  dateFin?: string | null;   
+}
+
+export interface PhaseTimeDTO {
+  id: number;
+  fromDay: number;
+  toDay: number;
+  dateDebut?: string | null;
+  dateFin?: string | null;
+}
+
+export interface LotTimeDTO {
+  id: number;
+  fromDay: number;
+  toDay: number;
+  dateDebut?: string | null;
+  dateFin?: string | null;
 }
  
 export interface BacklogTimeDTO {
-  lots: [];       // vide — calculé dynamiquement côté front
-  phases: [];     // vide — calculé dynamiquement côté front
+  lots: LotTimeDTO[];
+  phases: PhaseTimeDTO[];
   sprints: SprintTimeDTO[];
 }
  
@@ -76,19 +92,25 @@ export class BacklogPlanningService {
     }
 
     
-     /**
-   * Met à jour les dates (fromDay / toDay) des sprints modifiés.
-   * Lots et phases sont commentés côté back — on n'envoie que les sprints.
+  /**
+   * Met à jour les dates (fromDay / toDay) des sprints, phases et lots modifiés.
+   * Le backend met à jour les 3 niveaux en une seule requête.
    *
    * PUT /api/projet/backlog-phases/planning/time
    */
-  async updateSprintTimes(sprints: SprintTimeDTO[]): Promise<void> {
-    const payload: BacklogTimeDTO = {
-      lots: [],
-      phases: [],
-      sprints,
+  async updateSprintTimes(
+    sprints: SprintTimeDTO[],
+    phases: PhaseTimeDTO[] = [],
+    lots: LotTimeDTO[] = []
+  ): Promise<void> {
+    const payload = {
+      lots:    lots    ?? [],
+      phases:  phases  ?? [],
+      sprints: sprints ?? [],
     };
-    await this.api.put("/projet/backlog-phases/planning/time", payload);
+    await this.api.put("/projet/backlog-phases/planning/time", payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
  
   /**

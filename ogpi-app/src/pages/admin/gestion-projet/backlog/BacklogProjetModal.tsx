@@ -2294,7 +2294,13 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
 
                       <Tab eventKey="planning" title="Planning">
                         <PlanningTab
-                          lots={lots}
+                          lots={lots.map(lot => ({
+                            ...lot,
+                            phases: ((lot.phases ?? []) as any[]).map((phase: any) => ({
+                              ...phase,
+                              sprints: sprints.get(phase.id) ?? phase.sprints ?? [],
+                            })),
+                          }))}
                           lines={lines}
                           lineProfils={lineProfils}
                           deliverables={deliverables}
@@ -2305,7 +2311,8 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                           }
                           selectedBacklogId={selectedBacklogId}
                           planningService={svc.planning}
-                          onPlanningUpdated={reloadLots}  
+                          onPlanningUpdated={reloadLots}
+                          api={api}
                         />
                       </Tab>
 

@@ -159,6 +159,11 @@ export const routes = [
           },
         ],
       },
+      {
+        path: "/admin/config/jours-feries",
+        label: "Jours fériés",
+        icon: <FaCalendarCheck />,
+      },
     ],
   },
 ];

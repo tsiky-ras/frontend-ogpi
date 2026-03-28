@@ -513,6 +513,7 @@ const ProjetDetails: React.FC<ProjetDetailsProps> = ({
                       selectedBacklogId={backlogId}
                       planningService={svc.planning}
                       projectStartDate={projet.dateDebutPrevu ?? null}
+                      api={api}
                     />
                   )}
               </div>

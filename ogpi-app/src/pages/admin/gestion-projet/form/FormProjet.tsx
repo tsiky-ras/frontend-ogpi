@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Button, Form, Row, Col, ListGroup, Spinner } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
+import { useWorkingDay } from "../../../../hooks/useWorkingDay.ts";
 
 import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
 import CollecteErrorMessage from "../../../../components/message/CollecteErrorMessage.tsx";
@@ -38,6 +39,17 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
   const projetTechFinService = useProjetTechFinDetailsService();
   const projetTechnoService  = useProjetTechnoService();
   const technoService        = useTechnoService();
+
+  // ── Jours fériés — vérification des champs date ─────────────────────────
+  const {
+    ajuster: ajusterAttribution, alerte: alerteAttribution, effacer: effacerAttribution,
+  } = useWorkingDay(api);
+  const {
+    ajuster: ajusterDebut, alerte: alerteDebut, effacer: effacerDebut,
+  } = useWorkingDay(api);
+  const {
+    ajuster: ajusterFin, alerte: alerteFin, effacer: effacerFin,
+  } = useWorkingDay(api);
 
   // ── Mode sélection ──────────────────────────────────────────────────────
   const [creationMode, setCreationMode] = useState<CreationMode>("choice");
@@ -467,7 +479,27 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
 
                     <Form.Group className="mb-3">
                       <Form.Label>Date d'attribution</Form.Label>
-                      <Form.Control type="date" name="dateAttribution" value={form.dateAttribution} onChange={handleChange} />
+                      <Form.Control type="date" name="dateAttribution" value={form.dateAttribution}
+                        onChange={async e => {
+                          const val = e.target.value;
+                          setForm((prev: any) => ({ ...prev, dateAttribution: val }));
+                          effacerAttribution();
+                          await ajusterAttribution(val, (adj) =>
+                            setForm((prev: any) => ({ ...prev, dateAttribution: adj }))
+                          );
+                        }} />
+                      {alerteAttribution && (
+                        <div style={{ display:"flex", gap:"0.4rem", alignItems:"flex-start", background:"#fff8e1", border:"1px solid #ffc107", borderLeft:"4px solid #ff9800", borderRadius:6, padding:"6px 10px", fontSize:"0.78rem", color:"#5a3e00", marginTop:"0.35rem" }}>
+                          <span>⚠️</span>
+                          <div style={{ flex:1 }}>
+                            <strong>{alerteAttribution.libelleJourFerie}</strong> — reporté au{" "}
+                            <strong style={{ color:"#2d6a4f" }}>
+                              {new Date(alerteAttribution.dateAjustee + "T00:00:00").toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" })}
+                            </strong>
+                          </div>
+                          <button onClick={effacerAttribution} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a7000", padding:0 }}>✕</button>
+                        </div>
+                      )}
                     </Form.Group>
 
                     <Form.Group className="mb-3">
@@ -498,12 +530,52 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
                   <Col md={6}>
                     <Form.Group className="mb-3">
                       <Form.Label>Date de début prévu *</Form.Label>
-                      <Form.Control type="date" name="dateDebutPrevu" value={form.dateDebutPrevu} onChange={handleChange} required />
+                      <Form.Control type="date" name="dateDebutPrevu" value={form.dateDebutPrevu}
+                        onChange={async e => {
+                          const val = e.target.value;
+                          setForm((prev: any) => ({ ...prev, dateDebutPrevu: val }));
+                          effacerDebut();
+                          await ajusterDebut(val, (adj) =>
+                            setForm((prev: any) => ({ ...prev, dateDebutPrevu: adj }))
+                          );
+                        }} required />
+                      {alerteDebut && (
+                        <div style={{ display:"flex", gap:"0.4rem", alignItems:"flex-start", background:"#fff8e1", border:"1px solid #ffc107", borderLeft:"4px solid #ff9800", borderRadius:6, padding:"6px 10px", fontSize:"0.78rem", color:"#5a3e00", marginTop:"0.35rem" }}>
+                          <span>⚠️</span>
+                          <div style={{ flex:1 }}>
+                            <strong>{alerteDebut.libelleJourFerie}</strong> — reporté au{" "}
+                            <strong style={{ color:"#2d6a4f" }}>
+                              {new Date(alerteDebut.dateAjustee + "T00:00:00").toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" })}
+                            </strong>
+                          </div>
+                          <button onClick={effacerDebut} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a7000", padding:0 }}>✕</button>
+                        </div>
+                      )}
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label>Date de fin prévu</Form.Label>
-                      <Form.Control type="date" name="dateFinPrevu" value={form.dateFinPrevu} onChange={handleChange} />
+                      <Form.Control type="date" name="dateFinPrevu" value={form.dateFinPrevu}
+                        onChange={async e => {
+                          const val = e.target.value;
+                          setForm((prev: any) => ({ ...prev, dateFinPrevu: val }));
+                          effacerFin();
+                          await ajusterFin(val, (adj) =>
+                            setForm((prev: any) => ({ ...prev, dateFinPrevu: adj }))
+                          );
+                        }} />
+                      {alerteFin && (
+                        <div style={{ display:"flex", gap:"0.4rem", alignItems:"flex-start", background:"#fff8e1", border:"1px solid #ffc107", borderLeft:"4px solid #ff9800", borderRadius:6, padding:"6px 10px", fontSize:"0.78rem", color:"#5a3e00", marginTop:"0.35rem" }}>
+                          <span>⚠️</span>
+                          <div style={{ flex:1 }}>
+                            <strong>{alerteFin.libelleJourFerie}</strong> — reporté au{" "}
+                            <strong style={{ color:"#2d6a4f" }}>
+                              {new Date(alerteFin.dateAjustee + "T00:00:00").toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" })}
+                            </strong>
+                          </div>
+                          <button onClick={effacerFin} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a7000", padding:0 }}>✕</button>
+                        </div>
+                      )}
                     </Form.Group>
 
                     <Form.Group className="mb-3">

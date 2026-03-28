@@ -28,6 +28,7 @@ import TachePage from "./pages/all/gestion-tache/TachePage.tsx";
 import BacklogTachePage from "./pages/all/taches-projet/BacklogTachePage.tsx";
 import ProjetPage from "./pages/admin/gestion-projet/ProjetPage.tsx";
 import CalendrierPage from "./pages/all/calendrier/CalendrierPage.tsx";
+import JoursFeriesPage from "./pages/admin/gestion-projet/calendrier/JoursFeriesPage.tsx";
 const App: React.FC = () => {
   return (
     <Router>
@@ -67,6 +68,7 @@ const App: React.FC = () => {
           <Route path="/admin/config/lead-types" element={<LeadTypePage />} />
           <Route path="/admin/config/lead-partenaire" element={<PartenairePage />} />
           <Route path="/admin/config/lead-financement" element={<TypeProjetFinancementPage />} />
+          <Route path="/admin/config/jours-feries" element={<JoursFeriesPage />} />
         </Route>
 
         {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}

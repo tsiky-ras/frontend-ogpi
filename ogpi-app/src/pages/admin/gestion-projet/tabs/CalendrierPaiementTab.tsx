@@ -17,7 +17,7 @@ import {
   TypePaiement,
   StatutPaiement,
   TotauxPaiement,
-} from "../../../../services/projet/backlog/CalendrierPaiementService.tsx";
+} from "../../../../services/projet/paiement/CalendrierPaiementService.tsx";
 import { BacklogLot, BacklogPhase } from "../../../../types/lead/Backlog/Backlog.tsx";
 import { BacklogSprint, BacklogDelivrableProjet } from "../../../../types/projet/backlog/BacklogProjet.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
@@ -74,14 +74,8 @@ interface CalendrierPaiementTabProps {
   sprints: Map<number, BacklogSprint[]>;
   deliverables: Map<number, BacklogDelivrableProjet[]>;
   deviseAbr: string;
-  /** Montant offre technique du lead (priorité sur totaux.montantOffre du backend). */
   montantOffre?: number;
   service: CalendrierPaiementService;
-  /**
-   * Appelé après chaque paiement validé.
-   * Permet à ProjetDetails de rafraîchir le calendrier dans l'onglet Comparaison
-   * et à ListeProjet de rafraîchir la barre de progression paiement.
-   */
   onPaiementValide?: () => void;
 }
 
@@ -93,7 +87,7 @@ const EMPTY_FORM = {
   typePaiement: "POURCENTAGE" as TypePaiement,
   pourcentage: null as number | null,
   montantAPayer: 0,
-  chargeAnnexe: 0, 
+  chargeAnnexe: 0,
   datePaiement: "",
   commentaire: "",
 };
@@ -161,7 +155,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── Structure helpers — gardes ?? [] pour éviter .map sur undefined ───────
+  // ── Structure helpers ─────────────────────────────────────────────────────
   const safeLots = lots ?? [];
 
   const getAllPhases = (): BacklogPhase[] =>
@@ -204,19 +198,22 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
     setShowModal(true);
   };
 
+  // ✅ FIX openEdit : montantAPayer = base seulement (montantAPayer − chargeAnnexe)
+  //    Sinon à la réouverture du formulaire, la charge s'additionnerait au total déjà stocké
   const openEdit = (e: CalendrierPaiement) => {
+    const chargeAnnexe = e.chargeAnnexe ?? 0;
     setEditItem(e);
     setForm({
-      libelle: e.libelle,
+      libelle:       e.libelle,
       typeReference: e.typeReference,
-      referenceId: e.referenceId,
-      referenceNom: e.referenceNom ?? "",
-      typePaiement: e.typePaiement,
-      pourcentage: e.pourcentage ?? null,
-      montantAPayer: e.montantAPayer,
-      chargeAnnexe: e.chargeAnnexe ?? 0, 
-      datePaiement: e.datePaiement,
-      commentaire: e.commentaire ?? "",
+      referenceId:   e.referenceId,
+      referenceNom:  e.referenceNom ?? "",
+      typePaiement:  e.typePaiement,
+      pourcentage:   e.pourcentage ?? null,
+      montantAPayer: e.montantAPayer - chargeAnnexe,  // ← base seulement
+      chargeAnnexe,
+      datePaiement:  e.datePaiement,
+      commentaire:   e.commentaire ?? "",
     });
     setFormError(null);
     setShowModal(true);
@@ -237,11 +234,11 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
     });
   };
 
-  const montantBase = form.typePaiement === "POURCENTAGE"
-  ? calcMontantPct(form.pourcentage)
-  : form.montantAPayer;
+  const montantBase  = form.typePaiement === "POURCENTAGE"
+    ? calcMontantPct(form.pourcentage)
+    : form.montantAPayer;
 
-  const formMontant = montantBase + (form.chargeAnnexe || 0); 
+  const formMontant  = montantBase + (form.chargeAnnexe || 0);
   const formExcedent = calcExcedentSiAjout(formMontant);
 
   const saveForm = async () => {
@@ -265,12 +262,14 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
         referenceNom:  form.referenceNom,
         typePaiement:  form.typePaiement,
         pourcentage:   form.typePaiement === "POURCENTAGE" ? form.pourcentage ?? undefined : undefined,
-        montantAPayer: formMontant,
+        montantAPayer: formMontant,       // total = base + chargeAnnexe (stocké en base)
+        chargeAnnexe:  form.chargeAnnexe || 0,
         datePaiement:  form.datePaiement,
         commentaire:   form.commentaire || undefined,
-        chargeAnnexe: form.chargeAnnexe || 0,
         backlogId,
       };
+
+      // ✅ Le backend renvoie maintenant chargeAnnexe → pas de patch manuel nécessaire
       if (editItem) {
         const updated = await service.update(editItem.id, dto);
         setEcheances(prev => prev.map(e => e.id === editItem.id ? updated : e));
@@ -278,6 +277,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
         const created = await service.create(dto);
         setEcheances(prev => [...prev, created]);
       }
+
       const tots = await service.getTotaux(backlogId);
       setTotaux(tots);
       setShowModal(false);
@@ -309,7 +309,6 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
 
   const openPayConfirm = (e: CalendrierPaiement) => { setPayTarget(e); setShowPayConfirm(true); };
 
-  // ── confirmPayer — appelle onPaiementValide après succès ──────────────────
   const confirmPayer = async () => {
     if (!payTarget || !user?.userId) return;
     setPayingId(payTarget.id);
@@ -319,7 +318,6 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
       if (backlogId) setTotaux(await service.getTotaux(backlogId));
       setShowPayConfirm(false);
       setPayTarget(null);
-      // Notifie ProjetDetails → rafraîchit onglet Comparaison + ListeProjet barre
       onPaiementValide?.();
     } catch (err: any) {
       alert(err?.response?.data?.message ?? "Erreur lors du paiement.");
@@ -377,9 +375,9 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
       <div className="cp-kpi-grid">
         {[
           { label: "Budget offre technique", value: fmt(montantOffre, deviseAbr),        cls: "cp-kpi-card--charcoal", icon: <FaShieldAlt /> },
-          { label: "Paiement planifié",               value: fmt(totaux.totalPlanifie, deviseAbr), cls: "cp-kpi-card--tuscan",   icon: <FaCalendarAlt /> },
-          { label: "Payé par le client",               value: fmt(totaux.totalPaye, deviseAbr),     cls: "cp-kpi-card--success",  icon: <FaCheckCircle /> },
-          { label: "Reste à encaisser",          value: fmt(resteAPayer, deviseAbr),          cls: resteAPayer <= 0 && montantOffre > 0 ? "cp-kpi-card--success" : "cp-kpi-card--tomato", icon: <FaMoneyBillWave /> },
+          { label: "Paiement planifié",      value: fmt(totaux.totalPlanifie, deviseAbr), cls: "cp-kpi-card--tuscan",   icon: <FaCalendarAlt /> },
+          { label: "Payé par le client",     value: fmt(totaux.totalPaye, deviseAbr),     cls: "cp-kpi-card--success",  icon: <FaCheckCircle /> },
+          { label: "Reste à encaisser",      value: fmt(resteAPayer, deviseAbr),          cls: resteAPayer <= 0 && montantOffre > 0 ? "cp-kpi-card--success" : "cp-kpi-card--tomato", icon: <FaMoneyBillWave /> },
           { label: "CA Projet",              value: fmt(totaux.caProjet, deviseAbr),      cls: "cp-kpi-card--blue",     icon: <FaMoneyBillWave /> },
         ].map(k => (
           <div key={k.label} className={`cp-kpi-card ${k.cls}`}>
@@ -579,6 +577,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
               <input className="cp-input" type="date" value={form.datePaiement}
                 onChange={e => setF("datePaiement", e.target.value)} disabled={saving} />
             </div>
+
             {form.typePaiement === "POURCENTAGE" ? (
               <div className="cp-field">
                 <label className="cp-label">Pourcentage * (% du budget offre)</label>
@@ -595,41 +594,42 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
                 )}
               </div>
             ) : (
-                  <div className="cp-form-row-2">
-                    <div className="cp-field">
-                      <label className="cp-label">Montant ({deviseAbr}) *</label>
-                      <input
-                        className="cp-input"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.montantAPayer}
-                        onChange={e => setF("montantAPayer", +e.target.value || 0)}
-                        onWheel={e => (e.target as HTMLInputElement).blur()}
-                        disabled={saving}
-                      />
-                      {resteAPayer > 0 && montantOffre > 0 && (
-                        <div className="cp-hint">
-                          Reste disponible : {fmt(resteAPayer, deviseAbr)}
-                        </div>
-                      )}
+              <div className="cp-form-row-2">
+                <div className="cp-field">
+                  <label className="cp-label">Montant ({deviseAbr}) *</label>
+                  <input
+                    className="cp-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.montantAPayer}
+                    onChange={e => setF("montantAPayer", +e.target.value || 0)}
+                    onWheel={e => (e.target as HTMLInputElement).blur()}
+                    disabled={saving}
+                  />
+                  {resteAPayer > 0 && montantOffre > 0 && (
+                    <div className="cp-hint">
+                      Reste disponible : {fmt(resteAPayer, deviseAbr)}
                     </div>
-
-                    <div className="cp-field">
-                      <label className="cp-label">Charge annexe ({deviseAbr})</label>
-                      <input
-                        className="cp-input"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.chargeAnnexe}
-                        onChange={e => setF("chargeAnnexe", +e.target.value || 0)}
-                        disabled={saving}
-                      />
-                    </div>
-                  </div>
-              
+                  )}
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label">Charge annexe ({deviseAbr})</label>
+                  <input
+                    className="cp-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.chargeAnnexe}
+                    onChange={e => setF("chargeAnnexe", +e.target.value || 0)}
+                    onWheel={e => (e.target as HTMLInputElement).blur()}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
             )}
+
+            {/* ── Récap dynamique ── */}
             <div className="cp-recap-box cp-form-full">
               <FaInfoCircle size={12} />
               <span>
@@ -640,6 +640,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
                 <strong>{fmt(formMontant, deviseAbr)}</strong>
               </span>
             </div>
+
             <div className="cp-field cp-form-full">
               <label className="cp-label">Commentaire</label>
               <Form.Control as="textarea" rows={2} className="cp-input"
@@ -647,6 +648,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
                 onChange={e => setF("commentaire", e.target.value)}
                 placeholder="Note optionnelle…" disabled={saving} style={{ resize: "none" }} />
             </div>
+
             {form.typePaiement === "POURCENTAGE" && form.pourcentage != null && montantOffre > 0 && (
               <div className={`cp-recap-box${formExcedent > 0 ? " cp-recap-box--warn" : ""} cp-form-full`}>
                 <FaInfoCircle size={12} style={{ flexShrink: 0 }} />
@@ -727,6 +729,11 @@ const EcheanceCard: React.FC<EcheanceCardProps> = ({
   const isPaye   = e.statut === "PAYE";
   const isAnnule = e.statut === "ANNULE";
   const isPaying = payingId === e.id;
+  const [showDetails, setShowDetails] = useState(false);
+
+  // ✅ Décomposition propre : base = total stocké − charge annexe
+  const chargeAnnexe = e.chargeAnnexe ?? 0;
+  const montantBase  = e.montantAPayer - chargeAnnexe;
 
   const cardCls = [
     "cp-card",
@@ -761,10 +768,41 @@ const EcheanceCard: React.FC<EcheanceCardProps> = ({
           {e.commentaire && <span style={{ color: "#94a3b8", fontStyle: "italic" }}>{e.commentaire}</span>}
         </div>
       </div>
+
       <div className="cp-card__right">
-        <div className="cp-card__amount">
-          {e.montantAPayer.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {deviseAbr}
+        {/*
+          ✅ Affiche le montant de BASE uniquement.
+             Si chargeAnnexe > 0 → indicateur discret "+X MGA" + tooltip sur le total.
+        */}
+        <div
+          className="cp-card__amount cp-card__amount--clickable"
+          onClick={() => setShowDetails(prev => !prev)}
+          title={chargeAnnexe > 0
+            ? `Total avec charge annexe : ${fmt(e.montantAPayer, deviseAbr)}`
+            : undefined}
+        >
+          <strong>{fmt(montantBase, deviseAbr)}</strong>
+
+          <span style={{ marginLeft: 6 }}>
+            {showDetails ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
+          </span>
         </div>
+
+        {/* ✅ Tiroir : décomposition Montant / Charge annexe / Total */}
+        {showDetails && (
+          <div className="cp-card__details">
+            <div>
+              Montant : <strong>{fmt(montantBase, deviseAbr)}</strong>
+            </div>
+            <div>
+              Charge annexe : <strong>{fmt(chargeAnnexe, deviseAbr)}</strong>
+            </div>
+            <div style={{ marginTop: 4, fontWeight: 600 }}>
+              Total : {fmt(e.montantAPayer, deviseAbr)}
+            </div>
+          </div>
+        )}
+
         {!isAnnule && (
           <div className="cp-card__actions">
             {!isPaye && (
