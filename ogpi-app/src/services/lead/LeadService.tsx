@@ -37,6 +37,16 @@ export class LeadService {
     }
   }
 
+  async getGagne() {
+    try {
+      const response = await this.api.get('/leads/gagne');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des leads Gagne :', error);
+      throw error;
+    }
+  }
+
   async winLead(id: number) {
     try {
       const response = await this.api.post(`/leads/win/${id}`);

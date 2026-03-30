@@ -165,7 +165,7 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     const fetchLeads = async () => {
       setLeadSearchLoading(true);
       try {
-        const results = await leadService.getEvaluating();
+        const results = await leadService.getGagne();
         setAllLeads(results || []);
       } catch (err) {
         console.error(err);
