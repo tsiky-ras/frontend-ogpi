@@ -10,6 +10,7 @@ import ValidationLeadPage from "./validation/ValidationLeadPage.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import { LeadService } from "../../../services/lead/LeadService.tsx";
 import KanbanLead from "./kanban/KanbanLead.tsx";
+import EvaluationLeadPage from "./evaluation/EvaluationLeadPage.tsx";
 
 const LeadPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("liste");
@@ -69,6 +70,9 @@ const LeadPage: React.FC = () => {
 
                 <Tab eventKey="validation" title={<span>Validation <span className="badge bg-secondary ms-2">{validationCount}</span></span>}>
                     <ValidationLeadPage onUpdated={fetchValidationCount} />
+                </Tab>
+                <Tab eventKey="evaluation" title="Évaluation">
+                  <EvaluationLeadPage onUpdated={fetchValidationCount} />
                 </Tab>
 
              <Tab eventKey="kanban" title="Kanban">

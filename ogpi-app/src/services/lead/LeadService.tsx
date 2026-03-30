@@ -7,9 +7,6 @@ export class LeadService {
     this.api = api;
   }
 
-  /**
-   * Récupère tous les leads
-   */
   async getAll() {
     try {
       const response = await this.api.get('/leads/all');
@@ -19,7 +16,6 @@ export class LeadService {
       throw error;
     }
   }
-
 
   async getToValidate() {
     try {
@@ -31,9 +27,36 @@ export class LeadService {
     }
   }
 
-  /**
-   * Récupère tous les leads à partir de leur statut
-   */
+  async getEvaluating() {
+    try {
+      const response = await this.api.get('/leads/evaluating');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des leads en évaluation :', error);
+      throw error;
+    }
+  }
+
+  async winLead(id: number) {
+    try {
+      const response = await this.api.post(`/leads/win/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors du passage en gagné du lead ${id} :`, error);
+      throw error;
+    }
+  }
+
+  async loseLead(id: number) {
+    try {
+      const response = await this.api.post(`/leads/lose/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors du passage en perdu du lead ${id} :`, error);
+      throw error;
+    }
+  }
+
   async getAllByStatut(id: number) {
     try {
       const response = await this.api.get(`/leads/status/${id}`);
@@ -44,10 +67,6 @@ export class LeadService {
     }
   }
 
-
-  /**
-   * Récupère un lead par ID
-   */
   async getById(id: number) {
     try {
       const response = await this.api.get(`/leads/${id}`);
@@ -68,9 +87,6 @@ export class LeadService {
     }
   }
 
-  /**
-   * Crée un nouveau lead etape qualification
-   */
   async createQualif(data: any) {
     try {
       const response = await this.api.post('/leads/qualif', data);
@@ -81,10 +97,7 @@ export class LeadService {
     }
   }
 
-  /**
-   * Met à jour un lead existant
-   */
-    async updateQualif(id: number, data: any) {
+  async updateQualif(id: number, data: any) {
     try {
       const response = await this.api.put(`/leads/${id}/qualif`, data);
       return response.data;
@@ -94,9 +107,6 @@ export class LeadService {
     }
   }
 
-  /**
-   * Supprime un lead
-   */
   async delete(id: number) {
     try {
       const response = await this.api.delete(`/leads/${id}`);
@@ -107,27 +117,13 @@ export class LeadService {
     }
   }
 
+  async getJira(id: number) {
+    const res = await this.api.get(`/leads/JIRA/${id}`);
+    return res.data;
+  }
 
-  /**
- * Récupère les infos JIRA d'un lead
- */
-async getJira(id: number) {
-  const res = await this.api.get(`/leads/JIRA/${id}`);
-  return res.data;
+  async updateJira(id: number, data: any) {
+    const res = await this.api.put(`/leads/${id}/JIRA`, data);
+    return res.data;
+  }
 }
-
-/**
- * Update JIRA
- */
-async updateJira(id: number, data: any) {
-  const res = await this.api.put(`/leads/${id}/JIRA`, data);
-  return res.data;
-}
-
-
-}
-
-
-
-
-
