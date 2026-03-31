@@ -2342,23 +2342,19 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                           service={svc.paiement}
                         />
                       </Tab>
-                      <Tab eventKey="burndown" title="Burndown charte">
+                      {/* <Tab eventKey="burndown" title="Burndown charte">
                         <BurndownTab
                           lots={lots}
                           sprints={sprints}
                           service={svc.burndown}
                         />
-                      </Tab>
+                      </Tab> */}
                     </Tabs>
                   )}
                 </>
               )}
             </div>
           </Modal.Body>
-
-          <Modal.Footer>
-            <Button label="Fermer" variant="outline" onClick={onClose} />
-          </Modal.Footer>
         </Modal>
 
         {/* ══════════════════════════ MODAUX MÉTIER ═══════════════════════ */}

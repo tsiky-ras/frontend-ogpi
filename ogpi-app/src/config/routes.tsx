@@ -59,7 +59,7 @@ export const routes = [
     ]
   },
   {
-    label: "Deadline & Paiement",
+    label: "Calendrier",
     icon: <FaCalendarAlt />,
     path: "/calendrier/deadlines"
   },
