@@ -1513,10 +1513,203 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
 
                   {!loading && (
                     <Tabs activeKey={activeTab} onSelect={k => setActiveTab(k ?? "backlog")} className="mb-4">
+                    {/* ══════════ TAB LOTS & PHASES ════════════════════ */}
+                      <Tab eventKey="lots" title="Lots & Phases">
+                        <div className="d-flex justify-content-end mb-3">
+                          <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
+                        </div>
+                        <div ref={lotsRef}>
+                          {lots.length === 0
+                            ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
+                            : lots.map(lot => (
+                              <div key={lot.id} className="card mb-3 shadow-sm">
+                                <div className="card-header d-flex align-items-center gap-2 flex-wrap">
+                                  <span className="drag-lot text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}>⋮⋮</span>
+                                  <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
+                                  {lot.desc && <small className="text-muted me-1">{lot.desc}</small>}
+                                  {(() => { const d = getLotDates(lot); return <DateBadge debut={d.debut} fin={d.fin} />; })()}
+                                  <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
+                                  <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
+                                </div>
+                                <div className="card-body pt-2 pb-3">
+                                  <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <span className="text-muted small fw-semibold">Phases</span>
+                                    <Button label="+ Phase" variant="secondary" onClick={() => openAddPhase(lot.id)} />
+                                  </div>
+                                  <div data-phases-lot-id={lot.id}>
+                                    {((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
+                                      const phaseSprints = sprints.get(phase.id) ?? [];
+                                      const phaseDeliv   = deliverables.get(phase.id) ?? [];
+                                      const expanded     = expandedPhases.has(phase.id);
+                                      return (
+                                        <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
+                                          <div className="d-flex align-items-center gap-2 p-2 flex-wrap">
+                                            <span className="drag-phase text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}>⋮⋮</span>
+                                            <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{expanded ? <FaChevronDown /> : <FaChevronRight />}</span>
+                                            <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{phase.order}. {phase.name}</span>
+                                            <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} />
+                                            <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
+                                            <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
+                                            <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
+                                            <button className="btn btn-sm btn-success ms-1"           onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
+                                            <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
+                                            <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
+                                          </div>
+                                          {expanded && (
+                                            <div className="px-3 pb-2">
+                                              <div data-sprints-phase-id={phase.id}>
+                                                {phaseSprints.map(sprint => {
+                                                  const sprintCols  = columns.get(sprint.id) ?? [];
+                                                  const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
+                                                  const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
+                                                  return (
+                                                    <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
+                                                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                        <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
+                                                        <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
+                                                        {(sprint.dateDebut || sprint.dateFin) && <DateBadge debut={sprint.dateDebut} fin={sprint.dateFin} style={{ background: "#fff3cd", borderColor: "#ffc107" }} />}
+                                                        <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>{spExpanded ? <FaChevronDown /> : <FaChevronRight />}</button>
+                                                        <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
+                                                        <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
+                                                      </div>
+                                                      {spExpanded && (
+                                                        <div className="mt-2 ms-3">
+                                                          {sprintCols.length > 0 && (
+                                                            <div className="mb-2">
+                                                              <strong className="small text-secondary">Colonnes :</strong>
+                                                              <div className="d-flex flex-wrap gap-1 mt-1">
+                                                                {sprintCols.map(col => (
+                                                                  <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
+                                                                    {col.name} <em className="text-light opacity-75 small">({col.type})</em>
+                                                                    <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
+                                                                    <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
+                                                                  </span>
+                                                                ))}
+                                                              </div>
+                                                            </div>
+                                                          )}
+                                                          {sprintDeliv.length > 0
+                                                            ? sprintDeliv.map(d => (
+                                                              <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small${(d as any).isDelivered ? " opacity-75" : ""}`} style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                                <span className="d-flex align-items-center gap-2">
+                                                                  {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
+                                                                  <span>
+                                                                    <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
+                                                                    {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
+                                                                    {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
+                                                                  </span>
+                                                                </span>
+                                                                <div className="d-flex gap-1 align-items-center">
+                                                                  {!(d as any).isDelivered && <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1" style={{ fontSize: "0.7rem" }} onClick={() => deliverLivrable(d.id!, phase.id)}><FaCheckCircle size={10} /> Livrer</button>}
+                                                                  <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                                                  <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
+                                                                </div>
+                                                              </div>
+                                                            ))
+                                                            : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                              {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
+                                                <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small ps-1${(d as any).isDelivered ? " opacity-75" : ""}`} style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
+                                                  <span className="d-flex align-items-center gap-2">
+                                                    {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
+                                                    <span>
+                                                      <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
+                                                      {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
+                                                      {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
+                                                    </span>
+                                                  </span>
+                                                  <div className="d-flex gap-1 align-items-center">
+                                                    {!(d as any).isDelivered && <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1" style={{ fontSize: "0.7rem" }} onClick={() => deliverLivrable(d.id!, phase.id)}><FaCheckCircle size={10} /> Livrer</button>}
+                                                    <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
+                                                    <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                              {phaseSprints.length === 0 && phaseDeliv.length === 0 && <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </Tab>
+                      <Tab eventKey="planning" title="Planning Gantt">
+                        <PlanningTab
+                          lots={lots.map(lot => ({
+                            ...lot,
+                            phases: ((lot.phases ?? []) as any[]).map((phase: any) => ({
+                              ...phase,
+                              sprints: sprints.get(phase.id) ?? phase.sprints ?? [],
+                            })),
+                          }))}
+                          lines={lines}
+                          lineProfils={lineProfils}
+                          deliverables={deliverables}
+                          datedebutPlanning={
+                            (backlog as any)?.datedeButPlanning   
+                            ?? (backlog as any)?.dateDebutPlanning
+                            ?? null
+                          }
+                          selectedBacklogId={selectedBacklogId}
+                          planningService={svc.planning}
+                          onPlanningUpdated={reloadLots}
+                          api={api}
+                        />
+                      </Tab>
+                      {/* ══════════ TAB PROFILS ══════════════════════════ */}
+                      <Tab eventKey="profils" title="Profils">
+                        <div className="d-flex justify-content-end mb-3">
+                          <Button label="Ajouter un profil" icon={<FaPlus />} onClick={openAddProfil} />
+                        </div>
+                        <div ref={profilsRef}>
+                          {profils.length === 0
+                            ? <div className="text-center text-muted py-4 fst-italic">Aucun profil.</div>
+                            : profils.map(profil => (
+                              <div key={profil.id} className="card mb-2 shadow-sm">
+                                <div className="card-body d-flex align-items-start gap-3 py-2">
+                                  <span className="drag-profil text-muted mt-1" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
+                                  <div className="flex-grow-1">
+                                    <div className="fw-bold">{profil.order}. {profil.name}</div>
+                                    {profil.desc && <small className="text-muted">{profil.desc}</small>}
+                                    <div className="mt-1"><span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span></div>
+                                    {profil.collaborateurs.length > 0 && (
+                                      <div className="mt-2 d-flex flex-wrap gap-1">
+                                        {profil.collaborateurs.map((c: any) => {
+                                            const fullName = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
+                                            const collabLabel = fullName && c.appellation
+                                              ? `${fullName} (${c.appellation})`
+                                              : fullName || c.appellation || "—";
+                                            return (
+                                              <option key={c.id} value={`${profil.id}|${c.id}`}>
+                                                {collabLabel}
+                                              </option>
+                                            );
+                                          })}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="d-flex gap-2 align-items-center">
+                                    <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openCollabModal(profil)}><FaUsers /><span className="d-none d-md-inline">Collaborateurs</span></button>
+                                    <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditProfil(profil)}><FaEdit /></button>
+                                    <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteProfil(profil.id)}><FaTrash /></button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </Tab>
 
                       {/* ══════════ TAB BACKLOG ══════════════════════════ */}
                       <Tab eventKey="backlog" title="Backlog">
-
                         {/* ── Récap par profil ── */}
                         <div className="card shadow-sm mb-3">
                           <div className="card-header fw-bold">Récapitulatif par profil</div>
@@ -2118,208 +2311,10 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                           </table>
                         </div>
                       </Tab>
-
-                      {/* ══════════ TAB LOTS & PHASES ════════════════════ */}
-                      <Tab eventKey="lots" title="Lots & Phases">
-                        <div className="d-flex justify-content-end mb-3">
-                          <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
-                        </div>
-                        <div ref={lotsRef}>
-                          {lots.length === 0
-                            ? <div className="text-center text-muted py-4 fst-italic">Aucun lot. Cliquez sur « Ajouter un lot ».</div>
-                            : lots.map(lot => (
-                              <div key={lot.id} className="card mb-3 shadow-sm">
-                                <div className="card-header d-flex align-items-center gap-2 flex-wrap">
-                                  <span className="drag-lot text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1.1rem" }}>⋮⋮</span>
-                                  <strong className="flex-grow-1">{lot.order}. {lot.name}</strong>
-                                  {lot.desc && <small className="text-muted me-1">{lot.desc}</small>}
-                                  {(() => { const d = getLotDates(lot); return <DateBadge debut={d.debut} fin={d.fin} />; })()}
-                                  <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditLot(lot)}><FaEdit /></button>
-                                  <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => deleteLot(lot.id)}><FaTrash /></button>
-                                </div>
-                                <div className="card-body pt-2 pb-3">
-                                  <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <span className="text-muted small fw-semibold">Phases</span>
-                                    <Button label="+ Phase" variant="secondary" onClick={() => openAddPhase(lot.id)} />
-                                  </div>
-                                  <div data-phases-lot-id={lot.id}>
-                                    {((lot.phases ?? []) as BacklogPhase[]).sort((a, b) => a.order - b.order).map(phase => {
-                                      const phaseSprints = sprints.get(phase.id) ?? [];
-                                      const phaseDeliv   = deliverables.get(phase.id) ?? [];
-                                      const expanded     = expandedPhases.has(phase.id);
-                                      return (
-                                        <div key={phase.id} className="border rounded mb-2 p-0" style={{ backgroundColor: "#f5f7fa" }}>
-                                          <div className="d-flex align-items-center gap-2 p-2 flex-wrap">
-                                            <span className="drag-phase text-muted" style={{ cursor: "grab", userSelect: "none", fontSize: "1rem" }}>⋮⋮</span>
-                                            <span style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{expanded ? <FaChevronDown /> : <FaChevronRight />}</span>
-                                            <span className="fw-semibold flex-grow-1" style={{ cursor: "pointer" }} onClick={() => togglePhase(phase.id)}>{phase.order}. {phase.name}</span>
-                                            <DateBadge debut={(phase as any).dateDebut} fin={(phase as any).dateFin} />
-                                            <span className="badge bg-primary">{phaseSprints.length} sprint{phaseSprints.length !== 1 ? "s" : ""}</span>
-                                            <span className="badge bg-success">{phaseDeliv.length} livrable{phaseDeliv.length !== 1 ? "s" : ""}</span>
-                                            <button className="btn btn-sm btn-warning"                onClick={() => openAddSprint(phase.id)}><FaCalendar className="me-1" />Sprint</button>
-                                            <button className="btn btn-sm btn-success ms-1"           onClick={() => openAddDeliv(phase.id)}><FaCalendar className="me-1" />Livrable</button>
-                                            <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => openEditPhase(phase, lot.id)}><FaEdit /></button>
-                                            <button className="btn btn-sm btn-outline-danger ms-1"    onClick={() => deletePhase(phase.id, lot.id)}><FaTrash /></button>
-                                          </div>
-                                          {expanded && (
-                                            <div className="px-3 pb-2">
-                                              <div data-sprints-phase-id={phase.id}>
-                                                {phaseSprints.map(sprint => {
-                                                  const sprintCols  = columns.get(sprint.id) ?? [];
-                                                  const sprintDeliv = phaseDeliv.filter(d => (d as any).sprintId === sprint.id);
-                                                  const spExpanded  = expandedSprints.get(phase.id)?.has(sprint.id) ?? false;
-                                                  return (
-                                                    <div key={sprint.id} className="border rounded p-2 mb-2" style={{ backgroundColor: "#fffbea" }}>
-                                                      <div className="d-flex align-items-center gap-2 flex-wrap">
-                                                        <span className="drag-sprint text-muted" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
-                                                        <strong className="flex-grow-1">Sprint {sprint.order} : {sprint.name}</strong>
-                                                        {(sprint.dateDebut || sprint.dateFin) && <DateBadge debut={sprint.dateDebut} fin={sprint.dateFin} style={{ background: "#fff3cd", borderColor: "#ffc107" }} />}
-                                                        <button className="btn btn-sm btn-outline-secondary ms-1" onClick={() => toggleSprint(phase.id, sprint.id)}>{spExpanded ? <FaChevronDown /> : <FaChevronRight />}</button>
-                                                        <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => openEditSprint(sprint, phase.id)}><FaEdit /></button>
-                                                        <button className="btn btn-sm btn-outline-danger ms-1"  onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
-                                                      </div>
-                                                      {spExpanded && (
-                                                        <div className="mt-2 ms-3">
-                                                          {sprintCols.length > 0 && (
-                                                            <div className="mb-2">
-                                                              <strong className="small text-secondary">Colonnes :</strong>
-                                                              <div className="d-flex flex-wrap gap-1 mt-1">
-                                                                {sprintCols.map(col => (
-                                                                  <span key={col.id} className="badge bg-secondary d-inline-flex align-items-center gap-1">
-                                                                    {col.name} <em className="text-light opacity-75 small">({col.type})</em>
-                                                                    <button className="btn btn-link btn-sm p-0 text-white" onClick={() => openEditCol(col)}><FaEdit size={9} /></button>
-                                                                    <button className="btn btn-link btn-sm p-0 text-white" onClick={() => deleteColumn(col)}><FaTrash size={9} /></button>
-                                                                  </span>
-                                                                ))}
-                                                              </div>
-                                                            </div>
-                                                          )}
-                                                          {sprintDeliv.length > 0
-                                                            ? sprintDeliv.map(d => (
-                                                              <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small${(d as any).isDelivered ? " opacity-75" : ""}`} style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
-                                                                <span className="d-flex align-items-center gap-2">
-                                                                  {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
-                                                                  <span>
-                                                                    <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
-                                                                    {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
-                                                                    {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
-                                                                  </span>
-                                                                </span>
-                                                                <div className="d-flex gap-1 align-items-center">
-                                                                  {!(d as any).isDelivered && <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1" style={{ fontSize: "0.7rem" }} onClick={() => deliverLivrable(d.id!, phase.id)}><FaCheckCircle size={10} /> Livrer</button>}
-                                                                  <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                                                  <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
-                                                                </div>
-                                                              </div>
-                                                            ))
-                                                            : <div className="text-muted small fst-italic">Aucun livrable dans ce sprint.</div>}
-                                                        </div>
-                                                      )}
-                                                    </div>
-                                                  );
-                                                })}
-                                              </div>
-                                              {phaseDeliv.filter(d => !(d as any).sprintId).map(d => (
-                                                <div key={d.id} className={`d-flex justify-content-between align-items-center border-bottom py-1 small ps-1${(d as any).isDelivered ? " opacity-75" : ""}`} style={(d as any).isDelivered ? { background: "#f0fff4" } : {}}>
-                                                  <span className="d-flex align-items-center gap-2">
-                                                    {(d as any).isDelivered && <FaCheckCircle className="text-success" style={{ flexShrink: 0 }} />}
-                                                    <span>
-                                                      <strong style={(d as any).isDelivered ? { textDecoration: "line-through", color: "#6c757d" } : {}}>{d.name}</strong>
-                                                      {(d as any).deliveryDate && <span className="text-muted ms-1">{` — ${new Date((d as any).deliveryDate).toLocaleDateString("fr-FR")}`}</span>}
-                                                      {(d as any).isDelivered && <span className="badge bg-success ms-2" style={{ fontSize: "0.6rem" }}>Livré</span>}
-                                                    </span>
-                                                  </span>
-                                                  <div className="d-flex gap-1 align-items-center">
-                                                    {!(d as any).isDelivered && <button className="btn btn-sm btn-success py-0 px-1 d-flex align-items-center gap-1" style={{ fontSize: "0.7rem" }} onClick={() => deliverLivrable(d.id!, phase.id)}><FaCheckCircle size={10} /> Livrer</button>}
-                                                    <button className="btn btn-link btn-sm p-0" onClick={() => openEditDeliv(d, phase.id)}><FaEdit /></button>
-                                                    <button className="btn btn-link btn-sm p-0 text-danger" onClick={() => deleteDeliv(d.id!, phase.id)}><FaTrash /></button>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                              {phaseSprints.length === 0 && phaseDeliv.length === 0 && <div className="text-muted small fst-italic py-1">Aucun sprint ni livrable.</div>}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </Tab>
-
-                      {/* ══════════ TAB PROFILS ══════════════════════════ */}
-                      <Tab eventKey="profils" title="Profils">
-                        <div className="d-flex justify-content-end mb-3">
-                          <Button label="Ajouter un profil" icon={<FaPlus />} onClick={openAddProfil} />
-                        </div>
-                        <div ref={profilsRef}>
-                          {profils.length === 0
-                            ? <div className="text-center text-muted py-4 fst-italic">Aucun profil.</div>
-                            : profils.map(profil => (
-                              <div key={profil.id} className="card mb-2 shadow-sm">
-                                <div className="card-body d-flex align-items-start gap-3 py-2">
-                                  <span className="drag-profil text-muted mt-1" style={{ cursor: "grab", userSelect: "none" }}>⋮⋮</span>
-                                  <div className="flex-grow-1">
-                                    <div className="fw-bold">{profil.order}. {profil.name}</div>
-                                    {profil.desc && <small className="text-muted">{profil.desc}</small>}
-                                    <div className="mt-1"><span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span></div>
-                                    {profil.collaborateurs.length > 0 && (
-                                      <div className="mt-2 d-flex flex-wrap gap-1">
-                                        {profil.collaborateurs.map((c: any) => {
-                                            const fullName = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
-                                            const collabLabel = fullName && c.appellation
-                                              ? `${fullName} (${c.appellation})`
-                                              : fullName || c.appellation || "—";
-                                            return (
-                                              <option key={c.id} value={`${profil.id}|${c.id}`}>
-                                                {collabLabel}
-                                              </option>
-                                            );
-                                          })}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="d-flex gap-2 align-items-center">
-                                    <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openCollabModal(profil)}><FaUsers /><span className="d-none d-md-inline">Collaborateurs</span></button>
-                                    <button className="btn btn-sm btn-outline-secondary" onClick={() => openEditProfil(profil)}><FaEdit /></button>
-                                    <button className="btn btn-sm btn-outline-danger"    onClick={() => deleteProfil(profil.id)}><FaTrash /></button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </Tab>
-
-                      <Tab eventKey="planning" title="Planning">
-                        <PlanningTab
-                          lots={lots.map(lot => ({
-                            ...lot,
-                            phases: ((lot.phases ?? []) as any[]).map((phase: any) => ({
-                              ...phase,
-                              sprints: sprints.get(phase.id) ?? phase.sprints ?? [],
-                            })),
-                          }))}
-                          lines={lines}
-                          lineProfils={lineProfils}
-                          deliverables={deliverables}
-                          datedebutPlanning={
-                            (backlog as any)?.datedeButPlanning   
-                            ?? (backlog as any)?.dateDebutPlanning
-                            ?? null
-                          }
-                          selectedBacklogId={selectedBacklogId}
-                          planningService={svc.planning}
-                          onPlanningUpdated={reloadLots}
-                          api={api}
-                        />
-                      </Tab>
-
                       <Tab eventKey="budget" title="Budget">
                         <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} leadId={leadId ?? null} deviseAbr={deviseAbr} onTotalChange={setBudgetRH} />
                       </Tab>
-                      <Tab eventKey="charges_annexes" title="Charges Annexes">
+                      <Tab eventKey="charges_annexes" title="Charges annexes">
                         <ChargesAnnexesTab
                           backlogId={backlog?.id ?? null}
                           deviseAbr={deviseAbr}
@@ -2327,14 +2322,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                           service={new ChargesAnnexesService(api)}
                         />
                       </Tab>
-                      <Tab eventKey="burndown" title="Burndown">
-                        <BurndownTab
-                          lots={lots}
-                          sprints={sprints}
-                          service={svc.burndown}
-                        />
-                      </Tab>
-                      <Tab eventKey="facturation" title="Facturation ressources">
+                      <Tab eventKey="facturation" title="Facturation des ressources">
                         <FacturableProfil
                           lots={lots}
                           profils={profils}
@@ -2343,7 +2331,6 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                           deviseAbr={deviseAbr}
                         />
                       </Tab>
-
                       <Tab eventKey="paiements" title="Paiements clients">
                         <CalendrierPaiementTab
                           backlogId={backlog?.id ?? null}
@@ -2353,6 +2340,13 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                           deviseAbr={deviseAbr}
                           montantOffre={montantOffre}
                           service={svc.paiement}
+                        />
+                      </Tab>
+                      <Tab eventKey="burndown" title="Burndown charte">
+                        <BurndownTab
+                          lots={lots}
+                          sprints={sprints}
+                          service={svc.burndown}
                         />
                       </Tab>
                     </Tabs>

@@ -20,6 +20,7 @@ type TableProps = {
   expandedRow?: (row: any) => React.ReactNode;
   multiHeaderParent?: boolean;
   storageKey?: string;
+  defaultVisibleColumns?: string[]; // ← NOUVEAU : clés des colonnes visibles par défaut
 };
 
 const Table: React.FC<TableProps> = ({
@@ -30,6 +31,7 @@ const Table: React.FC<TableProps> = ({
   expandedRow,
   multiHeaderParent = false,
   storageKey = "table_columns_visibility",
+  defaultVisibleColumns,
 }) => {
   const [page, setPage] = useState(1);
   const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -43,17 +45,16 @@ const Table: React.FC<TableProps> = ({
         return columns.map(col => col.key).filter(key => parsed.includes(key));
       }
     } catch {}
-    return columns.map(col => col.key);
+    // Si defaultVisibleColumns est fourni, on l'utilise — sinon toutes les colonnes
+    return defaultVisibleColumns ?? columns.map(col => col.key);
   });
 
   const selectorRef = useRef<HTMLButtonElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
-  /* ===================== FIX RECHERCHE / FILTRE ===================== */
   useEffect(() => {
     setPage(1);
   }, [data]);
-  /* ================================================================ */
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
@@ -76,7 +77,10 @@ const Table: React.FC<TableProps> = ({
     );
   };
 
-  const resetColumns = () => setVisibleColumns(columns.map(col => col.key));
+  // Reset revient aux colonnes par défaut (defaultVisibleColumns si fourni, sinon toutes)
+  const resetColumns = () =>
+    setVisibleColumns(defaultVisibleColumns ?? columns.map(col => col.key));
+
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.key));
 
   const renderHeader = () => {

@@ -1,4 +1,4 @@
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Header from "../../../../components/header/Header.tsx";
 import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
 import Table from "../../../../components/table/Table.tsx";
@@ -16,6 +16,9 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./ListeUser.css";
 import FormUser from "../form/FormUser.tsx";
 import { User } from "../../../../types/user/User";
+
+// ── Colonnes visibles par défaut au premier chargement
+const DEFAULT_VISIBLE_COLUMNS = ["username", "role_label", "isActive", "actions"];
 
 /* ================= COMPONENT ================= */
 const ListeUser: React.FC = () => {
@@ -36,28 +39,23 @@ const ListeUser: React.FC = () => {
     }
   };
 
-
-    // ----------- Fetch utilisateurs ----------- 
-    useEffect(() => {
-      fetchUsers();
-    }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const openUser = (user: any, mode: "view" | "edit") => {
-    setSelectedUser(user.userId); 
+    setSelectedUser(user.userId);
     setMode(mode);
   };
 
   const saveUser = async () => {
-    await fetchUsers();   
+    await fetchUsers();
     setSelectedUser(null);
     setMode(null);
   };
 
   const columns = [
-    {
-      key: "username",
-      label: "Utilisateur",
-    },
+    { key: "username", label: "Utilisateur" },
     {
       key: "nom",
       label: "Nom",
@@ -102,19 +100,15 @@ const ListeUser: React.FC = () => {
     },
   ];
 
-
   const filteredUsers = users.filter(u => {
-    // Filtre par recherche textuelle
-    const matchesSearch = u.username.toLowerCase().includes(search.toLowerCase()) ||
+    const matchesSearch =
+      u.username.toLowerCase().includes(search.toLowerCase()) ||
       (u.profil?.nom?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
       (u.profil?.prenom?.toLowerCase().includes(search.toLowerCase()) ?? false);
-
-    // Filtre par statut
-    const matchesStatus = 
+    const matchesStatus =
       statusFilter === "all" ||
       (statusFilter === "active" && u.isActive) ||
       (statusFilter === "inactive" && !u.isActive);
-
     return matchesSearch && matchesStatus;
   });
 
@@ -133,53 +127,47 @@ const ListeUser: React.FC = () => {
                 <Button label="Nouvel utilisateur" icon={<FaPlus />} onClick={() => setShowFormUser(true)} />
               </div>
             </div>
+
             <div className="row mb-4">
               <div className="col-md-4">
-                <StatCard
-                  title="Tous les utilisateurs"
-                  value={users.length}
-                  variant={["tomato", "charcoal"]}
-                />
+                <StatCard title="Tous les utilisateurs" value={users.length} variant={["tomato", "charcoal"]} />
               </div>
               <div className="col-md-4">
-                <StatCard
-                  title="Utilisateurs actifs"
-                  value={users.filter(u => u.isActive).length}
-                  variant={["dim", "linen"]}
-                />
+                <StatCard title="Utilisateurs actifs" value={users.filter(u => u.isActive).length} variant={["dim", "linen"]} />
               </div>
               <div className="col-md-4">
-                <StatCard
-                  title="Utilisateurs inactifs"
-                  value={users.filter(u => !u.isActive).length}
-                  variant={["tuscan", "linen"]}
-                />
+                <StatCard title="Utilisateurs inactifs" value={users.filter(u => !u.isActive).length} variant={["tuscan", "linen"]} />
               </div>
             </div>
+
             <FilterBar
               filters={[
                 { type: "text", placeholder: "Rechercher...", onChange: setSearch },
-                { 
-                  type: "select", 
+                {
+                  type: "select",
                   placeholder: "Filtrer par statut...",
                   options: [
                     { value: "all", label: "Tous les statuts" },
                     { value: "active", label: "Actif" },
-                    { value: "inactive", label: "Inactif" }
+                    { value: "inactive", label: "Inactif" },
                   ],
-                  onChange: (value: any) => setStatusFilter(value as "all" | "active" | "inactive")
+                  onChange: (value: any) => setStatusFilter(value as "all" | "active" | "inactive"),
                 },
               ]}
             />
 
             <div className="table-responsive mt-3">
-              <Table columns={columns} data={filteredUsers} />            
+              <Table
+                columns={columns}
+                data={filteredUsers}
+                storageKey="liste_user_columns"
+                defaultVisibleColumns={DEFAULT_VISIBLE_COLUMNS}
+              />
             </div>
           </div>
         </main>
       </div>
 
-      {/* Fiche User */}
       {selectedUser && (
         <FicheUser
           userId={selectedUser}
@@ -190,15 +178,11 @@ const ListeUser: React.FC = () => {
         />
       )}
 
-      {/* Formulaire utilisateur */}
       <FormUser
         show={showFormUser}
         onClose={() => setShowFormUser(false)}
-        collaborateurs={[]} // mock si nécessaire
-        onSubmit={() => {
-          fetchUsers();
-          setShowFormUser(false);
-        }}
+        collaborateurs={[]}
+        onSubmit={() => { fetchUsers(); setShowFormUser(false); }}
       />
     </div>
   );

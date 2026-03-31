@@ -52,7 +52,7 @@ const MenuListeProjet: React.FC<MenuListeProjetProps> = ({
           </button>
           {onViewBacklog && (
             <button className="menu-item" onClick={() => handleClick(onViewBacklog)}>
-              <FaFolderOpen className="menu-icon" /> Backlog(s)
+              <FaFolderOpen className="menu-icon" /> Workload
             </button>
           )}
         </div>

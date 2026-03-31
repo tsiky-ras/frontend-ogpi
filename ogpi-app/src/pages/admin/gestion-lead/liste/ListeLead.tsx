@@ -45,6 +45,7 @@ const ListeLead: React.FC = () => {
     caPipeline: 0,
     upcomingDeadlines: 0,
   });
+  const DEFAULT_VISIBLE_COLUMNS = ['name', 'status', 'actions'];
 
   const loadFullLeadDetails = async (leadId: number) => {
     try {      
@@ -564,6 +565,8 @@ const ListeLead: React.FC = () => {
                 data={opportunities}
                 expandedRowId={expandedRowId}
                 expandedRow={renderExpandedRow}
+                storageKey="liste_lead_columns"
+                defaultVisibleColumns={DEFAULT_VISIBLE_COLUMNS}
               />
             </div>
           </div>
