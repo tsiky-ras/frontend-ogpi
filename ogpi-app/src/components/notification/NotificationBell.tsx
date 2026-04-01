@@ -64,14 +64,6 @@ const fmtDateOnly = (iso: string) => {
   } catch { return iso; }
 };
 
-/**
- * Résout la route de navigation ET le state pour ouvrir directement la card tâche.
- *
- * - lienType=LEAD         → /gestion-taches        + state { openLeadTaskId: lienId }
- * - lienType=TACHE_PROJET → /gestion-taches-projet + state { openBacklogLineProfilId: lienId }
- * - lienType=PROJET       → /gestion-projets
- * - lienType=CALENDRIER   → /calendrier/deadlines
- */
 const resolveLien = (
   lienType: string | null,
   lienId: number | null,
@@ -83,7 +75,6 @@ const resolveLien = (
 
   switch (lienType) {
     case 'LEAD': {
-      // Utiliser leadTaskUserId précis si disponible, sinon fallback sur lienId
       const taskId = leadTaskUserId ?? lienId;
       if (notifType === 'TACHE_A_VALIDER') {
         return {
@@ -100,7 +91,6 @@ const resolveLien = (
     }
 
     case 'TACHE_PROJET': {
-      // Utiliser backlogLineProfilId précis si disponible, sinon fallback sur lienId
       const taskId = backlogLineProfilId ?? lienId;
       if (notifType === 'TACHE_A_VALIDER') {
         return {
@@ -127,12 +117,6 @@ const resolveLien = (
   }
 };
 
-// ─── Extraction des infos structurées depuis le message ──────────────────────
-
-/**
- * Extrait la tâche (1er «...»), le contexte/projet/lead (2e «...»),
- * et le motif éventuel (après "— Motif :").
- */
 const parseMessage = (message: string | null) => {
   if (!message) return { tache: null, contexte: null, motif: null };
 
@@ -146,8 +130,6 @@ const parseMessage = (message: string | null) => {
   return { tache, contexte, motif };
 };
 
-// ─── Labels dynamiques selon le type ─────────────────────────────────────────
-
 const getActorLabel = (type: NotifType): string => {
   switch (type) {
     case 'TACHE_ASSIGNEE':    return 'Assigné par';
@@ -158,13 +140,6 @@ const getActorLabel = (type: NotifType): string => {
     default:                  return 'Par';
   }
 };
-
-const getContexteLabel = (lienType: string | null): string => {
-  if (lienType === 'TACHE_PROJET' || lienType === 'PROJET') return 'Projet';
-  return 'Opportunité (Lead)';
-};
-
-// ─── ContextChip ─────────────────────────────────────────────────────────────
 
 const ContextChip: React.FC<{ lienType: string | null; label: string; color: string; bg: string }> = ({
   lienType, label, color, bg,
@@ -196,10 +171,14 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
   const lien = resolveLien(notif.lienType, notif.lienId, notif.type, notif.backlogLineProfilId, notif.leadTaskUserId);
   const { tache, contexte, motif } = parseMessage(notif.message);
 
-  // Champs enrichis : priorité aux données structurées du backend
-  const epicAffiche    = notif.epicNom        ?? tache;
-  const projetAffiche  = notif.projetNomEnrichi ?? (notif.taskType === 'PROJET' ? contexte : null);
-  const leadAffiche    = notif.leadNomEnrichi   ?? (notif.taskType === 'LEAD'   ? contexte : null);
+  // Afficher projet OU lead, jamais les deux — strict sur taskType
+  const epicAffiche   = notif.epicNom ?? tache;
+  const projetAffiche = notif.taskType === 'PROJET'
+    ? (notif.projetNomEnrichi ?? contexte)
+    : null;
+  const leadAffiche   = notif.taskType === 'LEAD'
+    ? (notif.leadNomEnrichi ?? contexte)
+    : null;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -274,15 +253,13 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
         {/* ── Corps ───────────────────────────────────────────────────── */}
         <div style={{ padding: '18px 20px 20px' }}>
 
-          {/* ── Bloc tâche (assignation, réattribution, validation, rejet, à valider) */}
+          {/* ── Bloc tâche ── */}
           {isTaskType && (
             <div style={{
               background: '#f8fafc', borderRadius: 10,
               border: '1px solid #e2e8f0',
               padding: '12px 14px', marginBottom: 14,
             }}>
-
-              {/* Nom de l'épic (tâche) */}
               {epicAffiche && (
                 <div style={{ marginBottom: 10 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -295,8 +272,7 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
                 </div>
               )}
 
-              {/* Nom du Projet (tâche PROJET) */}
-              {projetAffiche && (
+              {notif.taskType === 'PROJET' && projetAffiche && (
                 <div style={{ marginBottom: 10 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Projet
@@ -307,8 +283,7 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
                 </div>
               )}
 
-              {/* Nom du Lead (tâche LEAD) */}
-              {leadAffiche && (
+              {notif.taskType === 'LEAD' && leadAffiche && (
                 <div style={{ marginBottom: 10 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Opportunité (Lead)
@@ -319,7 +294,6 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
                 </div>
               )}
 
-              {/* Qui a assigné / validé / soumis */}
               {notif.affectedBy && (
                 <div style={{ marginBottom: motif ? 10 : 0 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -340,9 +314,8 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
                 </div>
               )}
 
-              {/* Motif de rejet */}
               {motif && (
-                <div style={{ marginTop: 2 }}>
+                <div style={{ marginTop: motif ? 10 : 0 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Motif
                   </span>
@@ -359,14 +332,13 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
             </div>
           )}
 
-          {/* ── Bloc deadline ───────────────────────────────────────── */}
+          {/* ── Bloc deadline ── */}
           {isDeadline && (
             <div style={{
               background: '#f8fafc', borderRadius: 10,
               border: '1px solid #e2e8f0',
               padding: '12px 14px', marginBottom: 14,
             }}>
-              {/* Élément concerné */}
               {tache && (
                 <div style={{ marginBottom: 8 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -379,24 +351,17 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
                 </div>
               )}
 
-              {/* Contexte (projet ou lead) */}
               {contexte && (
                 <div style={{ marginBottom: 8 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Contexte
                   </span>
                   <div style={{ marginTop: 4 }}>
-                    <ContextChip
-                      lienType={notif.lienType}
-                      label={contexte}
-                      color={meta.color}
-                      bg={meta.bg}
-                    />
+                    <ContextChip lienType={notif.lienType} label={contexte} color={meta.color} bg={meta.bg} />
                   </div>
                 </div>
               )}
 
-              {/* Date d'échéance exacte */}
               {notif.dateEcheance && (
                 <div>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -413,7 +378,7 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
             </div>
           )}
 
-          {/* ── Message brut (réunion, lead co, lead→projet, ou fallback) */}
+          {/* ── Message brut (réunion, lead co, lead→projet) ── */}
           {(!isTaskType && !isDeadline && notif.message) && (
             <div style={{
               fontSize: 13, color: '#374151', lineHeight: 1.6,
@@ -424,7 +389,7 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
             </div>
           )}
 
-          {/* ── Date de réception + badge non lu ────────────────────── */}
+          {/* ── Date de réception + badge non lu ── */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             fontSize: 11, color: '#94a3b8', marginBottom: 18,
@@ -442,8 +407,8 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
             )}
           </div>
 
-          {/* ── CTA principal : ouvrir la tâche / valider ───────────── */}
-          {lien && (
+          {/* ── CTA : ouvrir/valider OU fermer si pas de lien ── */}
+          {lien ? (
             <button
               onClick={() => { onNavigate(lien.path, lien.state); onClose(); }}
               style={{
@@ -451,25 +416,25 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
                 fontSize: 13, fontWeight: 700, color: '#fff',
                 background: meta.color, border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                marginBottom: 8, transition: 'opacity .15s',
+                transition: 'opacity .15s',
               }}
               onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.88')}
               onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
             >
               <FaArrowRight size={11} /> {lien.label}
             </button>
+          ) : (
+            <button
+              onClick={onClose}
+              style={{
+                width: '100%', padding: '9px 0', borderRadius: 10,
+                fontSize: 12, color: '#64748b', background: '#f1f5f9',
+                border: 'none', cursor: 'pointer', fontWeight: 600,
+              }}
+            >
+              Fermer
+            </button>
           )}
-
-          <button
-            onClick={onClose}
-            style={{
-              width: '100%', padding: '9px 0', borderRadius: 10,
-              fontSize: 12, color: '#64748b', background: '#f1f5f9',
-              border: 'none', cursor: 'pointer', fontWeight: 600,
-            }}
-          >
-            Fermer
-          </button>
         </div>
       </div>
     </div>
@@ -489,10 +454,10 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
   const { Icon } = meta;
   const { tache, contexte } = parseMessage(notif.message);
 
-  // Priorité aux champs enrichis du backend
-  const epicAffiche   = notif.epicNom         ?? tache;
-  const projetAffiche = notif.projetNomEnrichi ?? (notif.taskType === 'PROJET' ? contexte : null);
-  const leadAffiche   = notif.leadNomEnrichi   ?? (notif.taskType === 'LEAD'   ? contexte : null);
+  // Strict sur taskType — jamais les deux simultanément
+  const epicAffiche     = notif.epicNom ?? tache;
+  const projetAffiche   = notif.taskType === 'PROJET' ? (notif.projetNomEnrichi ?? contexte) : null;
+  const leadAffiche     = notif.taskType === 'LEAD'   ? (notif.leadNomEnrichi   ?? contexte) : null;
   const contexteAffiche = projetAffiche ?? leadAffiche ?? contexte;
 
   const handleClick = () => {
@@ -517,7 +482,6 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = notif.lu ? '#f8fafc' : '#e0f2fe'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = notif.lu ? '#fff' : '#f0f9ff'; }}
     >
-      {/* Icône */}
       <div style={{
         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
         background: meta.bg, border: `1.5px solid ${meta.border}`,
@@ -527,7 +491,6 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Badge type + titre */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
           <span style={{
             fontSize: 9, fontWeight: 700, color: meta.color,
@@ -544,7 +507,6 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
           </span>
         </div>
 
-        {/* Nom de la tâche (épic) */}
         {epicAffiche && (
           <div style={{
             fontSize: 11, color: '#374151', fontWeight: 600,
@@ -556,7 +518,6 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
           </div>
         )}
 
-        {/* Contexte (projet ou lead) affiché en chip compact */}
         {contexteAffiche && (
           <div style={{ marginBottom: 3 }}>
             <span style={{
@@ -565,21 +526,17 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
               background: meta.bg, borderRadius: 20, padding: '1px 6px',
               border: `1px solid ${meta.color}22`,
             }}>
-              {notif.taskType === 'PROJET'
-                ? <FaProjectDiagram size={8} />
-                : <FaBriefcase size={8} />}
+              {notif.taskType === 'PROJET' ? <FaProjectDiagram size={8} /> : <FaBriefcase size={8} />}
               {contexteAffiche}
             </span>
           </div>
         )}
 
-        {/* Ligne basse : date | attribué par | deadline exacte | lien */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 10, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 3 }}>
             <FaClock size={8} /> {fmtDateShort(notif.dateCreation)}
           </span>
 
-          {/* Qui a agi */}
           {notif.affectedBy && (
             <span style={{ fontSize: 10, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 3 }}>
               <FaUser size={8} />
@@ -587,7 +544,6 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
             </span>
           )}
 
-          {/* Date échéance exacte pour les deadlines */}
           {isDeadline && notif.dateEcheance && (
             <span style={{ fontSize: 10, color: meta.color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
               <FaCalendarAlt size={8} /> {fmtDateOnly(notif.dateEcheance)}
@@ -603,7 +559,6 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
         </div>
       </div>
 
-      {/* Point non lu */}
       {!notif.lu && (
         <div style={{
           width: 8, height: 8, borderRadius: '50%',
@@ -620,10 +575,19 @@ const NotificationBell: React.FC = () => {
   const { nonLus, notifications, marquerLu, marquerTousLus } = useNotifications();
   const [open, setOpen]               = useState(false);
   const [detailNotif, setDetailNotif] = useState<Notif | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const ref     = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
 
-  // Fermer le dropdown au clic extérieur
+  const handleOpenToggle = () => {
+    if (!open && bellRef.current) {
+      const rect = bellRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
+    setOpen(o => !o);
+  };
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -659,57 +623,37 @@ const NotificationBell: React.FC = () => {
     <>
       <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
 
-        {/* ── Bouton cloche ────────────────────────────────────── */}
+        {/* ── Bouton cloche ── */}
         <button
-          onClick={() => setOpen(o => !o)}
+          ref={bellRef}
+          onClick={handleOpenToggle}
           title="Notifications"
           style={{
-            position: 'relative',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-
-            width: 36,
-            height: 36,
-            padding: 0,
-
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
+            width: 36, height: 36, padding: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
-          <FaBell
-            size={20}
-            color={nonLus > 0 ? '#C93C29' : '#5F6F6E'}
-            style={{ transition: 'color 0.2s' }}
-          />
+          <FaBell size={20} color={nonLus > 0 ? '#C93C29' : '#5F6F6E'} style={{ transition: 'color 0.2s' }} />
           {nonLus > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: -4,
-                right: 25,
-                background: '#C93C29',
-                color: '#fff',
-                fontSize: 9,
-                fontWeight: 800,
-                borderRadius: 99,
-                minWidth: 16,
-                height: 16,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 4px',
-                boxShadow: '0 0 0 2px #fff',
-              }}>
+            <span style={{
+              position: 'absolute', top: -4, right: 25,
+              background: '#C93C29', color: '#fff',
+              fontSize: 9, fontWeight: 800, borderRadius: 99,
+              minWidth: 16, height: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 4px', boxShadow: '0 0 0 2px #fff',
+            }}>
               {nonLus > 99 ? '99+' : nonLus}
             </span>
           )}
         </button>
 
-        {/* ── Dropdown ─────────────────────────────────────────── */}
+        {/* ── Dropdown (position: fixed pour passer au-dessus de tout) ── */}
         {open && (
           <div style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 9999,
+            position: 'fixed', top: dropdownPos.top, right: dropdownPos.right,
+            zIndex: 999998,
             width: 390, maxHeight: 540,
             display: 'flex', flexDirection: 'column',
             background: '#fff', borderRadius: 14,
@@ -786,7 +730,7 @@ const NotificationBell: React.FC = () => {
         )}
       </div>
 
-      {/* ── Modal de détail ────────────────────────────────────── */}
+      {/* ── Modal de détail ── */}
       {detailNotif && (
         <NotifDetailModal
           notif={detailNotif}
