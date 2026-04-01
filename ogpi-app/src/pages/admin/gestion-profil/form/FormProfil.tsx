@@ -130,7 +130,7 @@ const FormProfil: React.FC<FormProfilProps> = ({ show, onClose, onSubmit, profil
   useEffect(() => {
     if (!profil) return;
 
-    // ✅ DÉFINITION DU POSTE ACTUEL
+    // DÉFINITION DU POSTE ACTUEL
     const posteActuel = profil.profilPostes?.find(
       p => p.endDate === null || p.endDate === undefined
     );

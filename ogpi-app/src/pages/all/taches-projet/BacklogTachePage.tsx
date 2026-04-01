@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
 import Title from "../../../components/title/Title.tsx";
@@ -13,9 +14,22 @@ import { useAuth } from "../../../context/AuthContext.tsx";
 import "./BacklogTachePage.css";
 
 const BacklogTachePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"afaire" | "avalider" | "statut_collab">("afaire");
+  const location = useLocation();
+  const state = (location.state ?? {}) as {
+    activeTab?: "afaire" | "avalider" | "statut_collab";
+    openBacklogLineProfilId?: number;
+  };
+
+  const [activeTab, setActiveTab] = useState<"afaire" | "avalider" | "statut_collab">(
+    state.activeTab ?? "afaire"
+  );
   const [deviseAbr, setDeviseAbr] = useState<string>("€");
   const { api, user } = useAuth();
+
+  // Si la notification demande un onglet précis, on le sélectionne au montage
+  useEffect(() => {
+    if (state.activeTab) setActiveTab(state.activeTab);
+  }, [state.activeTab]);
 
   const backlogTaskService = useMemo(() => new BacklogTaskService(api), [api]);
   const leadTechFinService = useLeadTechFinDetailsService();
@@ -25,12 +39,10 @@ const BacklogTachePage: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        // BacklogTaskService expose optionnellement getDevise()
         if (typeof (backlogTaskService as any).getDevise === "function") {
           const d = await (backlogTaskService as any).getDevise();
           if (d) { setDeviseAbr(d); return; }
         }
-        // Fallback : récupère le leadId depuis les tâches
         const tasks = await backlogTaskService.getTasks().catch(() => []);
         const leadId = (tasks[0] as any)?.backlog?.leadId ?? null;
         if (leadId) {
@@ -59,22 +71,30 @@ const BacklogTachePage: React.FC = () => {
                 onClick={() => setActiveTab("afaire")}>Mes tâches à faire</button>
               <button className={`btp-tab-btn${activeTab === "avalider" ? " active" : ""}`}
                 onClick={() => setActiveTab("avalider")}>Tâches à valider</button>
-              {/* <button className={`btp-tab-btn${activeTab === "statut_collab" ? " active" : ""}`}
-                onClick={() => setActiveTab("statut_collab")}>Statut Collaborateur</button> */}
             </div>
 
             <div className="btp-tab-content">
               {activeTab === "afaire" && (
-                <MesTachesBacklog service={backlogTaskService}
-                  currentUserName={user?.username} deviseAbr={deviseAbr} />
+                <MesTachesBacklog
+                  service={backlogTaskService}
+                  currentUserName={user?.username}
+                  deviseAbr={deviseAbr}
+                  openBacklogLineProfilId={state.openBacklogLineProfilId ?? null}
+                />
               )}
               {activeTab === "avalider" && (
-                <TachesAValiderBacklog service={backlogTaskService}
-                  currentUserName={user?.username} deviseAbr={deviseAbr} />
+                <TachesAValiderBacklog
+                  service={backlogTaskService}
+                  currentUserName={user?.username}
+                  deviseAbr={deviseAbr}
+                />
               )}
               {activeTab === "statut_collab" && (
-                <StatutCollaborateurTab service={backlogTaskService}
-                  currentUserName={user?.username} deviseAbr={deviseAbr} />
+                <StatutCollaborateurTab
+                  service={backlogTaskService}
+                  currentUserName={user?.username}
+                  deviseAbr={deviseAbr}
+                />
               )}
             </div>
           </div>

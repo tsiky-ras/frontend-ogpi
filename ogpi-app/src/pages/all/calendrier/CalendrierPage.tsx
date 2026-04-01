@@ -68,6 +68,7 @@ const TypeIcon: React.FC<{ type: TypeEvenement; size?: number }> = ({ type, size
     case "DEADLINE_PHASE":    return <FaLot size={size} />;
     case "DEADLINE_SPRINT":   return <FaCodeBranch size={size} />;
     case "DEADLINE_LIVRABLE": return <FaFlag size={size} />;
+    case "REUNION":           return <span style={{ fontSize: size }}>👥</span>;
   }
 };
 
@@ -192,6 +193,10 @@ const TYPE_GROUPS: { label: string; types: TypeEvenement[] }[] = [
   {
     label: "Financier",
     types: ["LIVRAISON", "PAIEMENT"],
+  },
+  {
+    label: "Réunion",
+    types: ["REUNION"],
   },
 ];
 

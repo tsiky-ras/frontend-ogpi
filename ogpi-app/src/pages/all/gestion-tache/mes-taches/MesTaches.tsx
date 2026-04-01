@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   FaClock, FaHourglassHalf, FaCheckCircle, FaChevronDown, FaChevronUp,
   FaFileAlt, FaFolder, FaUser, FaCalendarAlt, FaExternalLinkAlt,
@@ -601,10 +601,12 @@ const TacheCard: React.FC<{
   taskService: ILeadTaskUserService;
   fileService: ILeadTaskFileService;
   statusService: ILeadTaskUserStatusService;
-}> = ({ tache, taskService, fileService, statusService }) => {
+  autoOpen?: boolean; // ouverture automatique depuis une notification
+}> = ({ tache, taskService, fileService, statusService, autoOpen = false }) => {
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<LeadTaskUserDetails | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   // Statut local de la carte (mis à jour immédiatement sans refetch de la liste)
   const [localStatus, setLocalStatus] = useState<LeadTaskStatus>(
     tache.leadTaskUserStatus.leadTaskStatus
@@ -624,6 +626,20 @@ const TacheCard: React.FC<{
     }
   }, [tache.leadTaskUserId, taskService]);
 
+  // Auto-ouverture déclenchée par la notification (openLeadTaskId dans location.state)
+  useEffect(() => {
+    if (!autoOpen) return;
+    (async () => {
+      await loadDetails();
+      setOpen(true);
+      // Scroll vers la carte après un court délai pour laisser le DOM se rendre
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 200);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
+
   const handleToggle = useCallback(async () => {
     if (!open && !details) await loadDetails();
     setOpen((v) => !v);
@@ -639,7 +655,7 @@ const TacheCard: React.FC<{
   const soon = isSoon(tache.leadTaskUserDeadline);
 
   return (
-    <div className={["mt-card", open ? "mt-card--open" : "", overdue ? "mt-card--overdue" : "", soon && !overdue ? "mt-card--soon" : ""].filter(Boolean).join(" ")}>
+    <div ref={cardRef} className={["mt-card", open ? "mt-card--open" : "", overdue ? "mt-card--overdue" : "", soon && !overdue ? "mt-card--soon" : ""].filter(Boolean).join(" ")}>
       <div className="mt-card-header" onClick={handleToggle} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && handleToggle()}>
         <div className="mt-card-main">
           <div className="mt-card-toprow">
@@ -688,9 +704,11 @@ interface Props {
   fileService: ILeadTaskFileService;
   statusService: ILeadTaskUserStatusService;
   currentUserName?: string;
+  /** ID de la tâche lead à ouvrir automatiquement (passé via location.state depuis une notification) */
+  openLeadTaskId?: number | null;
 }
 
-const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, currentUserName = "Utilisateur" }) => {
+const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, currentUserName = "Utilisateur", openLeadTaskId }) => {
   const [taches, setTaches] = useState<LeadTaskUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -764,7 +782,14 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
       {!loading && !error && taches.length > 0 && (
         <div className="mt-list">
           {taches.map((t) => (
-            <TacheCard key={t.leadTaskUserId} tache={t} taskService={taskService} fileService={fileService} statusService={statusService} />
+            <TacheCard
+              key={t.leadTaskUserId}
+              tache={t}
+              taskService={taskService}
+              fileService={fileService}
+              statusService={statusService}
+              autoOpen={openLeadTaskId != null && t.leadTaskUserId === openLeadTaskId}
+            />
           ))}
         </div>
       )}

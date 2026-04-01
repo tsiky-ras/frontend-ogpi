@@ -1,9 +1,9 @@
 import React from 'react';
 import logo from '../../assets/logo.jpeg';
 import avatar from '../../assets/logo.jpeg';
-import { FaBell } from 'react-icons/fa';
 import './Header.css';
 import { useAuth } from '../../context/AuthContext.tsx';
+import NotificationBell from '../notification/NotificationBell.tsx';
 
 const Header: React.FC = () => {
   const { user } = useAuth();
@@ -18,7 +18,7 @@ const Header: React.FC = () => {
       </div>
 
       <div className="header-actions">
-        <FaBell className="header-notif" />
+        <NotificationBell />
         <div className="header-profile">
           <img src={avatar} alt="Profil" className="header-avatar" />
           <div className="header-name">{displayName}</div>

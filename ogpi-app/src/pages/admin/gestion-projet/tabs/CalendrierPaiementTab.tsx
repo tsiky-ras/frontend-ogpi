@@ -198,7 +198,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
     setShowModal(true);
   };
 
-  // ✅ FIX openEdit : montantAPayer = base seulement (montantAPayer − chargeAnnexe)
+  //  FIX openEdit : montantAPayer = base seulement (montantAPayer − chargeAnnexe)
   //    Sinon à la réouverture du formulaire, la charge s'additionnerait au total déjà stocké
   const openEdit = (e: CalendrierPaiement) => {
     const chargeAnnexe = e.chargeAnnexe ?? 0;
@@ -269,7 +269,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
         backlogId,
       };
 
-      // ✅ Le backend renvoie maintenant chargeAnnexe → pas de patch manuel nécessaire
+      //  Le backend renvoie maintenant chargeAnnexe → pas de patch manuel nécessaire
       if (editItem) {
         const updated = await service.update(editItem.id, dto);
         setEcheances(prev => prev.map(e => e.id === editItem.id ? updated : e));
@@ -731,7 +731,7 @@ const EcheanceCard: React.FC<EcheanceCardProps> = ({
   const isPaying = payingId === e.id;
   const [showDetails, setShowDetails] = useState(false);
 
-  // ✅ Décomposition propre : base = total stocké − charge annexe
+  //  Décomposition propre : base = total stocké − charge annexe
   const chargeAnnexe = e.chargeAnnexe ?? 0;
   const montantBase  = e.montantAPayer - chargeAnnexe;
 
@@ -771,7 +771,7 @@ const EcheanceCard: React.FC<EcheanceCardProps> = ({
 
       <div className="cp-card__right">
         {/*
-          ✅ Affiche le montant de BASE uniquement.
+           Affiche le montant de BASE uniquement.
              Si chargeAnnexe > 0 → indicateur discret "+X MGA" + tooltip sur le total.
         */}
         <div
@@ -788,7 +788,7 @@ const EcheanceCard: React.FC<EcheanceCardProps> = ({
           </span>
         </div>
 
-        {/* ✅ Tiroir : décomposition Montant / Charge annexe / Total */}
+        {/*  Tiroir : décomposition Montant / Charge annexe / Total */}
         {showDetails && (
           <div className="cp-card__details">
             <div>

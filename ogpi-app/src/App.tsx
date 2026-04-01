@@ -29,8 +29,10 @@ import BacklogTachePage from "./pages/all/taches-projet/BacklogTachePage.tsx";
 import ProjetPage from "./pages/admin/gestion-projet/ProjetPage.tsx";
 import CalendrierPage from "./pages/all/calendrier/CalendrierPage.tsx";
 import JoursFeriesPage from "./pages/admin/gestion-projet/calendrier/JoursFeriesPage.tsx";
+import { NotificationProvider } from './context/NotificationContext.tsx';
 const App: React.FC = () => {
   return (
+  <NotificationProvider>
     <Router>
       <Routes>
         {/* Public */}
@@ -74,6 +76,7 @@ const App: React.FC = () => {
         {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}
       </Routes>
     </Router>
+    </NotificationProvider>
   );
 };
 

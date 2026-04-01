@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   FaChevronDown, FaChevronUp, FaUser, FaClock, FaFolderOpen, FaBriefcase,
   FaCheckCircle, FaArrowRight, FaSpinner, FaInbox, FaTimesCircle,
@@ -374,13 +374,27 @@ const HistoryTimeline: React.FC<{ history: BacklogTaskStatusHistory[] }> = ({ hi
 );
 
 // ─── TaskCard ─────────────────────────────────────────────────────────────────
-const TaskCard: React.FC<{ task: BacklogLineProfilAsTask; service: BacklogTaskService }> = ({ task, service }) => {
+const TaskCard: React.FC<{
+  task: BacklogLineProfilAsTask;
+  service: BacklogTaskService;
+  autoOpen?: boolean; // ouverture automatique depuis une notification
+}> = ({ task, service, autoOpen = false }) => {
   const devise = task.deviseAbr || "€";
   const [open, setOpen]               = useState(false);
   const [currentStatus, setCurrentStatus] = useState(task.currentStatus);
   const [history, setHistory]         = useState(task.historyStatus);
   const [timeSpent, setTimeSpent]     = useState<number | null>(task.timeSpent ?? null);
   const [showTimeModal, setShowTimeModal] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Auto-ouverture déclenchée par la notification (openBacklogLineProfilId dans location.state)
+  useEffect(() => {
+    if (!autoOpen) return;
+    setOpen(true);
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+  }, [autoOpen]);
 
   const handleStatusChanged = useCallback((h: BacklogTaskStatusHistory) => {
     setCurrentStatus(h); setHistory(prev => [...prev, h]);
@@ -395,7 +409,7 @@ const TaskCard: React.FC<{ task: BacklogLineProfilAsTask; service: BacklogTaskSe
 
   return (
     <>
-      <div className={["btb-card", open?"btb-card--open":"", isOverdue?"btb-card--overdue":""].filter(Boolean).join(" ")}>
+      <div ref={cardRef} className={["btb-card", open?"btb-card--open":"", isOverdue?"btb-card--overdue":""].filter(Boolean).join(" ")}>
         <div className="btb-card-header" onClick={() => setOpen(v => !v)} role="button" tabIndex={0}
           onKeyDown={e => e.key === "Enter" && setOpen(v => !v)}>
           <div className="btb-card-main">
@@ -574,9 +588,15 @@ const TaskCard: React.FC<{ task: BacklogLineProfilAsTask; service: BacklogTaskSe
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-interface Props { service: BacklogTaskService; currentUserName?: string; deviseAbr?: string; }
+interface Props {
+  service: BacklogTaskService;
+  currentUserName?: string;
+  deviseAbr?: string;
+  /** ID de la tâche projet à ouvrir automatiquement (passé via location.state depuis une notification) */
+  openBacklogLineProfilId?: number | null;
+}
 
-const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr }) => {
+const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr, openBacklogLineProfilId }) => {
   const [tasks, setTasks]   = useState<BacklogLineProfilAsTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
@@ -627,7 +647,14 @@ const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisa
       )}
       {!loading && !error && tasks.length > 0 && (
         <div className="btb-list">
-          {tasks.map(t => <TaskCard key={t.id} task={t} service={service} />)}
+          {tasks.map(t => (
+            <TaskCard
+              key={t.id}
+              task={t}
+              service={service}
+              autoOpen={openBacklogLineProfilId != null && t.id === openBacklogLineProfilId}
+            />
+          ))}
         </div>
       )}
     </div>

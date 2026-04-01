@@ -9,7 +9,8 @@ export type TypeEvenement =
   | "DEADLINE_LOT"
   | "DEADLINE_PHASE"
   | "DEADLINE_SPRINT"
-  | "DEADLINE_LIVRABLE";
+  | "DEADLINE_LIVRABLE"
+  | "REUNION";
 
 export interface CalendrierEvenement {
   id: number;
@@ -46,6 +47,7 @@ export const TYPE_META: Record<
   DEADLINE_PHASE:    { label: "DL phase",           color: "#854F0B", bg: "#faeeda", border: "#fac775", dot: "#EF9F27" },
   DEADLINE_SPRINT:   { label: "DL sprint",          color: "#993556", bg: "#fbeaf0", border: "#f4c0d1", dot: "#D4537E" },
   DEADLINE_LIVRABLE: { label: "DL livrable",        color: "#5F6F6E", bg: "#f1f5f9", border: "#d3d1c7", dot: "#888780" },
+  REUNION:           { label: "Réunion",             color: "#7c3aed", bg: "#f5f3ff", border: "#d4c6f7", dot: "#7c3aed" },
 };
 
 export class CalendrierService {

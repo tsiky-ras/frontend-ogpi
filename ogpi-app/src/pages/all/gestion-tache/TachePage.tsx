@@ -1,6 +1,7 @@
 // Extrait de TachePage.tsx — partie mise à jour pour intégrer TachesAValider
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
 import Title from "../../../components/title/Title.tsx";
@@ -17,8 +18,21 @@ import { useAuth } from "../../../context/AuthContext.tsx";
 import "./TachePage.css";
 
 const TachePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"afaire" | "avalider">("afaire");
+  const location = useLocation();
+  const state = (location.state ?? {}) as {
+    activeTab?: "afaire" | "avalider";
+    openLeadTaskId?: number;
+  };
+
+  const [activeTab, setActiveTab] = useState<"afaire" | "avalider">(
+    state.activeTab ?? "afaire"
+  );
   const { api, user } = useAuth();
+
+  // Si la notification demande un onglet précis, on le sélectionne au montage
+  useEffect(() => {
+    if (state.activeTab) setActiveTab(state.activeTab);
+  }, [state.activeTab]);
 
   const leadTaskUserService      = useMemo(() => new LeadTaskUserService(api), [api]);
   const leadTaskFileService      = useMemo(() => new LeadTaskFileService(api), [api]);
@@ -64,6 +78,7 @@ const TachePage: React.FC = () => {
                   fileService={leadTaskFileService}
                   statusService={leadTaskStatusService}
                   currentUserName={user?.username}
+                  openLeadTaskId={state.openLeadTaskId ?? null}
                 />
               )}
               {activeTab === "avalider" && (

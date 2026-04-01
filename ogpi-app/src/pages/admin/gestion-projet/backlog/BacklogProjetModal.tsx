@@ -40,6 +40,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   } from "../../../../types/projet/backlog/BacklogProjet.tsx";
 
   import { useAuth }  from "../../../../context/AuthContext.tsx";
+  import { useNotifications } from "../../../../context/NotificationContext.tsx";
   import BacklogFormProjet from "./BacklogFormProjet.tsx";
   import PlanningTab  from "../../gestion-lead/backlog/PlanningTab.tsx";
   import BudgetTab    from "../../gestion-lead/backlog/BudgetTab.tsx";
@@ -343,6 +344,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     show, onClose, projetId, projetNom, leadId, projectStartDate, projectEndDate,
   }) => {
     const { api, user } = useAuth();
+    const { refresh: refreshNotifications } = useNotifications();
     const collaborateurService = useProfilService();
 
     // ── Rôle utilisateur : CP / BA / Suppléant peuvent valider ───────────────
@@ -374,6 +376,8 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     ) => {
       const newStatusId = result === "ok" ? TASK_STATUS.VALIDE : TASK_STATUS.REATTRIBUE;
       await svc.lineProfil.changeStatus(taskId, newStatusId, comment);
+      // ── Rafraîchir les notifications du chef de projet ────────────────────
+      refreshNotifications();
       setLineProfils(prev => prev.map(lp =>
         lp.id === taskId
           ? { ...lp, currentStatus: { status: { id: newStatusId, label: STATUS_TASK_META[newStatusId]?.label ?? "" } } } as any
@@ -1255,8 +1259,8 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       }
 
       setShowVolModal(false);
-
-      // ── Reload serveur en arrière-plan (sans bloquer l'UI) ───────────
+      // ── Rafraîchir les notifications (le collaborateur vient d'être affecté) ─
+      refreshNotifications();
       if (selectedBacklogId) {
         loadLineProfils(selectedBacklogId).catch(console.warn);
       }
