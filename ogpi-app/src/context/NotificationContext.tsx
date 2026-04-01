@@ -39,6 +39,14 @@ export interface Notif {
   lienId: number | null;
   affectedBy: string | null;   // nom de la personne ayant déclenché la notif
   dateEcheance: string | null; // date d'échéance réelle (deadlines)
+  // Champs de navigation précis vers la tâche
+  taskType: 'LEAD' | 'PROJET' | null;
+  backlogLineProfilId: number | null; // FK tâche projet
+  leadTaskUserId: number | null;      // FK tâche lead
+  // Champs enrichis (peuplés via JOIN côté backend)
+  epicNom: string | null;          // nom de l'épic (ligne backlog) — tâche PROJET
+  projetNomEnrichi: string | null; // nom du projet — tâche PROJET
+  leadNomEnrichi: string | null;   // nom du lead — tâche LEAD
 }
 
 interface NotificationContextType {

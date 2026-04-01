@@ -76,38 +76,45 @@ const resolveLien = (
   lienType: string | null,
   lienId: number | null,
   notifType?: NotifType,
+  backlogLineProfilId?: number | null,
+  leadTaskUserId?: number | null,
 ): { path: string; state?: Record<string, unknown>; label: string } | null => {
   if (!lienType || lienId == null) return null;
 
   switch (lienType) {
-    case 'LEAD':
-      // Pour TACHE_A_VALIDER sur Lead → onglet "à valider"
+    case 'LEAD': {
+      // Utiliser leadTaskUserId précis si disponible, sinon fallback sur lienId
+      const taskId = leadTaskUserId ?? lienId;
       if (notifType === 'TACHE_A_VALIDER') {
         return {
           path: '/gestion-taches',
-          state: { activeTab: 'avalider', openLeadTaskId: lienId },
+          state: { activeTab: 'avalider', openLeadTaskId: taskId },
           label: 'Valider la tâche',
         };
       }
       return {
         path: '/gestion-taches',
-        state: { openLeadTaskId: lienId },
+        state: { openLeadTaskId: taskId },
         label: 'Ouvrir la tâche',
       };
+    }
 
-    case 'TACHE_PROJET':
+    case 'TACHE_PROJET': {
+      // Utiliser backlogLineProfilId précis si disponible, sinon fallback sur lienId
+      const taskId = backlogLineProfilId ?? lienId;
       if (notifType === 'TACHE_A_VALIDER') {
         return {
           path: '/gestion-taches-projet',
-          state: { activeTab: 'avalider', openBacklogLineProfilId: lienId },
+          state: { activeTab: 'avalider', openBacklogLineProfilId: taskId },
           label: 'Valider la tâche',
         };
       }
       return {
         path: '/gestion-taches-projet',
-        state: { openBacklogLineProfilId: lienId },
+        state: { openBacklogLineProfilId: taskId },
         label: 'Ouvrir la tâche',
       };
+    }
 
     case 'PROJET':
       return { path: '/gestion-projets', label: 'Voir le projet' };
@@ -186,8 +193,13 @@ interface NotifDetailModalProps {
 const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onNavigate }) => {
   const meta = TYPE_META[notif.type] ?? fallbackMeta;
   const { Icon } = meta;
-  const lien = resolveLien(notif.lienType, notif.lienId, notif.type);
+  const lien = resolveLien(notif.lienType, notif.lienId, notif.type, notif.backlogLineProfilId, notif.leadTaskUserId);
   const { tache, contexte, motif } = parseMessage(notif.message);
+
+  // Champs enrichis : priorité aux données structurées du backend
+  const epicAffiche    = notif.epicNom        ?? tache;
+  const projetAffiche  = notif.projetNomEnrichi ?? (notif.taskType === 'PROJET' ? contexte : null);
+  const leadAffiche    = notif.leadNomEnrichi   ?? (notif.taskType === 'LEAD'   ? contexte : null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -270,32 +282,39 @@ const NotifDetailModal: React.FC<NotifDetailModalProps> = ({ notif, onClose, onN
               padding: '12px 14px', marginBottom: 14,
             }}>
 
-              {/* Nom de la tâche */}
-              {tache && (
+              {/* Nom de l'épic (tâche) */}
+              {epicAffiche && (
                 <div style={{ marginBottom: 10 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Tâche
+                    Tâche (Épic)
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                     <FaClipboardList size={12} color={meta.color} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{tache}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{epicAffiche}</span>
                   </div>
                 </div>
               )}
 
-              {/* Projet ou Lead */}
-              {contexte && (
+              {/* Nom du Projet (tâche PROJET) */}
+              {projetAffiche && (
                 <div style={{ marginBottom: 10 }}>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {getContexteLabel(notif.lienType)}
+                    Projet
                   </span>
                   <div style={{ marginTop: 4 }}>
-                    <ContextChip
-                      lienType={notif.lienType}
-                      label={contexte}
-                      color={meta.color}
-                      bg={meta.bg}
-                    />
+                    <ContextChip lienType="PROJET" label={projetAffiche} color={meta.color} bg={meta.bg} />
+                  </div>
+                </div>
+              )}
+
+              {/* Nom du Lead (tâche LEAD) */}
+              {leadAffiche && (
+                <div style={{ marginBottom: 10 }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Opportunité (Lead)
+                  </span>
+                  <div style={{ marginTop: 4 }}>
+                    <ContextChip lienType="LEAD" label={leadAffiche} color={meta.color} bg={meta.bg} />
                   </div>
                 </div>
               )}
@@ -470,6 +489,12 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
   const { Icon } = meta;
   const { tache, contexte } = parseMessage(notif.message);
 
+  // Priorité aux champs enrichis du backend
+  const epicAffiche   = notif.epicNom         ?? tache;
+  const projetAffiche = notif.projetNomEnrichi ?? (notif.taskType === 'PROJET' ? contexte : null);
+  const leadAffiche   = notif.leadNomEnrichi   ?? (notif.taskType === 'LEAD'   ? contexte : null);
+  const contexteAffiche = projetAffiche ?? leadAffiche ?? contexte;
+
   const handleClick = () => {
     if (!notif.lu) onRead(notif.notificationId);
     onOpenDetail(notif);
@@ -519,20 +544,20 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
           </span>
         </div>
 
-        {/* Nom de la tâche */}
-        {tache && (
+        {/* Nom de la tâche (épic) */}
+        {epicAffiche && (
           <div style={{
             fontSize: 11, color: '#374151', fontWeight: 600,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             marginBottom: 2,
           }}>
             <FaClipboardList size={9} color={meta.color} style={{ marginRight: 4 }} />
-            {tache}
+            {epicAffiche}
           </div>
         )}
 
         {/* Contexte (projet ou lead) affiché en chip compact */}
-        {contexte && (
+        {contexteAffiche && (
           <div style={{ marginBottom: 3 }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -540,10 +565,10 @@ const NotifRow: React.FC<NotifRowProps> = ({ notif, onRead, onOpenDetail }) => {
               background: meta.bg, borderRadius: 20, padding: '1px 6px',
               border: `1px solid ${meta.color}22`,
             }}>
-              {notif.lienType === 'TACHE_PROJET' || notif.lienType === 'PROJET'
+              {notif.taskType === 'PROJET'
                 ? <FaProjectDiagram size={8} />
                 : <FaBriefcase size={8} />}
-              {contexte}
+              {contexteAffiche}
             </span>
           </div>
         )}
