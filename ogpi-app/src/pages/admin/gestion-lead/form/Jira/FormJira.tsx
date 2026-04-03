@@ -131,9 +131,9 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
 
   return (
     <div className="p-3">
-      <h5 className="mb-3">Informations JIRA</h5>
+      <h5 className="mb-3">Affectation des Taches</h5>
 
-      <Form.Group className="mb-3">
+      {/* <Form.Group className="mb-3">
         <Form.Label>Projet JIRA</Form.Label>
         <Form.Control
           value={jira.leadGoProjetJira || ""}
@@ -142,9 +142,9 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
             setJira(updated);
           }}
         />
-      </Form.Group>
+      </Form.Group> */}
 
-      <Form.Group className="mb-4">
+      {/* <Form.Group className="mb-4">
         <Form.Label>Ticket JIRA</Form.Label>
         <Form.Control
           value={jira.leadGoTicketJira || ""}
@@ -153,7 +153,7 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
             setJira(updated);
           }}
         />
-      </Form.Group>
+      </Form.Group> */}
 
       <Table bordered striped hover responsive>
         <thead className="table-light">
