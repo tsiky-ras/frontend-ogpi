@@ -5,8 +5,9 @@ import Title from "../../../components/title/Title.tsx";
 import { Tabs, Tab } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-import ListeProjet  from "./liste/ListeProjet.tsx";
-import KanbanProjet from "./kanban/KanbanProjet.tsx";
+import ListeProjet    from "./liste/ListeProjet.tsx";
+import KanbanProjet   from "./kanban/KanbanProjet.tsx";
+import DashboardProjet from "./dashboard/DashboardProjet.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import { ProjetService } from "../../../services/projet/ProjetService.tsx";
 import { ProjetStatutService } from "../../../services/projet/statut/ProjetStatutService.tsx";
@@ -17,7 +18,7 @@ import { Projet } from "../../../types/projet/Projet.tsx";
 const DEFAULT_STATUT_ID = 1;
 
 const ProjetPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("liste");
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
   const { api } = useAuth();
 
   // ── Services centralisés ────────────────────────────────────────────────
@@ -26,45 +27,12 @@ const ProjetPage: React.FC = () => {
   const avancementService = useMemo(() => new ProjetAvancementService(api),[api]);
 
   // ── État global partagé ─────────────────────────────────────────────────
-  const [projets,    setProjets]    = useState<Projet[]>([]);
-  const [statutMap,  setStatutMap]  = useState<Map<number, number>>(new Map());
+  const [projets,     setProjets]     = useState<Projet[]>([]);
+  const [statutMap,   setStatutMap]   = useState<Map<number, number>>(new Map());
   const [avancements, setAvancements] = useState<Map<number, ProjetAvancement>>(new Map());
-  const [loading,    setLoading]    = useState(true);
+  const [loading,     setLoading]     = useState(true);
 
-  // ── Chargement centralisé ───────────────────────────────────────────────
-  const loadProjets = useCallback(async () => {
-    try {
-      const data = await projetService.getAll();
-      setProjets(data);
-      return data;
-    } catch (err) {
-      console.error("Erreur chargement projets", err);
-      return [];
-    }
-  }, [projetService]);
-
-  const loadStatuts = useCallback(async (data: Projet[]) => {
-    try {
-      const courants = await statutService.getStatutsCourants();
-      const map = new Map<number, number>();
-      data.forEach(p => {
-        const id = p.idProjet ?? 0;
-        map.set(id, courants.get(id)?.id ?? DEFAULT_STATUT_ID);
-      });
-      setStatutMap(map);
-    } catch {}
-  }, [statutService]); 
-
-  const loadAvancements = useCallback(async () => {
-    try {
-      const data = await avancementService.getAll();
-      setAvancements(ProjetAvancementService.toMap(data));
-    } catch {
-      // silencieux
-    }
-  }, [avancementService]);
-
-  // Chargement initial — tout en parallèle
+  // ── Chargement initial — tout en parallèle ──────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -94,12 +62,8 @@ const ProjetPage: React.FC = () => {
 
   useEffect(() => { loadAll(); }, []);
 
-  // Callback appelé après création/édition d'un projet (depuis FormProjet)
-  const handleProjetSaved = useCallback(async () => {
-    await loadAll();
-  }, [loadAll]);
+  const handleProjetSaved = useCallback(async () => { await loadAll(); }, [loadAll]);
 
-  // Callback appelé quand le kanban déplace un projet
   const handleStatutChange = useCallback((projetId: number, newStatutId: number) => {
     setStatutMap(prev => new Map(prev).set(projetId, newStatutId));
   }, []);
@@ -131,6 +95,17 @@ const ProjetPage: React.FC = () => {
               mountOnEnter
               unmountOnExit={false}
             >
+              {/* ── Onglet Dashboard (nouveau) ── */}
+              <Tab eventKey="dashboard" title="Dashboard">
+                <DashboardProjet
+                  projets={projets}
+                  statutMap={statutMap}
+                  avancements={avancements}
+                  loading={loading}
+                />
+              </Tab>
+
+              {/* ── Onglet Liste ── */}
               <Tab eventKey="liste" title="Liste">
                 <ListeProjet
                   projets={projets}
@@ -141,6 +116,7 @@ const ProjetPage: React.FC = () => {
                 />
               </Tab>
 
+              {/* ── Onglet Kanban ── */}
               <Tab eventKey="kanban" title="Kanban">
                 <KanbanProjet
                   projets={projets}
