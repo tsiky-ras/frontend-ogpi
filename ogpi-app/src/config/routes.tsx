@@ -19,6 +19,7 @@ import {
   FaProjectDiagram,
   FaCalendarAlt,
   FaCalendarCheck,
+  FaArchive,
 } from "react-icons/fa";
 
 export const routes = [
@@ -62,6 +63,17 @@ export const routes = [
     label: "Calendrier",
     icon: <FaCalendarAlt />,
     path: "/calendrier/deadlines"
+  },
+  {
+    label: "Archive",
+    icon: <FaArchive />,
+    children: [
+      {
+        path: "/archive/projets",
+        label: "Archive Projet",
+        icon: <FaArchive />,
+      },
+    ],
   },
   {
     label: "Référentiels",
