@@ -5,6 +5,7 @@ import { ProfilHardSkill, ProfilSoftSkill } from "./Skills";
 import { UserProfil } from "./UserProfil";
 
 export interface Profil {
+  id:number;
   profil_id: number;
   matricule: string;
 

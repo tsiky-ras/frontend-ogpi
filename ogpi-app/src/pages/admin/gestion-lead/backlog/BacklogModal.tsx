@@ -1,41 +1,50 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Sortable from "sortablejs";
 
 import Button from "../../../../components/button/Button.tsx";
 import {
   FaPlus, FaSpinner, FaEdit, FaTrash, FaEye, FaArrowLeft,
   FaCalendar, FaChevronDown, FaChevronRight, FaRunning,
+  FaUser, FaTimes, FaSearch, FaFilter, FaCheck,
 } from "react-icons/fa";
-import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
+import { Modal, Form, Alert, Tabs, Tab, Badge } from "react-bootstrap";
 
 import "./BacklogModal.css";
-import { BacklogService }                   from "../../../../services/lead/backlog/BacklogService.tsx";
-import { BacklogProjetPhaseService }        from "../../../../services/projet/backlog/BacklogProjetPhaseService.tsx";
-import { BacklogLotService }                from "../../../../services/lead/backlog/BacklogLotService.tsx";
-import { BacklogPhaseService }              from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
-import { BacklogProfilService }             from "../../../../services/lead/backlog/BacklogProfilService.tsx";
-import { BacklogLineService }               from "../../../../services/lead/backlog/BacklogLineService.tsx";
-import { BacklogProjetLineProfilService }   from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
-import { useLeadTechFinDetailsService }     from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
-import { useAuth }                          from "../../../../context/AuthContext.tsx";
-import BacklogForm                          from "./BacklogForm.tsx";
-import PlanningTab                          from "./PlanningTab.tsx";
-import BudgetTab                            from "./BudgetTab.tsx";
-import ChargesAnnexesTab                    from "../../gestion-projet/tabs/ChargesAnnexesTab.tsx";
-import { ChargesAnnexesService }            from "../../../../services/projet/backlog/ChargesAnnexesService.tsx";
-import { BacklogPlanningService }           from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
+import { BacklogService }                         from "../../../../services/lead/backlog/BacklogService.tsx";
+import { BacklogProjetPhaseService }              from "../../../../services/projet/backlog/BacklogProjetPhaseService.tsx";
+import { BacklogLotService }                      from "../../../../services/lead/backlog/BacklogLotService.tsx";
+import { BacklogPhaseService }                    from "../../../../services/lead/backlog/BacklogPhaseService.tsx";
+import { BacklogProfilService }                   from "../../../../services/lead/backlog/BacklogProfilService.tsx";
+import { BacklogLineService }                     from "../../../../services/lead/backlog/BacklogLineService.tsx";
+import { BacklogProjetLineProfilService }         from "../../../../services/lead/backlog/BacklogLineProfilService.tsx";
+import { useLeadTechFinDetailsService }           from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
+import { BacklogProfilCollaborateurService }      from "../../../../services/lead/backlog/BacklogProfilCollaborateurService.tsx";
+import { useAuth }                                from "../../../../context/AuthContext.tsx";
+import BacklogForm                                from "./BacklogForm.tsx";
+import PlanningTab                                from "./PlanningTab.tsx";
+import BudgetTab                                  from "./BudgetTab.tsx";
+import ChargesAnnexesTab                          from "../../gestion-projet/tabs/ChargesAnnexesTab.tsx";
+import { ChargesAnnexesService }                  from "../../../../services/projet/backlog/ChargesAnnexesService.tsx";
+import { BacklogPlanningService }                 from "../../../../services/lead/backlog/BacklogPlanningService.tsx";
 
 import {
-  Backlog,
-  BacklogLot,
-  BacklogPhase,
-  BacklogSprint,
-  BacklogProfil,
-  BacklogLine,
-  BacklogLineProfil,
-  BacklogDeliverable,
-  CreateBacklogRequest,
+  Backlog, BacklogLot, BacklogPhase, BacklogSprint,
+  BacklogProfil, BacklogLine, BacklogLineProfil,
+  BacklogDeliverable, CreateBacklogRequest,
 } from "../../../../types/lead/Backlog/Backlog.tsx";
+
+// ─── Types collaborateur (adapté à l'API) ───────────────────────────────────
+interface Collaborateur {
+  id: number;
+  nom: string;
+  prenom: string;
+  appellation?: string;
+  profilPostes?: Array<{
+    poste: { id: number; label: string };
+    businessUnit: { id: number; name: string };
+    endDate?: string | null;
+  }>;
+}
 
 interface BacklogModalProps {
   show: boolean;
@@ -44,21 +53,31 @@ interface BacklogModalProps {
   leadName?: string;
 }
 
+// ─── Helpers pour afficher un collaborateur ──────────────────────────────────
+const getCollaborateurPoste = (c: Collaborateur): string => {
+  const active = c.profilPostes?.find(pp => !pp.endDate);
+  return active?.poste?.label || "—";
+};
+const getCollaborateurBU = (c: Collaborateur): string => {
+  const active = c.profilPostes?.find(pp => !pp.endDate);
+  return active?.businessUnit?.name || "—";
+};
+
 const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, leadName }) => {
   const { api } = useAuth();
 
   // ── Services ──────────────────────────────────────────────────────────────
-  const backlogService          = new BacklogService(api);
-  const backlogLotService       = new BacklogLotService(api);
-  const backlogPhaseService     = new BacklogPhaseService(api);
-  const backlogProfilService    = new BacklogProfilService(api);
-  const backlogLineService      = new BacklogLineService(api);
-  const backlogLineProfilService = new BacklogProjetLineProfilService(api);
-  const backlogPlanningService  = new BacklogPlanningService(api);
-  const leadTechFinService      = useLeadTechFinDetailsService();
-  const chargesAnnexesService   = new ChargesAnnexesService(api);
-  // Réutilisation du service projet pour sprints + livrables (même table/endpoints)
-  const phaseService            = new BacklogProjetPhaseService(api);
+  const backlogService              = new BacklogService(api);
+  const backlogLotService           = new BacklogLotService(api);
+  const backlogPhaseService         = new BacklogPhaseService(api);
+  const backlogProfilService        = new BacklogProfilService(api);
+  const backlogLineService          = new BacklogLineService(api);
+  const backlogLineProfilService    = new BacklogProjetLineProfilService(api);
+  const backlogPlanningService      = new BacklogPlanningService(api);
+  const leadTechFinService          = useLeadTechFinDetailsService();
+  const chargesAnnexesService       = new ChargesAnnexesService(api);
+  const phaseService                = new BacklogProjetPhaseService(api);
+  const collaborateurService        = new BacklogProfilCollaborateurService(api);
 
   // ── Liste des backlogs ────────────────────────────────────────────────────
   const [backlogs,          setBacklogs]          = useState<Backlog[]>([]);
@@ -72,12 +91,17 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [lines,       setLines]       = useState<BacklogLine[]>([]);
   const [lineProfils, setLineProfils] = useState<BacklogLineProfil[]>([]);
 
-  // Map sprintId → livrables
   const [sprintDeliverables, setSprintDeliverables] = useState<Map<number, BacklogDeliverable[]>>(new Map());
+  const [planningOverrides,  setPlanningOverrides]  = useState<Map<string, { heures: number }>>(new Map());
+  const [planningReady,      setPlanningReady]      = useState(false);
 
-  // ── Overrides planning ────────────────────────────────────────────────────
-  const [planningOverrides, setPlanningOverrides] = useState<Map<string, { heures: number }>>(new Map());
-  const [planningReady,     setPlanningReady]     = useState(false);
+  // ── Collaborateurs (pour lier aux profils) ────────────────────────────────
+  const [allCollaborateurs,       setAllCollaborateurs]       = useState<Collaborateur[]>([]);
+  const [showCollabModal,         setShowCollabModal]         = useState(false);
+  const [selectedBacklogProfilId, setSelectedBacklogProfilId] = useState<number | null>(null);
+  const [collabSearch,            setCollabSearch]            = useState("");
+  const [collabSearchType,        setCollabSearchType]        = useState<"name" | "poste">("name");
+  const [savingCollab,            setSavingCollab]            = useState(false);
 
   // ── Modaux ────────────────────────────────────────────────────────────────
   const [showLotModal,         setShowLotModal]         = useState(false);
@@ -110,9 +134,23 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [newPhase,       setNewPhase]       = useState({ name: "" });
   const [newSprint,      setNewSprint]      = useState({ name: "" });
   const [newProfil,      setNewProfil]      = useState({ name: "", desc: "", tjm: 0 });
-  const [newLine,        setNewLine]        = useState({ epic: "", userStory: "", description: "", resultat: "", sprintId: null as number | null });
+  const [newLine,        setNewLine]        = useState({
+    epic: "", userStory: "", description: "", resultat: "",
+    lotId: null as number | null,
+    phaseId: null as number | null,
+    sprintId: null as number | null,
+  });
   const [newLineProfil,  setNewLineProfil]  = useState({ volume: 0 });
   const [newDeliverable, setNewDeliverable] = useState({ name: "", description: "" });
+
+  // ── Filtre backlog ────────────────────────────────────────────────────────
+  const [filterLotId,    setFilterLotId]    = useState<number | null>(null);
+  const [filterPhaseId,  setFilterPhaseId]  = useState<number | null>(null);
+  const [filterSprintId, setFilterSprintId] = useState<number | null>(null);
+  const [appliedFilter,  setAppliedFilter]  = useState<{
+    lotId: number | null; phaseId: number | null; sprintId: number | null;
+  }>({ lotId: null, phaseId: null, sprintId: null });
+  const [showFilter,     setShowFilter]     = useState(false);
 
   // ── UI ────────────────────────────────────────────────────────────────────
   const [loading,             setLoading]             = useState(false);
@@ -121,7 +159,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [activeTab,           setActiveTab]           = useState<string>("backlog");
   const [expandedPhases,      setExpandedPhases]      = useState<Set<number>>(new Set());
   const [expandedSprints,     setExpandedSprints]     = useState<Set<number>>(new Set());
-  const [loadingDeliverables, setLoadingDeliverables] = useState<Set<number>>(new Set());
   const [deviseAbr,           setDeviseAbr]           = useState<string | null>(null);
   const [budgetRH,            setBudgetRH]            = useState<number>(0);
 
@@ -141,9 +178,133 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const getAllPhases  = (): BacklogPhase[]  => lots.flatMap(lot => lot.phases || []);
   const getAllSprints = (): BacklogSprint[] => getAllPhases().flatMap(p => p.sprints || []);
 
-  const getSprintNameById = (sprintId: number | null | undefined): string => {
+  const getLotForSprint = (sprintId: number | null | undefined): BacklogLot | undefined => {
+    if (!sprintId) return undefined;
+    return lots.find(lot => (lot.phases || []).some(p => (p.sprints || []).some(s => s.id === sprintId)));
+  };
+
+  const getPhaseForSprint = (sprintId: number | null | undefined): BacklogPhase | undefined => {
+    if (!sprintId) return undefined;
+    return getAllPhases().find(p => (p.sprints || []).some(s => s.id === sprintId));
+  };
+
+  const getSprintById = (sprintId: number | null | undefined): BacklogSprint | undefined => {
+    if (!sprintId) return undefined;
+    return getAllSprints().find(s => s.id === sprintId);
+  };
+
+  const getSprintFullLabel = (sprintId: number | null | undefined): string => {
     if (!sprintId) return "—";
-    return getAllSprints().find(s => s.id === sprintId)?.name || "—";
+    const lot    = getLotForSprint(sprintId);
+    const phase  = getPhaseForSprint(sprintId);
+    const sprint = getSprintById(sprintId);
+    if (!lot || !phase || !sprint) return "—";
+    return `${lot.name} › ${phase.name} › ${sprint.name}`;
+  };
+
+  // Phases filtrées selon le lot sélectionné dans le formulaire de ligne
+  const phasesForSelectedLot = newLine.lotId
+    ? (lots.find(l => l.id === newLine.lotId)?.phases || [])
+    : [];
+
+  // Sprints filtrés selon la phase sélectionnée dans le formulaire de ligne
+  const sprintsForSelectedPhase = newLine.phaseId
+    ? (phasesForSelectedLot.find(p => p.id === newLine.phaseId)?.sprints || [])
+    : [];
+
+  // Phases disponibles pour le filtre
+  const phasesForFilter = filterLotId
+    ? (lots.find(l => l.id === filterLotId)?.phases || [])
+    : getAllPhases();
+
+  const sprintsForFilter = filterPhaseId
+    ? (phasesForFilter.find(p => p.id === filterPhaseId)?.sprints || [])
+    : phasesForFilter.flatMap(p => p.sprints || []);
+
+  // Lignes filtrées selon les filtres appliqués
+  const filteredLines = lines.filter(line => {
+    const { lotId, phaseId, sprintId } = appliedFilter;
+    if (sprintId) return line.sprintId === sprintId;
+    if (phaseId) {
+      const phase = getPhaseForSprint(line.sprintId);
+      return phase?.id === phaseId;
+    }
+    if (lotId) {
+      const lot = getLotForSprint(line.sprintId);
+      return lot?.id === lotId;
+    }
+    return true;
+  });
+
+  const isFilterActive = appliedFilter.lotId !== null || appliedFilter.phaseId !== null || appliedFilter.sprintId !== null;
+
+  // ─── Collaborateur pour un BacklogProfil ────────────────────────────────
+  const getCollaborateurForProfil = (profilId: number): Collaborateur | undefined => {
+    const bp = profils.find(p => p.id === profilId);
+    const collabs = (bp as any)?.collaborateurs as Collaborateur[] | undefined;
+    return collabs?.[0];
+  };
+
+  // ─── Recherche de collaborateurs ─────────────────────────────────────────
+  const filteredCollaborateurs = allCollaborateurs.filter(c => {
+    if (!collabSearch.trim()) return true;
+    const q = collabSearch.toLowerCase().trim();
+    if (collabSearchType === "name") {
+      return `${c.nom} ${c.prenom}`.toLowerCase().includes(q) ||
+             `${c.prenom} ${c.nom}`.toLowerCase().includes(q);
+    } else {
+      const poste = getCollaborateurPoste(c).toLowerCase();
+      const bu    = getCollaborateurBU(c).toLowerCase();
+      return poste.includes(q) || bu.includes(q);
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FETCH COLLABORATEURS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const fetchCollaborateurs = async () => {
+    try {
+      const res = await api.get("/profils/all");
+      setAllCollaborateurs(res.data || []);
+    } catch (err) {
+      console.error("Erreur chargement collaborateurs:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (show) fetchCollaborateurs();
+  }, [show]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AFFECTER UN COLLABORATEUR À UN BACKLOG PROFIL
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const openCollabModal = (backlogProfilId: number) => {
+    setSelectedBacklogProfilId(backlogProfilId);
+    setCollabSearch("");
+    setCollabSearchType("name");
+    setShowCollabModal(true);
+  };
+
+  const handleSelectCollaborateur = async (collaborateur: Collaborateur) => {
+    if (!selectedBacklogProfilId) return;
+    setSavingCollab(true);
+    try {
+      await collaborateurService.replaceCollaborateur(selectedBacklogProfilId, collaborateur.id);
+      // Mettre à jour localement le collaborateur dans la liste des profils
+      setProfils(prev => prev.map(p => {
+        if (p.id !== selectedBacklogProfilId) return p;
+        return { ...p, collaborateurs: [collaborateur] } as any;
+      }));
+      setShowCollabModal(false);
+      setSelectedBacklogProfilId(null);
+    } catch (err) {
+      console.error("Erreur affectation collaborateur:", err);
+      alert("Impossible d'affecter le collaborateur.");
+    } finally {
+      setSavingCollab(false);
+    }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -214,51 +375,37 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const fetchBacklog = async () => {
     if (!selectedBacklogId) return;
     setPlanningReady(false);
-
     try {
       setLoading(true);
       setError(null);
-
       const fetchedBacklog = await backlogService.getCompleteById(selectedBacklogId);
       setBacklog(fetchedBacklog);
-
       const sortedLots    = [...(fetchedBacklog.lots    || [])].sort((a, b) => a.order - b.order);
       const sortedProfils = [...(fetchedBacklog.profils || [])].sort((a, b) => a.order - b.order);
       const sortedLines   = [...(fetchedBacklog.lines   || [])].sort((a, b) => a.order - b.order);
-
       setLots(sortedLots);
       setProfils(sortedProfils);
       setLines(sortedLines);
-
       const allLineProfils: BacklogLineProfil[] = [];
       sortedLines.forEach(line => {
         if (line.profils?.length) {
-          line.profils.forEach(lp => {
-            allLineProfils.push({ ...lp, lineId: line.id });
-          });
+          line.profils.forEach(lp => { allLineProfils.push({ ...lp, lineId: line.id }); });
         }
       });
       setLineProfils(allLineProfils);
-
-      // ── Livrables par sprint (depuis les données déjà chargées) ─────────
       const delivMap = new Map<number, BacklogDeliverable[]>();
       const allPhases = sortedLots.flatMap(lot => lot.phases || []);
       for (const phase of allPhases) {
         for (const sprint of phase.sprints || []) {
-          const sorted = [...(sprint.deliverables || [])].sort(
-            (a, b) => (a.order ?? 0) - (b.order ?? 0)
-          );
+          const sorted = [...(sprint.deliverables || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
           delivMap.set(sprint.id, sorted);
         }
       }
       setSprintDeliverables(delivMap);
-
     } catch (err) {
       console.error(err);
       setError("Impossible de charger le backlog. Veuillez réessayer.");
     }
-
-    // ── Planning overrides ────────────────────────────────────────────────
     try {
       const hasChanges = await backlogPlanningService.hasPlanning(selectedBacklogId);
       if (hasChanges) {
@@ -293,6 +440,10 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     setSprintDeliverables(new Map());
     setPlanningOverrides(new Map());
     setPlanningReady(false);
+    setAppliedFilter({ lotId: null, phaseId: null, sprintId: null });
+    setFilterLotId(null);
+    setFilterPhaseId(null);
+    setFilterSprintId(null);
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -321,7 +472,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   }, [lines, loading, show, selectedBacklogId]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SORTABLE — LOTS
+  // SORTABLE — LOTS / PROFILS / PHASES
   // ═══════════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
@@ -343,10 +494,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     return () => { sortableInstance.current?.destroy(); sortableInstance.current = null; };
   }, [lots, loading, show, selectedBacklogId]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SORTABLE — PROFILS
-  // ═══════════════════════════════════════════════════════════════════════════
-
   useEffect(() => {
     if (!profilListRef.current || profilSortableInstance.current || profils.length === 0 || !show || !selectedBacklogId) return;
     profilSortableInstance.current = Sortable.create(profilListRef.current, {
@@ -365,10 +512,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     });
     return () => { profilSortableInstance.current?.destroy(); profilSortableInstance.current = null; };
   }, [profils, loading, show, selectedBacklogId]);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SORTABLE — PHASES
-  // ═══════════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
     if (!show || !selectedBacklogId) return;
@@ -491,7 +634,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SPRINT ACTIONS  (via BacklogProjetPhaseService — même table)
+  // SPRINT ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
   const openAddSprint  = (phaseId: number) => { setCurrentPhaseId(phaseId); setEditingSprint(null); setNewSprint({ name: "" }); setShowSprintModal(true); };
@@ -507,14 +650,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         setLots(lots.map(lot => ({
           ...lot,
           phases: lot.phases?.map(phase => phase.id === currentPhaseId
-            ? { 
-                ...phase, 
-                sprints: phase.sprints?.map(s => s.id === editingSprint.id ? { 
-                  ...s, 
-                  ...updated,
-                  deliverables: s.deliverables // Preserve existing deliverables to avoid type mismatch
-                } : s) 
-              }
+            ? { ...phase, sprints: phase.sprints?.map(s => s.id === editingSprint.id ? { ...s, ...updated, deliverables: s.deliverables } : s) }
             : phase),
         })));
       } else {
@@ -527,7 +663,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
             ? { ...phase, sprints: [...(phase.sprints || []), { ...created, deliverables: [] }] }
             : phase),
         })));
-        // Initialiser la map de livrables pour ce sprint
         setSprintDeliverables(prev => new Map(prev).set(created.id, []));
       }
       setShowSprintModal(false); setEditingSprint(null); setNewSprint({ name: "" }); setCurrentPhaseId(null);
@@ -559,7 +694,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DELIVERABLE ACTIONS  (via BacklogProjetPhaseService — même table)
+  // DELIVERABLE ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
   const openAddDeliverable = (sprintId: number, phaseId: number) => {
@@ -580,41 +715,21 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     setSaving(true);
     try {
       if (editingDeliverable) {
-        const updated = await phaseService.updateDeliverable(editingDeliverable.id, {
-          name: newDeliverable.name,
-          description: newDeliverable.description,
-        });
+        const updated = await phaseService.updateDeliverable(editingDeliverable.id, { name: newDeliverable.name, description: newDeliverable.description });
         setSprintDeliverables(prev => {
           const next = new Map(prev);
-          const updatedList = (next.get(currentSprintId) || []).map(d => 
-            d.id === editingDeliverable.id ? { 
-              ...updated, 
-              description: updated.description ?? "",
-              phaseId: updated.phaseId ?? 0,
-              sprintId: updated.sprintId ?? 0,
-              deliveryDate: updated.deliveryDate ?? null
-            } as BacklogDeliverable : d
+          const updatedList = (next.get(currentSprintId) || []).map(d =>
+            d.id === editingDeliverable.id ? { ...updated, description: updated.description ?? "", phaseId: updated.phaseId ?? 0, sprintId: updated.sprintId ?? 0, deliveryDate: updated.deliveryDate ?? null } as BacklogDeliverable : d
           );
           next.set(currentSprintId, updatedList);
           return next;
         });
       } else {
         const existing = sprintDeliverables.get(currentSprintId) || [];
-        const created  = await phaseService.createDeliverable({
-          name: newDeliverable.name,
-          description: newDeliverable.description,
-          phaseId: currentPhaseId,
-          sprintId: currentSprintId,
-          order: existing.length + 1,
-        });
+        const created  = await phaseService.createDeliverable({ name: newDeliverable.name, description: newDeliverable.description, phaseId: currentPhaseId, sprintId: currentSprintId, order: existing.length + 1 });
         setSprintDeliverables(prev => {
           const next = new Map(prev);
-          const newDeliv: BacklogDeliverable = {
-            ...created,
-            description: created.description ?? "",
-            phaseId: created.phaseId ?? 0,
-            sprintId: created.sprintId ?? 0
-          };
+          const newDeliv: BacklogDeliverable = { ...created, description: created.description ?? "", phaseId: created.phaseId ?? 0, sprintId: created.sprintId ?? 0 };
           next.set(currentSprintId, [...(next.get(currentSprintId) || []), newDeliv]);
           return next;
         });
@@ -678,12 +793,27 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   // LINE ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const openAddLine  = () => { setEditingLine(null); setNewLine({ epic: "", userStory: "", description: "", resultat: "", sprintId: null }); setShowLineModal(true); };
-  const openEditLine = (line: BacklogLine) => { setEditingLine(line); setNewLine({ epic: line.epic || "", userStory: line.userStory || "", description: line.description || "", resultat: line.resultat || "", sprintId: line.sprintId ?? null }); setShowLineModal(true); };
+  const openAddLine = () => {
+    setEditingLine(null);
+    setNewLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null });
+    setShowLineModal(true);
+  };
+
+  const openEditLine = (line: BacklogLine) => {
+    setEditingLine(line);
+    const sprintId = line.sprintId ?? null;
+    const lot      = getLotForSprint(sprintId);
+    const phase    = getPhaseForSprint(sprintId);
+    setNewLine({
+      epic: line.epic || "", userStory: line.userStory || "",
+      description: line.description || "", resultat: line.resultat || "",
+      lotId: lot?.id ?? null, phaseId: phase?.id ?? null, sprintId,
+    });
+    setShowLineModal(true);
+  };
 
   const saveLine = async () => {
     if (!newLine.sprintId) { alert("Le sprint est requis"); return; }
-    // Récupérer le phaseId depuis le sprint sélectionné
     const sprint = getAllSprints().find(s => s.id === newLine.sprintId);
     if (!sprint) { alert("Sprint introuvable"); return; }
     setSaving(true);
@@ -702,7 +832,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         });
         setLines([...lines, created]);
       }
-      setShowLineModal(false); setEditingLine(null); setNewLine({ epic: "", userStory: "", description: "", resultat: "", sprintId: null });
+      setShowLineModal(false); setEditingLine(null);
+      setNewLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null });
     } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
     finally { setSaving(false); }
   };
@@ -783,6 +914,20 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // FILTRE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const applyFilter = () => {
+    setAppliedFilter({ lotId: filterLotId, phaseId: filterPhaseId, sprintId: filterSprintId });
+    setShowFilter(false);
+  };
+
+  const clearFilter = () => {
+    setFilterLotId(null); setFilterPhaseId(null); setFilterSprintId(null);
+    setAppliedFilter({ lotId: null, phaseId: null, sprintId: null });
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -858,7 +1003,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                   </div>
                 ) : (
                   <>
-                    {/* Totaux par profil */}
+                    {/* ── Totaux par profil ── */}
                     <div className="card mb-4">
                       <div className="card-header"><h5 className="mb-0">Totaux par profil</h5></div>
                       <div className="card-body">
@@ -888,7 +1033,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                       </div>
                     </div>
 
-                    {/* Totaux par lot et phase */}
+                    {/* ── Totaux par lot et phase ── */}
                     <div className="card mb-4">
                       <div className="card-header"><h5 className="mb-0">Totaux par lot et phase</h5></div>
                       <div className="card-body">
@@ -917,47 +1062,165 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                       </div>
                     </div>
 
-                    <div className="d-flex justify-content-end mb-3">
+                    {/* ── Barre d'actions + Filtre ── */}
+                    <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <button
+                          className={`btn btn-sm ${isFilterActive ? 'btn-warning' : 'btn-outline-secondary'} d-flex align-items-center gap-1`}
+                          onClick={() => setShowFilter(!showFilter)}
+                        >
+                          <FaFilter />
+                          Filtres
+                          {isFilterActive && <span className="badge bg-dark ms-1">{[appliedFilter.lotId, appliedFilter.phaseId, appliedFilter.sprintId].filter(Boolean).length}</span>}
+                        </button>
+                        {isFilterActive && (
+                          <button className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1" onClick={clearFilter}>
+                            <FaTimes /> Effacer
+                          </button>
+                        )}
+                        {isFilterActive && (
+                          <span className="text-muted small">
+                            {filteredLines.length} / {lines.length} ligne{lines.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                       <Button label="Ajouter une ligne" icon={<FaPlus />} onClick={openAddLine} />
                     </div>
 
-                    {/* Tableau des lignes */}
-                    <div className="table-responsive">
+                    {/* ── Panneau de filtres ── */}
+                    {showFilter && (
+                      <div className="filter-panel mb-3 p-3 border rounded" style={{ background: '#fff', borderColor: '#e5e7eb', boxShadow: '0 2px 8px rgba(34,58,70,0.07)' }}>
+                        <div className="row g-2 align-items-end">
+                          <div className="col-md-3">
+                            <label className="form-label fw-semibold small text-uppercase" style={{ color: 'var(--charcoal-blue)', letterSpacing: '0.5px' }}>Lot</label>
+                            <Form.Select size="sm" value={filterLotId ?? ""} onChange={e => {
+                              const val = e.target.value ? parseInt(e.target.value) : null;
+                              setFilterLotId(val);
+                              setFilterPhaseId(null);
+                              setFilterSprintId(null);
+                            }}>
+                              <option value="">Tous les lots</option>
+                              {lots.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                            </Form.Select>
+                          </div>
+                          <div className="col-md-3">
+                            <label className="form-label fw-semibold small text-uppercase" style={{ color: 'var(--charcoal-blue)', letterSpacing: '0.5px' }}>Phase</label>
+                            <Form.Select size="sm" value={filterPhaseId ?? ""} onChange={e => {
+                              const val = e.target.value ? parseInt(e.target.value) : null;
+                              setFilterPhaseId(val);
+                              setFilterSprintId(null);
+                            }} disabled={!filterLotId && phasesForFilter.length === 0}>
+                              <option value="">Toutes les phases</option>
+                              {phasesForFilter.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </Form.Select>
+                          </div>
+                          <div className="col-md-3">
+                            <label className="form-label fw-semibold small text-uppercase" style={{ color: 'var(--charcoal-blue)', letterSpacing: '0.5px' }}>Sprint</label>
+                            <Form.Select size="sm" value={filterSprintId ?? ""} onChange={e => {
+                              setFilterSprintId(e.target.value ? parseInt(e.target.value) : null);
+                            }}>
+                              <option value="">Tous les sprints</option>
+                              {sprintsForFilter.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </Form.Select>
+                          </div>
+                          <div className="col-md-3 d-flex gap-2">
+                            <button
+                              className="btn btn-sm btn-primary flex-fill d-flex align-items-center justify-content-center gap-1"
+                              style={{ background: 'var(--charcoal-blue)', borderColor: 'var(--charcoal-blue)' }}
+                              onClick={applyFilter}
+                            >
+                              <FaCheck /> Appliquer
+                            </button>
+                            <button className="btn btn-sm btn-outline-secondary flex-fill" onClick={() => setShowFilter(false)}>
+                              Fermer
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Tableau des lignes ── */}
+                    <div className="table-responsive backlog-table-wrapper">
                       <table className="table table-bordered backlog-table">
                         <thead>
                           <tr>
                             <th style={{ width: '30px' }}></th>
-                            <th style={{ width: '50px' }}>Ordre</th>
-                            <th style={{ width: '120px' }}>Sprint</th>
-                            <th style={{ width: '150px' }}>Epic</th>
-                            <th style={{ width: '150px' }}>User Story</th>
-                            <th style={{ width: '200px' }}>Description</th>
-                            <th style={{ width: '200px' }}>Détails</th>
-                            {profils.map(profil => <th key={profil.id} style={{ width: '100px' }}>{profil.name}</th>)}
-                            <th style={{ width: '120px' }}>Actions</th>
+                            <th style={{ width: '40px' }}>#</th>
+                            {/* Colonne Sprint élargie pour afficher lot > phase > sprint */}
+                            <th style={{ minWidth: '220px' }}>Lot › Phase › Sprint</th>
+                            <th style={{ minWidth: '130px' }}>Epic</th>
+                            <th style={{ minWidth: '160px' }}>User Story</th>
+                            <th style={{ minWidth: '180px' }}>Description</th>
+                            <th style={{ minWidth: '180px' }}>Détails</th>
+                            {/* Colonnes profil avec sous-header collaborateur */}
+                            {profils.map((profil, idx) => {
+                              const collab = getCollaborateurForProfil(profil.id);
+                              return (
+                                <th
+                                  key={profil.id}
+                                  className={`profil-col-header profil-col-${idx % 4}`}
+                                  style={{ minWidth: '120px', textAlign: 'center' }}
+                                >
+                                  <div className="profil-th-name">{profil.name}</div>
+                                  {collab && (
+                                    <div className="profil-th-collab">
+                                      <FaUser size={10} className="me-1" />
+                                      {collab.prenom} {collab.nom}
+                                    </div>
+                                  )}
+                                  <div className="profil-th-tjm">{profil.tjm.toFixed(0)} / j</div>
+                                </th>
+                              );
+                            })}
+                            <th style={{ width: '100px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody ref={lineTableBodyRef}>
-                          {lines.length === 0 ? (
+                          {filteredLines.length === 0 ? (
                             <tr className="sortable-empty-row">
-                              <td colSpan={8 + profils.length} className="text-center text-muted">
-                                Aucune ligne pour le moment. Cliquez sur "Ajouter une ligne" pour commencer.
+                              <td colSpan={8 + profils.length} className="text-center text-muted py-4">
+                                {isFilterActive
+                                  ? "Aucune ligne ne correspond aux filtres sélectionnés."
+                                  : 'Aucune ligne pour le moment. Cliquez sur "Ajouter une ligne" pour commencer.'}
                               </td>
                             </tr>
-                          ) : lines.map(line => (
+                          ) : filteredLines.map(line => (
                             <tr key={line.id}>
-                              <td className="line-drag-handle" style={{ cursor: 'grab', userSelect: 'none', textAlign: 'center', color: '#aaa' }}>⋮⋮</td>
-                              <td className="text-center">{line.order}</td>
-                              <td>{getSprintNameById(line.sprintId)}</td>
+                              <td className="line-drag-handle" style={{ cursor: 'grab', textAlign: 'center', color: '#aaa' }}>⋮⋮</td>
+                              <td className="text-center" style={{ fontWeight: 600, color: 'var(--tomato-jam)' }}>{line.order}</td>
+                              {/* Colonne Lot › Phase › Sprint */}
+                              <td className="sprint-breadcrumb-cell">
+                                {(() => {
+                                  const lot   = getLotForSprint(line.sprintId);
+                                  const phase = getPhaseForSprint(line.sprintId);
+                                  const sprint = getSprintById(line.sprintId);
+                                  if (!lot && !phase && !sprint) return <span className="text-muted">—</span>;
+                                  return (
+                                    <div className="sprint-breadcrumb">
+                                      {lot && <span className="bc-lot">{lot.name}</span>}
+                                      {lot && phase && <span className="bc-sep">›</span>}
+                                      {phase && <span className="bc-phase">{phase.name}</span>}
+                                      {phase && sprint && <span className="bc-sep">›</span>}
+                                      {sprint && <span className="bc-sprint"><FaRunning size={10} className="me-1" />{sprint.name}</span>}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
                               <td>{line.epic || "—"}</td>
                               <td>{line.userStory || "—"}</td>
                               <td>{line.description || "—"}</td>
                               <td>{line.resultat || "—"}</td>
-                              {profils.map(profil => (
-                                <td key={profil.id} className="text-center backlog-profil-cell"
+                              {profils.map((profil, idx) => (
+                                <td
+                                  key={profil.id}
+                                  className={`text-center backlog-profil-cell profil-cell-${idx % 4}`}
                                   onClick={() => openLineProfilModal(line.id, profil.id)}
-                                  style={{ cursor: 'pointer' }} title="Cliquez pour modifier le volume">
-                                  {getLineProfilVolume(line.id, profil.id)}
+                                  style={{ cursor: 'pointer' }}
+                                  title="Cliquez pour modifier le volume"
+                                >
+                                  <span className="profil-volume-badge">
+                                    {getLineProfilVolume(line.id, profil.id) || "—"}
+                                  </span>
                                 </td>
                               ))}
                               <td>
@@ -984,7 +1247,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     <div className="d-flex justify-content-end mb-3">
                       <Button label="Ajouter un lot" icon={<FaPlus />} onClick={openAddLot} />
                     </div>
-
                     <div className="backlog-list" ref={listRef}>
                       {lots.length === 0 ? (
                         <div className="text-muted py-3 text-center">Aucun lot. Cliquez sur "Ajouter un lot" pour commencer.</div>
@@ -994,45 +1256,32 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                           <div className="backlog-content">
                             <div className="backlog-title"><span className="backlog-order">{lot.order}. </span>{lot.name}</div>
                             <div className="backlog-desc">{lot.desc || "—"}</div>
-
-                            {/* ── Phases ── */}
                             <div className="phases-section mt-3">
                               <div className="phases-header d-flex justify-content-between align-items-center mb-2">
                                 <strong>Phases :</strong>
                                 <Button label="Ajouter une phase" variant="secondary" icon={<FaPlus />} onClick={() => openAddPhase(lot.id)} />
                               </div>
-
                               {lot.phases && lot.phases.length > 0 ? (
                                 <div className="phases-list-sortable">
                                   {[...lot.phases].sort((a, b) => a.order - b.order).map(phase => (
                                     <div key={phase.id} className="phase-item" data-phase-id={phase.id}>
                                       <div className="phase-drag-handle">⋮⋮</div>
                                       <div className="phase-content">
-
-                                        {/* En-tête de phase */}
                                         <div className="d-flex justify-content-between align-items-center mb-2">
-                                          <span
-                                            className="phase-toggle d-inline-flex align-items-center phase-clickable"
-                                            onClick={() => togglePhase(phase.id)}
-                                            style={{ cursor: 'pointer', gap: '6px' }}
-                                          >
+                                          <span className="phase-toggle d-inline-flex align-items-center phase-clickable" onClick={() => togglePhase(phase.id)} style={{ cursor: 'pointer', gap: '6px' }}>
                                             {expandedPhases.has(phase.id) ? <FaChevronDown /> : <FaChevronRight />}
                                             <span className="phase-order">{phase.order}.&nbsp;</span>
                                             <span className="phase-name">{phase.name}</span>
-                                            <span className="badge bg-secondary ms-2">
-                                              {phase.sprints?.length ?? 0} sprint{(phase.sprints?.length ?? 0) > 1 ? 's' : ''}
-                                            </span>
+                                            <span className="badge bg-secondary ms-2">{phase.sprints?.length ?? 0} sprint{(phase.sprints?.length ?? 0) > 1 ? 's' : ''}</span>
                                           </span>
                                           <div className="phase-actions">
                                             <button className="btn btn-sm btn-primary me-1" onClick={e => { e.stopPropagation(); openAddSprint(phase.id); }} title="Ajouter un sprint">
                                               <FaRunning className="me-1" />Sprint
                                             </button>
-                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); openEditPhase(phase, lot.id); }} title="Modifier la phase"><FaEdit /></button>
-                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); deletePhase(phase.id, lot.id); }} title="Supprimer la phase"><FaTrash /></button>
+                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); openEditPhase(phase, lot.id); }}><FaEdit /></button>
+                                            <button className="btn-icon" onClick={e => { e.stopPropagation(); deletePhase(phase.id, lot.id); }}><FaTrash /></button>
                                           </div>
                                         </div>
-
-                                        {/* ── Sprints (dépliés) ── */}
                                         {expandedPhases.has(phase.id) && (
                                           <div className="sprints-section mt-2 ms-3">
                                             {!phase.sprints || phase.sprints.length === 0 ? (
@@ -1040,14 +1289,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                             ) : (
                                               [...phase.sprints].sort((a, b) => a.order - b.order).map(sprint => (
                                                 <div key={sprint.id} className="sprint-item mb-2 border rounded p-2" style={{ background: '#f0f4ff' }}>
-
-                                                  {/* En-tête de sprint */}
                                                   <div className="d-flex justify-content-between align-items-center">
-                                                    <span
-                                                      className="d-inline-flex align-items-center"
-                                                      style={{ cursor: 'pointer', gap: '6px', fontWeight: 500 }}
-                                                      onClick={() => toggleSprint(sprint.id)}
-                                                    >
+                                                    <span className="d-inline-flex align-items-center" style={{ cursor: 'pointer', gap: '6px', fontWeight: 500 }} onClick={() => toggleSprint(sprint.id)}>
                                                       {expandedSprints.has(sprint.id) ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
                                                       <FaRunning size={13} className="text-primary" />
                                                       {sprint.order}. {sprint.name}
@@ -1056,39 +1299,33 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                                       </span>
                                                     </span>
                                                     <div className="d-flex gap-1">
-                                                      <button className="btn btn-sm btn-success" onClick={e => { e.stopPropagation(); openAddDeliverable(sprint.id, phase.id); }} title="Ajouter un livrable">
-                                                        <FaCalendar className="me-1" />Livrable
-                                                      </button>
-                                                      <button className="btn-icon" onClick={() => openEditSprint(sprint)} title="Modifier le sprint"><FaEdit /></button>
-                                                      <button className="btn-icon" onClick={() => deleteSprint(sprint.id, phase.id)} title="Supprimer le sprint"><FaTrash /></button>
+                                                      <button className="btn btn-sm btn-success" onClick={e => { e.stopPropagation(); openAddDeliverable(sprint.id, phase.id); }}><FaCalendar className="me-1" />Livrable</button>
+                                                      <button className="btn-icon" onClick={() => openEditSprint(sprint)}><FaEdit /></button>
+                                                      <button className="btn-icon" onClick={() => deleteSprint(sprint.id, phase.id)}><FaTrash /></button>
                                                     </div>
                                                   </div>
-
-                                                  {/* Livrables du sprint */}
                                                   {expandedSprints.has(sprint.id) && (
                                                     <div className="deliverables-section mt-2 ms-3">
                                                       {(sprintDeliverables.get(sprint.id)?.length ?? 0) === 0 ? (
                                                         <div className="text-muted small">Aucun livrable pour ce sprint.</div>
                                                       ) : (
-                                                        sprintDeliverables.get(sprint.id)!
-                                                          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                                                          .map(deliverable => (
-                                                            <div key={deliverable.id} className="deliverable-item">
-                                                              <div className="deliverable-content">
-                                                                <div className="d-flex justify-content-between align-items-start">
-                                                                  <div>
-                                                                    <strong>{deliverable.name}</strong>
-                                                                    {deliverable.description && <div className="text-muted small mt-1">{deliverable.description}</div>}
-                                                                    {deliverable.isDelivered && <span className="badge bg-success ms-1" style={{ fontSize: '0.65rem' }}>Livré</span>}
-                                                                  </div>
-                                                                  <div className="deliverable-actions">
-                                                                    <button className="btn-icon" onClick={() => openEditDeliverable(deliverable, sprint.id, phase.id)}><FaEdit /></button>
-                                                                    <button className="btn-icon" onClick={() => deleteDeliverable(deliverable.id, sprint.id)}><FaTrash /></button>
-                                                                  </div>
+                                                        sprintDeliverables.get(sprint.id)!.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(deliverable => (
+                                                          <div key={deliverable.id} className="deliverable-item">
+                                                            <div className="deliverable-content">
+                                                              <div className="d-flex justify-content-between align-items-start">
+                                                                <div>
+                                                                  <strong>{deliverable.name}</strong>
+                                                                  {deliverable.description && <div className="text-muted small mt-1">{deliverable.description}</div>}
+                                                                  {deliverable.isDelivered && <span className="badge bg-success ms-1" style={{ fontSize: '0.65rem' }}>Livré</span>}
+                                                                </div>
+                                                                <div className="deliverable-actions">
+                                                                  <button className="btn-icon" onClick={() => openEditDeliverable(deliverable, sprint.id, phase.id)}><FaEdit /></button>
+                                                                  <button className="btn-icon" onClick={() => deleteDeliverable(deliverable.id, sprint.id)}><FaTrash /></button>
                                                                 </div>
                                                               </div>
                                                             </div>
-                                                          ))
+                                                          </div>
+                                                        ))
                                                       )}
                                                     </div>
                                                   )}
@@ -1106,7 +1343,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                               )}
                             </div>
                           </div>
-
                           <div className="backlog-actions">
                             <Button label="Modifier" variant="secondary" onClick={() => openEditLot(lot)} />
                             <Button label="Supprimer" variant="outline" onClick={() => deleteLot(lot.id)} />
@@ -1130,20 +1366,48 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     <div className="profil-list" ref={profilListRef}>
                       {profils.length === 0 ? (
                         <div className="text-muted py-3 text-center">Aucun profil. Cliquez sur "Ajouter un profil" pour commencer.</div>
-                      ) : profils.map(profil => (
-                        <div key={profil.id} className="backlog-item">
-                          <div className="drag-handle-profil">⋮⋮</div>
-                          <div className="backlog-content">
-                            <div className="backlog-title"><span className="backlog-order">{profil.order}. </span>{profil.name}</div>
-                            <div className="backlog-desc">{profil.desc || "—"}</div>
-                            <div className="profil-tjm mt-2"><strong>TJM:</strong> {profil.tjm.toFixed(2)}</div>
+                      ) : profils.map(profil => {
+                        const collab = getCollaborateurForProfil(profil.id);
+                        return (
+                          <div key={profil.id} className="backlog-item">
+                            <div className="drag-handle-profil">⋮⋮</div>
+                            <div className="backlog-content">
+                              <div className="backlog-title"><span className="backlog-order">{profil.order}. </span>{profil.name}</div>
+                              <div className="backlog-desc">{profil.desc || "—"}</div>
+                              <div className="profil-tjm mt-2"><strong>TJM:</strong> {profil.tjm.toFixed(2)}</div>
+                              {/* Collaborateur affecté */}
+                              <div className="profil-collab-section mt-2">
+                                {collab ? (
+                                  <div className="profil-collab-badge">
+                                    <FaUser className="me-1" />
+                                    <span>{collab.prenom} {collab.nom}</span>
+                                    <span className="profil-collab-poste">{getCollaborateurPoste(collab)} · {getCollaborateurBU(collab)}</span>
+                                    <button
+                                      className="profil-collab-change-btn"
+                                      onClick={() => openCollabModal(profil.id)}
+                                      title="Changer le collaborateur"
+                                    >
+                                      <FaEdit size={11} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="profil-assign-btn"
+                                    onClick={() => openCollabModal(profil.id)}
+                                  >
+                                    <FaUser className="me-1" size={12} />
+                                    Affecter un collaborateur
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="backlog-actions">
+                              <Button label="Modifier" variant="secondary" onClick={() => openEditProfil(profil)} />
+                              <Button label="Supprimer" variant="outline" onClick={() => deleteProfil(profil.id)} />
+                            </div>
                           </div>
-                          <div className="backlog-actions">
-                            <Button label="Modifier" variant="secondary" onClick={() => openEditProfil(profil)} />
-                            <Button label="Supprimer" variant="outline" onClick={() => deleteProfil(profil.id)} />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -1171,7 +1435,6 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     deliverables={sprintDeliverables}
                     selectedBacklogId={selectedBacklogId}
                     planningService={backlogPlanningService}
-                    // initialOverrides={planningOverrides}
                     datedebutPlanning={backlog?.dateDebutPlanning}
                     api={api}
                   />
@@ -1318,24 +1581,73 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         </Modal.Footer>
       </Modal>
 
-      {/* Ligne */}
+      {/* Ligne — sélection en cascade Lot › Phase › Sprint */}
       <Modal show={showLineModal} onHide={() => !saving && setShowLineModal(false)} centered size="lg">
         <Modal.Header closeButton><Modal.Title>{editingLine ? "Modifier la ligne" : "Ajouter une ligne"}</Modal.Title></Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Sprint *</Form.Label>
-              <Form.Select value={newLine.sprintId || ""} onChange={e => setNewLine({ ...newLine, sprintId: e.target.value ? parseInt(e.target.value) : null })} disabled={saving}>
-                <option value="">Sélectionnez un sprint</option>
-                {getAllPhases().map(phase => (
-                  <optgroup key={phase.id} label={phase.name}>
-                    {(phase.sprints || []).map(sprint => (
-                      <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </Form.Select>
-            </Form.Group>
+            {/* ── Cascade Lot > Phase > Sprint ── */}
+            <div className="cascade-selector mb-3">
+              <div className="cascade-selector-label">Affectation sprint *</div>
+              <div className="row g-2">
+                <div className="col-md-4">
+                  <Form.Label className="small fw-semibold text-uppercase" style={{ color: 'var(--charcoal-blue)', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                    Lot
+                  </Form.Label>
+                  <Form.Select
+                    value={newLine.lotId ?? ""}
+                    onChange={e => {
+                      const val = e.target.value ? parseInt(e.target.value) : null;
+                      setNewLine({ ...newLine, lotId: val, phaseId: null, sprintId: null });
+                    }}
+                    disabled={saving}
+                    className="cascade-select"
+                  >
+                    <option value="">— Choisir un lot —</option>
+                    {lots.map(l => <option key={l.id} value={l.id}>{l.order}. {l.name}</option>)}
+                  </Form.Select>
+                </div>
+                <div className="col-md-4">
+                  <Form.Label className="small fw-semibold text-uppercase" style={{ color: 'var(--charcoal-blue)', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                    Phase
+                  </Form.Label>
+                  <Form.Select
+                    value={newLine.phaseId ?? ""}
+                    onChange={e => {
+                      const val = e.target.value ? parseInt(e.target.value) : null;
+                      setNewLine({ ...newLine, phaseId: val, sprintId: null });
+                    }}
+                    disabled={saving || !newLine.lotId}
+                    className="cascade-select"
+                  >
+                    <option value="">— Choisir une phase —</option>
+                    {phasesForSelectedLot.map(p => <option key={p.id} value={p.id}>{p.order}. {p.name}</option>)}
+                  </Form.Select>
+                </div>
+                <div className="col-md-4">
+                  <Form.Label className="small fw-semibold text-uppercase" style={{ color: 'var(--charcoal-blue)', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                    Sprint
+                  </Form.Label>
+                  <Form.Select
+                    value={newLine.sprintId ?? ""}
+                    onChange={e => setNewLine({ ...newLine, sprintId: e.target.value ? parseInt(e.target.value) : null })}
+                    disabled={saving || !newLine.phaseId}
+                    className="cascade-select"
+                  >
+                    <option value="">— Choisir un sprint —</option>
+                    {sprintsForSelectedPhase.map(s => <option key={s.id} value={s.id}>{s.order}. {s.name}</option>)}
+                  </Form.Select>
+                </div>
+              </div>
+              {/* Breadcrumb de confirmation */}
+              {newLine.sprintId && (
+                <div className="cascade-breadcrumb mt-2">
+                  <FaCheck className="me-1" style={{ color: '#28a745' }} />
+                  {getSprintFullLabel(newLine.sprintId)}
+                </div>
+              )}
+            </div>
+
             <Form.Group className="mb-3">
               <Form.Label>Epic</Form.Label>
               <Form.Control value={newLine.epic} onChange={e => setNewLine({ ...newLine, epic: e.target.value })} placeholder="Entrez l'epic" disabled={saving} />
@@ -1375,6 +1687,91 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
           {editingLineProfil && <Button label="Supprimer" variant="outline" onClick={deleteLineProfil} />}
           <Button label="Annuler" variant="outline" onClick={() => setShowLineProfilModal(false)} />
           <Button label={editingLineProfil ? (saving ? "Enregistrement..." : "Enregistrer") : (saving ? "Ajout..." : "Ajouter")} onClick={saveLineProfil} />
+        </Modal.Footer>
+      </Modal>
+
+      {/* ═══════════════ MODAL AFFECTATION COLLABORATEUR ═══════════════ */}
+      <Modal show={showCollabModal} onHide={() => !savingCollab && setShowCollabModal(false)} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center gap-2">
+            <FaUser />
+            Affecter un collaborateur
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {/* Barre de recherche */}
+          <div className="collab-search-bar mb-3">
+            <div className="collab-search-type mb-2">
+              <div className="btn-group btn-group-sm w-100">
+                <button
+                  className={`btn ${collabSearchType === 'name' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  style={collabSearchType === 'name' ? { background: 'var(--charcoal-blue)', borderColor: 'var(--charcoal-blue)' } : {}}
+                  onClick={() => setCollabSearchType('name')}
+                >
+                  <FaUser className="me-1" /> Par nom / prénom
+                </button>
+                <button
+                  className={`btn ${collabSearchType === 'poste' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  style={collabSearchType === 'poste' ? { background: 'var(--charcoal-blue)', borderColor: 'var(--charcoal-blue)' } : {}}
+                  onClick={() => setCollabSearchType('poste')}
+                >
+                  <FaSearch className="me-1" /> Par poste / BU
+                </button>
+              </div>
+            </div>
+            <div className="input-group">
+              <span className="input-group-text" style={{ background: 'var(--soft-linen)', borderColor: 'var(--border-grey)' }}>
+                <FaSearch style={{ color: 'var(--dim-grey)' }} />
+              </span>
+              <Form.Control
+                placeholder={collabSearchType === 'name' ? "Rechercher par nom ou prénom..." : "Rechercher par poste ou Business Unit..."}
+                value={collabSearch}
+                onChange={e => setCollabSearch(e.target.value)}
+                autoFocus
+              />
+              {collabSearch && (
+                <button className="btn btn-outline-secondary" onClick={() => setCollabSearch("")}>
+                  <FaTimes />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Liste de résultats */}
+          <div className="collab-results-list">
+            {filteredCollaborateurs.length === 0 ? (
+              <div className="text-center text-muted py-4">
+                <FaUser size={24} className="mb-2 d-block mx-auto" style={{ opacity: 0.3 }} />
+                Aucun collaborateur trouvé
+              </div>
+            ) : (
+              filteredCollaborateurs.map(c => (
+                <div
+                  key={c.id}
+                  className={`collab-result-item ${savingCollab ? 'disabled' : ''}`}
+                  onClick={() => !savingCollab && handleSelectCollaborateur(c)}
+                >
+                  <div className="collab-avatar">
+                    {c.prenom[0]}{c.nom[0]}
+                  </div>
+                  <div className="collab-info">
+                    <div className="collab-name">{c.prenom} {c.nom}</div>
+                    <div className="collab-meta">
+                      <span className="collab-poste">{getCollaborateurPoste(c)}</span>
+                      <span className="collab-bu-sep">·</span>
+                      <span className="collab-bu">{getCollaborateurBU(c)}</span>
+                    </div>
+                  </div>
+                  <div className="collab-select-icon">
+                    {savingCollab ? <FaSpinner className="fa-spin" /> : <FaCheck />}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button label="Annuler" variant="outline" onClick={() => setShowCollabModal(false)} />
         </Modal.Footer>
       </Modal>
     </>
