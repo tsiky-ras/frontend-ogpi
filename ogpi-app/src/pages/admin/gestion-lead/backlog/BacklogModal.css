@@ -66,39 +66,65 @@
     color: var(--charcoal-blue);
   }
   
-  /* ── Colonnes profil — header distinctif ── */
   .profil-col-header {
-    border-left: 3px solid rgba(255,255,255,0.4) !important;
+    border-left: 3px solid rgba(255,255,255,0.3) !important;
     position: relative;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    font-weight: 600;
+    background: #1a3a5c; /* Fallback */
   }
   
-  .profil-col-0 { background: rgba(34, 58, 70, 0.88) !important; }
-  .profil-col-1 { background: rgba(180, 40, 28, 0.88) !important; }
-  .profil-col-2 { background: rgba(38, 100, 42, 0.88) !important; }
-  .profil-col-3 { background: rgba(100, 50, 170, 0.88) !important; }
+  /* Bleu marine - texte blanc */
+  .profil-col-0 { 
+    background: #1a3a5c !important;
+  }
+  .profil-col-0:hover { 
+    background: #1e4570 !important;
+  }
   
+  /* Gold/Or - texte blanc (fond suffisamment foncé) */
+  .profil-col-1 { 
+    background: #8B6914 !important; /* Gold foncé pour texte blanc lisible */
+  }
+  .profil-col-1:hover { 
+    background: #A67C18 !important;
+  }
+  
+  /* Rouge bordeaux - texte blanc */
+  .profil-col-2 { 
+    background: #8B2A1F !important; /* Rouge foncé */
+  }
+  .profil-col-2:hover { 
+    background: #A83426 !important;
+  }
+  
+  /* Vert forêt - texte blanc */
+  .profil-col-3 { 
+    background: #1B5A48 !important; /* Vert foncé */
+  }
+  .profil-col-3:hover { 
+    background: #237A62 !important;
+  }
+  
+  /* Texte dans les cellules */
   .profil-th-name {
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    line-height: 1.2;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
   }
   
   .profil-th-collab {
-    font-size: 0.68rem;
-    font-weight: 400;
-    opacity: 0.85;
-    margin-top: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 110px;
+    font-size: 0.7rem;
+    opacity: 0.9;
+    margin: 3px 0;
   }
   
   .profil-th-tjm {
-    font-size: 0.68rem;
-    opacity: 0.7;
-    margin-top: 2px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-top: 4px;
+    opacity: 0.95;
   }
   
   /* ── Colonnes profil — cellules ── */
