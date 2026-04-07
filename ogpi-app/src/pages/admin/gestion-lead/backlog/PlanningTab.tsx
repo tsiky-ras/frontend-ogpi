@@ -1362,7 +1362,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({
           style={{ background: "#f8fafc", borderBottom: "1px solid #dee2e6", fontSize: "0.74rem" }}>
           <LDot color={COLOR.lotBar} label="Lot" />
           <LDot color={COLOR.phaseBar} label="Phase" />
-          <LDot color={COLOR.sprintBar} label="Sprint (depla\u00e7able)" />
+          <LDot color={COLOR.sprintBar} label="Sprint" />
           <LDot color={COLOR.sprintAlt} label="Sprint modifie" />
           {showDeliverables && <LDot color={COLOR.delivLabel} label="Livrable" square />}
           {holidaySet.size > 0 && (
