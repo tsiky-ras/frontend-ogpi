@@ -477,7 +477,7 @@ const ListeLead: React.FC = () => {
             <div className="row align-items-center mb-4">
               {/* Filtres période & devise */}
               <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
-                <div className="d-flex flex-wrap gap-2">
+                {/* <div className="d-flex flex-wrap gap-2">
                   <select
                     value={period}
                     onChange={(e) =>
@@ -503,7 +503,7 @@ const ListeLead: React.FC = () => {
                     <option value="Euro">Euro €</option>
                     <option value="$">Dollar $</option>
                   </select>
-                </div>
+                </div> */}
               </div>
 
               {/* Bouton créer */}
@@ -519,7 +519,7 @@ const ListeLead: React.FC = () => {
               </div>
             </div>
 
-            {/* KPI */}
+            {/* KPI
             <div className="row mb-4">
               <div className="col-lg-3 col-md-6 mb-3">
                 <StatCard
@@ -553,7 +553,7 @@ const ListeLead: React.FC = () => {
                   variant={['charcoal', 'linen']}
                 />
               </div>
-            </div>
+            </div> */}
 
             <FilterBar
               filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]}
