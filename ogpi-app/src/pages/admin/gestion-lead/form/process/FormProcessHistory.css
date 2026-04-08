@@ -1,0 +1,293 @@
+/* ─── Wrapper ─────────────────────────────────────────────────────────────── */
+
+.fph-wrapper {
+    padding: 1rem 0.25rem;
+  }
+  
+  .fph-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    color: var(--bs-secondary-color, #6c757d);
+  }
+  
+  .fph-loading-text {
+    font-size: 14px;
+    color: var(--bs-secondary-color, #6c757d);
+    margin: 0;
+  }
+  
+  /* ─── Timeline ────────────────────────────────────────────────────────────── */
+  
+  .fph-timeline-scroll {
+    overflow-x: auto;
+    padding-bottom: 0.75rem;
+  }
+  
+  .fph-timeline-track {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    min-width: max-content;
+    padding: 0.5rem 0.25rem;
+  }
+  
+  /* ─── Step column ─────────────────────────────────────────────────────────── */
+  
+  .fph-step-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 90px;
+  }
+  
+  /* ─── Circle ──────────────────────────────────────────────────────────────── */
+  
+  .fph-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid #dee2e6;
+    background: #f8f9fa;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    flex-shrink: 0;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  }
+  
+  .fph-circle--done {
+    border-color: #1D9E75;
+    background: #E1F5EE;
+    color: #085041;
+    cursor: pointer;
+  }
+  
+  .fph-circle--done:hover {
+    border-color: #0F6E56;
+    background: #9FE1CB;
+  }
+  
+  .fph-circle--active {
+    border-color: #185FA5;
+    background: #E6F1FB;
+    color: #042C53;
+    cursor: pointer;
+    box-shadow: 0 0 0 3px #B5D4F4;
+  }
+  
+  .fph-circle--nogo {
+    border-color: #A32D2D;
+    background: #FCEBEB;
+    color: #501313;
+    cursor: pointer;
+  }
+  
+  .fph-circle--selected {
+    outline: 3px solid #378ADD;
+    outline-offset: 3px;
+  }
+  
+  /* ─── Step label & dates ──────────────────────────────────────────────────── */
+  
+  .fph-step-label {
+    font-size: 11px;
+    text-align: center;
+    color: var(--bs-secondary-color, #6c757d);
+    line-height: 1.3;
+    max-width: 80px;
+  }
+  
+  .fph-date-pills {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+  }
+  
+  .fph-pill {
+    font-size: 10px;
+    color: var(--bs-secondary-color, #6c757d);
+    background: #f8f9fa;
+    border: 0.5px solid #dee2e6;
+    border-radius: 4px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  
+  /* ─── Connector ───────────────────────────────────────────────────────────── */
+  
+  .fph-conn {
+    height: 2px;
+    width: 48px;
+    background: #dee2e6;
+    margin-top: 17px; /* vertically centers with circle (36/2 - 1) */
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  
+  .fph-conn--done {
+    background: #1D9E75;
+  }
+  
+  /* ─── Detail card ─────────────────────────────────────────────────────────── */
+  
+  .fph-detail-card {
+    margin-top: 1.25rem;
+    border: 0.5px solid #dee2e6;
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+  }
+  
+  .fph-detail-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 0.5px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .fph-detail-title {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  .fph-detail-count {
+    font-size: 12px;
+    color: var(--bs-secondary-color, #6c757d);
+  }
+  
+  .fph-detail-body {
+    padding: 1rem;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  
+  /* ─── Section ─────────────────────────────────────────────────────────────── */
+  
+  .fph-section {
+    flex: 1;
+    min-width: 220px;
+  }
+  
+  .fph-section-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bs-secondary-color, #6c757d);
+    margin-bottom: 0.5rem;
+  }
+  
+  .fph-assignee {
+    font-size: 12px;
+    color: var(--bs-secondary-color, #6c757d);
+    margin-bottom: 0.5rem;
+  }
+  
+  .fph-empty {
+    font-size: 12px;
+    color: var(--bs-secondary-color, #6c757d);
+  }
+  
+  /* ─── Status list ─────────────────────────────────────────────────────────── */
+  
+  .fph-status-list {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .fph-status-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 0.5px solid #dee2e6;
+    font-size: 12px;
+  }
+  
+  .fph-status-item:last-child {
+    border-bottom: none;
+  }
+  
+  .fph-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  
+  .fph-dot--green  { background: #1D9E75; }
+  .fph-dot--blue   { background: #185FA5; }
+  .fph-dot--orange { background: #BA7517; }
+  .fph-dot--red    { background: #A32D2D; }
+  .fph-dot--gray   { background: #888780; }
+  
+  .fph-status-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  
+  .fph-status-label {
+    font-weight: 500;
+  }
+  
+  .fph-status-meta {
+    font-size: 11px;
+    color: var(--bs-secondary-color, #6c757d);
+  }
+  
+  /* ─── Validation list ─────────────────────────────────────────────────────── */
+  
+  .fph-val-list {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .fph-val-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 12px;
+    border-bottom: 0.5px solid #dee2e6;
+  }
+  
+  .fph-val-item:last-child {
+    border-bottom: none;
+  }
+  
+  .fph-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  
+  .fph-badge--ok { background: #E1F5EE; color: #085041; }
+  .fph-badge--ko { background: #FCEBEB; color: #791F1F; }
+  
+  .fph-val-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  
+  .fph-val-user {
+    font-weight: 500;
+  }
+  
+  .fph-val-role {
+    font-weight: 400;
+    color: var(--bs-secondary-color, #6c757d);
+  }

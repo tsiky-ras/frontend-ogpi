@@ -26,7 +26,8 @@ import { useTechnoService } from "../../../../services/lead/tech-fin/TechnoServi
 import { useTypeFacturationService } from "../../../../services/lead/tech-fin/TypeFacturationService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 import { UserDisplayService } from "../../../../services/user/UserDisplayService.tsx";
-
+import  FormProcessHistory  from "./process/FormProcessHistory.tsx"
+import { LeadProcessHistoryService } from "../../../../services/lead/LeadProcessHistoryService.tsx";
 type FormLeadProps = {
   show: boolean;
   onClose: () => void;
@@ -43,6 +44,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
   const technoService = useTechnoService();
   const typeFacturationService = useTypeFacturationService();
   const leadTechFinService = useLeadTechFinDetailsService();
+  const processHistoryService = new LeadProcessHistoryService(api);
 
   const [currentStep, setCurrentStep] = useState("qualification");
 
@@ -459,6 +461,11 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                   Projet
                 </Nav.Link>
               </Nav.Item> */}
+              <Nav.Item>
+                <Nav.Link eventKey="historique" disabled={!lead}>
+                  Historique de traitement
+                </Nav.Link>
+              </Nav.Item>
             </Nav>
 
             <Tab.Content>
@@ -541,6 +548,16 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                   />
                 )}
               </Tab.Pane>
+              <Tab.Pane eventKey="historique">
+                {!lead ? (
+                  <p className="text-warning">Sauvegardez d'abord le lead.</p>
+                ) : (
+                  <FormProcessHistory
+                    lead={lead}
+                    processHistoryService={processHistoryService}
+                  />
+                )}
+              </Tab.Pane>
             </Tab.Content>
           </Tab.Container>
         </Modal.Body>
@@ -549,7 +566,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
           <Button variant="secondary" onClick={onClose}>
             Annuler
           </Button>
-          {currentStep !== "projet" && (
+          {currentStep !== "projet" && currentStep !== "historique" && (
             <Button variant="primary" onClick={handleSave}>
               {lead ? "Modifier" : "Créer"}
             </Button>
