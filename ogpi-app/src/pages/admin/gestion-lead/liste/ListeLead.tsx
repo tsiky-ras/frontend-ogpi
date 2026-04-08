@@ -369,6 +369,7 @@ const ListeLead: React.FC = () => {
       label: 'Actions',
       render: (row: Lead) => (
         <MenuListeLead
+        hideDetails={true}
           onDetails={async () => {
             if (!row.id) return;
 

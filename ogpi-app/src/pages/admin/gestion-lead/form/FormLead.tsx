@@ -454,11 +454,11 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                   Étapes & validations
                 </Nav.Link>
               </Nav.Item>
-              <Nav.Item>
+              {/* <Nav.Item>
                 <Nav.Link eventKey="projet" disabled={!lead}>
                   Projet
                 </Nav.Link>
-              </Nav.Item>
+              </Nav.Item> */}
             </Nav>
 
             <Tab.Content>
