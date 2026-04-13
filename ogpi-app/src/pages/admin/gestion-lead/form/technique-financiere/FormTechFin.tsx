@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Form, Row, Col, InputGroup, Button, Modal } from "react-bootstrap";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaTimes } from "react-icons/fa";
 import GenericForm from "../../../../../components/form/GenericForm.tsx";
 
 type Props = {
@@ -24,7 +24,6 @@ const FormTechFin: React.FC<Props> = ({
   deviseService,
   typeFacturationService,
 }) => {
-  /* ================= Normalisation ================= */
   const normalizeTechnos = (input: any[]): number[] =>
     Array.from(
       new Set(
@@ -38,16 +37,16 @@ const FormTechFin: React.FC<Props> = ({
       )
     );
 
-  /* ================= State local ================= */
   const [showTechnoModal, setShowTechnoModal] = useState(false);
   const [localTechnos, setLocalTechnos] = useState<any[]>([]);
-  const [showDeviseModal, setShowDeviseModal] = useState(false);
   const [localDevises, setLocalDevises] = useState<any[]>([]);
-  const [showFacturationModal, setShowFacturationModal] = useState(false);
   const [localTypeFacturations, setLocalTypeFacturations] = useState<any[]>([]);
 
-  /* ================= Effets ================= */
-  // Déduplication automatique des technos
+  // Autocomplete techno
+  const [technoSearch, setTechnoSearch] = useState("");
+  const [showTechnoDropdown, setShowTechnoDropdown] = useState(false);
+  const technoRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const uniqueTechnos = Array.from(new Map(technos.map((t) => [t.idTechno || t.id, t])).values());
     setLocalTechnos(uniqueTechnos);
@@ -56,75 +55,189 @@ const FormTechFin: React.FC<Props> = ({
   useEffect(() => setLocalDevises(devises), [devises]);
   useEffect(() => setLocalTypeFacturations(typeFacturations), [typeFacturations]);
 
-  /* ================= Debug ================= */
+  // Fermer dropdown au clic extérieur
   useEffect(() => {
-  }, [form.technos]);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (technoRef.current && !technoRef.current.contains(e.target as Node)) {
+        setShowTechnoDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  /* ================= Render ================= */
+  // Fix taux de change à 1 si devise MGA
+  useEffect(() => {
+    if (!form.deviseId) return;
+    const selectedDevise = localDevises.find((d) => String(d.idDevise) === String(form.deviseId));
+    if (selectedDevise?.abrDevise === "MGA") {
+      setForm((prev: any) => ({ ...prev, tauxDeChange: 1 }));
+    }
+  }, [form.deviseId, localDevises]);
+
+  const isMGA = () => {
+    const selectedDevise = localDevises.find((d) => String(d.idDevise) === String(form.deviseId));
+    return selectedDevise?.abrDevise === "MGA";
+  };
+
+  // Calculs dérivés (read-only depuis l'API)
+  const montantOffre = form.montantOffre ?? form.budget ?? 0;
+  const montantChargeAnnexe = form.montantChargeAnnexe ?? 0;
+  const montantAvecChargeAnnexe = form.montantAvecChargeAnnexe ?? 0;
+  const tauxDeChange = form.tauxDeChange || 1;
+  const impots = form.impots || 0;
+
+  const caAvecTaux = montantOffre * tauxDeChange;
+  const impotsAmount = caAvecTaux * (impots / 100);
+
+  const selectedTechnoIds = normalizeTechnos(form.technos);
+  const selectedTechnos = localTechnos.filter((t) => selectedTechnoIds.includes(Number(t.idTechno || t.id)));
+
+  const filteredTechnos = localTechnos.filter((t) => {
+    const id = Number(t.idTechno || t.id);
+    const matchesSearch = t.nomTechno?.toLowerCase().includes(technoSearch.toLowerCase());
+    const notSelected = !selectedTechnoIds.includes(id);
+    return matchesSearch && notSelected;
+  });
+
+  const addTechno = (techno: any) => {
+    const id = Number(techno.idTechno || techno.id);
+    const currentIds = normalizeTechnos(form.technos);
+    if (!currentIds.includes(id)) {
+      setForm((prev: any) => ({ ...prev, technos: [...currentIds, id] }));
+    }
+    setTechnoSearch("");
+    setShowTechnoDropdown(false);
+  };
+
+  const removeTechno = (id: number) => {
+    const currentIds = normalizeTechnos(form.technos);
+    setForm((prev: any) => ({ ...prev, technos: currentIds.filter((t) => t !== id) }));
+  };
+
+  const formatNumber = (val: number) =>
+    val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <>
-      {/* ================= Technologies ================= */}
-      <section className="fiche-section">
+      {/* ===== Technologies ===== */}
+      <section className="fiche-section mb-4">
         <h4>Technologies</h4>
         <Row className="g-3">
           <Col md={8}>
-            <Form.Label>Technologies</Form.Label>
-            <div className="d-flex flex-column">
-              {localTechnos.map((t) => {
-                const idTech = Number(t.idTechno || t.id);
-                const isChecked = normalizeTechnos(form.technos).includes(idTech);
+            <Form.Label>Technologies utilisées</Form.Label>
 
+            {/* Tags sélectionnés */}
+            <div className="d-flex flex-wrap gap-2 mb-2">
+              {selectedTechnos.map((t) => {
+                const id = Number(t.idTechno || t.id);
                 return (
-                  <Form.Check
-                    key={idTech} 
-                    type="checkbox"
-                    id={`techno-${idTech}`}
-                    label={t.nomTechno}
-                    checked={isChecked}
-                    onChange={(e) => {
-                      const currentIds = normalizeTechnos(form.technos);
-                      const newTechnos = e.target.checked
-                        ? [...currentIds, idTech]
-                        : currentIds.filter((id) => id !== idTech);
-                      setForm((prev) => ({ ...prev, technos: newTechnos }));
+                  <span
+                    key={id}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "var(--color-background-info)",
+                      color: "var(--color-text-info)",
+                      border: "0.5px solid var(--color-border-info)",
+                      borderRadius: "var(--border-radius-md)",
+                      padding: "4px 10px",
+                      fontSize: 13,
+                      fontWeight: 500,
                     }}
-                  />
+                  >
+                    {t.nomTechno}
+                    <button
+                      type="button"
+                      onClick={() => removeTechno(id)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--color-text-info)",
+                        padding: 0,
+                        lineHeight: 1,
+                        fontSize: 11,
+                      }}
+                      aria-label={`Retirer ${t.nomTechno}`}
+                    >
+                      <FaTimes />
+                    </button>
+                  </span>
                 );
               })}
             </div>
-            <Button
-              variant="outline-primary"
-              className="mt-2"
-              onClick={() => setShowTechnoModal(true)}
-            >
-              <FaPlus /> Ajouter une techno
-            </Button>
+
+            {/* Autocomplete */}
+            <div ref={technoRef} style={{ position: "relative" }}>
+              <InputGroup>
+                <Form.Control
+                  type="text"
+                  placeholder="Rechercher une technologie..."
+                  value={technoSearch}
+                  onChange={(e) => {
+                    setTechnoSearch(e.target.value);
+                    setShowTechnoDropdown(true);
+                  }}
+                  onFocus={() => setShowTechnoDropdown(true)}
+                />
+                <Button variant="outline-primary" onClick={() => setShowTechnoModal(true)}>
+                  <FaPlus /> Nouvelle
+                </Button>
+              </InputGroup>
+
+              {showTechnoDropdown && filteredTechnos.length > 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    background: "var(--color-background-primary)",
+                    border: "0.5px solid var(--color-border-secondary)",
+                    borderRadius: "var(--border-radius-md)",
+                    zIndex: 1000,
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                  }}
+                >
+                  {filteredTechnos.map((t) => (
+                    <div
+                      key={t.idTechno || t.id}
+                      onMouseDown={() => addTechno(t)}
+                      style={{
+                        padding: "8px 12px",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        color: "var(--color-text-primary)",
+                        borderBottom: "0.5px solid var(--color-border-tertiary)",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      {t.nomTechno}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </Col>
         </Row>
       </section>
 
-      {/* ================= Données financières ================= */}
-      <section className="fiche-section">
-        <h4>Données financières</h4>
+      {/* ===== Paramètres de l'offre ===== */}
+      <section className="fiche-section mb-4">
+        <h4>Paramètres de l'offre</h4>
         <Row className="g-3">
-          <Col md={4}>
-            <Form.Label>Volume JH vendu</Form.Label>
-            <Form.Control
-              type="number"
-              value={form.volumeJHVendu}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, volumeJHVendu: Number(e.target.value) }))
-              }
-            />
-          </Col>
-
           <Col md={4}>
             <Form.Label>Devise</Form.Label>
             <InputGroup>
               <Form.Select
                 value={form.deviseId}
                 onChange={(e) =>
-                  setForm((prev) => ({
+                  setForm((prev: any) => ({
                     ...prev,
                     deviseId: e.target.value ? Number(e.target.value) : "",
                   }))
@@ -133,13 +246,10 @@ const FormTechFin: React.FC<Props> = ({
                 <option value="">-- Sélectionner --</option>
                 {localDevises.map((d) => (
                   <option key={d.idDevise} value={d.idDevise}>
-                    {d.abrDevise}
+                    {d.abrDevise} — {d.nomDevise}
                   </option>
                 ))}
               </Form.Select>
-              <Button variant="outline-primary" onClick={() => setShowDeviseModal(true)}>
-                <FaPlus />
-              </Button>
             </InputGroup>
           </Col>
 
@@ -149,17 +259,15 @@ const FormTechFin: React.FC<Props> = ({
               type="number"
               step="0.01"
               value={form.tauxDeChange}
-              onChange={(e) => setForm((prev) => ({ ...prev, tauxDeChange: Number(e.target.value) }))}
+              readOnly={isMGA()}
+              disabled={isMGA()}
+              onChange={(e) =>
+                setForm((prev: any) => ({ ...prev, tauxDeChange: Number(e.target.value) }))
+              }
             />
-          </Col>
-
-          <Col md={4}>
-            <Form.Label>Budget nécessaire</Form.Label>
-            <Form.Control
-              type="number"
-              value={form.budget}
-              onChange={(e) => setForm((prev) => ({ ...prev, budget: Number(e.target.value) }))}
-            />
+            {isMGA() && (
+              <Form.Text className="text-muted">Fixé à 1 pour la devise MGA</Form.Text>
+            )}
           </Col>
 
           <Col md={4}>
@@ -168,7 +276,7 @@ const FormTechFin: React.FC<Props> = ({
               <Form.Select
                 value={form.typeFacturationId}
                 onChange={(e) =>
-                  setForm((prev) => ({
+                  setForm((prev: any) => ({
                     ...prev,
                     typeFacturationId: e.target.value ? Number(e.target.value) : "",
                   }))
@@ -181,9 +289,6 @@ const FormTechFin: React.FC<Props> = ({
                   </option>
                 ))}
               </Form.Select>
-              <Button variant="outline-primary" onClick={() => setShowFacturationModal(true)}>
-                <FaPlus />
-              </Button>
             </InputGroup>
           </Col>
 
@@ -192,7 +297,9 @@ const FormTechFin: React.FC<Props> = ({
             <Form.Control
               type="number"
               value={form.impots}
-              onChange={(e) => setForm((prev) => ({ ...prev, impots: Number(e.target.value) }))}
+              onChange={(e) =>
+                setForm((prev: any) => ({ ...prev, impots: Number(e.target.value) }))
+              }
             />
           </Col>
 
@@ -201,18 +308,96 @@ const FormTechFin: React.FC<Props> = ({
             <Form.Control
               type="date"
               value={form.dateAttribution}
-              onChange={(e) => setForm((prev) => ({ ...prev, dateAttribution: e.target.value }))}
+              onChange={(e) =>
+                setForm((prev: any) => ({ ...prev, dateAttribution: e.target.value }))
+              }
+            />
+          </Col>
+
+          {/* <Col md={4}>
+            <Form.Label>Volume JH vendu</Form.Label>
+            <Form.Control
+              type="number"
+              value={form.volumeJHVendu}
+              onChange={(e) =>
+                setForm((prev: any) => ({ ...prev, volumeJHVendu: Number(e.target.value) }))
+              }
+            />
+          </Col> */}
+        </Row>
+      </section>
+
+      {/* ===== Synthèse financière (read-only) ===== */}
+      <section className="fiche-section mb-4">
+        <h4>Synthèse financière</h4>
+        <Row className="g-3">
+          <Col md={4}>
+            <Form.Label>Montant de l'offre (devise)</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={formatNumber(montantOffre)}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+            />
+          </Col>
+
+          <Col md={4}>
+            <Form.Label>CA × taux de change</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={formatNumber(caAvecTaux)}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+            />
+          </Col>
+
+          <Col md={4}>
+            <Form.Label>Impôts (CA × taux × {impots}%)</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={formatNumber(impotsAmount)}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+            />
+          </Col>
+
+          <Col md={4}>
+            <Form.Label>Montant charges annexes</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={formatNumber(montantChargeAnnexe)}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+            />
+          </Col>
+
+          <Col md={4}>
+            <Form.Label>Montant avec charges annexes</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={formatNumber(montantAvecChargeAnnexe)}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+            />
+          </Col>
+
+          <Col md={4}>
+            <Form.Label>Volume JH (depuis backlogs)</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={form.volumeJHVendu || 0}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
             />
           </Col>
         </Row>
       </section>
 
-      {/* ================= Modal création Techno ================= */}
+      {/* ===== Modal création Techno ===== */}
       <Modal show={showTechnoModal} onHide={() => setShowTechnoModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Créer une technologie</Modal.Title>
         </Modal.Header>
-
         <Modal.Body>
           <GenericForm
             valueKey="nomTechno"
@@ -226,7 +411,7 @@ const FormTechFin: React.FC<Props> = ({
                 );
                 return uniqueTechs;
               });
-              setForm((prev) => ({
+              setForm((prev: any) => ({
                 ...prev,
                 technos: normalizeTechnos([...prev.technos, newTechno.idTechno || newTechno.id]),
               }));

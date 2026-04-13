@@ -133,6 +133,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
   const [formTechFin, setFormTechFin] = useState<any>({
     technos: [], volumeJHVendu: 0, deviseId: "", tauxDeChange: 1,
     typeFacturationId: "", impots: 0, dateAttribution: "", budget: 0,
+    montantOffre: 0, montantChargeAnnexe: 0, montantAvecChargeAnnexe: 0,
   });
 
   const jiraDataRef = useRef<any>(null);
@@ -149,7 +150,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
   const [typeFacturations, setTypeFacturations] = useState<any[]>([]);
   const [technos, setTechnos] = useState<any[]>([]);
 
-  // Feedback popup state — one unified popup
   const [popup, setPopup] = useState<{ type: "success" | "error" | "loading"; message: string } | null>(null);
 
   const closePopup = () => setPopup(null);
@@ -183,31 +183,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
       mainDriveFileName: lead.mainDriveFile?.name || "",
       mainDriveFileLink: lead.mainDriveFile?.link || "",
       mainDriveFileDescription: lead.mainDriveFile?.description || "",
-    };
-  };
-
-  const mapLeadToTechFinForm = (lead: any) => {
-    let technosIds: number[] = [];
-    if (Array.isArray(lead.technos)) {
-      technosIds = lead.technos
-        .map((item: any) => {
-          if (item?.techno?.idTechno) return Number(item.techno.idTechno);
-          if (typeof item === "object" && item !== null && item.idTechno) return Number(item.idTechno);
-          if (typeof item === "object" && item !== null && item.id) return Number(item.id);
-          if (typeof item === "number") return item;
-          return null;
-        })
-        .filter((id: any) => id !== null && !isNaN(id));
-    }
-    return {
-      technos: technosIds,
-      volumeJHVendu: lead.volumeJHVendu || 0,
-      deviseId: lead.devise?.idDevise || "",
-      tauxDeChange: lead.tauxDeChange || 1,
-      typeFacturationId: lead.typeFacturation?.idTypeFacturation || "",
-      impots: lead.impots || 0,
-      dateAttribution: lead.dateAttribution || "",
-      budget: lead.montantOffre || lead.budget || 0,
     };
   };
 
@@ -269,25 +244,27 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
 
           let techFinData: any = null;
 
-          if (hasPreloadedTechFin) {
-            techFinData = {
-              technos: lead.technos || [],
-              volumeJHVendu: lead.volumeJHVendu || 0,
-              devise: lead.devise || null,
-              tauxDeChange: lead.tauxDeChange || 1,
-              typeFacturation: lead.typeFacturation || null,
-              impots: lead.impots || 0,
-              dateAttribution: lead.dateAttribution || "",
-              montantOffre: lead.montantOffre || lead.budget || 0,
-              budget: lead.montantOffre || lead.budget || 0,
-            };
-          } else {
+          // if (hasPreloadedTechFin) {
+          //   techFinData = {
+          //     technos: lead.technos || [],
+          //     volumeJHVendu: lead.volumeJHVendu || 0,
+          //     devise: lead.devise || null,
+          //     tauxDeChange: lead.tauxDeChange || 1,
+          //     typeFacturation: lead.typeFacturation || null,
+          //     impots: lead.impots || 0,
+          //     dateAttribution: lead.dateAttribution || "",
+          //     montantOffre: lead.montantOffre || lead.budget || 0,
+          //     montantChargeAnnexe: lead.montantChargeAnnexe || 0,
+          //     montantAvecChargeAnnexe: lead.montantAvecChargeAnnexe || 0,
+          //     budget: lead.montantOffre || lead.budget || 0,
+          //   };
+          // } else {
             try {
               techFinData = await leadTechFinService.getByLeadId(currentLeadId);
             } catch (err) {
               console.warn("TechFin non trouvé, fallback sur lead brut :", err);
             }
-          }
+          // }
 
           if (techFinData) {
             setFormTechFin({
@@ -301,9 +278,10 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                 ? techFinData.dateAttribution.substring(0, 10)
                 : "",
               budget: techFinData.montantOffre || techFinData.budget || 0,
+              montantOffre: techFinData.montantOffre || techFinData.budget || 0,
+              montantChargeAnnexe: techFinData.montantChargeAnnexe || 0,
+              montantAvecChargeAnnexe: techFinData.montantAvecChargeAnnexe || 0,
             });
-          } else {
-            setFormTechFin(mapLeadToTechFinForm(lead));
           }
 
           setCurrentStep(initialTab || "qualification");
@@ -319,6 +297,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
           setFormTechFin({
             technos: [], volumeJHVendu: 0, deviseId: "", tauxDeChange: 1,
             typeFacturationId: "", impots: 0, dateAttribution: "", budget: 0,
+            montantOffre: 0, montantChargeAnnexe: 0, montantAvecChargeAnnexe: 0,
           });
           setCurrentStep("qualification");
           jiraDataRef.current = null;
@@ -429,10 +408,10 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
         if (!currentLeadId) throw new Error("ID du lead manquant.");
 
         const jiraData = jiraDataRef.current;
-        if (!jiraData) throw new Error("Aucune donnée JIRA à sauvegarder.");
+        if (!jiraData) throw new Error("Aucune donnée à sauvegarder.");
 
         await leadService.updateJira(currentLeadId, jiraData);
-        setPopup({ type: "success", message: "JIRA mis à jour avec succès !" });
+        setPopup({ type: "success", message: "Étapes & validations mis à jour avec succès !" });
         return;
       }
     } catch (err) {
@@ -473,6 +452,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
+                {/* Renommé : Jira → Étapes & validations */}
                 <Nav.Link eventKey="etapes" disabled={!lead}>
                   Étapes & validations
                 </Nav.Link>
