@@ -68,8 +68,8 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ step, dates, task, prevValida
           <>
             <p className="fph-assignee">
               Assigné à&nbsp;:&nbsp;
-              <strong>{task.user.username}</strong>
-              &nbsp;({task.user.email})
+              <strong>{task.user?.username}</strong>
+              &nbsp;({task.user?.email})
             </p>
             <div className="fph-status-list">
               {[...task.leadTaskUserStatusList]
