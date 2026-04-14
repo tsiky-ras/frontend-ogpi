@@ -35,7 +35,7 @@ const Table: React.FC<TableProps> = ({
 }) => {
   const [page, setPage] = useState(1);
   const [showColumnSelector, setShowColumnSelector] = useState(false);
-  const rowsPerPage = 5;
+  const rowsPerPage = 10;
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     try {

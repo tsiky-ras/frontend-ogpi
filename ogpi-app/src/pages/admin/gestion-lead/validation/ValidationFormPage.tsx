@@ -110,6 +110,15 @@ const ValidationFormPage: React.FC<ValidationFormProps> = ({
               )}
             </div>
           </div>
+          { lead.status?.label=="No Go" ? (
+          <div
+                className="validation-status-badge status-nogo"
+              >
+                Archiver
+              </div>
+          )
+          :null
+          }
           <button className="expand-toggle" type="button">
             {isExpanded ? (
               <>
