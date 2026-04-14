@@ -3,6 +3,7 @@ import {
   FaClock, FaCheckCircle, FaChevronDown, FaChevronUp,
   FaFileAlt, FaFolder, FaUser, FaCalendarAlt, FaExternalLinkAlt,
   FaTimesCircle, FaTag, FaSpinner, FaInbox, FaThumbsUp, FaThumbsDown,
+  FaSearch, FaTimes,
 } from "react-icons/fa";
 import "./TachesAValider.css";
 
@@ -33,7 +34,7 @@ interface LeadTaskUserSummary {
 interface LeadTaskUserDetails extends LeadTaskUserSummary {
   leadTaskUserStatusList: StatusEntry[] | null;
   leadTaskValidations: Array<{
-    id: number; validationTime: string; decision: number;
+    id: number; validationTime: string; decision: number; comment?: string | null;
     user: { id: number; username: string; email: string };
     role: { roleId: number; roleLabel: string };
   }> | null;
@@ -51,7 +52,7 @@ interface ILeadTaskUserService {
   getById(id: number): Promise<LeadTaskUserDetails>;
 }
 interface ILeadTaskValidationService {
-  create(data: { leadTaskUserId: number; decision: number; commentaire: string }): Promise<unknown>;
+  create(data: { leadTaskUserId: number; decision: number; commentaire: string; comment: string }): Promise<unknown>;
 }
 
 /* ═══════════════════════════════════════
@@ -127,6 +128,7 @@ const ValidationsList: React.FC<{ validations: LeadTaskUserDetails["leadTaskVali
             <div className="mt-val-body">
               <span className="mt-val-user">{v.user.username}</span>
               <span className="mt-val-role">{v.role.roleLabel}</span>
+              {v.comment && <span className="mt-val-comment">"{v.comment}"</span>}
               <span className="mt-val-date">{fmt(v.validationTime)}</span>
             </div>
           </div>
@@ -151,7 +153,6 @@ const OkKoPanel: React.FC<OkKoPanelProps> = ({ leadTaskUserId, validationService
   const [commentaire, setCommentaire] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const count = existingValidations?.length ?? 0;
 
   const handleDecision = (d: 1 | 0) => { setPending(d); setCommentaire(""); setError(null); };
@@ -159,13 +160,14 @@ const OkKoPanel: React.FC<OkKoPanelProps> = ({ leadTaskUserId, validationService
 
   const handleConfirm = async () => {
     if (pending === null) return;
-    setSaving(true);
-    setError(null);
+    setSaving(true); setError(null);
     try {
+      const commentText = commentaire.trim() || (pending === 1 ? "OK" : "KO");
       await validationService.create({
         leadTaskUserId,
         decision: pending,
-        commentaire: commentaire.trim() || (pending === 1 ? "OK" : "KO"),
+        commentaire: commentText,
+        comment: commentText,   // ← les deux champs sont envoyés
       });
       const decided = pending;
       setPending(null);
@@ -209,15 +211,13 @@ const OkKoPanel: React.FC<OkKoPanelProps> = ({ leadTaskUserId, validationService
             placeholder={pending === 1 ? "Commentaire (optionnel)…" : "Raison du refus (optionnel)…"}
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
-            rows={3}
-            autoFocus
+            rows={3} autoFocus
           />
           <div className="mt-scb-footer">
             <button className="mt-btn mt-btn--ghost mt-btn--sm" onClick={handleCancel} disabled={saving}>Annuler</button>
             <button
               className={`mt-btn mt-btn--sm${pending === 1 ? " mt-btn--primary" : " mt-btn--danger"}`}
-              onClick={handleConfirm}
-              disabled={saving}
+              onClick={handleConfirm} disabled={saving}
             >
               {saving ? <FaSpinner className="mt-spin" /> : pending === 1 ? <FaThumbsUp size={12} /> : <FaThumbsDown size={12} />}
               Confirmer
@@ -247,11 +247,9 @@ const ExpandedDetailsValidation: React.FC<ExpandedDetailsValidationProps> = ({ d
 
   return (
     <div className="mt-expanded">
-
-      {/* Popup résultat */}
       {popupDecision !== null && <ResultPopup decision={popupDecision} onClose={handlePopupClose} />}
 
-      {/* ① Validations existantes EN HAUT */}
+      {/* ① Validations existantes */}
       <ValidationsList validations={details.leadTaskValidations} />
 
       {/* ② Panel OK / KO */}
@@ -427,6 +425,7 @@ const TachesAValider: React.FC<Props> = ({ taskService, validationService, curre
   const [taches, setTaches] = useState<LeadTaskUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const loadAll = useCallback(async () => {
     try {
@@ -458,6 +457,16 @@ const TachesAValider: React.FC<Props> = ({ taskService, validationService, curre
     return () => { cancelled = true; };
   }, [taskService]);
 
+  const filtered = taches.filter((t) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      t.leadDetails.leadName.toLowerCase().includes(q) ||
+      t.leadDetails.leadRef.toLowerCase().includes(q) ||
+      t.leadTask.leadTaskName.toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="mes-taches-wrapper">
       <div className="mt-header">
@@ -470,6 +479,22 @@ const TachesAValider: React.FC<Props> = ({ taskService, validationService, curre
         </div>
       </div>
 
+      {!loading && !error && taches.length > 0 && (
+        <div className="mt-search-bar">
+          <FaSearch className="mt-search-icon" />
+          <input
+            type="text"
+            className="mt-search-input"
+            placeholder="Rechercher par nom de lead, référence ou tâche…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="mt-search-clear" onClick={() => setSearch("")}><FaTimes size={12} /></button>
+          )}
+        </div>
+      )}
+
       {loading && <div className="mt-state-box"><FaSpinner className="mt-spin mt-spin--lg" /><p>Chargement des tâches…</p></div>}
       {!loading && error && <div className="mt-state-box mt-state-box--error"><FaTimesCircle size={30} /><p>{error}</p></div>}
       {!loading && !error && taches.length === 0 && (
@@ -478,9 +503,15 @@ const TachesAValider: React.FC<Props> = ({ taskService, validationService, curre
           <p>Aucune tâche à valider pour le moment</p><span>Tout est à jour !</span>
         </div>
       )}
-      {!loading && !error && taches.length > 0 && (
+      {!loading && !error && taches.length > 0 && filtered.length === 0 && (
+        <div className="mt-state-box mt-state-box--empty">
+          <FaSearch size={30} className="mt-empty-icon" />
+          <p>Aucun résultat pour « {search} »</p>
+        </div>
+      )}
+      {!loading && !error && filtered.length > 0 && (
         <div className="mt-list">
-          {taches.map((t) => (
+          {filtered.map((t) => (
             <TacheAValiderCard
               key={t.leadTaskUserId}
               tache={t}

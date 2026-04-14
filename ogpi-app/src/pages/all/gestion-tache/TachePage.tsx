@@ -1,7 +1,7 @@
 // Extrait de TachePage.tsx — partie mise à jour pour intégrer TachesAValider
 
 import React, { useMemo, useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
 import Title from "../../../components/title/Title.tsx";
@@ -23,9 +23,13 @@ const TachePage: React.FC = () => {
     activeTab?: "afaire" | "avalider";
     openLeadTaskId?: number;
   };
+  const [searchParams] = useSearchParams();
+  // const [activeTab, setActiveTab] = useState<string>(
+  //   searchParams.get("page") ?? "liste"
+  // );
 
-  const [activeTab, setActiveTab] = useState<"afaire" | "avalider">(
-    state.activeTab ?? "afaire"
+  const [activeTab, setActiveTab] = useState<String>(
+    searchParams.get("page") ?? "afaire"
   );
   const { api, user } = useAuth();
 

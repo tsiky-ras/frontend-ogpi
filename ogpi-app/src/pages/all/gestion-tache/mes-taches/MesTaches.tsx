@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FaClock, FaHourglassHalf, FaCheckCircle, FaChevronDown, FaChevronUp,
   FaFileAlt, FaFolder, FaUser, FaCalendarAlt, FaExternalLinkAlt,
   FaTimesCircle, FaTag, FaSpinner, FaInbox, FaPlus, FaEdit, FaTrash,
-  FaTimes, FaSave, FaArrowRight,
+  FaTimes, FaSave, FaArrowRight, FaSearch,
 } from "react-icons/fa";
 import "./MesTaches.css";
 
@@ -20,13 +21,14 @@ const STATUS = {
   APPROUVE: 7,
 } as const;
 
+const TERMINAL_STATUSES: number[] = [STATUS.SOUMIS_POUR_VALIDATION, STATUS.APPROUVE];
+
 const SLIDER_STEPS = [
   { id: STATUS.ATTRIBUE,               label: "Attribué",               short: "Attribué" },
   { id: STATUS.EN_COURS,               label: "En cours",               short: "En cours" },
   { id: STATUS.SOUMIS_POUR_VALIDATION, label: "Soumis pour validation", short: "Soumis" },
 ];
 
-// A_MODIFIER se comporte comme ATTRIBUE : on peut repasser EN_COURS
 const ALLOWED_TRANSITIONS: Record<number, number> = {
   [STATUS.ATTRIBUE]:   STATUS.EN_COURS,
   [STATUS.EN_COURS]:   STATUS.SOUMIS_POUR_VALIDATION,
@@ -40,43 +42,27 @@ interface LeadTaskStatus {
   leadTaskStatusId: number;
   leadTaskStatusLabel: string;
 }
-
 interface DriveFile {
-  id?: number;
-  name: string;
-  link: string;
-  description: string;
-  driveFolderId?: number;
+  id?: number; name: string; link: string; description: string; driveFolderId?: number;
 }
-
 interface TaskFile {
-  id?: number;
-  commentaire: string;
-  driveFile: DriveFile;
-  leadTaskUserId: number;
+  id?: number; commentaire: string; driveFile: DriveFile; leadTaskUserId: number;
 }
-
 interface StatusEntry {
-  leadTaskUserStatusId: number;
-  leadTaskUserStatusDate: string;
-  leadTaskUserStatusCommentaire: string;
-  leadTaskStatus: LeadTaskStatus;
+  leadTaskUserStatusId: number; leadTaskUserStatusDate: string;
+  leadTaskUserStatusCommentaire: string; leadTaskStatus: LeadTaskStatus;
 }
-
 interface LeadTaskUserSummary {
-  leadTaskUserId: number;
-  dateAffectation: string;
-  leadTaskUserDeadline: string | null;
+  leadTaskUserId: number; dateAffectation: string; leadTaskUserDeadline: string | null;
   leadTask: { leadTaskId: number; leadTaskName: string; leadTaskDesc: string };
   leadId: number;
   leadTaskUserStatus: { leadTaskStatus: LeadTaskStatus };
   leadDetails: { leadName: string; leadRef: string };
 }
-
 interface LeadTaskUserDetails extends LeadTaskUserSummary {
   leadTaskUserStatusList: StatusEntry[] | null;
   leadTaskValidations: Array<{
-    id: number; validationTime: string; decision: number;
+    id: number; validationTime: string; decision: number; comment?: string | null;
     user: { id: number; username: string; email: string };
     role: { roleId: number; roleLabel: string };
   }> | null;
@@ -89,18 +75,15 @@ interface LeadTaskUserDetails extends LeadTaskUserSummary {
     driveFolder: { id: number; name: string; link: string } | null;
   };
 }
-
 interface ILeadTaskUserService {
   getAll(): Promise<LeadTaskUserSummary[]>;
   getById(id: number): Promise<LeadTaskUserDetails>;
 }
-
 interface ILeadTaskFileService {
   create(data: TaskFile): Promise<TaskFile>;
   update(id: number, data: TaskFile): Promise<TaskFile>;
   delete(id: number): Promise<void>;
 }
-
 interface ILeadTaskUserStatusService {
   create(data: {
     leadTaskUserStatusCommentaire: string;
@@ -156,13 +139,23 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isTerminal = TERMINAL_STATUSES.includes(currentStatusId);
   const nextStatusId = ALLOWED_TRANSITIONS[currentStatusId] ?? null;
 
-  // A_MODIFIER se comporte visuellement comme ATTRIBUE (step 0), couleur rouge
   const currentIdx = currentStatusId === STATUS.A_MODIFIER
     ? 0
     : SLIDER_STEPS.findIndex((s) => s.id === currentStatusId);
   const displayIdx = currentIdx >= 0 ? currentIdx : 0;
+
+  // Ne pas afficher le slider si statut terminal
+  if (isTerminal) {
+    return (
+      <div className="mt-slider-terminal">
+        <FaCheckCircle className="mt-slider-terminal-icon" />
+        <span>Statut final atteint — aucune progression possible</span>
+      </div>
+    );
+  }
 
   const handleStepClick = (stepId: number) => {
     if (stepId === nextStatusId) {
@@ -174,8 +167,7 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
 
   const handleConfirm = async () => {
     if (!pendingStatusId) return;
-    setSaving(true);
-    setError(null);
+    setSaving(true); setError(null);
     try {
       await statusService.create({
         leadTaskUserStatusCommentaire: commentaire.trim() || "Changement de statut",
@@ -185,7 +177,6 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
       const newStep = SLIDER_STEPS.find(s => s.id === pendingStatusId);
       setPendingStatusId(null);
       setCommentaire("");
-      // Notifie le parent avec le nouveau statut pour maj immédiate de la liste
       onStatusChanged(pendingStatusId, newStep?.label ?? "");
     } catch {
       setError("Erreur lors du changement de statut. Veuillez réessayer.");
@@ -194,13 +185,7 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
     }
   };
 
-  const handleCancel = () => {
-    setPendingStatusId(null);
-    setCommentaire("");
-    setError(null);
-  };
-
-  const isTerminal = ([STATUS.SOUMIS_POUR_VALIDATION, STATUS.APPROUVE] as number[]).includes(currentStatusId);
+  const handleCancel = () => { setPendingStatusId(null); setCommentaire(""); setError(null); };
 
   return (
     <div className="mt-status-slider-wrapper">
@@ -209,9 +194,6 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
         {currentStatusId === STATUS.A_MODIFIER && (
           <span className="mt-slider-warning">⚠ À modifier suite à un refus</span>
         )}
-        {isTerminal && (
-          <span className="mt-slider-info">✓ Statut final atteint</span>
-        )}
       </div>
 
       <div className="mt-slider-track">
@@ -219,7 +201,6 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
           const isDone = idx < displayIdx;
           const isCurrent = idx === displayIdx;
           const isNext = step.id === nextStatusId;
-          const isClickable = isNext && !isTerminal;
 
           return (
             <React.Fragment key={step.id}>
@@ -228,20 +209,18 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
                   "mt-slider-step",
                   isDone ? "done" : "",
                   isCurrent ? "current" : "",
-                  isClickable ? "clickable" : "",
+                  isNext ? "clickable" : "",
                   currentStatusId === STATUS.A_MODIFIER && isCurrent ? "error" : "",
                 ].filter(Boolean).join(" ")}
-                onClick={() => isClickable && handleStepClick(step.id)}
-                title={isClickable ? `Passer à "${step.label}"` : ""}
+                onClick={() => isNext && handleStepClick(step.id)}
+                title={isNext ? `Passer à "${step.label}"` : ""}
               >
                 <div className="mt-slider-circle">
                   {isDone ? <FaCheckCircle size={14} /> : <span>{idx + 1}</span>}
                 </div>
                 <span className="mt-slider-step-label">{step.short}</span>
-                {isClickable && (
-                  <span className="mt-slider-hint">
-                    <FaArrowRight size={9} /> Cliquer pour avancer
-                  </span>
+                {isNext && (
+                  <span className="mt-slider-hint"><FaArrowRight size={9} /> Avancer</span>
                 )}
               </div>
               {idx < SLIDER_STEPS.length - 1 && (
@@ -256,9 +235,7 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
         <div className="mt-status-comment-box">
           <div className="mt-scb-header">
             <FaArrowRight size={12} />
-            <span>
-              Passage vers <strong>{SLIDER_STEPS.find(s => s.id === pendingStatusId)?.label}</strong>
-            </span>
+            <span>Passage vers <strong>{SLIDER_STEPS.find(s => s.id === pendingStatusId)?.label}</strong></span>
           </div>
           {error && <div className="mt-scb-error">{error}</div>}
           <textarea
@@ -266,16 +243,12 @@ const StatusSlider: React.FC<StatusSliderProps> = ({
             placeholder="Commentaire (optionnel)…"
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
-            rows={3}
-            autoFocus
+            rows={3} autoFocus
           />
           <div className="mt-scb-footer">
-            <button className="mt-btn mt-btn--ghost mt-btn--sm" onClick={handleCancel} disabled={saving}>
-              Annuler
-            </button>
+            <button className="mt-btn mt-btn--ghost mt-btn--sm" onClick={handleCancel} disabled={saving}>Annuler</button>
             <button className="mt-btn mt-btn--primary mt-btn--sm" onClick={handleConfirm} disabled={saving}>
-              {saving ? <FaSpinner className="mt-spin" /> : <FaCheckCircle size={12} />}
-              Confirmer
+              {saving ? <FaSpinner className="mt-spin" /> : <FaCheckCircle size={12} />} Confirmer
             </button>
           </div>
         </div>
@@ -292,10 +265,8 @@ const EMPTY_FILE = (leadTaskUserId: number): TaskFile => ({
 });
 
 interface FileModalProps {
-  mode: "create" | "edit";
-  initial: TaskFile;
-  onSave: (file: TaskFile) => Promise<void>;
-  onClose: () => void;
+  mode: "create" | "edit"; initial: TaskFile;
+  onSave: (file: TaskFile) => Promise<void>; onClose: () => void;
 }
 
 const FileModal: React.FC<FileModalProps> = ({ mode, initial, onSave, onClose }) => {
@@ -324,26 +295,18 @@ const FileModal: React.FC<FileModalProps> = ({ mode, initial, onSave, onClose })
         </div>
         <div className="mt-modal-body">
           {error && <div className="mt-modal-error">{error}</div>}
-          <div className="mt-field">
-            <label>Nom <span className="mt-required">*</span></label>
+          <div className="mt-field"><label>Nom <span className="mt-required">*</span></label>
             <input type="text" placeholder="document.pdf" value={form.driveFile.name}
-              onChange={(e) => setDrive("name", e.target.value)} />
-          </div>
-          <div className="mt-field">
-            <label>Lien Drive <span className="mt-required">*</span></label>
+              onChange={(e) => setDrive("name", e.target.value)} /></div>
+          <div className="mt-field"><label>Lien Drive <span className="mt-required">*</span></label>
             <input type="url" placeholder="https://drive.google.com/..." value={form.driveFile.link}
-              onChange={(e) => setDrive("link", e.target.value)} />
-          </div>
-          <div className="mt-field">
-            <label>Description</label>
+              onChange={(e) => setDrive("link", e.target.value)} /></div>
+          <div className="mt-field"><label>Description</label>
             <input type="text" placeholder="Description" value={form.driveFile.description}
-              onChange={(e) => setDrive("description", e.target.value)} />
-          </div>
-          <div className="mt-field">
-            <label>Commentaire</label>
+              onChange={(e) => setDrive("description", e.target.value)} /></div>
+          <div className="mt-field"><label>Commentaire</label>
             <textarea placeholder="Commentaire…" value={form.commentaire} rows={3}
-              onChange={(e) => setForm((f) => ({ ...f, commentaire: e.target.value }))} />
-          </div>
+              onChange={(e) => setForm((f) => ({ ...f, commentaire: e.target.value }))} /></div>
         </div>
         <div className="mt-modal-footer">
           <button className="mt-btn mt-btn--ghost" onClick={onClose} disabled={saving}>Annuler</button>
@@ -478,16 +441,15 @@ const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService,
   const [currentStatusLabel, setCurrentStatusLabel] = useState(details.leadTaskUserStatus.leadTaskStatus.leadTaskStatusLabel);
 
   const handleStatusChanged = (newStatusId: number, newStatusLabel: string) => {
-    // Mise à jour immédiate dans les détails affichés
     setCurrentStatusId(newStatusId);
     setCurrentStatusLabel(newStatusLabel);
-    // Propagation vers la carte parente pour sync dans la liste
     onStatusChanged(newStatusId, newStatusLabel);
   };
 
+  const isTerminal = TERMINAL_STATUSES.includes(currentStatusId);
+
   return (
     <div className="mt-expanded">
-
       {/* Status slider */}
       <div className="mt-section">
         <div className="mt-section-title"><FaHourglassHalf size={11} /> Statut de la tâche</div>
@@ -582,6 +544,7 @@ const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService,
                 <div className="mt-val-body">
                   <span className="mt-val-user">{v.user.username}</span>
                   <span className="mt-val-role">{v.role.roleLabel}</span>
+                  {v.comment && <span className="mt-val-comment">"{v.comment}"</span>}
                   <span className="mt-val-date">{fmt(v.validationTime)}</span>
                 </div>
               </div>
@@ -601,13 +564,12 @@ const TacheCard: React.FC<{
   taskService: ILeadTaskUserService;
   fileService: ILeadTaskFileService;
   statusService: ILeadTaskUserStatusService;
-  autoOpen?: boolean; // ouverture automatique depuis une notification
+  autoOpen?: boolean;
 }> = ({ tache, taskService, fileService, statusService, autoOpen = false }) => {
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<LeadTaskUserDetails | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
-  // Statut local de la carte (mis à jour immédiatement sans refetch de la liste)
   const [localStatus, setLocalStatus] = useState<LeadTaskStatus>(
     tache.leadTaskUserStatus.leadTaskStatus
   );
@@ -617,7 +579,6 @@ const TacheCard: React.FC<{
     try {
       const d = await taskService.getById(tache.leadTaskUserId);
       setDetails(d);
-      // Sync le statut local avec les données fraîches
       setLocalStatus(d.leadTaskUserStatus.leadTaskStatus);
     } catch (e) {
       console.error("Erreur chargement détails tâche:", e);
@@ -626,18 +587,15 @@ const TacheCard: React.FC<{
     }
   }, [tache.leadTaskUserId, taskService]);
 
-  // Auto-ouverture déclenchée par la notification (openLeadTaskId dans location.state)
   useEffect(() => {
     if (!autoOpen) return;
     (async () => {
       await loadDetails();
       setOpen(true);
-      // Scroll vers la carte après un court délai pour laisser le DOM se rendre
       setTimeout(() => {
         cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 200);
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpen]);
 
   const handleToggle = useCallback(async () => {
@@ -645,9 +603,7 @@ const TacheCard: React.FC<{
     setOpen((v) => !v);
   }, [open, details, loadDetails]);
 
-  // Appelé par ExpandedDetails quand le statut change via le slider
   const handleStatusChanged = useCallback((newStatusId: number, newStatusLabel: string) => {
-    // Mise à jour immédiate du badge dans la liste (sans refetch)
     setLocalStatus({ leadTaskStatusId: newStatusId, leadTaskStatusLabel: newStatusLabel });
   }, []);
 
@@ -660,11 +616,7 @@ const TacheCard: React.FC<{
         <div className="mt-card-main">
           <div className="mt-card-toprow">
             <span className="mt-card-name">{tache.leadTask.leadTaskName}</span>
-            {/* Badge utilise localStatus pour refléter les changements immédiats */}
-            <StatusBadge
-              statusId={localStatus.leadTaskStatusId}
-              label={localStatus.leadTaskStatusLabel}
-            />
+            <StatusBadge statusId={localStatus.leadTaskStatusId} label={localStatus.leadTaskStatusLabel} />
           </div>
           <div className="mt-card-meta">
             <span className="mt-meta-chip mt-meta-lead"><FaTag size={9} />{tache.leadDetails.leadRef} · {tache.leadDetails.leadName}</span>
@@ -682,12 +634,7 @@ const TacheCard: React.FC<{
       </div>
 
       {open && !loadingDetail && details && (
-        <ExpandedDetails
-          details={details}
-          fileService={fileService}
-          statusService={statusService}
-          onStatusChanged={handleStatusChanged}
-        />
+        <ExpandedDetails details={details} fileService={fileService} statusService={statusService} onStatusChanged={handleStatusChanged} />
       )}
       {open && loadingDetail && (
         <div className="mt-detail-loading"><FaSpinner className="mt-spin" /> Chargement…</div>
@@ -704,27 +651,19 @@ interface Props {
   fileService: ILeadTaskFileService;
   statusService: ILeadTaskUserStatusService;
   currentUserName?: string;
-  /** ID de la tâche lead à ouvrir automatiquement (passé via location.state depuis une notification) */
   openLeadTaskId?: number | null;
 }
 
 const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, currentUserName = "Utilisateur", openLeadTaskId }) => {
+  const [searchParams] = useSearchParams();
+  // Priorité : prop > URL param
+  const urlTaskId = searchParams.get("taskLeadId") ? Number(searchParams.get("taskLeadId")) : null;
+  const resolvedOpenId = openLeadTaskId ?? urlTaskId;
+
   const [taches, setTaches] = useState<LeadTaskUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const loadAll = useCallback(async () => {
-    try {
-      setLoading(true); setError(null);
-      const data = await taskService.getAll();
-      setTaches(data);
-    } catch (e) {
-      setError("Impossible de charger les tâches.");
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [taskService]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -742,6 +681,16 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
     })();
     return () => { cancelled = true; };
   }, [taskService]);
+
+  const filtered = taches.filter((t) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      t.leadDetails.leadName.toLowerCase().includes(q) ||
+      t.leadDetails.leadRef.toLowerCase().includes(q) ||
+      t.leadTask.leadTaskName.toLowerCase().includes(q)
+    );
+  });
 
   const counts = {
     total: taches.length,
@@ -770,6 +719,23 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
         </div>
       )}
 
+      {/* Barre de recherche */}
+      {!loading && !error && taches.length > 0 && (
+        <div className="mt-search-bar">
+          <FaSearch className="mt-search-icon" />
+          <input
+            type="text"
+            className="mt-search-input"
+            placeholder="Rechercher par nom de lead, référence ou tâche…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="mt-search-clear" onClick={() => setSearch("")}><FaTimes size={12} /></button>
+          )}
+        </div>
+      )}
+
       {loading && <div className="mt-state-box"><FaSpinner className="mt-spin mt-spin--lg" /><p>Chargement des tâches…</p></div>}
       {!loading && error && <div className="mt-state-box mt-state-box--error"><FaTimesCircle size={30} /><p>{error}</p></div>}
       {!loading && !error && taches.length === 0 && (
@@ -778,17 +744,23 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
           <p>Aucune tâche pour le moment</p><span>Profitez de votre temps libre !</span>
         </div>
       )}
+      {!loading && !error && taches.length > 0 && filtered.length === 0 && (
+        <div className="mt-state-box mt-state-box--empty">
+          <FaSearch size={30} className="mt-empty-icon" />
+          <p>Aucun résultat pour « {search} »</p>
+        </div>
+      )}
 
-      {!loading && !error && taches.length > 0 && (
+      {!loading && !error && filtered.length > 0 && (
         <div className="mt-list">
-          {taches.map((t) => (
+          {filtered.map((t) => (
             <TacheCard
               key={t.leadTaskUserId}
               tache={t}
               taskService={taskService}
               fileService={fileService}
               statusService={statusService}
-              autoOpen={openLeadTaskId != null && t.leadTaskUserId === openLeadTaskId}
+              autoOpen={resolvedOpenId != null && t.leadTaskUserId === resolvedOpenId}
             />
           ))}
         </div>
