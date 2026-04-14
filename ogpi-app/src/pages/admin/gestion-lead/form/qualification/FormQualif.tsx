@@ -299,12 +299,12 @@ const FormQualif: React.FC<Props> = ({
           </Col>
 
           <Col md={6}>
-            <Form.Label>Date et heure de soumission</Form.Label>
+            <Form.Label>Date et heure de soumission *</Form.Label>
             <Form.Control type="datetime-local" name="realDeadline" value={form.realDeadline || ""} onChange={handleChange} />
           </Col>
 
           <Col md={6}>
-            <Form.Label>Type de financement</Form.Label>
+            <Form.Label>Type de financement *</Form.Label>
             <Form.Select
               name="typeFinancement"
               value={form.typeFinancement?.id || ""}
@@ -321,12 +321,12 @@ const FormQualif: React.FC<Props> = ({
           </Col>
 
           <Col md={6}>
-            <Form.Label>Nom du Répertoire Drive</Form.Label>
+            <Form.Label>Nom du Répertoire Drive *</Form.Label>
             <Form.Control name="driveFolderName" value={form.driveFolderName || ""} onChange={handleChange} placeholder="Ex: Projet ABC" />
           </Col>
 
           <Col md={6}>
-            <Form.Label>Lien du Répertoire Drive</Form.Label>
+            <Form.Label>Lien du Répertoire Drive *</Form.Label>
             <InputGroup>
               <Form.Control name="driveFolderLink" value={form.driveFolderLink || ""} onChange={handleChange} placeholder="https://drive.google.com/..." />
               {form.driveFolderLink && (
@@ -338,11 +338,11 @@ const FormQualif: React.FC<Props> = ({
           </Col>
 
           <Col md={6}>
-            <Form.Label>Nom du TDR</Form.Label>
+            <Form.Label>Nom du TDR *</Form.Label>
             <Form.Control name="mainDriveFileName" value={form.mainDriveFileName || ""} onChange={handleChange} />
           </Col>
           <Col md={6}>
-            <Form.Label>Lien du TDR</Form.Label>
+            <Form.Label>Lien du TDR *</Form.Label>
             <Form.Control name="mainDriveFileLink" value={form.mainDriveFileLink || ""} onChange={handleChange} />
           </Col>
           <Col md={12}>
@@ -362,7 +362,7 @@ const FormQualif: React.FC<Props> = ({
         <h4>Classification</h4>
         <Row className="g-3">
           <Col md={6}>
-            <Form.Label>Type Opportunité</Form.Label>
+            <Form.Label>Type Opportunité *</Form.Label>
             <Form.Select name="typeOpportunite" value={form.typeOpportunite || ""} onChange={handleChange}>
               <option value="">-- Sélectionner --</option>
               {typeOpportunites.map((t) => (
@@ -371,7 +371,7 @@ const FormQualif: React.FC<Props> = ({
             </Form.Select>
           </Col>
           <Col md={6}>
-            <Form.Label>Catégorie</Form.Label>
+            <Form.Label>Catégorie *</Form.Label>
             <Form.Select name="categorie" value={form.categorie || ""} onChange={handleChange}>
               <option value="">-- Sélectionner --</option>
               {categories.map((c) => (
@@ -380,7 +380,7 @@ const FormQualif: React.FC<Props> = ({
             </Form.Select>
           </Col>
           <Col md={6}>
-            <Form.Label>Secteur</Form.Label>
+            <Form.Label>Secteur *</Form.Label>
             <Form.Select name="secteur" value={form.secteur || ""} onChange={handleChange}>
               <option value="">-- Sélectionner --</option>
               {secteurs.map((s) => (
@@ -389,7 +389,7 @@ const FormQualif: React.FC<Props> = ({
             </Form.Select>
           </Col>
           <Col md={6}>
-            <Form.Label>Zone</Form.Label>
+            <Form.Label>Zone *</Form.Label>
             <Form.Select
               name="zone"
               value={form.zone !== undefined && form.zone !== null ? String(form.zone) : ""}
