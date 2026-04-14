@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Modal, Button, Nav, Tab } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
+import { useSearchParams, useNavigate } from "react-router-dom"; // Ajouter useNavigate
 
 import FormQualif from "./qualification/FormQualif.tsx";
 import FormTechFin from "./technique-financiere/FormTechFin.tsx";
@@ -114,6 +115,9 @@ type FormLeadProps = {
 
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, initialTab }) => {
   const { api } = useAuth();
+  const navigate = useNavigate(); // Ajout pour la navigation
+  const [searchParams, setSearchParams] = useSearchParams(); // Remplacer par setSearchParams
+  
   const leadService = new LeadService(api);
   const userDisplayService = new UserDisplayService(api);
   const deviseService = useDeviseService();
@@ -121,9 +125,12 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
   const typeFacturationService = useTypeFacturationService();
   const leadTechFinService = useLeadTechFinDetailsService();
   const processHistoryService = new LeadProcessHistoryService(api);
-
-  const [currentStep, setCurrentStep] = useState("qualification");
-
+  
+  // Récupérer le step depuis l'URL ou utiliser initialTab ou qualification par défaut
+  const [currentStep, setCurrentStep] = useState<string>(
+    searchParams.get("step") || initialTab || "qualification"
+  );
+  
   const [form, setForm] = useState<any>({
     periode: "", businessUnit: "", description: "", nom: "",
     reference: "", typeOpportunite: "", categorie: "", secteur: "",
@@ -153,6 +160,21 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
   const [popup, setPopup] = useState<{ type: "success" | "error" | "loading"; message: string } | null>(null);
 
   const closePopup = () => setPopup(null);
+
+  // Fonction pour changer d'onglet et mettre à jour l'URL
+  const handleTabChange = (tabKey: string | null) => {
+    if (!tabKey) return;
+    
+    // Vérifier si l'onglet est accessible
+    if (isNoGo && !initialTab && tabKey !== "qualification") return;
+    
+    setCurrentStep(tabKey);
+    
+    // Mettre à jour l'URL avec le nouveau step
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("step", tabKey);
+    setSearchParams(newParams, { replace: true });
+  };
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
@@ -237,34 +259,13 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
           const currentLeadId = lead?.leadId || lead?.id;
           setForm(mapLeadToForm(lead));
 
-          const hasPreloadedTechFin =
-            lead.technos !== undefined ||
-            lead.devise !== undefined ||
-            lead.typeFacturation !== undefined;
-
           let techFinData: any = null;
 
-          // if (hasPreloadedTechFin) {
-          //   techFinData = {
-          //     technos: lead.technos || [],
-          //     volumeJHVendu: lead.volumeJHVendu || 0,
-          //     devise: lead.devise || null,
-          //     tauxDeChange: lead.tauxDeChange || 1,
-          //     typeFacturation: lead.typeFacturation || null,
-          //     impots: lead.impots || 0,
-          //     dateAttribution: lead.dateAttribution || "",
-          //     montantOffre: lead.montantOffre || lead.budget || 0,
-          //     montantChargeAnnexe: lead.montantChargeAnnexe || 0,
-          //     montantAvecChargeAnnexe: lead.montantAvecChargeAnnexe || 0,
-          //     budget: lead.montantOffre || lead.budget || 0,
-          //   };
-          // } else {
-            try {
-              techFinData = await leadTechFinService.getByLeadId(currentLeadId);
-            } catch (err) {
-              console.warn("TechFin non trouvé, fallback sur lead brut :", err);
-            }
-          // }
+          try {
+            techFinData = await leadTechFinService.getByLeadId(currentLeadId);
+          } catch (err) {
+            console.warn("TechFin non trouvé, fallback sur lead brut :", err);
+          }
 
           if (techFinData) {
             setFormTechFin({
@@ -284,7 +285,10 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
             });
           }
 
-          setCurrentStep(initialTab || "qualification");
+          // Récupérer le step depuis l'URL ou initialTab
+          const urlStep = searchParams.get("step");
+          const targetStep = urlStep || initialTab || "qualification";
+          setCurrentStep(targetStep);
         } else {
           setForm({
             periode: "", businessUnit: "", description: "", nom: "",
@@ -299,7 +303,12 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
             typeFacturationId: "", impots: 0, dateAttribution: "", budget: 0,
             montantOffre: 0, montantChargeAnnexe: 0, montantAvecChargeAnnexe: 0,
           });
-          setCurrentStep("qualification");
+          
+          // Réinitialiser le step à qualification pour un nouveau lead
+          const urlStep = searchParams.get("step");
+          setCurrentStep(urlStep === "offre" || urlStep === "etapes" || urlStep === "historique" 
+            ? "qualification" 
+            : urlStep || "qualification");
           jiraDataRef.current = null;
         }
       } catch (err) {
@@ -308,7 +317,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
     };
 
     fetchAll();
-  }, [show, lead, initialTab]);
+  }, [show, lead, initialTab, searchParams]);
 
   const isNoGo = lead?.currentLeadStatus?.leadStatus?.id < 3;
 
@@ -370,6 +379,14 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
 
         onSubmit(savedLead);
         setPopup({ type: "success", message: "Qualification sauvegardée avec succès !" });
+        
+        // Après sauvegarde, rediriger vers l'onglet offre si demandé
+        const nextStep = searchParams.get("nextStep");
+        if (nextStep === "offre" && savedLead) {
+          setTimeout(() => {
+            handleTabChange("offre");
+          }, 1500);
+        }
         return;
       }
 
@@ -423,6 +440,14 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
     }
   };
 
+  // Mapping des clés d'onglet vers les libellés
+  const tabLabels: Record<string, string> = {
+    qualification: "Qualification",
+    offre: "Offre technique & financière",
+    etapes: "Étapes & validations",
+    historique: "Historique de traitement"
+  };
+
   return (
     <>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable className="form-lead-modal">
@@ -437,29 +462,27 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
         <Modal.Body>
           <Tab.Container
             activeKey={currentStep}
-            onSelect={(k) => {
-              if (isNoGo && !initialTab && k !== "qualification") return;
-              setCurrentStep(k || "qualification");
-            }}
+            onSelect={handleTabChange}
           >
             <Nav variant="pills" className="mb-4 form-lead-tabs">
               <Nav.Item>
-                <Nav.Link eventKey="qualification">Qualification</Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link eventKey="offre" disabled={!lead}>
-                  Offre technique & financière
+                <Nav.Link eventKey="qualification">
+                  {tabLabels.qualification}
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
-                {/* Renommé : Jira → Étapes & validations */}
+                <Nav.Link eventKey="offre" disabled={!lead}>
+                  {tabLabels.offre}
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
                 <Nav.Link eventKey="etapes" disabled={!lead}>
-                  Étapes & validations
+                  {tabLabels.etapes}
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="historique" disabled={!lead}>
-                  Historique de traitement
+                  {tabLabels.historique}
                 </Nav.Link>
               </Nav.Item>
             </Nav>

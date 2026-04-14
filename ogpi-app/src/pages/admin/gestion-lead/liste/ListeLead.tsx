@@ -34,6 +34,7 @@ const ListeLead: React.FC = () => {
   const [showDetailLead, setShowDetailLead] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialStep, setInitialStep] = useState<string>('qualification');
   
   const leadService = new LeadService(api);
   const leadTechFinService = useLeadTechFinDetailsService();
@@ -54,18 +55,23 @@ const ListeLead: React.FC = () => {
   
   const DEFAULT_VISIBLE_COLUMNS = ['name', 'status', 'actions'];
 
-  // Fonction pour ouvrir le formulaire d'édition d'un lead
-  const openLeadForm = async (leadId: number) => {
+  // Fonction pour ouvrir le formulaire d'édition d'un lead avec step optionnel
+  const openLeadForm = async (leadId: number, step?: string) => {
     if (isLoading) return;
     
     setIsLoading(true);
     try {
       const completeLead = await loadFullLeadDetails(leadId);
       setSelectedLead(completeLead);
+      setInitialStep(step || 'qualification');
       setShowFormLead(true);
       
-      // Mettre à jour l'URL avec le paramètre editLead
-      setSearchParams({ editLead: leadId.toString() });
+      // Mettre à jour l'URL avec editLead et step
+      const params: any = { editLead: leadId.toString() };
+      if (step) {
+        params.step = step;
+      }
+      setSearchParams(params);
     } catch (error) {
       console.error("Erreur lors de l'ouverture du formulaire:", error);
     } finally {
@@ -88,9 +94,11 @@ const ListeLead: React.FC = () => {
   const closeLeadForm = () => {
     setShowFormLead(false);
     setSelectedLead(null);
-    // Supprimer le paramètre editLead de l'URL
+    setInitialStep('qualification');
+    // Supprimer les paramètres editLead et step de l'URL
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('editLead');
+    newParams.delete('step');
     setSearchParams(newParams);
   };
 
@@ -117,6 +125,7 @@ const ListeLead: React.FC = () => {
   // Effet pour gérer l'ouverture du formulaire via URL
   useEffect(() => {
     const editLeadId = searchParams.get("editLead");
+    const step = searchParams.get("step");
     
     if (editLeadId && !showFormLead && !selectedLead && !isLoading) {
       const leadId = parseInt(editLeadId, 10);
@@ -127,12 +136,13 @@ const ListeLead: React.FC = () => {
           const leadExists = opportunities.some(opp => opp.id === leadId);
           
           if (leadExists) {
-            await openLeadForm(leadId);
+            await openLeadForm(leadId, step || undefined);
           } else if (opportunities.length > 0) {
             // Le lead n'existe pas, nettoyer l'URL
             console.warn(`Lead avec l'ID ${leadId} non trouvé`);
             const newParams = new URLSearchParams(searchParams);
             newParams.delete('editLead');
+            newParams.delete('step');
             setSearchParams(newParams);
           }
         }, 300);
@@ -544,7 +554,13 @@ const ListeLead: React.FC = () => {
                     icon={<FaPlus />}
                     onClick={() => {
                       setSelectedLead(null);
+                      setInitialStep('qualification');
                       setShowFormLead(true);
+                      // Nettoyer l'URL
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.delete('editLead');
+                      newParams.delete('step');
+                      setSearchParams(newParams);
                     }}
                   />
                 </div>
@@ -574,9 +590,11 @@ const ListeLead: React.FC = () => {
         show={showFormLead}
         onClose={closeLeadForm}
         lead={selectedLead}
-        onSubmit={async () => {
+        initialTab={initialStep}
+        onSubmit={async (savedLead) => {
           await loadLeads();
-          closeLeadForm();
+          // Ne pas fermer le formulaire immédiatement, laisser FormLead gérer la redirection
+          // Le formulaire se fermera quand l'utilisateur cliquera sur Annuler
         }}
       />
 
