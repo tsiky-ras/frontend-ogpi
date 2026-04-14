@@ -1042,7 +1042,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                             <h6 className="text-primary">{lot.name} — Volume : {lotTotalVolume.toFixed(2)} JH — Montant : {lotTotalAmount.toFixed(2)} {deviseAbr || ''}</h6>
                             <div className="table-responsive">
                               <table className="table table-sm table-bordered">
-                                <thead><tr><th>Phase</th><th className="text-end">Volume (JH)</th><th className="text-end">Montant</th></tr></thead>
+                                <thead><tr><th>Phase</th><th className="text-end">Volume (JH)</th><th className="text-end">Montant {deviseAbr}</th></tr></thead>
                                 <tbody>
                                   {phaseTotals.map(({ phase, totalVolume, totalAmount }) => (
                                     <tr key={phase.id}><td>{phase.name}</td><td className="text-end">{totalVolume.toFixed(2)}</td><td className="text-end">{totalAmount.toFixed(2)}</td></tr>
@@ -1374,7 +1374,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                             <div className="backlog-content">
                               <div className="backlog-title"><span className="backlog-order">{profil.order}. </span>{profil.name}</div>
                               <div className="backlog-desc">{profil.desc || "—"}</div>
-                              <div className="profil-tjm mt-2"><strong>TJM:</strong> {profil.tjm.toFixed(2)}</div>
+                              <div className="profil-tjm mt-2"><strong>TJM:</strong> {profil.tjm.toFixed(2)} { deviseAbr }</div>
                               {/* Collaborateur affecté */}
                               <div className="profil-collab-section mt-2">
                                 {collab ? (

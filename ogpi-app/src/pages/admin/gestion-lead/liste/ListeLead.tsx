@@ -35,6 +35,7 @@ const ListeLead: React.FC = () => {
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [initialStep, setInitialStep] = useState<string>('qualification');
+  const [hardFilterIds, setHardFilterIds] = useState<number[]>([]);
   
   const leadService = new LeadService(api);
   const leadTechFinService = useLeadTechFinDetailsService();
@@ -55,6 +56,56 @@ const ListeLead: React.FC = () => {
   
   const DEFAULT_VISIBLE_COLUMNS = ['name', 'status', 'actions'];
 
+  // Fonction pour parser le paramètre hardFilter de l'URL
+  const parseHardFilterFromURL = (): number[] => {
+    const hardFilterParam = searchParams.get("hardFilter");
+    
+    if (!hardFilterParam || hardFilterParam.trim() === "") {
+      return [];
+    }
+    
+    const ids = hardFilterParam.split(",")
+      .map(id => parseInt(id.trim(), 10))
+      .filter(id => !isNaN(id) && id > 0);
+    
+    // Log pour le debug
+    if (ids.length > 0) {
+      console.log(`Filtre URL détecté: ${hardFilterParam} -> IDs: ${ids.join(', ')}`);
+    }
+    
+    return ids;
+  };
+
+  // Mettre à jour le filtre quand l'URL change
+  useEffect(() => {
+    const ids = parseHardFilterFromURL();
+    setHardFilterIds(ids);
+  }, [searchParams]);
+
+  const isFilterEnabled = hardFilterIds.length > 0;
+
+  // Fonction pour appliquer le filtre dur sur les données
+  const applyHardFilter = (leadsData: Lead[]): Lead[] => {
+    if (!isFilterEnabled) {
+      return leadsData; // Retourne tous les leads si aucun filtre n'est défini
+    }
+    
+    const filteredLeads = leadsData.filter(lead => hardFilterIds.includes(lead.id));
+    
+    // Log pour le debug (optionnel)
+    console.log(`Filtre dur appliqué: ${hardFilterIds.join(', ')}`);
+    console.log(`Leads trouvés: ${filteredLeads.length} sur ${leadsData.length} total`);
+    
+    // Afficher un avertissement si certains IDs ne sont pas trouvés
+    const foundIds = filteredLeads.map(lead => lead.id);
+    const missingIds = hardFilterIds.filter(id => !foundIds.includes(id));
+    if (missingIds.length > 0) {
+      console.warn(`IDs non trouvés: ${missingIds.join(', ')}`);
+    }
+    
+    return filteredLeads;
+  };
+
   // Fonction pour ouvrir le formulaire d'édition d'un lead avec step optionnel
   const openLeadForm = async (leadId: number, step?: string) => {
     if (isLoading) return;
@@ -70,6 +121,11 @@ const ListeLead: React.FC = () => {
       const params: any = { editLead: leadId.toString() };
       if (step) {
         params.step = step;
+      }
+      // Conserver le hardFilter si présent
+      const currentHardFilter = searchParams.get("hardFilter");
+      if (currentHardFilter) {
+        params.hardFilter = currentHardFilter;
       }
       setSearchParams(params);
     } catch (error) {
@@ -95,7 +151,7 @@ const ListeLead: React.FC = () => {
     setShowFormLead(false);
     setSelectedLead(null);
     setInitialStep('qualification');
-    // Supprimer les paramètres editLead et step de l'URL
+    // Supprimer les paramètres editLead et step de l'URL, mais garder hardFilter
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('editLead');
     newParams.delete('step');
@@ -131,6 +187,16 @@ const ListeLead: React.FC = () => {
       const leadId = parseInt(editLeadId, 10);
       
       if (!isNaN(leadId) && leadId > 0) {
+        // Vérifier d'abord si le lead est autorisé par le filtre
+        if (isFilterEnabled && !hardFilterIds.includes(leadId)) {
+          console.warn(`Lead ${leadId} non autorisé par le filtre`);
+          const newParams = new URLSearchParams(searchParams);
+          newParams.delete('editLead');
+          newParams.delete('step');
+          setSearchParams(newParams);
+          return;
+        }
+        
         // Attendre que les leads soient chargés
         const timer = setTimeout(async () => {
           const leadExists = opportunities.some(opp => opp.id === leadId);
@@ -150,7 +216,7 @@ const ListeLead: React.FC = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [searchParams, opportunities, showFormLead, selectedLead]);
+  }, [searchParams, opportunities, showFormLead, selectedLead, hardFilterIds, isFilterEnabled]);
 
   const loadFullLeadDetails = async (leadId: number) => {
     try {      
@@ -246,8 +312,11 @@ const ListeLead: React.FC = () => {
         partenaires: [],
       }));
 
-      setOpportunities(leadsData);
-      calculateKPIs(leadsData);
+      // APPLIQUER LE FILTRE DUR ICI
+      const filteredLeads = applyHardFilter(leadsData);
+
+      setOpportunities(filteredLeads);
+      calculateKPIs(filteredLeads);
     } catch (error) {
       console.error("Erreur chargement leads", error);
     }
@@ -255,7 +324,7 @@ const ListeLead: React.FC = () => {
 
   useEffect(() => {
     loadLeads();
-  }, [period]);
+  }, [period, hardFilterIds]); // Recharger quand le filtre change
 
   const getCurrencySymbol = () => {
     switch (currency) {
@@ -533,6 +602,39 @@ const ListeLead: React.FC = () => {
     </div>
   );
 
+  // Fonction pour supprimer le filtre
+  const clearHardFilter = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('hardFilter');
+    setSearchParams(newParams);
+  };
+
+  // Optionnel: Afficher un message si aucun lead n'est trouvé avec le filtre
+  if (isFilterEnabled && opportunities.length === 0 && !isLoading) {
+    return (
+      <div className="liste-lead-layout">
+        <Header />
+        <div className="liste-lead-wrapper">
+          <main className="liste-lead-main">
+            <div className="container-fluid">
+              <div className="alert alert-warning mt-4">
+                <h5>Aucun lead trouvé</h5>
+                <p>Aucun lead avec l'ID {searchParams.get("hardFilter")} n'a été trouvé.</p>
+                <p className="mb-0 text-muted small">Vérifie que les IDs existent dans la base de données.</p>
+                <button 
+                  className="btn btn-sm btn-outline-secondary mt-3"
+                  onClick={clearHardFilter}
+                >
+                  Effacer le filtre
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   /* ================= RENDER ================= */
   return (
     <div className="liste-lead-layout">
@@ -547,7 +649,7 @@ const ListeLead: React.FC = () => {
               </div>
 
               {/* Bouton créer */}
-              {(user?.role?.roleId == 7) ? (
+              {(user?.role?.roleId == 7) && (
                 <div className="col-lg-4 col-md-12 text-lg-end">
                   <Button
                     label="Créer une opportunité"
@@ -556,7 +658,7 @@ const ListeLead: React.FC = () => {
                       setSelectedLead(null);
                       setInitialStep('qualification');
                       setShowFormLead(true);
-                      // Nettoyer l'URL
+                      // Nettoyer l'URL mais garder hardFilter
                       const newParams = new URLSearchParams(searchParams);
                       newParams.delete('editLead');
                       newParams.delete('step');
@@ -564,8 +666,30 @@ const ListeLead: React.FC = () => {
                     }}
                   />
                 </div>
-              ) : null}
+              )}
             </div>
+
+            {/* Badge indiquant le filtre actif avec bouton pour l'effacer */}
+            {/* {isFilterEnabled && (
+              <div className="mb-3">
+                <div className="alert alert-info d-flex justify-content-between align-items-center" style={{ backgroundColor: '#e3f2fd', borderColor: '#90caf9' }}>
+                  <div>
+                    <i className="bi bi-funnel-fill me-2"></i>
+                    <strong>Filtre actif:</strong> Affichage uniquement des leads avec ID(s): {hardFilterIds.join(', ')}
+                    <span className="text-muted ms-2 small">
+                      (URL: ?hardFilter={searchParams.get("hardFilter")})
+                    </span>
+                  </div>
+                  <button 
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={clearHardFilter}
+                  >
+                    <i className="bi bi-x-lg me-1"></i>
+                    Effacer le filtre
+                  </button>
+                </div>
+              </div>
+            )} */}
 
             <FilterBar
               filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]}
@@ -593,8 +717,6 @@ const ListeLead: React.FC = () => {
         initialTab={initialStep}
         onSubmit={async (savedLead) => {
           await loadLeads();
-          // Ne pas fermer le formulaire immédiatement, laisser FormLead gérer la redirection
-          // Le formulaire se fermera quand l'utilisateur cliquera sur Annuler
         }}
       />
 

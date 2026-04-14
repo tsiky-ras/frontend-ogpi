@@ -303,7 +303,7 @@ const FormTechFin: React.FC<Props> = ({
             />
           </Col>
 
-          <Col md={4}>
+          {/* <Col md={4}>
             <Form.Label>Date d'attribution</Form.Label>
             <Form.Control
               type="date"
@@ -312,7 +312,7 @@ const FormTechFin: React.FC<Props> = ({
                 setForm((prev: any) => ({ ...prev, dateAttribution: e.target.value }))
               }
             />
-          </Col>
+          </Col> */}
 
           {/* <Col md={4}>
             <Form.Label>Volume JH vendu</Form.Label>

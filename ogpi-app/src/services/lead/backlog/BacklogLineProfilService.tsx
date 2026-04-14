@@ -79,7 +79,7 @@ export class BacklogProjetLineProfilService {
   // ==========================
   async delete(id: number): Promise<void> {
     try {
-      await this.api.delete(`/projet/backlog-line-profils/${id}`);
+      await this.api.delete(`/backlog-line-profils/${id}`);
     } catch (error) {
       console.error(
         "Erreur lors de la suppression du backlog projet line profil:",
