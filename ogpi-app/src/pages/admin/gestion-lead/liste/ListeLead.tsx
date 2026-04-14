@@ -21,6 +21,8 @@ import { useLeadTechFinDetailsService } from '../../../../services/lead/tech-fin
 
 /* ================= COMPONENT ================= */
 const ListeLead: React.FC = () => {
+  const { user } = useAuth();
+
   const { api } = useAuth();
   const [search, setSearch] = useState('');
   const [opportunities, setOpportunities] = useState<any[]>([]);
@@ -508,6 +510,7 @@ const ListeLead: React.FC = () => {
               </div>
 
               {/* Bouton créer */}
+              {(user?.role?.roleId== 7) ?
               <div className="col-lg-4 col-md-12 text-lg-end">
                 <Button
                   label="Créer une opportunité"
@@ -518,6 +521,7 @@ const ListeLead: React.FC = () => {
                   }}
                 />
               </div>
+              :null}
             </div>
 
             {/* KPI
