@@ -68,7 +68,7 @@ export const routes = [
     icon: <FaThList />, 
     children:[
       {
-        path: "/gestion-taches",
+        path: "/archive-lead",
         label: "Archive Leads",
         icon: <FaThList />,
       },

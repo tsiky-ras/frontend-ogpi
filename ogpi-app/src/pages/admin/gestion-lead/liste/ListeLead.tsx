@@ -20,8 +20,17 @@ import { BacklogService } from "../../../../services/lead/backlog/BacklogService
 import { useLeadTechFinDetailsService } from '../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx';
 import { useSearchParams } from 'react-router-dom';
 
+/* ================= PROPS ================= */
+interface ListeLeadProps {
+  /**
+   * isArchive=true  → garde uniquement les leads avec status.id 11 (Gagnée) ou 12 (Perdue)
+   * isArchive=false → exclut les leads avec status.id 11 ou 12  (comportement par défaut)
+   */
+  isArchive?: boolean;
+}
+
 /* ================= COMPONENT ================= */
-const ListeLead: React.FC = () => {
+const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
   const { user, api } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -56,6 +65,9 @@ const ListeLead: React.FC = () => {
   
   const DEFAULT_VISIBLE_COLUMNS = ['name', 'status', 'actions'];
 
+  // IDs des statuts "terminaux" (Gagnée / Perdue)
+  const ARCHIVE_STATUS_IDS = [5, 6];
+
   // Fonction pour parser le paramètre hardFilter de l'URL
   const parseHardFilterFromURL = (): number[] => {
     const hardFilterParam = searchParams.get("hardFilter");
@@ -68,7 +80,6 @@ const ListeLead: React.FC = () => {
       .map(id => parseInt(id.trim(), 10))
       .filter(id => !isNaN(id) && id > 0);
     
-    // Log pour le debug
     if (ids.length > 0) {
       console.log(`Filtre URL détecté: ${hardFilterParam} -> IDs: ${ids.join(', ')}`);
     }
@@ -84,19 +95,21 @@ const ListeLead: React.FC = () => {
 
   const isFilterEnabled = hardFilterIds.length > 0;
 
-  // Fonction pour appliquer le filtre dur sur les données
+  /**
+   * Applique le filtre dur (hardFilter depuis l'URL) sur les données.
+   * Ce filtre est appliqué APRÈS le filtre archive, donc il ne peut retourner
+   * que des leads déjà compatibles avec le mode courant (archive ou actif).
+   */
   const applyHardFilter = (leadsData: Lead[]): Lead[] => {
     if (!isFilterEnabled) {
-      return leadsData; // Retourne tous les leads si aucun filtre n'est défini
+      return leadsData;
     }
     
     const filteredLeads = leadsData.filter(lead => hardFilterIds.includes(lead.id));
     
-    // Log pour le debug (optionnel)
     console.log(`Filtre dur appliqué: ${hardFilterIds.join(', ')}`);
     console.log(`Leads trouvés: ${filteredLeads.length} sur ${leadsData.length} total`);
     
-    // Afficher un avertissement si certains IDs ne sont pas trouvés
     const foundIds = filteredLeads.map(lead => lead.id);
     const missingIds = hardFilterIds.filter(id => !foundIds.includes(id));
     if (missingIds.length > 0) {
@@ -104,6 +117,22 @@ const ListeLead: React.FC = () => {
     }
     
     return filteredLeads;
+  };
+
+  /**
+   * Filtre archive :
+   * - isArchive=true  → garde uniquement status.id 11 ou 12
+   * - isArchive=false → exclut status.id 11 et 12
+   */
+  const applyArchiveFilter = (leadsData: Lead[]): Lead[] => {
+    if (isArchive) {
+      return leadsData.filter(lead =>
+        ARCHIVE_STATUS_IDS.includes(lead.status?.id)
+      );
+    }
+    return leadsData.filter(lead =>
+      !ARCHIVE_STATUS_IDS.includes(lead.status?.id)
+    );
   };
 
   // Fonction pour ouvrir le formulaire d'édition d'un lead avec step optionnel
@@ -117,12 +146,10 @@ const ListeLead: React.FC = () => {
       setInitialStep(step || 'qualification');
       setShowFormLead(true);
       
-      // Mettre à jour l'URL avec editLead et step
       const params: any = { editLead: leadId.toString() };
       if (step) {
         params.step = step;
       }
-      // Conserver le hardFilter si présent
       const currentHardFilter = searchParams.get("hardFilter");
       if (currentHardFilter) {
         params.hardFilter = currentHardFilter;
@@ -151,7 +178,6 @@ const ListeLead: React.FC = () => {
     setShowFormLead(false);
     setSelectedLead(null);
     setInitialStep('qualification');
-    // Supprimer les paramètres editLead et step de l'URL, mais garder hardFilter
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('editLead');
     newParams.delete('step');
@@ -187,7 +213,6 @@ const ListeLead: React.FC = () => {
       const leadId = parseInt(editLeadId, 10);
       
       if (!isNaN(leadId) && leadId > 0) {
-        // Vérifier d'abord si le lead est autorisé par le filtre
         if (isFilterEnabled && !hardFilterIds.includes(leadId)) {
           console.warn(`Lead ${leadId} non autorisé par le filtre`);
           const newParams = new URLSearchParams(searchParams);
@@ -197,14 +222,12 @@ const ListeLead: React.FC = () => {
           return;
         }
         
-        // Attendre que les leads soient chargés
         const timer = setTimeout(async () => {
           const leadExists = opportunities.some(opp => opp.id === leadId);
           
           if (leadExists) {
             await openLeadForm(leadId, step || undefined);
           } else if (opportunities.length > 0) {
-            // Le lead n'existe pas, nettoyer l'URL
             console.warn(`Lead avec l'ID ${leadId} non trouvé`);
             const newParams = new URLSearchParams(searchParams);
             newParams.delete('editLead');
@@ -312,8 +335,11 @@ const ListeLead: React.FC = () => {
         partenaires: [],
       }));
 
-      // APPLIQUER LE FILTRE DUR ICI
-      const filteredLeads = applyHardFilter(leadsData);
+      // 1. Filtre archive (garde ou exclut status 11/12 selon isArchive)
+      const archiveFiltered = applyArchiveFilter(leadsData);
+
+      // 2. Filtre dur depuis l'URL (optionnel)
+      const filteredLeads = applyHardFilter(archiveFiltered);
 
       setOpportunities(filteredLeads);
       calculateKPIs(filteredLeads);
@@ -324,18 +350,14 @@ const ListeLead: React.FC = () => {
 
   useEffect(() => {
     loadLeads();
-  }, [period, hardFilterIds]); // Recharger quand le filtre change
+  }, [period, hardFilterIds, isArchive]);
 
   const getCurrencySymbol = () => {
     switch (currency) {
-      case 'AR':
-        return 'Ar';
-      case 'Euro':
-        return '€';
-      case '$':
-        return '$';
-      default:
-        return '€';
+      case 'AR': return 'Ar';
+      case 'Euro': return '€';
+      case '$': return '$';
+      default: return '€';
     }
   };
 
@@ -489,6 +511,8 @@ const ListeLead: React.FC = () => {
           4: ['bg-primary', 'En cours d\'évaluation'],
           5: ['bg-success', 'Gagnée'],
           6: ['bg-secondary', 'Perdue'],
+          11: ['bg-success', 'Gagnée'],
+          12: ['bg-secondary', 'Perdue'],
         };
         const [cls, label] = map[row.status.id] || ['bg-secondary', 'En attente de validation'];
         return <span className={`badge ${cls}`}>{label}</span>;
@@ -609,27 +633,22 @@ const ListeLead: React.FC = () => {
     setSearchParams(newParams);
   };
 
-  // Optionnel: Afficher un message si aucun lead n'est trouvé avec le filtre
+  // Message si aucun lead trouvé avec le filtre dur actif
   if (isFilterEnabled && opportunities.length === 0 && !isLoading) {
     return (
       <div className="liste-lead-layout">
-        <Header />
-        <div className="liste-lead-wrapper">
-          <main className="liste-lead-main">
-            <div className="container-fluid">
-              <div className="alert alert-warning mt-4">
-                <h5>Aucun lead trouvé</h5>
-                <p>Aucun lead avec l'ID {searchParams.get("hardFilter")} n'a été trouvé.</p>
-                <p className="mb-0 text-muted small">Vérifie que les IDs existent dans la base de données.</p>
-                <button 
-                  className="btn btn-sm btn-outline-secondary mt-3"
-                  onClick={clearHardFilter}
-                >
-                  Effacer le filtre
-                </button>
-              </div>
-            </div>
-          </main>
+        <div className="container-fluid">
+          <div className="alert alert-warning mt-4">
+            <h5>Aucun lead trouvé</h5>
+            <p>Aucun lead avec l'ID {searchParams.get("hardFilter")} n'a été trouvé{isArchive ? ' dans les archives' : ''}.</p>
+            <p className="mb-0 text-muted small">Vérifie que les IDs existent dans la base de données.</p>
+            <button
+              className="btn btn-sm btn-outline-secondary mt-3"
+              onClick={clearHardFilter}
+            >
+              Effacer le filtre
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -638,19 +657,13 @@ const ListeLead: React.FC = () => {
   /* ================= RENDER ================= */
   return (
     <div className="liste-lead-layout">
-      <Header />
       <div className="liste-lead-wrapper">
         <main className="liste-lead-main">
           <div className="container-fluid">
-            {/* Ligne 2 : Filtres période & devise + bouton créer */}
-            <div className="row align-items-center mb-4">
-              <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
-                {/* Filtres désactivés pour le moment */}
-              </div>
-
-              {/* Bouton créer */}
-              {(user?.role?.roleId == 7) && (
-                <div className="col-lg-4 col-md-12 text-lg-end">
+            {/* Bouton créer — masqué en mode archive */}
+            {!isArchive && (user?.role?.roleId == 7) && (
+              <div className="row align-items-center mb-4">
+                <div className="col-lg-4 col-md-12 ms-auto text-lg-end">
                   <Button
                     label="Créer une opportunité"
                     icon={<FaPlus />}
@@ -658,7 +671,6 @@ const ListeLead: React.FC = () => {
                       setSelectedLead(null);
                       setInitialStep('qualification');
                       setShowFormLead(true);
-                      // Nettoyer l'URL mais garder hardFilter
                       const newParams = new URLSearchParams(searchParams);
                       newParams.delete('editLead');
                       newParams.delete('step');
@@ -666,30 +678,8 @@ const ListeLead: React.FC = () => {
                     }}
                   />
                 </div>
-              )}
-            </div>
-
-            {/* Badge indiquant le filtre actif avec bouton pour l'effacer */}
-            {/* {isFilterEnabled && (
-              <div className="mb-3">
-                <div className="alert alert-info d-flex justify-content-between align-items-center" style={{ backgroundColor: '#e3f2fd', borderColor: '#90caf9' }}>
-                  <div>
-                    <i className="bi bi-funnel-fill me-2"></i>
-                    <strong>Filtre actif:</strong> Affichage uniquement des leads avec ID(s): {hardFilterIds.join(', ')}
-                    <span className="text-muted ms-2 small">
-                      (URL: ?hardFilter={searchParams.get("hardFilter")})
-                    </span>
-                  </div>
-                  <button 
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={clearHardFilter}
-                  >
-                    <i className="bi bi-x-lg me-1"></i>
-                    Effacer le filtre
-                  </button>
-                </div>
               </div>
-            )} */}
+            )}
 
             <FilterBar
               filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]}
@@ -701,7 +691,7 @@ const ListeLead: React.FC = () => {
                 data={opportunities}
                 expandedRowId={expandedRowId}
                 expandedRow={renderExpandedRow}
-                storageKey="liste_lead_columns"
+                storageKey={isArchive ? "archive_lead_columns" : "liste_lead_columns"}
                 defaultVisibleColumns={DEFAULT_VISIBLE_COLUMNS}
               />
             </div>
@@ -709,7 +699,7 @@ const ListeLead: React.FC = () => {
         </main>
       </div>
 
-      {/* Formulaire Lead (Édition) */}
+      {/* Formulaire Lead (Édition) — disponible aussi en archive pour consultation */}
       <FormLead
         show={showFormLead}
         onClose={closeLeadForm}

@@ -72,7 +72,7 @@ const LeadPage: React.FC = () => {
               unmountOnExit    
             >
               <Tab eventKey="liste" title="Liste">
-                <ListeLead />
+                <ListeLead isArchive={false} />
               </Tab>
               {(user?.role?.roleId== 2 ||user?.role?.roleId== 5||user?.role?.roleId== 6)?
                 <Tab eventKey="validation" title={<span>Validation <span className="badge bg-secondary ms-2">{validationCount}</span></span>}>

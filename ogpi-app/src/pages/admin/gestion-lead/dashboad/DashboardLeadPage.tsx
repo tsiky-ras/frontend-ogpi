@@ -180,12 +180,12 @@ const DashboardLeadPage: React.FC = () => {
         />
         <KpiCard
           label="CA pipeline (avec charges)"
-          value={`${fmt(data?.global.caPipelineAvecCharges ?? 0)} €`}
+          value={`${fmt(data?.global.caPipelineAvecCharges ?? 0)} MGA`}
           color="#3b82f6"
         />
         <KpiCard
           label="CA pipeline (sans charges)"
-          value={`${fmt(data?.global.caPipelineSansCharges ?? 0)} €`}
+          value={`${fmt(data?.global.caPipelineSansCharges ?? 0)} MGA`}
           color="#10b981"
           sub="Informatif"
         />
@@ -202,8 +202,8 @@ const DashboardLeadPage: React.FC = () => {
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         {[
           { title: "Nombre d'offres",        chart: pieNb   },
-          { title: "CA avec charges (€)",    chart: pieAvec },
-          { title: "CA sans charges (€)",    chart: pieSans },
+          { title: "CA avec charges (MGA)",    chart: pieAvec },
+          { title: "CA sans charges (MGA)",    chart: pieSans },
         ].map(({ title, chart }) => (
           <div key={title} style={{ flex: 1, minWidth: 220, background: "#fff", borderRadius: 12,
             padding: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
@@ -235,11 +235,11 @@ const DashboardLeadPage: React.FC = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                 <span style={{ color: "#6b7280" }}>CA avec charges</span>
-                <strong style={{ color: "#0a1f44" }}>{fmt(o.caAvecCharges)} €</strong>
+                <strong style={{ color: "#0a1f44" }}>{fmt(o.caAvecCharges)} MGA</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                 <span style={{ color: "#6b7280" }}>CA sans charges</span>
-                <span style={{ color: "#6b7280" }}>{fmt(o.caSansCharges)} €</span>
+                <span style={{ color: "#6b7280" }}>{fmt(o.caSansCharges)} MGA</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                 <span style={{ color: "#6b7280" }}>Volume JH</span>
@@ -255,8 +255,8 @@ const DashboardLeadPage: React.FC = () => {
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         {[
           { title: "Nombre d'offres",        chart: donutNb   },
-          { title: "CA avec charges (€)",    chart: donutAvec },
-          { title: "CA sans charges (€)",    chart: donutSans },
+          { title: "CA avec charges (MGA)",    chart: donutAvec },
+          { title: "CA sans charges (MGA)",    chart: donutSans },
         ].map(({ title, chart }) => (
           <div key={title} style={{ flex: 1, minWidth: 220, background: "#fff", borderRadius: 12,
             padding: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>

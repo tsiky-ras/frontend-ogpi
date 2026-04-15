@@ -30,6 +30,7 @@ import ProjetPage from "./pages/admin/gestion-projet/ProjetPage.tsx";
 import CalendrierPage from "./pages/all/calendrier/CalendrierPage.tsx";
 import JoursFeriesPage from "./pages/admin/gestion-projet/calendrier/JoursFeriesPage.tsx";
 import { NotificationProvider } from './context/NotificationContext.tsx';
+import ArchiveLead from "./pages/admin/gestion-lead/archive/ArchiveLead.tsx";
 const App: React.FC = () => {
   return (
   <NotificationProvider>
@@ -39,6 +40,7 @@ const App: React.FC = () => {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/gestion-taches" element={<TachePage />} />
+        <Route path="/archive-lead" element={<ArchiveLead />} />
         <Route path="/gestion-taches-projet" element={<BacklogTachePage />} />
         <Route path="/gestion-opportunites" element={<LeadPage />} /> 
         <Route path="/gestion-projets" element={<ProjetPage />} />
