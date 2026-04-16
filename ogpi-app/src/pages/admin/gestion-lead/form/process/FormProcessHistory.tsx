@@ -40,39 +40,165 @@ function statusDotClass(label: string): string {
   return "fph-dot fph-dot--gray";
 }
 
+// ─── LeadValidation type (Ouvert / No Go) ─────────────────────────────────────
+
+type LeadValidation = {
+  id: number;
+  user: { id: number; username: string; email: string };
+  decision: number; // 1 = GO, 0 = NO GO
+  commentaire?: string;
+  leadId: number;
+  role: { roleId: number; roleLabel: string };
+  dateValidation: string;
+};
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** Section validations (tâche ou lead) */
+const ValidationList: React.FC<{
+  validations: (TaskValidation & { comment?: string | null })[] | LeadValidation[];
+  title: string;
+  commentKey?: "comment" | "commentaire" | "comment";
+}> = ({ validations, title, commentKey = "comment" }) => (
+  <div className="fph-section">
+    <h4 className="fph-section-title">{title}</h4>
+    <div className="fph-val-list">
+      {validations.map((v: any) => {
+        const comment = v[commentKey];
+        return (
+          <div key={v.id} className="fph-val-item">
+            <span
+              className={
+                v.decision === 1
+                  ? "fph-badge fph-badge--ok"
+                  : "fph-badge fph-badge--ko"
+              }
+            >
+              {v.decision === 1 ? "GO" : "KO"}
+            </span>
+            <div className="fph-val-text">
+              <span className="fph-val-user">
+                {v.user.username}&nbsp;
+                <span className="fph-val-role">({v.role.roleLabel})</span>
+              </span>
+              <span className="fph-status-meta">
+                {fmtDateTime(v.dateValidation ?? v.validationTime)}
+              </span>
+              {comment && comment.trim() !== "" && (
+                <span className="fph-val-comment">💬 {comment}</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+/** Section fichiers */
+const FileList: React.FC<{ files: ProcessTask["leadTaskFiles"] }> = ({ files }) => {
+  if (!files || files.length === 0) return null;
+  return (
+    <div className="fph-section">
+      <h4 className="fph-section-title">Fichiers</h4>
+      <div className="fph-file-list">
+        {files.map((f) => (
+          <div key={f.id} className="fph-file-item">
+            <a
+              href={f.driveFile.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="fph-file-link"
+            >
+              📎 {f.driveFile.name}
+            </a>
+            {f.commentaire && f.commentaire.trim() !== "" && (
+              <span className="fph-file-comment">💬 {f.commentaire}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── DetailPanel ──────────────────────────────────────────────────────────────
 
 type DetailPanelProps = {
   step: LeadStep;
   dates: string[];
   task: ProcessTask | null;
-  /** Validations provenant de la tâche de l'étape N-1 */
+  /** Validations de tâche N-1 (pour les étapes classiques) */
   prevValidations: TaskValidation[] | null;
+  /** Validations lead (pour Ouvert et No Go) */
+  leadValidations: LeadValidation[] | null;
+  isOuvert: boolean;
+  isNoGo: boolean;
 };
 
-const DetailPanel: React.FC<DetailPanelProps> = ({ step, dates, task, prevValidations }) => (
-  <div className="fph-detail-card">
-    <div className="fph-detail-header">
-      <span className="fph-detail-title">{step.label}</span>
-      <span className="fph-detail-count">{dates.length} passage(s)</span>
-    </div>
+const DetailPanel: React.FC<DetailPanelProps> = ({
+  step,
+  dates,
+  task,
+  prevValidations,
+  leadValidations,
+  isOuvert,
+  isNoGo,
+}) => {
+  // ── Étapes spéciales : Ouvert et No Go ──────────────────────────────────────
+  if (isOuvert || isNoGo) {
+    // Ouvert = validations GO, No Go = validations KO (decision === 0)
+    const filtered = (leadValidations ?? []).filter((v) =>
+      isOuvert ? v.decision === 1 : v.decision === 0
+    );
 
-    <div className="fph-detail-body">
-      {/* ── Tâche ── */}
-      <div className="fph-section">
-        <h4 className="fph-section-title">
-          {task ? `Tâche — ${task.leadTask.leadTaskName}` : "Tâche"}
-        </h4>
+    return (
+      <div className="fph-detail-card">
+        <div className="fph-detail-header">
+          <span className="fph-detail-title">{step.label}</span>
+          <span className="fph-detail-count">{dates.length} passage(s)</span>
+        </div>
+        <div className="fph-detail-body">
+          {filtered.length > 0 ? (
+            <ValidationList
+              validations={filtered}
+              title={isOuvert ? "Validations GO" : "Validations NO GO"}
+              commentKey="commentaire"
+            />
+          ) : (
+            <p className="fph-empty">Aucune validation pour cette étape.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-        {task ? (
-          <>
+  // ── Étapes classiques ────────────────────────────────────────────────────────
+  const hasTask = !!task;
+  const hasPrevValidations = prevValidations && prevValidations.length > 0;
+  const hasFiles = task?.leadTaskFiles && task.leadTaskFiles.length > 0;
+
+  return (
+    <div className="fph-detail-card">
+      <div className="fph-detail-header">
+        <span className="fph-detail-title">{step.label}</span>
+        <span className="fph-detail-count">{dates.length} passage(s)</span>
+      </div>
+
+      <div className="fph-detail-body">
+        {/* ── Tâche ── */}
+        {hasTask && (
+          <div className="fph-section">
+            <h4 className="fph-section-title">
+              Tâche — {task!.leadTask.leadTaskName}
+            </h4>
             <p className="fph-assignee">
               Assigné à&nbsp;:&nbsp;
-              <strong>{task.user?.username}</strong>
-              &nbsp;({task.user?.email})
+              <strong>{task!.user?.username}</strong>
+              &nbsp;({task!.user?.email})
             </p>
             <div className="fph-status-list">
-              {[...task.leadTaskUserStatusList]
+              {[...task!.leadTaskUserStatusList]
                 .sort(
                   (a, b) =>
                     new Date(a.leadTaskUserStatusDate).getTime() -
@@ -95,43 +221,29 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ step, dates, task, prevValida
                   </div>
                 ))}
             </div>
-          </>
-        ) : (
-          <p className="fph-empty">Aucune tâche liée à cette étape.</p>
+          </div>
+        )}
+
+        {/* ── Validations tâche de l'étape N-1 ── */}
+        {hasPrevValidations && (
+          <ValidationList
+            validations={prevValidations!}
+            title="Validations (étape précédente)"
+            commentKey="comment"
+          />
+        )}
+
+        {/* ── Fichiers ── */}
+        {hasFiles && <FileList files={task!.leadTaskFiles} />}
+
+        {/* ── Aucun contenu ── */}
+        {!hasTask && !hasPrevValidations && !hasFiles && (
+          <p className="fph-empty">Aucune information disponible pour cette étape.</p>
         )}
       </div>
-
-      {/* ── Validations (issues de step N-1) ── */}
-      {prevValidations && prevValidations.length > 0 && (
-        <div className="fph-section">
-          <h4 className="fph-section-title">Validations (étape précédente)</h4>
-          <div className="fph-val-list">
-            {prevValidations.map((v) => (
-              <div key={v.id} className="fph-val-item">
-                <span
-                  className={
-                    v.decision === 1
-                      ? "fph-badge fph-badge--ok"
-                      : "fph-badge fph-badge--ko"
-                  }
-                >
-                  {v.decision === 1 ? "OK" : "KO"}
-                </span>
-                <div className="fph-val-text">
-                  <span className="fph-val-user">
-                    {v.user.username}&nbsp;
-                    <span className="fph-val-role">({v.role.roleLabel})</span>
-                  </span>
-                  <span className="fph-status-meta">{fmtDateTime(v.validationTime)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -162,7 +274,6 @@ const FormProcessHistory: React.FC<Props> = ({ lead, processHistoryService }) =>
         setData(result);
         fetchedRef.current = true;
 
-        // Sélectionner par défaut la dernière étape de l'historique
         if (result.stepHistory.length > 0) {
           const last = result.stepHistory[result.stepHistory.length - 1];
           setSelectedStepId(last.leadStep.id);
@@ -180,7 +291,6 @@ const FormProcessHistory: React.FC<Props> = ({ lead, processHistoryService }) =>
 
   // ── Dérivations ──────────────────────────────────────────────────────────────
 
-  /** Map stepId → liste de dates (ordre chronologique) */
   const stepDatesMap = React.useMemo<Record<number, string[]>>(() => {
     if (!data) return {};
     const map: Record<number, string[]> = {};
@@ -197,7 +307,6 @@ const FormProcessHistory: React.FC<Props> = ({ lead, processHistoryService }) =>
     [stepDatesMap]
   );
 
-  /** Map leadStepId → tâche correspondante */
   const taskByStepId = React.useMemo<Record<number, ProcessTask>>(() => {
     if (!data) return {};
     const map: Record<number, ProcessTask> = {};
@@ -211,10 +320,6 @@ const FormProcessHistory: React.FC<Props> = ({ lead, processHistoryService }) =>
   const selectedDates = selectedStepId ? stepDatesMap[selectedStepId] ?? [] : [];
   const selectedTask = selectedStepId != null ? taskByStepId[selectedStepId] ?? null : null;
 
-  /**
-   * Validations affichées pour l'étape N = validations de la tâche de l'étape N-1.
-   * (La validation Financière affiche les validations de l'Analyse Financière, etc.)
-   */
   const prevValidations = React.useMemo<TaskValidation[] | null>(() => {
     if (selectedStepId == null || !data) return null;
     const prevStep = data.fixedSteps.find((s) => s.id === selectedStepId - 1);
@@ -222,6 +327,13 @@ const FormProcessHistory: React.FC<Props> = ({ lead, processHistoryService }) =>
     const prevTask = taskByStepId[prevStep.id];
     return prevTask?.leadTaskValidations ?? null;
   }, [selectedStepId, data, taskByStepId]);
+
+  // leadValidations est sur data (ajouté au service)
+  const leadValidations: LeadValidation[] | null =
+    (data as any)?.leadValidations ?? null;
+
+  const isOuvert = selectedStepId === 1;
+  const isNoGo = selectedStepId === 2;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -242,7 +354,6 @@ const FormProcessHistory: React.FC<Props> = ({ lead, processHistoryService }) =>
     return <div className="alert alert-warning">Aucune donnée disponible.</div>;
   }
 
-  // Déterminer l'étape courante (dernière de l'historique)
   const currentStepId =
     data.stepHistory.length > 0
       ? data.stepHistory[data.stepHistory.length - 1].leadStep.id
@@ -309,6 +420,9 @@ const FormProcessHistory: React.FC<Props> = ({ lead, processHistoryService }) =>
           dates={selectedDates}
           task={selectedTask}
           prevValidations={prevValidations}
+          leadValidations={leadValidations}
+          isOuvert={isOuvert}
+          isNoGo={isNoGo}
         />
       )}
     </div>
