@@ -4,7 +4,110 @@ import FilterBar from "../../../../components/filters/FilterBar.tsx";
 import { LeadService } from "../../../../services/lead/LeadService.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 
-/* ================= POPUP COMPONENT ================= */
+/* ================= STYLES ================= */
+const overlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  backgroundColor: "rgba(0,0,0,0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999,
+};
+
+const modalStyle: React.CSSProperties = {
+  background: "#fff",
+  borderRadius: "12px",
+  width: "440px",
+  maxWidth: "90vw",
+  overflow: "hidden",
+  boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
+};
+
+const modalHeaderStyle = (color: string): React.CSSProperties => ({
+  backgroundColor: color,
+  color: "#fff",
+  padding: "14px 20px",
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+});
+
+const modalBodyStyle: React.CSSProperties = {
+  padding: "20px 24px",
+};
+
+const modalFooterStyle: React.CSSProperties = {
+  padding: "12px 24px 20px",
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "8px",
+  borderTop: "1px solid #e9ecef",
+};
+
+/* ================= CONFIRMATION POPUP ================= */
+interface ConfirmationPopupProps {
+  type: "won" | "lost";
+  leadName?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+const ConfirmationPopup: React.FC<ConfirmationPopupProps> = ({
+  type,
+  leadName,
+  onConfirm,
+  onCancel,
+}) => {
+  const isWon = type === "won";
+  const headerColor = isWon ? "#198754" : "#C93C29";
+  const label = isWon ? "gagné" : "perdu";
+  const icon = isWon ? <FaTrophy /> : <FaTimesCircle />;
+
+  return (
+    <div style={overlayStyle} onClick={onCancel}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <div style={modalHeaderStyle(headerColor)}>
+          <span style={{ fontSize: "1.1rem" }}>{icon}</span>
+          <h5 style={{ margin: 0, fontWeight: 600, fontSize: "1rem" }}>
+            Confirmer — lead {label}
+          </h5>
+        </div>
+        <div style={modalBodyStyle}>
+          <p style={{ margin: 0, fontWeight: 500 }}>
+            Êtes-vous sûr de votre décision ?
+          </p>
+          <p style={{ margin: "10px 0 0", color: "#6c757d", fontSize: "0.9rem" }}>
+            Vous allez marquer{" "}
+            {leadName ? (
+              <>
+                le lead <strong style={{ color: "#212529" }}>{leadName}</strong>{" "}
+              </>
+            ) : (
+              "ce lead "
+            )}
+            comme{" "}
+            <strong style={{ color: headerColor }}>{label}</strong>.{" "}
+            Cette action est irréversible.
+          </p>
+        </div>
+        <div style={modalFooterStyle}>
+          <button className="btn btn-outline-secondary" onClick={onCancel}>
+            Annuler
+          </button>
+          <button
+            className={`btn ${isWon ? "btn-success" : "btn-danger"}`}
+            onClick={onConfirm}
+          >
+            {icon}&nbsp;&nbsp;Confirmer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ================= EVALUATION POPUP ================= */
 interface EvaluationPopupProps {
   type: "won" | "lost";
   onClose: () => void;
@@ -20,43 +123,13 @@ const EvaluationPopup: React.FC<EvaluationPopupProps> = ({ type, onClose }) => {
     : "Le lead a été changé en perdu. Il sera consultable dans l'archive des leads.";
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: "12px",
-          width: "440px",
-          maxWidth: "90vw",
-          overflow: "hidden",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            backgroundColor: headerColor,
-            color: "#fff",
-            padding: "16px 20px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <div style={modalHeaderStyle(headerColor)}>
           <span style={{ fontSize: "1.4rem" }}>{headerIcon}</span>
           <h5 style={{ margin: 0, fontWeight: 600 }}>{title}</h5>
         </div>
-        <div style={{ padding: "20px 24px" }}>
+        <div style={modalBodyStyle}>
           <p>{message}</p>
         </div>
         <div style={{ padding: "12px 24px 20px", textAlign: "right" }}>
@@ -154,10 +227,6 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onWin, onLose, loadingAction 
                   <tr>
                     <td className="text-muted pe-3">Échéance réelle</td>
                     <td>{formatDate(lead.leadRealDeadLine)}</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted pe-3">Échéance interne</td>
-                    <td>{formatDate(lead.leadInternalDeadLine)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -282,6 +351,13 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
     type: "won",
   });
 
+  const [confirm, setConfirm] = useState<{
+    visible: boolean;
+    type: "won" | "lost";
+    leadId: number | null;
+    leadName?: string;
+  }>({ visible: false, type: "won", leadId: null, leadName: undefined });
+
   /* ================= LOAD ================= */
   const loadLeads = async () => {
     setLoading(true);
@@ -300,34 +376,40 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
   }, []);
 
   /* ================= ACTIONS ================= */
-  const handleWin = async (leadId: number) => {
+  const handleWin = (leadId: number) => {
+    const lead = leads.find((l) => l.leadId === leadId);
+    setConfirm({ visible: true, type: "won", leadId, leadName: lead?.leadName });
+  };
+
+  const handleLose = (leadId: number) => {
+    const lead = leads.find((l) => l.leadId === leadId);
+    setConfirm({ visible: true, type: "lost", leadId, leadName: lead?.leadName });
+  };
+
+  const handleConfirm = async () => {
+    if (confirm.leadId === null) return;
+    const { type, leadId } = confirm;
+    setConfirm((prev) => ({ ...prev, visible: false }));
     setLoadingAction(true);
     try {
-      await leadService.winLead(leadId);
+      if (type === "won") {
+        await leadService.winLead(leadId);
+      } else {
+        await leadService.loseLead(leadId);
+      }
       await loadLeads();
       try { onUpdated && onUpdated(); } catch (_) {}
-      setPopup({ visible: true, type: "won" });
+      setPopup({ visible: true, type });
     } catch (e) {
-      console.error("Erreur win lead", e);
-      alert("Erreur lors du passage en gagné");
+      console.error("Erreur action lead", e);
+      alert(`Erreur lors du passage en ${type === "won" ? "gagné" : "perdu"}`);
     } finally {
       setLoadingAction(false);
     }
   };
 
-  const handleLose = async (leadId: number) => {
-    setLoadingAction(true);
-    try {
-      await leadService.loseLead(leadId);
-      await loadLeads();
-      try { onUpdated && onUpdated(); } catch (_) {}
-      setPopup({ visible: true, type: "lost" });
-    } catch (e) {
-      console.error("Erreur lose lead", e);
-      alert("Erreur lors du passage en perdu");
-    } finally {
-      setLoadingAction(false);
-    }
+  const handleCancelConfirm = () => {
+    setConfirm((prev) => ({ ...prev, visible: false }));
   };
 
   /* ================= FILTER ================= */
@@ -345,6 +427,17 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
   /* ================= RENDER ================= */
   return (
     <div className="evaluation-lead-container">
+      {/* Modale de confirmation */}
+      {confirm.visible && (
+        <ConfirmationPopup
+          type={confirm.type}
+          leadName={confirm.leadName}
+          onConfirm={handleConfirm}
+          onCancel={handleCancelConfirm}
+        />
+      )}
+
+      {/* Modale de succès */}
       {popup.visible && (
         <EvaluationPopup
           type={popup.type}

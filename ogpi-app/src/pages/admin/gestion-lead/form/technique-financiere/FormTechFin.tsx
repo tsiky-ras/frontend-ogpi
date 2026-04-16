@@ -87,7 +87,7 @@ const FormTechFin: React.FC<Props> = ({
   const tauxDeChange = form.tauxDeChange || 1;
   const impots = form.impots || 0;
 
-  const caAvecTaux = montantOffre * tauxDeChange;
+  const caAvecTaux = montantAvecChargeAnnexe * tauxDeChange;
   const impotsAmount = caAvecTaux * (impots / 100);
 
   const selectedTechnoIds = normalizeTechnos(form.technos);
@@ -332,31 +332,11 @@ const FormTechFin: React.FC<Props> = ({
         <h4>Synthèse financière</h4>
         <Row className="g-3">
           <Col md={4}>
-            <Form.Label>Montant de l'offre (devise)</Form.Label>
+            <Form.Label>Montant de l'offre sans charges annexes (devise)</Form.Label>
             <Form.Control
               type="text"
               readOnly
               value={formatNumber(montantOffre)}
-              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
-            />
-          </Col>
-
-          <Col md={4}>
-            <Form.Label>CA × taux de change</Form.Label>
-            <Form.Control
-              type="text"
-              readOnly
-              value={formatNumber(caAvecTaux)}
-              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
-            />
-          </Col>
-
-          <Col md={4}>
-            <Form.Label>Impôts (CA × taux × {impots}%)</Form.Label>
-            <Form.Control
-              type="text"
-              readOnly
-              value={formatNumber(impotsAmount)}
               style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
             />
           </Col>
@@ -372,7 +352,7 @@ const FormTechFin: React.FC<Props> = ({
           </Col>
 
           <Col md={4}>
-            <Form.Label>Montant avec charges annexes</Form.Label>
+            <Form.Label>CA</Form.Label>
             <Form.Control
               type="text"
               readOnly
@@ -381,8 +361,30 @@ const FormTechFin: React.FC<Props> = ({
             />
           </Col>
 
+
           <Col md={4}>
-            <Form.Label>Volume JH (depuis backlogs)</Form.Label>
+            <Form.Label>CA × taux de change</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={formatNumber(caAvecTaux)}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+            />
+          </Col>
+
+          
+          <Col md={4}>
+            <Form.Label>Impôts (CA × taux × {impots}%)</Form.Label>
+            <Form.Control
+              type="text"
+              readOnly
+              value={formatNumber(impotsAmount)}
+              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+            />
+          </Col>
+
+          <Col md={4}>
+            <Form.Label>Volume JH </Form.Label>
             <Form.Control
               type="text"
               readOnly
