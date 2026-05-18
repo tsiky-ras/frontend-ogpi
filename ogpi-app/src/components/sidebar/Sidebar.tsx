@@ -32,7 +32,7 @@ const Sidebar = () => {
     const roleId = user?.role?.roleId;
 
     // Si rôle ID = 2 (Admin) - afficher tout
-    if (roleId === 2) {
+    if ( roleId === 2 || roleId === 1) {
       return routesToFilter;
     }
 
@@ -65,7 +65,7 @@ const Sidebar = () => {
     const roleId = user?.role?.roleId;
 
     // Si rôle ID = 2 (Admin) - retourner toutes les routes
-    if (roleId === 2) {
+    if ( roleId === 2 || roleId === 1) {
       return routesToFilter;
     }
 

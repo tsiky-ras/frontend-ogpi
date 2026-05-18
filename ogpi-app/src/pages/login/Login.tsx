@@ -56,11 +56,11 @@ const Login: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <div className="form-options">
+          {/* <div className="form-options">
             <label>
             </label>
             <a href="#">Mot de passe oublié</a>
-          </div>
+          </div> */}
             {errorMessage && (
             <div style={{ width: '100%', marginBottom: 5 }}>
               <Message type="error" message={errorMessage} onClose={() => setErrorMessage('')} />
@@ -69,7 +69,6 @@ const Login: React.FC = () => {
           <button type="submit" className="btn-login" disabled={loading}>
             {loading ? <Loader size={18} text="Connexion..." /> : 'Connexion'}
           </button>
-          <button type="button" className="btn-signup">S’inscrire</button>
         </form>
       </div>
     </div>

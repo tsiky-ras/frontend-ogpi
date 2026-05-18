@@ -10,6 +10,8 @@ import { Projet } from '../../../../types/projet/Projet.tsx';
 import { ProjetAvancement } from '../../../../services/projet/ProjetAvancementService.tsx';
 import { useComparaisonService } from '../../../../services/projet/comparaison/ComparaisonService.tsx';
 import { useLeadTechFinDetailsService } from '../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx';
+import { useDeviseService } from '../../../../services/lead/tech-fin/DeviseService.tsx';
+import { Devise } from '../../../../types/lead/tech-fin/LeadTechFin.tsx';
 
 // ─── Palette cohérente avec le reste de l'app ────────────────────────────────
 const P = {
@@ -43,14 +45,14 @@ interface ProjetFin {
   tauxMargeComm: number | null; tauxMargeBud: number | null;
   ecartPlanifJH: number; ecartRealiseJH: number;
   tauxAvancement: number | null;
-  caEncaisse: number; deviseAbr: string; loaded: boolean;
+  caEncaisse: number; tauxChange: number; deviseAbr: string; loaded: boolean;
 }
 const EMPTY_FIN = (): ProjetFin => ({
   montantOffre: 0, jhVendu: 0, montantLead: 0, jhLead: 0,
   montantProjet: 0, jhProjet: 0, coutRealise: 0, jhRealise: 0,
   chargesAnnexes: 0, margeCommerciale: 0, margeBudgetaireNette: 0,
   tauxMargeComm: null, tauxMargeBud: null, ecartPlanifJH: 0, ecartRealiseJH: 0,
-  tauxAvancement: null, caEncaisse: 0, deviseAbr: '€', loaded: true,
+  tauxAvancement: null, caEncaisse: 0, tauxChange: 1, deviseAbr: '€', loaded: true,
 });
 
 interface DashboardProjetProps {
@@ -163,6 +165,41 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
   const [currentPage,     setCurrentPage]     = useState(1);
   const PAGE_SIZE = 8;
 
+  // ── Filtres globaux date & devise ──────────────────────────────────────────
+  const { getAll: getAllDevises } = useDeviseService();
+  const [devises,      setDevises]      = useState<Devise[]>([]);
+  const [filtreDevise, setFiltreDevise] = useState<string>('');
+  const [dateDebut,    setDateDebut]    = useState<string>('');
+  const [dateFin,      setDateFin]      = useState<string>('');
+  const [datePreset,   setDatePreset]   = useState<'semaine' | 'mois' | 'annee' | ''>('');
+
+  useEffect(() => { getAllDevises().then(setDevises).catch(() => {}); }, []);
+
+  const applyPreset = (preset: 'semaine' | 'mois' | 'annee') => {
+    const now = new Date();
+    const toStr = (d: Date) => d.toISOString().slice(0, 10);
+    let debut: Date, fin: Date;
+    if (preset === 'semaine') {
+      const day = now.getDay() || 7;
+      debut = new Date(now); debut.setDate(now.getDate() - day + 1);
+      fin   = new Date(debut); fin.setDate(debut.getDate() + 6);
+    } else if (preset === 'mois') {
+      debut = new Date(now.getFullYear(), now.getMonth(), 1);
+      fin   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else {
+      debut = new Date(now.getFullYear(), 0, 1);
+      fin   = new Date(now.getFullYear(), 11, 31);
+    }
+    setDateDebut(toStr(debut)); setDateFin(toStr(fin)); setDatePreset(preset);
+  };
+
+  const resetDateDevise = () => {
+    setDateDebut(''); setDateFin(''); setDatePreset(''); setFiltreDevise('');
+  };
+
+  // Devise d'affichage : si filtre actif → devise sélectionnée, sinon MGA (tout converti)
+  const deviseLabel = filtreDevise || 'MGA';
+
   const toggleExpand = (id: number) =>
     setExpandedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -189,7 +226,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
         ecartRealiseJH: d.ecartRealiseJhTotal ?? 0,
         tauxAvancement: d.tauxAvancementGlobalPct ?? null,
         caEncaisse: d.caEncaisse ?? 0,
-        deviseAbr: d.deviseAbr ?? '€', loaded: true,
+        tauxChange: d.tauxChange ?? 1, deviseAbr: d.deviseAbr ?? '€', loaded: true,
       }));
     } catch {
       setFinMap(prev => new Map(prev).set(pid, EMPTY_FIN()));
@@ -204,6 +241,23 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
 
   const finLoaded = loadedCount >= projets.length && projets.length > 0;
 
+  // ── Filtre global date + devise (appliqué aux KPIs ET au récap) ───────────
+  const projetsGlobalFiltres = useMemo(() => {
+    let res = projets;
+    if (dateDebut) {
+      const d = new Date(dateDebut);
+      res = res.filter(p => !p.dateFinPrevu || new Date(p.dateFinPrevu) >= d);
+    }
+    if (dateFin) {
+      const d = new Date(dateFin);
+      res = res.filter(p => !p.dateDebutPrevu || new Date(p.dateDebutPrevu) <= d);
+    }
+    if (filtreDevise) {
+      res = res.filter(p => finMap.get(p.idProjet ?? 0)?.deviseAbr === filtreDevise);
+    }
+    return res;
+  }, [projets, dateDebut, dateFin, filtreDevise, finMap, loadedCount]);
+
   // ── KPIs globaux ─────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     const now = new Date();
@@ -213,7 +267,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
     let margeComm = 0, margeBud = 0;
     let alertesRed = 0, alertesOrange = 0;
 
-    projets.forEach(p => {
+    projetsGlobalFiltres.forEach(p => {
       const pid = p.idProjet ?? 0;
       const sid = statutMap.get(pid);
       if (sid === 9) termines++; else enCours++;
@@ -222,9 +276,14 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
       if (av) { tachesVal += av.tachesValidees; tachesTot += av.tachesTotal; }
       const fin = finMap.get(pid);
       if (fin?.loaded) {
-        jhPlanifie += fin.jhProjet; jhRealise += fin.jhRealise;
-        montantOffre += fin.montantOffre; caEncaisse += fin.caEncaisse;
-        margeComm += fin.margeCommerciale; margeBud += fin.margeBudgetaireNette;
+        // Sans filtre devise → convertir tout en MGA (montant × tauxChange)
+        // Avec filtre devise → afficher dans la devise sélectionnée (montant brut)
+        const taux = filtreDevise ? 1 : (fin.tauxChange ?? 1);
+        jhPlanifie   += fin.jhProjet;   jhRealise  += fin.jhRealise;
+        montantOffre += fin.montantOffre          * taux;
+        caEncaisse   += fin.caEncaisse            * taux;
+        margeComm    += fin.margeCommerciale      * taux;
+        margeBud     += fin.margeBudgetaireNette  * taux;
         if (fin.jhProjet > 0) {
           const pct = (fin.jhRealise / fin.jhProjet) * 100;
           if (pct > 95) alertesRed++; else if (pct > 80) alertesOrange++;
@@ -232,35 +291,36 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
       }
     });
 
+    const total           = projetsGlobalFiltres.length;
     const avancementTaches  = tachesTot > 0 ? (tachesVal / tachesTot) * 100 : 0;
     const consoJH           = jhPlanifie > 0 ? (jhRealise / jhPlanifie) * 100 : 0;
-    const respectPlanning   = projets.length > 0 ? ((projets.length - enRetard) / projets.length) * 100 : 100;
+    const respectPlanning   = total > 0 ? ((total - enRetard) / total) * 100 : 100;
     const encaissePct       = montantOffre > 0 ? (caEncaisse / montantOffre) * 100 : 0;
     const tauxMargeComm     = montantOffre > 0 ? (margeComm / montantOffre) * 100 : null;
     const tauxMargeBud      = montantOffre > 0 ? (margeBud / montantOffre) * 100 : null;
 
     return {
-      total: projets.length, enCours, termines, enRetard,
+      total, enCours, termines, enRetard,
       tachesVal, tachesTot, avancementTaches,
       jhPlanifie, jhRealise, consoJH,
       montantOffre, caEncaisse, encaissePct,
       margeComm, margeBud, tauxMargeComm, tauxMargeBud,
       respectPlanning, alertesRed, alertesOrange,
     };
-  }, [projets, statutMap, avancements, finMap, loadedCount]);
+  }, [projetsGlobalFiltres, statutMap, avancements, finMap, loadedCount, filtreDevise]);
 
   // ── Options filtres ───────────────────────────────────────────────────────
   const cpOptions = useMemo(() => {
     const s = new Set<string>();
-    projets.forEach(p => { if (p.userCp?.username) s.add(p.userCp.username); });
+    projetsGlobalFiltres.forEach(p => { if (p.userCp?.username) s.add(p.userCp.username); });
     return [...s].sort();
-  }, [projets]);
+  }, [projetsGlobalFiltres]);
 
   const clientOptions = useMemo(() => {
     const s = new Set<string>();
-    projets.forEach(p => { if (p.lead?.client?.name) s.add(p.lead.client.name); });
+    projetsGlobalFiltres.forEach(p => { if (p.lead?.client?.name) s.add(p.lead.client.name); });
     return [...s].sort();
-  }, [projets]);
+  }, [projetsGlobalFiltres]);
 
   const statutOptions = useMemo(() => {
     const s = new Set<number>();
@@ -268,9 +328,9 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
     return [...s].sort().map(id => STATUT_META[id] ? { id, ...STATUT_META[id] } : null).filter(Boolean);
   }, [statutMap]);
 
-  // ── Projets filtrés ───────────────────────────────────────────────────────
+  // ── Projets filtrés (récap) — part de projetsGlobalFiltres ───────────────
   const projetsFiltres = useMemo(() => {
-    let res = projets;
+    let res = projetsGlobalFiltres;
     if (filtreStatut !== 0) res = res.filter(p => statutMap.get(p.idProjet ?? 0) === filtreStatut);
     if (filtreCp)      res = res.filter(p => p.userCp?.username === filtreCp);
     if (filtreClient)  res = res.filter(p => p.lead?.client?.name === filtreClient);
@@ -293,7 +353,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
       });
     }
     return res;
-  }, [projets, filtreStatut, filtreCp, filtreClient, filtreSearch, triBudgetAlerte, statutMap, finMap]);
+  }, [projetsGlobalFiltres, filtreStatut, filtreCp, filtreClient, filtreSearch, triBudgetAlerte, statutMap, finMap]);
 
   const activeFilters = [filtreStatut !== 0, filtreCp !== '', filtreClient !== '', filtreSearch !== ''].filter(Boolean).length;
 
@@ -304,14 +364,18 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
   const totalPages   = Math.max(1, Math.ceil(projetsFiltres.length / PAGE_SIZE));
   const projetsPage  = projetsFiltres.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  // ── Répartition par statut (pour le mini chart) ───────────────────────────
+  // ── Répartition par statut (pour le mini chart) — basée sur le filtre global
   const repartitionStatut = useMemo(() => {
     const map = new Map<number, number>();
-    statutMap.forEach(sid => map.set(sid, (map.get(sid) ?? 0) + 1));
+    projetsGlobalFiltres.forEach(p => {
+      const sid = statutMap.get(p.idProjet ?? 0);
+      if (sid != null) map.set(sid, (map.get(sid) ?? 0) + 1);
+    });
+    const total = projetsGlobalFiltres.length;
     return [...map.entries()].sort(([a], [b]) => a - b).map(([sid, count]) => ({
-      sid, count, meta: STATUT_META[sid], pct: projets.length > 0 ? (count / projets.length) * 100 : 0,
+      sid, count, meta: STATUT_META[sid], pct: total > 0 ? (count / total) * 100 : 0,
     }));
-  }, [statutMap, projets.length]);
+  }, [projetsGlobalFiltres, statutMap]);
 
   // ── Style helpers ─────────────────────────────────────────────────────────
   const section = (title: string, icon: React.ReactNode, color: string) => (
@@ -324,6 +388,82 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
 
   return (
     <div style={{ padding: '0 0 32px', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+
+      {/* ════════════════════════════════════════════════════════
+          FILTRES GLOBAUX — PÉRIODE & DEVISE
+      ════════════════════════════════════════════════════════ */}
+      <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${P.linen}`, padding: '12px 16px', marginBottom: 20, boxShadow: '0 1px 4px rgba(34,58,70,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <FaCalendarAlt size={11} color={P.charcoal} />
+          <span style={{ fontSize: 10, fontWeight: 800, color: P.charcoal, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Période & Devise</span>
+          {(dateDebut || dateFin || filtreDevise) && (
+            <button onClick={resetDateDevise} style={{ marginLeft: 'auto', fontSize: 11, border: 'none', background: 'transparent', color: P.tomato, cursor: 'pointer', fontWeight: 600 }}>
+              Réinitialiser
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+
+          {/* Boutons presets */}
+          {(['semaine', 'mois', 'annee'] as const).map(preset => (
+            <button key={preset} onClick={() => applyPreset(preset)} style={{
+              fontSize: 11, fontWeight: 600, borderRadius: 6, padding: '4px 12px', cursor: 'pointer', transition: 'all 0.15s',
+              border: `1px solid ${datePreset === preset ? P.charcoal : P.linen}`,
+              background: datePreset === preset ? P.charcoal : 'transparent',
+              color: datePreset === preset ? '#fff' : P.charcoal,
+            }}>
+              {preset === 'semaine' ? 'Semaine' : preset === 'mois' ? 'Mois' : 'Année'}
+            </button>
+          ))}
+
+          <span style={{ width: 1, height: 20, background: P.linen, flexShrink: 0 }} />
+
+          {/* Plage dates */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: P.dim, fontWeight: 500 }}>
+            Du
+            <input type="date" value={dateDebut}
+              onChange={e => { setDateDebut(e.target.value); setDatePreset(''); }}
+              style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${dateDebut ? P.charcoal : P.linen}`, fontSize: 12, color: P.charcoal, background: '#fff' }}
+            />
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: P.dim, fontWeight: 500 }}>
+            Au
+            <input type="date" value={dateFin}
+              onChange={e => { setDateFin(e.target.value); setDatePreset(''); }}
+              style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${dateFin ? P.charcoal : P.linen}`, fontSize: 12, color: P.charcoal, background: '#fff' }}
+            />
+          </label>
+
+          <span style={{ width: 1, height: 20, background: P.linen, flexShrink: 0 }} />
+
+          {/* Sélecteur devise */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: P.dim, fontWeight: 500 }}>
+            <FaMoneyBillWave size={10} />
+            Devise
+            <select value={filtreDevise} onChange={e => setFiltreDevise(e.target.value)}
+              style={{
+                padding: '3px 8px', borderRadius: 6, fontSize: 12, color: P.charcoal, background: '#fff', cursor: 'pointer',
+                border: `1px solid ${filtreDevise ? P.charcoal : P.linen}`,
+                fontWeight: filtreDevise ? 700 : 400,
+              }}>
+              <option value="">Toutes — MGA</option>
+              {devises.map(d => (
+                <option key={d.id} value={d.abrDevise}>{d.abrDevise} — {d.nomDevise}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Indicateur filtre actif */}
+          {projetsGlobalFiltres.length < projets.length && (
+            <span style={{
+              marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: P.teal,
+              background: '#f0fdfa', borderRadius: 99, padding: '2px 10px', border: '1px solid #a7f3d0',
+            }}>
+              {projetsGlobalFiltres.length} / {projets.length} projets
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* ════════════════════════════════════════════════════════
           SECTION 1 — KPIs OPÉRATIONNELS
@@ -440,6 +580,10 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
             </div>
             {loading ? (
               <div style={{ height: 60, background: '#f1f5f9', borderRadius: 8 }} />
+            ) : repartitionStatut.length === 0 ? (
+              <div style={{ fontSize: 12, color: P.dim, textAlign: 'center', padding: '16px 0' }}>
+                Aucun projet trouvé pour cette période.
+              </div>
             ) : (
               <>
                 {/* Barre stacked */}
@@ -471,18 +615,18 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           <KpiCard icon={<FaMoneyBillWave size={14} />} title="Offre signée totale" accent={P.blue} loading={!finLoaded}
-            value={<span style={{ fontSize: 20 }}>{kpis.montantOffre > 1000 ? `${(kpis.montantOffre / 1000).toFixed(0)}k` : kpis.montantOffre.toLocaleString('fr-FR')}</span>}
+            value={<span style={{ fontSize: 20 }}>{kpis.montantOffre > 1000 ? `${(kpis.montantOffre / 1000).toFixed(0)}k` : kpis.montantOffre.toLocaleString('fr-FR')} <span style={{ fontSize: 13, fontWeight: 600, color: P.blue }}>{deviseLabel}</span></span>}
             sub="Somme des offres vendues"
           />
           <KpiCard icon={<FaReceipt size={14} />} title="CA encaissé" accent={P.success} loading={!finLoaded}
-            value={<span style={{ fontSize: 20 }}>{kpis.caEncaisse > 1000 ? `${(kpis.caEncaisse / 1000).toFixed(0)}k` : kpis.caEncaisse.toLocaleString('fr-FR')}</span>}
+            value={<span style={{ fontSize: 20 }}>{kpis.caEncaisse > 1000 ? `${(kpis.caEncaisse / 1000).toFixed(0)}k` : kpis.caEncaisse.toLocaleString('fr-FR')} <span style={{ fontSize: 13, fontWeight: 600, color: P.success }}>{deviseLabel}</span></span>}
             sub={`${fmtPct(kpis.encaissePct)} de l'offre`}
             trend={<ProgressBar pct={kpis.encaissePct} color={P.success} height={4} />}
           />
           <KpiCard icon={<FaTrophy size={14} />} title="Marge prévisionnelle" accent={kpis.margeComm >= 0 ? P.success : P.tomato} loading={!finLoaded}
             value={
               <span style={{ fontSize: 18, color: kpis.margeComm >= 0 ? P.success : P.tomato }}>
-                {kpis.margeComm >= 0 ? '+' : ''}{kpis.margeComm > 1000 ? `${(kpis.margeComm / 1000).toFixed(0)}k` : kpis.margeComm.toLocaleString('fr-FR')}
+                {kpis.margeComm >= 0 ? '+' : ''}{kpis.margeComm > 1000 ? `${(kpis.margeComm / 1000).toFixed(0)}k` : kpis.margeComm.toLocaleString('fr-FR')} <span style={{ fontSize: 13 }}>{deviseLabel}</span>
               </span>
             }
             sub={`${fmtPct(kpis.tauxMargeComm)} · Offre − O.tech`}
@@ -490,7 +634,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
           <KpiCard icon={<FaBalanceScale size={14} />} title="Marge budgétaire nette" accent={kpis.margeBud >= 0 ? P.success : P.tomato} loading={!finLoaded}
             value={
               <span style={{ fontSize: 18, color: kpis.margeBud >= 0 ? P.success : P.tomato }}>
-                {kpis.margeBud >= 0 ? '+' : ''}{kpis.margeBud > 1000 ? `${(kpis.margeBud / 1000).toFixed(0)}k` : kpis.margeBud.toLocaleString('fr-FR')}
+                {kpis.margeBud >= 0 ? '+' : ''}{kpis.margeBud > 1000 ? `${(kpis.margeBud / 1000).toFixed(0)}k` : kpis.margeBud.toLocaleString('fr-FR')} <span style={{ fontSize: 13 }}>{deviseLabel}</span>
               </span>
             }
             sub={`${fmtPct(kpis.tauxMargeBud)} · Offre − (Projet + Charges)`}
@@ -577,7 +721,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
                 </select>
               )}
               <span style={{ fontSize: 12, color: P.dim, alignSelf: 'center' }}>
-                <strong style={{ color: P.charcoal }}>{projetsFiltres.length}</strong> / {projets.length} projet{projets.length > 1 ? 's' : ''}
+                <strong style={{ color: P.charcoal }}>{projetsFiltres.length}</strong> / {projetsGlobalFiltres.length} projet{projetsGlobalFiltres.length > 1 ? 's' : ''}
               </span>
             </div>
           )}
@@ -597,7 +741,15 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
           </div>
 
           {/* Rows */}
-          {projetsFiltres.length === 0 ? (
+          {loading ? (
+            <div style={{ padding: '32px 14px', textAlign: 'center', color: P.dim, fontSize: 13 }}>
+              Chargement des projets…
+            </div>
+          ) : projets.length === 0 ? (
+            <div style={{ padding: '32px 14px', textAlign: 'center', color: P.dim, fontSize: 13 }}>
+              Aucun projet trouvé.
+            </div>
+          ) : projetsFiltres.length === 0 ? (
             <div style={{ padding: '32px 14px', textAlign: 'center', color: P.dim, fontSize: 13 }}>
               Aucun projet ne correspond aux filtres sélectionnés.
             </div>
@@ -809,7 +961,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
               Page <strong style={{ color: P.charcoal }}>{currentPage}</strong> / {totalPages}
               &nbsp;·&nbsp;
               <strong style={{ color: P.charcoal }}>{projetsFiltres.length}</strong> projet{projetsFiltres.length > 1 ? 's' : ''}
-              {activeFilters > 0 && <span style={{ color: P.teal }}> (filtrés sur {projets.length})</span>}
+              {activeFilters > 0 && <span style={{ color: P.teal }}> (filtrés sur {projetsGlobalFiltres.length})</span>}
             </span>
 
             {/* Boutons de page */}

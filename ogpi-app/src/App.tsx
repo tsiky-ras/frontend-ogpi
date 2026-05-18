@@ -45,7 +45,7 @@ const App: React.FC = () => {
         <Route path="/gestion-taches-projet" element={<BacklogTachePage />} />
         <Route path="/gestion-opportunites" element={<LeadPage />} /> 
         <Route path="/gestion-projets" element={<ProjetPage />} />
-        <Route path="/archive/projets" element={<ArchiveProjetPage />} />
+        <Route path="/archive-projets" element={<ArchiveProjetPage />} />
         <Route path="/calendrier/deadlines" element={<CalendrierPage />} />
         {/* Admin sécurisé */}
         <Route

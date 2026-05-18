@@ -47,10 +47,10 @@ export class LeadDashboardService {
     this.api = api;
   }
 
-  async getDashboard(dateDebut: string, dateFin: string): Promise<DashDTO> {
+  async getDashboard(dateDebut: string, dateFin: string, deviseId?: number): Promise<DashDTO> {
     try {
       const response = await this.api.get('/leads/dashboard', {
-        params: { dateDebut, dateFin },
+        params: { dateDebut, dateFin, ...(deviseId != null ? { deviseId } : {}) },
       });
       return response.data;
     } catch (error) {

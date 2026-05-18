@@ -66,17 +66,17 @@ export const routes = [
     path: "/calendrier/deadlines"
   },
   {
-    label: "Archive",
+    label: "Archives",
     icon: <FaThList />, 
     children:[
       {
         path: "/archive-lead",
-        label: "Archive Leads",
+        label: "Archives Leads",
         icon: <FaThList />,
       },
       {
-        path: "/gestion-taches-projet",
-        label: "Archive Projet",
+        path: "/archive-projets",
+        label: "Archives Projet",
         icon: <FaThList />,
       }
     ]

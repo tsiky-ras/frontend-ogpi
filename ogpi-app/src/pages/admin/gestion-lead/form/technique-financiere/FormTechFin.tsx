@@ -80,10 +80,10 @@ const FormTechFin: React.FC<Props> = ({
     return selectedDevise?.abrDevise === "MGA";
   };
 
-  // Calculs dérivés (read-only depuis l'API)
+  // Champs saisissables + calculs dérivés
   const montantOffre = form.montantOffre ?? form.budget ?? 0;
   const montantChargeAnnexe = form.montantChargeAnnexe ?? 0;
-  const montantAvecChargeAnnexe = form.montantAvecChargeAnnexe ?? 0;
+  const montantAvecChargeAnnexe = montantOffre + montantChargeAnnexe;  // toujours calculé
   const tauxDeChange = form.tauxDeChange || 1;
   const impots = form.impots || 0;
 
@@ -303,7 +303,7 @@ const FormTechFin: React.FC<Props> = ({
             />
           </Col>
 
-          {/* <Col md={4}>
+          <Col md={4}>
             <Form.Label>Date d'attribution</Form.Label>
             <Form.Control
               type="date"
@@ -312,47 +312,59 @@ const FormTechFin: React.FC<Props> = ({
                 setForm((prev: any) => ({ ...prev, dateAttribution: e.target.value }))
               }
             />
-          </Col> */}
-
-          {/* <Col md={4}>
-            <Form.Label>Volume JH vendu</Form.Label>
-            <Form.Control
-              type="number"
-              value={form.volumeJHVendu}
-              onChange={(e) =>
-                setForm((prev: any) => ({ ...prev, volumeJHVendu: Number(e.target.value) }))
-              }
-            />
-          </Col> */}
+          </Col>
         </Row>
       </section>
 
-      {/* ===== Synthèse financière (read-only) ===== */}
+      {/* ===== Synthèse financière ===== */}
       <section className="fiche-section mb-4">
         <h4>Synthèse financière</h4>
         <Row className="g-3">
           <Col md={4}>
             <Form.Label>Montant de l'offre sans charges annexes (devise)</Form.Label>
             <Form.Control
-              type="text"
-              readOnly
-              value={formatNumber(montantOffre)}
-              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+              type="number"
+              step="0.01"
+              min="0"
+              value={montantOffre}
+              onChange={(e) =>
+                setForm((prev: any) => ({
+                  ...prev,
+                  montantOffre: Number(e.target.value),
+                  budget: Number(e.target.value),
+                }))
+              }
             />
           </Col>
 
           <Col md={4}>
             <Form.Label>Montant charges annexes</Form.Label>
             <Form.Control
-              type="text"
-              readOnly
-              value={formatNumber(montantChargeAnnexe)}
-              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
+              type="number"
+              step="0.01"
+              min="0"
+              value={montantChargeAnnexe}
+              onChange={(e) =>
+                setForm((prev: any) => ({ ...prev, montantChargeAnnexe: Number(e.target.value) }))
+              }
             />
           </Col>
 
           <Col md={4}>
-            <Form.Label>CA</Form.Label>
+            <Form.Label>Volume JH vendu</Form.Label>
+            <Form.Control
+              type="number"
+              step="0.5"
+              min="0"
+              value={form.volumeJHVendu || 0}
+              onChange={(e) =>
+                setForm((prev: any) => ({ ...prev, volumeJHVendu: Number(e.target.value) }))
+              }
+            />
+          </Col>
+
+          <Col md={4}>
+            <Form.Label>CA (offre + charges annexes)</Form.Label>
             <Form.Control
               type="text"
               readOnly
@@ -361,9 +373,8 @@ const FormTechFin: React.FC<Props> = ({
             />
           </Col>
 
-
           <Col md={4}>
-            <Form.Label>CA × taux de change</Form.Label>
+            <Form.Label>CA × taux de change (MGA)</Form.Label>
             <Form.Control
               type="text"
               readOnly
@@ -372,23 +383,12 @@ const FormTechFin: React.FC<Props> = ({
             />
           </Col>
 
-          
           <Col md={4}>
-            <Form.Label>Impôts (CA × taux × {impots}%)</Form.Label>
+            <Form.Label>Impôts ({impots}% du CA converti)</Form.Label>
             <Form.Control
               type="text"
               readOnly
               value={formatNumber(impotsAmount)}
-              style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
-            />
-          </Col>
-
-          <Col md={4}>
-            <Form.Label>Volume JH </Form.Label>
-            <Form.Control
-              type="text"
-              readOnly
-              value={form.volumeJHVendu || 0}
               style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}
             />
           </Col>

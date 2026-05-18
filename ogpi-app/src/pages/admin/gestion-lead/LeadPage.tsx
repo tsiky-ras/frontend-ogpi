@@ -19,7 +19,7 @@ const LeadPage: React.FC = () => {
 
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>(
-    searchParams.get("page") ?? "liste"
+    searchParams.get("page") ?? "dashboard"
   );
   const { api } = useAuth();
   const leadService = new LeadService(api);
@@ -71,6 +71,9 @@ const LeadPage: React.FC = () => {
               mountOnEnter     
               unmountOnExit    
             >
+              <Tab eventKey="dashboard" title="Dashboard">
+                <DashboardLeadPage />
+              </Tab>
               <Tab eventKey="liste" title="Liste">
                 <ListeLead isArchive={false} />
               </Tab>
@@ -87,9 +90,6 @@ const LeadPage: React.FC = () => {
 
              <Tab eventKey="kanban" title="Kanban">
                 <KanbanLead />
-              </Tab>
-              <Tab eventKey="dashboard" title="Dashboard">
-                <DashboardLeadPage />
               </Tab>
             </Tabs>
           </div>
