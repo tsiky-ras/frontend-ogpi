@@ -1,10 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Modal, Button, Nav, Tab } from "react-bootstrap";
 import { useAuth } from "../../../../context/AuthContext.tsx";
-
-import CollecteSuccessMessage from "../../../../components/message/CollecteSuccessMessage.tsx";
-import CollecteErrorMessage from "../../../../components/message/CollecteErrorMessage.tsx";
-import CollecteLoadingMessage from "../../../../components/message/CollecteLoadingMessage.tsx";
+import { useSearchParams, useNavigate } from "react-router-dom"; // Ajouter useNavigate
 
 import FormQualif from "./qualification/FormQualif.tsx";
 import FormTechFin from "./technique-financiere/FormTechFin.tsx";
@@ -26,6 +23,87 @@ import { useTechnoService } from "../../../../services/lead/tech-fin/TechnoServi
 import { useTypeFacturationService } from "../../../../services/lead/tech-fin/TypeFacturationService.tsx";
 import { useLeadTechFinDetailsService } from "../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 import { UserDisplayService } from "../../../../services/user/UserDisplayService.tsx";
+import FormProcessHistory from "./process/FormProcessHistory.tsx";
+import { LeadProcessHistoryService } from "../../../../services/lead/LeadProcessHistoryService.tsx";
+
+type FeedbackPopupProps = {
+  type: "success" | "error" | "loading";
+  message: string;
+  onClose?: () => void;
+};
+
+const FeedbackPopup: React.FC<FeedbackPopupProps> = ({ type, message, onClose }) => {
+  const colors = {
+    success: { bg: "#d4edda", border: "#28a745", text: "#155724", icon: "✓" },
+    error: { bg: "#f8d7da", border: "#dc3545", text: "#721c24", icon: "✕" },
+    loading: { bg: "#d1ecf1", border: "#17a2b8", text: "#0c5460", icon: "⟳" },
+  };
+  const c = colors[type];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: "rgba(0,0,0,0.45)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          background: c.bg,
+          border: `2px solid ${c.border}`,
+          borderRadius: 14,
+          padding: "32px 40px",
+          minWidth: 320,
+          maxWidth: 480,
+          position: "relative",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          textAlign: "center",
+        }}
+      >
+        {type !== "loading" && onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 14,
+              background: "none",
+              border: "none",
+              fontSize: 20,
+              cursor: "pointer",
+              color: c.text,
+              lineHeight: 1,
+              padding: 0,
+            }}
+            aria-label="Fermer"
+          >
+            ✕
+          </button>
+        )}
+        <div
+          style={{
+            fontSize: 36,
+            color: c.border,
+            marginBottom: 12,
+            animation: type === "loading" ? "spin 1s linear infinite" : "none",
+            display: "inline-block",
+          }}
+        >
+          {c.icon}
+        </div>
+        <p style={{ color: c.text, fontSize: 16, fontWeight: 600, margin: 0 }}>
+          {message}
+        </p>
+      </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+};
 
 type FormLeadProps = {
   show: boolean;
@@ -37,44 +115,36 @@ type FormLeadProps = {
 
 const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, initialTab }) => {
   const { api } = useAuth();
+  const navigate = useNavigate(); // Ajout pour la navigation
+  const [searchParams, setSearchParams] = useSearchParams(); // Remplacer par setSearchParams
+  
   const leadService = new LeadService(api);
   const userDisplayService = new UserDisplayService(api);
   const deviseService = useDeviseService();
   const technoService = useTechnoService();
   const typeFacturationService = useTypeFacturationService();
   const leadTechFinService = useLeadTechFinDetailsService();
-
-  const [currentStep, setCurrentStep] = useState("qualification");
-
-  /* ================= Qualification ================= */
+  const processHistoryService = new LeadProcessHistoryService(api);
+  
+  // Récupérer le step depuis l'URL ou utiliser initialTab ou qualification par défaut
+  const [currentStep, setCurrentStep] = useState<string>(
+    searchParams.get("step") || initialTab || "qualification"
+  );
+  
   const [form, setForm] = useState<any>({
-    periode: "",
-    businessUnit: "",
-    description: "",
-    nom: "",
-    reference: "",
-    typeOpportunite: "",
-    categorie: "",
-    secteur: "",
-    statut: "1",
-    typeFinancement: "",
+    periode: "", businessUnit: "", description: "", nom: "",
+    reference: "", typeOpportunite: "", categorie: "", secteur: "",
+    statut: "1", typeFinancement: "",
   });
 
-  /* ================= Offre Tech & Fin ================= */
   const [formTechFin, setFormTechFin] = useState<any>({
-    technos: [],
-    volumeJHVendu: 0,
-    deviseId: "",
-    tauxDeChange: 1,
-    typeFacturationId: "",
-    impots: 0,
-    dateAttribution: "",
-    budget: 0,
+    technos: [], volumeJHVendu: 0, deviseId: "", tauxDeChange: 1,
+    typeFacturationId: "", impots: 0, dateAttribution: "", budget: 0,
+    montantOffre: 0, montantChargeAnnexe: 0, montantAvecChargeAnnexe: 0,
   });
 
   const jiraDataRef = useRef<any>(null);
 
-  /* ================= Listes ================= */
   const [businessUnits, setBusinessUnits] = useState<any[]>([]);
   const [typeOpportunites, setTypeOpportunites] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -87,14 +157,25 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
   const [typeFacturations, setTypeFacturations] = useState<any[]>([]);
   const [technos, setTechnos] = useState<any[]>([]);
 
-  /* ================= Messages ================= */
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [showErrorMessage, setShowErrorMessage] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [showLoadingMessage, setShowLoadingMessage] = useState(false);
+  const [popup, setPopup] = useState<{ type: "success" | "error" | "loading"; message: string } | null>(null);
 
-  /* ================= Mappers ================= */
+  const closePopup = () => setPopup(null);
+
+  // Fonction pour changer d'onglet et mettre à jour l'URL
+  const handleTabChange = (tabKey: string | null) => {
+    if (!tabKey) return;
+    
+    // Vérifier si l'onglet est accessible
+    if (isNoGo && !initialTab && tabKey !== "qualification") return;
+    
+    setCurrentStep(tabKey);
+    
+    // Mettre à jour l'URL avec le nouveau step
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("step", tabKey);
+    setSearchParams(newParams, { replace: true });
+  };
+
   const handleChange = (e: any) => {
     const { name, value } = e.target;
     setForm((prev: any) => ({ ...prev, [name]: value }));
@@ -127,33 +208,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
     };
   };
 
-  // Fallback uniquement si l'API TechFin ne répond pas
-  const mapLeadToTechFinForm = (lead: any) => {
-    let technosIds: number[] = [];
-    if (Array.isArray(lead.technos)) {
-      technosIds = lead.technos
-        .map((item: any) => {
-          if (item?.techno?.idTechno) return Number(item.techno.idTechno);
-          if (typeof item === "object" && item !== null && item.idTechno) return Number(item.idTechno);
-          if (typeof item === "object" && item !== null && item.id) return Number(item.id);
-          if (typeof item === "number") return item;
-          return null;
-        })
-        .filter((id: any) => id !== null && !isNaN(id));
-    }
-    return {
-      technos: technosIds,
-      volumeJHVendu: lead.volumeJHVendu || 0,
-      deviseId: lead.devise?.idDevise || "",
-      tauxDeChange: lead.tauxDeChange || 1,
-      typeFacturationId: lead.typeFacturation?.idTypeFacturation || "",
-      impots: lead.impots || 0,
-      dateAttribution: lead.dateAttribution || "",
-      budget: lead.montantOffre || lead.budget || 0,
-    };
-  };
-
-  // Extrait les IDs technos depuis la réponse API TechFin
   const extractTechnosIds = (techFinData: any): number[] => {
     if (!Array.isArray(techFinData.technos)) return [];
     return techFinData.technos
@@ -167,13 +221,11 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
       .filter((id: any) => id !== null && !isNaN(id));
   };
 
-  /* ================= Chargement principal ================= */
   useEffect(() => {
     if (!show) return;
 
     const fetchAll = async () => {
       try {
-        // 1. Toutes les listes en parallèle
         const [
           bu, types, cats, sects, stats, typeFin, clts, parts,
           devs, factTypes, techList,
@@ -203,41 +255,16 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
         setTypeFacturations(factTypes);
         setTechnos(techList);
 
-          // 2. Init formulaires après chargement des listes
-          if (lead) {
+        if (lead) {
           const currentLeadId = lead?.leadId || lead?.id;
           setForm(mapLeadToForm(lead));
 
-          // Si le lead a déjà ses données TechFin fusionnées (chargé via loadFullLeadDetails
-          // dans ListeLead ou handleSelectLead dans FormProjet), on les utilise directement.
-          // Sinon on les charge depuis l'API.
-          const hasPreloadedTechFin =
-            lead.technos !== undefined ||
-            lead.devise !== undefined ||
-            lead.typeFacturation !== undefined;
-
           let techFinData: any = null;
 
-          if (hasPreloadedTechFin) {
-            // Données déjà présentes sur le lead — même structure que la réponse API
-            techFinData = {
-              technos: lead.technos || [],
-              volumeJHVendu: lead.volumeJHVendu || 0,
-              devise: lead.devise || null,
-              tauxDeChange: lead.tauxDeChange || 1,
-              typeFacturation: lead.typeFacturation || null,
-              impots: lead.impots || 0,
-              dateAttribution: lead.dateAttribution || "",
-              montantOffre: lead.montantOffre || lead.budget || 0,
-              budget: lead.montantOffre || lead.budget || 0,
-            };
-          } else {
-            // Fallback : charger depuis l'API
-            try {
-              techFinData = await leadTechFinService.getByLeadId(currentLeadId);
-            } catch (err) {
-              console.warn("TechFin non trouvé, fallback sur lead brut :", err);
-            }
+          try {
+            techFinData = await leadTechFinService.getByLeadId(currentLeadId);
+          } catch (err) {
+            console.warn("TechFin non trouvé, fallback sur lead brut :", err);
           }
 
           if (techFinData) {
@@ -252,12 +279,16 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                 ? techFinData.dateAttribution.substring(0, 10)
                 : "",
               budget: techFinData.montantOffre || techFinData.budget || 0,
+              montantOffre: techFinData.montantOffre || techFinData.budget || 0,
+              montantChargeAnnexe: techFinData.montantChargeAnnexe || 0,
+              montantAvecChargeAnnexe: techFinData.montantAvecChargeAnnexe || 0,
             });
-          } else {
-            setFormTechFin(mapLeadToTechFinForm(lead));
           }
 
-          setCurrentStep(initialTab || "qualification");
+          // Récupérer le step depuis l'URL ou initialTab
+          const urlStep = searchParams.get("step");
+          const targetStep = urlStep || initialTab || "qualification";
+          setCurrentStep(targetStep);
         } else {
           setForm({
             periode: "", businessUnit: "", description: "", nom: "",
@@ -270,8 +301,14 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
           setFormTechFin({
             technos: [], volumeJHVendu: 0, deviseId: "", tauxDeChange: 1,
             typeFacturationId: "", impots: 0, dateAttribution: "", budget: 0,
+            montantOffre: 0, montantChargeAnnexe: 0, montantAvecChargeAnnexe: 0,
           });
-          setCurrentStep("qualification");
+          
+          // Réinitialiser le step à qualification pour un nouveau lead
+          const urlStep = searchParams.get("step");
+          setCurrentStep(urlStep === "offre" || urlStep === "etapes" || urlStep === "historique" 
+            ? "qualification" 
+            : urlStep || "qualification");
           jiraDataRef.current = null;
         }
       } catch (err) {
@@ -280,7 +317,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
     };
 
     fetchAll();
-  }, [show, lead, initialTab]);
+  }, [show, lead, initialTab, searchParams]);
 
   const isNoGo = lead?.currentLeadStatus?.leadStatus?.id < 3;
 
@@ -322,11 +359,10 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
     };
   };
 
-  /* ================= Save unifié ================= */
   const handleSave = async () => {
     if (currentStep === "projet") return;
 
-    setShowLoadingMessage(true);
+    setPopup({ type: "loading", message: "Sauvegarde en cours..." });
 
     try {
       const currentLeadId = lead?.leadId || lead?.id;
@@ -341,16 +377,16 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
           savedLead = await leadService.createQualif(qualifData);
         }
 
-        setShowLoadingMessage(false);
-        setSuccessMessage("Qualification sauvegardée avec succès !");
-        setShowSuccessMessage(true);
         onSubmit(savedLead);
-
-        setTimeout(() => {
-          setShowSuccessMessage(false);
-          setCurrentStep("offre");
-        }, 1500);
-
+        setPopup({ type: "success", message: "Qualification sauvegardée avec succès !" });
+        
+        // Après sauvegarde, rediriger vers l'onglet offre si demandé
+        const nextStep = searchParams.get("nextStep");
+        if (nextStep === "offre" && savedLead) {
+          setTimeout(() => {
+            handleTabChange("offre");
+          }, 1500);
+        }
         return;
       }
 
@@ -381,16 +417,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
         };
 
         await leadTechFinService.update(techFinPayload);
-
-        setShowLoadingMessage(false);
-        setSuccessMessage("Offre technique & financière sauvegardée avec succès !");
-        setShowSuccessMessage(true);
-
-        setTimeout(() => {
-          setShowSuccessMessage(false);
-          onClose();
-        }, 2000);
-
+        setPopup({ type: "success", message: "Offre technique & financière sauvegardée avec succès !" });
         return;
       }
 
@@ -398,29 +425,29 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
         if (!currentLeadId) throw new Error("ID du lead manquant.");
 
         const jiraData = jiraDataRef.current;
-        if (!jiraData) throw new Error("Aucune donnée JIRA à sauvegarder.");
+        if (!jiraData) throw new Error("Aucune donnée à sauvegarder.");
 
         await leadService.updateJira(currentLeadId, jiraData);
-
-        setShowLoadingMessage(false);
-        setSuccessMessage("JIRA mis à jour avec succès !");
-        setShowSuccessMessage(true);
-
-        setTimeout(() => {
-          setShowSuccessMessage(false);
-        }, 2000);
-
+        setPopup({ type: "success", message: "Étapes & validations mis à jour avec succès !" });
         return;
       }
     } catch (err) {
       console.error("=== ERREUR handleSave ===", err);
-      setShowLoadingMessage(false);
-      setErrorMessage(err instanceof Error ? err.message : "Erreur inconnue");
-      setShowErrorMessage(true);
+      setPopup({
+        type: "error",
+        message: err instanceof Error ? err.message : "Erreur inconnue lors de la sauvegarde.",
+      });
     }
   };
 
-  /* ================= Render ================= */
+  // Mapping des clés d'onglet vers les libellés
+  const tabLabels: Record<string, string> = {
+    qualification: "Qualification",
+    offre: "Offre technique & financière",
+    etapes: "Étapes & validations",
+    historique: "Historique de traitement"
+  };
+
   return (
     <>
       <Modal show={show} onHide={onClose} fullscreen centered scrollable>
@@ -435,28 +462,27 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
         <Modal.Body>
           <Tab.Container
             activeKey={currentStep}
-            onSelect={(k) => {
-              if (isNoGo && !initialTab && k !== "qualification") return;
-              setCurrentStep(k || "qualification");
-            }}
+            onSelect={handleTabChange}
           >
-            <Nav variant="pills" className="mb-4">
+            <Nav variant="pills" className="mb-4 form-lead-tabs">
               <Nav.Item>
-                <Nav.Link eventKey="qualification">Qualification</Nav.Link>
+                <Nav.Link eventKey="qualification">
+                  {tabLabels.qualification}
+                </Nav.Link>
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="offre" disabled={!lead}>
-                  Offre technique & financière
+                  {tabLabels.offre}
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link eventKey="etapes" disabled={!lead}>
-                  Étapes & validations
+                  {tabLabels.etapes}
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
-                <Nav.Link eventKey="projet" disabled={!lead}>
-                  Projet
+                <Nav.Link eventKey="historique" disabled={!lead}>
+                  {tabLabels.historique}
                 </Nav.Link>
               </Nav.Item>
             </Nav>
@@ -513,9 +539,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                     lead={lead}
                     leadService={leadService}
                     userService={userDisplayService}
-                    onDataReady={(data) => {
-                      jiraDataRef.current = data;
-                    }}
+                    onDataReady={(data) => { jiraDataRef.current = data; }}
                   />
                 )}
               </Tab.Pane>
@@ -529,15 +553,25 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
                   <FormProjetInline
                     lead={lead}
                     onSuccess={(projet) => {
-                      setSuccessMessage(`Projet "${projet.nomProjet}" créé avec succès !`);
-                      setShowSuccessMessage(true);
-                      setTimeout(() => setShowSuccessMessage(false), 2000);
+                      setPopup({ type: "success", message: `Projet "${projet.nomProjet}" créé avec succès !` });
                     }}
                     onError={(msg) => {
-                      setErrorMessage(msg);
-                      setShowErrorMessage(true);
+                      setPopup({ type: "error", message: msg });
                     }}
-                    onLoading={setShowLoadingMessage}
+                    onLoading={(loading) => {
+                      if (loading) setPopup({ type: "loading", message: "Création en cours..." });
+                    }}
+                  />
+                )}
+              </Tab.Pane>
+
+              <Tab.Pane eventKey="historique">
+                {!lead ? (
+                  <p className="text-warning">Sauvegardez d'abord le lead.</p>
+                ) : (
+                  <FormProcessHistory
+                    lead={lead}
+                    processHistoryService={processHistoryService}
                   />
                 )}
               </Tab.Pane>
@@ -549,7 +583,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
           <Button variant="secondary" onClick={onClose}>
             Annuler
           </Button>
-          {currentStep !== "projet" && (
+          {currentStep !== "projet" && currentStep !== "historique" && (
             <Button variant="primary" onClick={handleSave}>
               {lead ? "Modifier" : "Créer"}
             </Button>
@@ -557,9 +591,13 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
         </Modal.Footer>
       </Modal>
 
-      {showLoadingMessage && <CollecteLoadingMessage />}
-      {showSuccessMessage && <CollecteSuccessMessage message={successMessage} />}
-      {showErrorMessage && <CollecteErrorMessage message={errorMessage} />}
+      {popup && (
+        <FeedbackPopup
+          type={popup.type}
+          message={popup.message}
+          onClose={popup.type !== "loading" ? closePopup : undefined}
+        />
+      )}
     </>
   );
 };

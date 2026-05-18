@@ -80,4 +80,6 @@ export interface LeadTechFinDetails {
     idTypeFacturation: number;
   };
   volumeJHVenduEtMontant?: ChiffresBacklog[];
+  montantChargeAnnexe?: number;
+  montantAvecChargeAnnexe?:number;
 }

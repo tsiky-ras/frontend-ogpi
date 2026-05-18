@@ -34,6 +34,7 @@ export const routes = [
     icon: <FaUserTie />,
   },
   {
+    // path: "/gestion-opportunites?hardFilter=12",
     path: "/gestion-opportunites",
     label: "Opportunités",
     icon: <FaBriefcase />,
@@ -66,14 +67,19 @@ export const routes = [
   },
   {
     label: "Archive",
-    icon: <FaArchive />,
-    children: [
+    icon: <FaThList />, 
+    children:[
       {
-        path: "/archive/projets",
-        label: "Archive Projet",
-        icon: <FaArchive />,
+        path: "/archive-lead",
+        label: "Archive Leads",
+        icon: <FaThList />,
       },
-    ],
+      {
+        path: "/gestion-taches-projet",
+        label: "Archive Projet",
+        icon: <FaThList />,
+      }
+    ]
   },
   {
     label: "Référentiels",

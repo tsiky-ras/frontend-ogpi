@@ -252,8 +252,8 @@ const KanbanColumn: React.FC<ColumnProps> = ({
       <div className="kb-column-body">
         {leads.length === 0 && (
           <div className="kb-empty">
-            <FaChevronRight className="kb-empty-icon" />
-            Déposer ici
+            {/* <FaChevronRight className="kb-empty-icon" /> */}
+            Aucun Lead pour cette Etape
           </div>
         )}
         {leads.map((lead) => (

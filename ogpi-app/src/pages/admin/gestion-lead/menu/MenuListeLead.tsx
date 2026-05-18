@@ -1,17 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FaEllipsisV, FaInfoCircle, FaEdit,FaFolderOpen  } from "react-icons/fa";
+import { FaEllipsisV, FaInfoCircle, FaEdit, FaFolderOpen } from "react-icons/fa";
 import "./MenuListeLead.css";
 
 interface MenuListeLeadProps {
   onDetails?: () => void;
   onEdit?: () => void;
   onViewBacklog?: () => void;
+  hideDetails?: boolean; // ✅ ajouté
 }
 
 const MenuListeLead: React.FC<MenuListeLeadProps> = ({
   onDetails,
   onEdit,
   onViewBacklog,
+  hideDetails = false, // ✅ valeur par défaut
 }) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -44,18 +46,26 @@ const MenuListeLead: React.FC<MenuListeLeadProps> = ({
 
       {open && (
         <div className="menu-dropdown">
-          <button className="menu-item" onClick={() => handleClick(onDetails)}>
-            <FaInfoCircle className="menu-icon" /> Détails
-          </button>
+          
+          {/* ✅ Afficher Détails seulement si hideDetails = false */}
+          {!hideDetails && (
+            <button className="menu-item" onClick={() => handleClick(onDetails)}>
+              <FaInfoCircle className="menu-icon" /> Détails
+            </button>
+          )}
+
+          {/* ✅ Si hideDetails = true → "Voir" au lieu de "Modifier" */}
           <button className="menu-item" onClick={() => handleClick(onEdit)}>
-            <FaEdit className="menu-icon" /> Modifier
+            <FaEdit className="menu-icon" /> {hideDetails ? "Voir" : "Modifier"}
           </button>
+
           <button
-              className="menu-item"
-              onClick={() => handleClick(onViewBacklog)}
-            >
-              <FaFolderOpen className="menu-icon" /> Backlog(s)
+            className="menu-item"
+            onClick={() => handleClick(onViewBacklog)}
+          >
+            <FaFolderOpen className="menu-icon" /> Recap DAO
           </button>
+
         </div>
       )}
     </div>

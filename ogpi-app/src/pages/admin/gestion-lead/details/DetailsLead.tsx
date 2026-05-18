@@ -41,7 +41,7 @@ const DetailsLead: React.FC<DetailsLeadProps> = ({ show, onClose, lead }) => {
             <p className="mb-1">{lead.leadRef || "-"}</p>
             {lead.createdByUser && (
               <small style={{ color: "#ddd" }}>
-                Créé par: {lead.createdByUser.username} ({lead.createdByUser.email})
+                Créé par: {lead.createdByUser?.username} ({lead.createdByUser?.email})
               </small>
             )}
           </div>

@@ -18,10 +18,22 @@ import { useAuth } from '../../../../context/AuthContext.tsx';
 import { Lead } from '../../../../types/lead/Lead.tsx';
 import { BacklogService } from "../../../../services/lead/backlog/BacklogService.tsx";
 import { useLeadTechFinDetailsService } from '../../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx';
+import { useSearchParams } from 'react-router-dom';
+
+/* ================= PROPS ================= */
+interface ListeLeadProps {
+  /**
+   * isArchive=true  → garde uniquement les leads avec status.id 11 (Gagnée) ou 12 (Perdue)
+   * isArchive=false → exclut les leads avec status.id 11 ou 12  (comportement par défaut)
+   */
+  isArchive?: boolean;
+}
 
 /* ================= COMPONENT ================= */
-const ListeLead: React.FC = () => {
-  const { api } = useAuth();
+const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
+  const { user, api } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [search, setSearch] = useState('');
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [period, setPeriod] = useState<'week' | 'month' | 'semester' | 'year'>('month');
@@ -30,13 +42,18 @@ const ListeLead: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [showDetailLead, setShowDetailLead] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [initialStep, setInitialStep] = useState<string>('qualification');
+  const [hardFilterIds, setHardFilterIds] = useState<number[]>([]);
+  
   const leadService = new LeadService(api);
   const leadTechFinService = useLeadTechFinDetailsService();
 
   // States pour le backlog
   const [showBacklogModal, setShowBacklogModal] = useState(false);
   const [selectedLeadName, setSelectedLeadName] = useState<string>('');
-  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
+  const [selectedLeadIdForBacklog, setSelectedLeadIdForBacklog] = useState<number | null>(null);
+  
   const backlogService = new BacklogService(api);
 
   const [kpis, setKpis] = useState({
@@ -45,12 +62,190 @@ const ListeLead: React.FC = () => {
     caPipeline: 0,
     upcomingDeadlines: 0,
   });
+  
   const DEFAULT_VISIBLE_COLUMNS = ['name', 'status', 'actions'];
+
+  // IDs des statuts "terminaux" (Gagnée / Perdue)
+  const ARCHIVE_STATUS_IDS = [5, 6];
+
+  // Fonction pour parser le paramètre hardFilter de l'URL
+  const parseHardFilterFromURL = (): number[] => {
+    const hardFilterParam = searchParams.get("hardFilter");
+    
+    if (!hardFilterParam || hardFilterParam.trim() === "") {
+      return [];
+    }
+    
+    const ids = hardFilterParam.split(",")
+      .map(id => parseInt(id.trim(), 10))
+      .filter(id => !isNaN(id) && id > 0);
+    
+    if (ids.length > 0) {
+      console.log(`Filtre URL détecté: ${hardFilterParam} -> IDs: ${ids.join(', ')}`);
+    }
+    
+    return ids;
+  };
+
+  // Mettre à jour le filtre quand l'URL change
+  useEffect(() => {
+    const ids = parseHardFilterFromURL();
+    setHardFilterIds(ids);
+  }, [searchParams]);
+
+  const isFilterEnabled = hardFilterIds.length > 0;
+
+  /**
+   * Applique le filtre dur (hardFilter depuis l'URL) sur les données.
+   * Ce filtre est appliqué APRÈS le filtre archive, donc il ne peut retourner
+   * que des leads déjà compatibles avec le mode courant (archive ou actif).
+   */
+  const applyHardFilter = (leadsData: Lead[]): Lead[] => {
+    if (!isFilterEnabled) {
+      return leadsData;
+    }
+    
+    const filteredLeads = leadsData.filter(lead => hardFilterIds.includes(lead.id));
+    
+    console.log(`Filtre dur appliqué: ${hardFilterIds.join(', ')}`);
+    console.log(`Leads trouvés: ${filteredLeads.length} sur ${leadsData.length} total`);
+    
+    const foundIds = filteredLeads.map(lead => lead.id);
+    const missingIds = hardFilterIds.filter(id => !foundIds.includes(id));
+    if (missingIds.length > 0) {
+      console.warn(`IDs non trouvés: ${missingIds.join(', ')}`);
+    }
+    
+    return filteredLeads;
+  };
+
+  /**
+   * Filtre archive :
+   * - isArchive=true  → garde uniquement status.id 11 ou 12
+   * - isArchive=false → exclut status.id 11 et 12
+   */
+  const applyArchiveFilter = (leadsData: Lead[]): Lead[] => {
+    if (isArchive) {
+      return leadsData.filter(lead =>
+        ARCHIVE_STATUS_IDS.includes(lead.status?.id)
+      );
+    }
+    return leadsData.filter(lead =>
+      !ARCHIVE_STATUS_IDS.includes(lead.status?.id)
+    );
+  };
+
+  // Fonction pour ouvrir le formulaire d'édition d'un lead avec step optionnel
+  const openLeadForm = async (leadId: number, step?: string) => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    try {
+      const completeLead = await loadFullLeadDetails(leadId);
+      setSelectedLead(completeLead);
+      setInitialStep(step || 'qualification');
+      setShowFormLead(true);
+      
+      const params: any = { editLead: leadId.toString() };
+      if (step) {
+        params.step = step;
+      }
+      const currentHardFilter = searchParams.get("hardFilter");
+      if (currentHardFilter) {
+        params.hardFilter = currentHardFilter;
+      }
+      setSearchParams(params);
+    } catch (error) {
+      console.error("Erreur lors de l'ouverture du formulaire:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fonction pour ouvrir les détails (visualisation)
+  const openLeadDetails = async (leadId: number) => {
+    try {
+      const completeLead = await loadFullLeadDetails(leadId);
+      setSelectedLead(completeLead);
+      setShowDetailLead(true);
+    } catch (error) {
+      console.error("Erreur lors de l'ouverture des détails:", error);
+    }
+  };
+
+  // Fonction pour fermer le formulaire
+  const closeLeadForm = () => {
+    setShowFormLead(false);
+    setSelectedLead(null);
+    setInitialStep('qualification');
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('editLead');
+    newParams.delete('step');
+    setSearchParams(newParams);
+  };
+
+  // Fonction pour fermer les détails
+  const closeLeadDetails = () => {
+    setShowDetailLead(false);
+    setSelectedLead(null);
+  };
+
+  // Fonction pour ouvrir le backlog
+  const openBacklog = (leadId: number, leadName: string) => {
+    setSelectedLeadIdForBacklog(leadId);
+    setSelectedLeadName(leadName);
+    setShowBacklogModal(true);
+  };
+
+  // Fonction pour fermer le backlog
+  const closeBacklog = () => {
+    setShowBacklogModal(false);
+    setSelectedLeadIdForBacklog(null);
+    setSelectedLeadName('');
+  };
+
+  // Effet pour gérer l'ouverture du formulaire via URL
+  useEffect(() => {
+    const editLeadId = searchParams.get("editLead");
+    const step = searchParams.get("step");
+    
+    if (editLeadId && !showFormLead && !selectedLead && !isLoading) {
+      const leadId = parseInt(editLeadId, 10);
+      
+      if (!isNaN(leadId) && leadId > 0) {
+        if (isFilterEnabled && !hardFilterIds.includes(leadId)) {
+          console.warn(`Lead ${leadId} non autorisé par le filtre`);
+          const newParams = new URLSearchParams(searchParams);
+          newParams.delete('editLead');
+          newParams.delete('step');
+          setSearchParams(newParams);
+          return;
+        }
+        
+        const timer = setTimeout(async () => {
+          const leadExists = opportunities.some(opp => opp.id === leadId);
+          
+          if (leadExists) {
+            await openLeadForm(leadId, step || undefined);
+          } else if (opportunities.length > 0) {
+            console.warn(`Lead avec l'ID ${leadId} non trouvé`);
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('editLead');
+            newParams.delete('step');
+            setSearchParams(newParams);
+          }
+        }, 300);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [searchParams, opportunities, showFormLead, selectedLead, hardFilterIds, isFilterEnabled]);
 
   const loadFullLeadDetails = async (leadId: number) => {
     try {      
       const fullLead = await leadService.getById(leadId);
       const techFinDetails = await leadTechFinService.getByLeadId(leadId);
+      
       const completeLead = {
         ...fullLead,
         id: fullLead.leadId || fullLead.id,
@@ -99,6 +294,7 @@ const ListeLead: React.FC = () => {
         montantOffre: techFinDetails?.montantOffre || 0,
         budget: techFinDetails?.montantOffre || 0,
       };
+      
       return completeLead;
 
     } catch (error) {
@@ -112,54 +308,41 @@ const ListeLead: React.FC = () => {
       const data = await leadService.getAll();
 
       const leadsData: Lead[] = data.map((lead: any) => ({
-        // Identifiants
         id: lead.leadId,
         name: lead.leadName,
         reference: lead.leadRef || '',
-        
-        // Informations de base
         businessUnit: lead.businessUnit,
         typeFinancement: lead.typeProjetFinancement,
         description: lead.leadDescription || '',
-        
-        // Dates
         periode: lead.leadPeriode,
         internalDeadline: lead.leadInternalDeadLine || '',
         realDeadline: lead.leadRealDeadLine || '',
-        
-        // Détails du projet
         projetFinancement: lead.projetDeFinancement || '',
         commentaire: lead.leadCommentaire || '',
-        
-        // Zone et JIRA
-        zone: lead.leadZone === 0 ? 0 : 1,  // Garder le nombre au lieu de transformer en string
+        zone: lead.leadZone === 0 ? 0 : 1,
         jiraProject: lead.leadGoProjetJira || '',
         jiraTicket: lead.leadGoTicketJira || '',
-        
-        // Drive
         driveFolder: lead.driveFolder || undefined,
         driveFile: lead.mainDriveFile || undefined,
-        
-        // Relations
         client: lead.client,
         type: lead.leadType,
         category: lead.category,
         secteur: lead.leadSecteur,
-        
-        // Statuts et étapes
         status: lead.currentLeadStatus?.leadStatus || { id: 0, label: 'En attente', order: 0 },
         currentLeadStatus: lead.currentLeadStatus,
         currentLeadStep: lead.currentLeadStep,
-        
-        // Créateur
         createdByUser: lead.createdByUser || undefined,
-        
-        // Partenaires (vide dans getAll)
         partenaires: [],
       }));
 
-      setOpportunities(leadsData);
-      calculateKPIs(leadsData);
+      // 1. Filtre archive (garde ou exclut status 11/12 selon isArchive)
+      const archiveFiltered = applyArchiveFilter(leadsData);
+
+      // 2. Filtre dur depuis l'URL (optionnel)
+      const filteredLeads = applyHardFilter(archiveFiltered);
+
+      setOpportunities(filteredLeads);
+      calculateKPIs(filteredLeads);
     } catch (error) {
       console.error("Erreur chargement leads", error);
     }
@@ -167,18 +350,14 @@ const ListeLead: React.FC = () => {
 
   useEffect(() => {
     loadLeads();
-  }, [period]);
+  }, [period, hardFilterIds, isArchive]);
 
   const getCurrencySymbol = () => {
     switch (currency) {
-      case 'AR':
-        return 'Ar';
-      case 'Euro':
-        return '€';
-      case '$':
-        return '$';
-      default:
-        return '€';
+      case 'AR': return 'Ar';
+      case 'Euro': return '€';
+      case '$': return '$';
+      default: return '€';
     }
   };
 
@@ -256,7 +435,7 @@ const ListeLead: React.FC = () => {
     });
   };
 
-  /* ================= TABLE ================= */
+  /* ================= TABLE COLUMNS ================= */
   const columns = [
     {
       key: 'periode',
@@ -297,7 +476,7 @@ const ListeLead: React.FC = () => {
         row.partenaires?.length > 0 ? row.partenaires.map(p => p.name).join(', ') : '-',
     },
     {
-      key: 'Répértoire drive',
+      key: 'driveFolder',
       label: 'Répértoire',
       render: (row: Lead) =>
         row.driveFolder?.link
@@ -307,7 +486,7 @@ const ListeLead: React.FC = () => {
           : '-',
     },
     {
-      key: 'Fichier drive',
+      key: 'driveFile',
       label: 'TDR',
       render: (row: Lead) =>
         row.driveFile?.link
@@ -332,6 +511,8 @@ const ListeLead: React.FC = () => {
           4: ['bg-primary', 'En cours d\'évaluation'],
           5: ['bg-success', 'Gagnée'],
           6: ['bg-secondary', 'Perdue'],
+          11: ['bg-success', 'Gagnée'],
+          12: ['bg-secondary', 'Perdue'],
         };
         const [cls, label] = map[row.status.id] || ['bg-secondary', 'En attente de validation'];
         return <span className={`badge ${cls}`}>{label}</span>;
@@ -359,7 +540,6 @@ const ListeLead: React.FC = () => {
         const stepId = row.currentLeadStep?.leadStep?.id;
         if (!stepId) return '-';
           
-        
         const [cls, label] = map[stepId] || ['bg-secondary', 'Étape inconnue'];
         return <span className={`badge ${cls}`}>{label}</span>;
       },
@@ -369,38 +549,18 @@ const ListeLead: React.FC = () => {
       label: 'Actions',
       render: (row: Lead) => (
         <MenuListeLead
+          hideDetails={true}
           onDetails={async () => {
             if (!row.id) return;
-
-            try {
-              // 🔥 Utiliser la fonction centralisée
-              const completeLead = await loadFullLeadDetails(row.id);
-              
-              setSelectedLead(completeLead);
-              setShowDetailLead(true);
-            } catch (error) {
-              console.error("Erreur chargement détails pour visualisation", error);
-            }
+            await openLeadDetails(row.id);
           }}
           onEdit={async () => {
             if (!row.id) return;
-
-            try {
-              // 🔥 Utiliser la même fonction centralisée pour l'édition
-              const completeLead = await loadFullLeadDetails(row.id);
-              
-              setSelectedLead(completeLead);
-              setShowFormLead(true);
-            } catch (error) {
-              console.error("Erreur chargement lead pour édition", error);
-            }
+            await openLeadForm(row.id);
           }}
-
           onViewBacklog={() => {
             if (!row.id) return;
-            setSelectedLeadId(row.id);
-            setSelectedLeadName(row.name);
-            setShowBacklogModal(true);
+            openBacklog(row.id, row.name);
           }}
         />
       ),
@@ -453,107 +613,73 @@ const ListeLead: React.FC = () => {
         <div className="col-md-6">
           <div className="expanded-item">
             <label className="expanded-label">Date création</label>
-            <p className="expanded-text">{new Date(row.createdAt).toLocaleDateString('fr-FR')}</p>
+            <p className="expanded-text">{row.createdAt ? new Date(row.createdAt).toLocaleDateString('fr-FR') : '-'}</p>
           </div>
         </div>
         <div className="col-md-6">
           <div className="expanded-item">
             <label className="expanded-label">Deadline</label>
-            <p className="expanded-text expanded-deadline">{new Date(row.deadline).toLocaleDateString('fr-FR')}</p>
+            <p className="expanded-text expanded-deadline">{row.deadline ? new Date(row.deadline).toLocaleDateString('fr-FR') : '-'}</p>
           </div>
         </div>
       </div>
     </div>
   );
 
+  // Fonction pour supprimer le filtre
+  const clearHardFilter = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('hardFilter');
+    setSearchParams(newParams);
+  };
+
+  // Message si aucun lead trouvé avec le filtre dur actif
+  if (isFilterEnabled && opportunities.length === 0 && !isLoading) {
+    return (
+      <div className="liste-lead-layout">
+        <div className="container-fluid">
+          <div className="alert alert-warning mt-4">
+            <h5>Aucun lead trouvé</h5>
+            <p>Aucun lead avec l'ID {searchParams.get("hardFilter")} n'a été trouvé{isArchive ? ' dans les archives' : ''}.</p>
+            <p className="mb-0 text-muted small">Vérifie que les IDs existent dans la base de données.</p>
+            <button
+              className="btn btn-sm btn-outline-secondary mt-3"
+              onClick={clearHardFilter}
+            >
+              Effacer le filtre
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   /* ================= RENDER ================= */
   return (
     <div className="liste-lead-layout">
-      <Header />
       <div className="liste-lead-wrapper">
         <main className="liste-lead-main">
           <div className="container-fluid">
-            {/* Ligne 2 : Filtres période & devise + bouton créer */}
-            <div className="row align-items-center mb-4">
-              {/* Filtres période & devise */}
-              <div className="col-lg-8 col-md-12 mb-2 mb-lg-0">
-                <div className="d-flex flex-wrap gap-2">
-                  <select
-                    value={period}
-                    onChange={(e) =>
-                      setPeriod(e.target.value as 'week' | 'month' | 'semester' | 'year')
-                    }
-                    className="form-select form-select-sm"
-                    style={{ width: 140 }}
-                  >
-                    <option value="week">Semaine</option>
-                    <option value="month">Mois</option>
-                    <option value="semester">Semestre</option>
-                    <option value="year">Année</option>
-                  </select>
-
-                  <select
-                    value={currency}
-                    onChange={(e) =>
-                      setCurrency(e.target.value as 'AR' | 'Euro' | '$')
-                    }
-                    className="form-select form-select-sm"
-                    style={{ width: 120 }}
-                  >
-                    <option value="Euro">Euro €</option>
-                    <option value="$">Dollar $</option>
-                  </select>
+            {/* Bouton créer — masqué en mode archive */}
+            {!isArchive && (user?.role?.roleId == 7) && (
+              <div className="row align-items-center mb-4">
+                <div className="col-lg-4 col-md-12 ms-auto text-lg-end">
+                  <Button
+                    label="Créer une opportunité"
+                    icon={<FaPlus />}
+                    onClick={() => {
+                      setSelectedLead(null);
+                      setInitialStep('qualification');
+                      setShowFormLead(true);
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.delete('editLead');
+                      newParams.delete('step');
+                      setSearchParams(newParams);
+                    }}
+                  />
                 </div>
               </div>
-
-              {/* Bouton créer */}
-              <div className="col-lg-4 col-md-12 text-lg-end">
-                <Button
-                  label="Créer une opportunité"
-                  icon={<FaPlus />}
-                  onClick={() => {
-                    setSelectedLead(null);
-                    setShowFormLead(true);
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* KPI */}
-            <div className="row mb-4">
-              <div className="col-lg-3 col-md-6 mb-3">
-                <StatCard
-                  title="Opportunités actives"
-                  value={kpis.activeOpportunitiesThisPeriod}
-                  subtitle="Traitées cette période"
-                  variant={['tomato', 'charcoal']}
-                />
-              </div>
-              <div className="col-lg-3 col-md-6 mb-3">
-                <StatCard
-                  title="Taux de conversion"
-                  value={`${kpis.conversionRate}%`}
-                  subtitle="Soumises / Gagnées"
-                  variant={['dim', 'linen']}
-                />
-              </div>
-              <div className="col-lg-3 col-md-6 mb-3">
-                <StatCard
-                  title="Chiffre d'affaires Pipeline"
-                  value={`${(kpis.caPipeline / 1000).toFixed(0)}k ${getCurrencySymbol()}`}
-                  subtitle="Montant durant la période"
-                  variant={['tuscan', 'linen']}
-                />
-              </div>
-              <div className="col-lg-3 col-md-6 mb-3">
-                <StatCard
-                  title="Échéances proches"
-                  value={kpis.upcomingDeadlines}
-                  subtitle="Cette période"
-                  variant={['charcoal', 'linen']}
-                />
-              </div>
-            </div>
+            )}
 
             <FilterBar
               filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]}
@@ -565,7 +691,7 @@ const ListeLead: React.FC = () => {
                 data={opportunities}
                 expandedRowId={expandedRowId}
                 expandedRow={renderExpandedRow}
-                storageKey="liste_lead_columns"
+                storageKey={isArchive ? "archive_lead_columns" : "liste_lead_columns"}
                 defaultVisibleColumns={DEFAULT_VISIBLE_COLUMNS}
               />
             </div>
@@ -573,43 +699,31 @@ const ListeLead: React.FC = () => {
         </main>
       </div>
 
-      {/* Formulaire Lead */}
+      {/* Formulaire Lead (Édition) — disponible aussi en archive pour consultation */}
       <FormLead
         show={showFormLead}
-        onClose={() => {
-          setShowFormLead(false);
-          setSelectedLead(null);
-        }}
+        onClose={closeLeadForm}
         lead={selectedLead}
-        onSubmit={async () => {
+        initialTab={initialStep}
+        onSubmit={async (savedLead) => {
           await loadLeads();
-          setShowFormLead(false);
-          setSelectedLead(null);
         }}
       />
 
-      {/* Détails Lead */}
+      {/* Détails Lead (Visualisation) */}
       <DetailsLead
         show={showDetailLead}
-        onClose={() => {
-          setShowDetailLead(false);
-          setSelectedLead(null);
-        }}
+        onClose={closeLeadDetails}
         lead={selectedLead}
       />
 
-      {selectedLeadId && (
-        <BacklogModal
-          show={showBacklogModal}
-          onClose={() => {
-            setShowBacklogModal(false);
-            setSelectedLeadId(null);
-            setSelectedLeadName('');
-          }}
-          leadId={selectedLeadId}
-          leadName={selectedLeadName}
-        />
-      )}
+      {/* Backlog Modal */}
+      <BacklogModal
+        show={showBacklogModal}
+        onClose={closeBacklog}
+        leadId={selectedLeadIdForBacklog}
+        leadName={selectedLeadName}
+      />
     </div>
   );
 };
