@@ -33,7 +33,7 @@ export const routes = [
     icon: <FaUserTie />,
   },
   {
-    // path: "/gestion-opportunites?hardFilter=10",
+    // path: "/gestion-opportunites?hardFilter=12",
     path: "/gestion-opportunites",
     label: "Opportunités",
     icon: <FaBriefcase />,
