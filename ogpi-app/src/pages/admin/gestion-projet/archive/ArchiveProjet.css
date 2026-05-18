@@ -1,0 +1,265 @@
+/* Importe le layout partagé (sidebar, main, wrapper) */
+@import '../liste/ListeProjet.css';
+
+/* ══════════════════════════════════════════════
+   ARCHIVE PROJET — styles spécifiques seulement
+   Le layout (sidebar, header, main, wrapper)
+   est géré par page-lead-layout / liste-lead-*
+   ══════════════════════════════════════════════ */
+
+/* ── Bannière compteur ── */
+.archive-stat-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #fdf6ec;
+  border: 1px solid #e9c97e;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #7c5c2e;
+}
+
+.archive-stat-icon {
+  font-size: 0.95rem;
+  color: #b98a3a;
+}
+
+/* ── Loading ── */
+.archive-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 80px 0;
+  color: #5F6F6E;
+  font-size: 0.9rem;
+}
+
+.archive-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #e9c97e;
+  border-top-color: #b98a3a;
+  border-radius: 50%;
+  animation: archiveSpin 0.7s linear infinite;
+}
+
+@keyframes archiveSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Empty state ── */
+.archive-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 80px 0;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.archive-empty-icon {
+  color: #cbd5e1;
+}
+
+.archive-empty p {
+  font-size: 0.95rem;
+  margin: 0;
+  color: #64748b;
+}
+
+.archive-reset-btn {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #C93C29;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.archive-reset-btn:hover { background: #fee2e2; }
+
+/* ── Tableau ── */
+.archive-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.archive-table thead tr {
+  background: #223A46;
+  color: #fff;
+}
+
+.archive-table th {
+  padding: 11px 16px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.archive-row {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.12s;
+}
+
+.archive-row:last-child { border-bottom: none; }
+
+.archive-row:hover { background: #fdf6ec; }
+
+.archive-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+/* ── Cellules ── */
+.archive-row-nom {
+  font-weight: 700;
+  color: #223A46;
+  font-size: 0.88rem;
+}
+
+.archive-row-ref {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.archive-client {
+  font-weight: 600;
+  color: #3b82f6;
+  font-size: 0.84rem;
+}
+
+.archive-cp {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.84rem;
+}
+
+.archive-none {
+  color: #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.archive-type-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid;
+  border-radius: 99px;
+  padding: 2px 9px;
+}
+
+.archive-dates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #5F6F6E;
+  white-space: nowrap;
+}
+
+.archive-dates-sep {
+  color: #cbd5e1;
+  font-size: 0.7rem;
+}
+
+/* ── Bouton Désarchiver ── */
+.archive-btn-desarchiver {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fdf6ec;
+  border: 1px solid #e9c97e;
+  color: #7c5c2e;
+  border-radius: 8px;
+  padding: 6px 13px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.archive-btn-desarchiver:hover:not(:disabled) {
+  background: #fcecd4;
+  border-color: #c9972a;
+}
+
+.archive-btn-desarchiver:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Confirmation inline ── */
+.archive-confirm-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.archive-confirm-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7c5c2e;
+}
+
+.archive-confirm-yes {
+  background: #2d8f47;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.archive-confirm-yes:hover:not(:disabled) { background: #236b38; }
+.archive-confirm-yes:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.archive-confirm-no {
+  background: #f1f5f9;
+  color: #374151;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.archive-confirm-no:hover:not(:disabled) { background: #e2e8f0; }
+.archive-confirm-no:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Toast ── */
+.archive-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: #223A46;
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  animation: archiveToastIn 0.25s ease-out;
+  z-index: 9999;
+}
+
+@keyframes archiveToastIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

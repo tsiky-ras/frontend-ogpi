@@ -449,24 +449,24 @@ const ComparaisonOpportuniteProjet: React.FC<ComparaisonProps> = ({
         charges: chargesParProfil[i],
       })),
     },
-    {
-      key: "offre_vs_realise",
-      title: "Backlog offre ↔ Réalisé",
-      desc: "Vision globale : JH du backlog offre vs consommation réelle à date. Indicatif.",
-      color: "#5c6ac4",
-      bg: "#eef0fc",
-      border: "#5c6ac444",
-      gauche: { label: "Backlog offre", jh: jhLeadBacklog, color: P.phase },
-      droite: { label: "Réalisé",       jh: jhRealise,     color: P.dim },
-      // + = offre > réalisé → reste de la marge → VERT
-      // − = réalisé > offre → consommation dépasse le backlog → ROUGE
-      deltaJH: jhLeadBacklog - jhRealise,
-      hint: "+ = marge restante (réalisé < offre) · − = consommation dépasse le backlog offre",
+{
+      key: "vendu_vs_realise",
+      title: "JH vendu ↔ Réalisé",
+      desc: "Vision globale : JH de l'offre financière vendue vs consommation réelle à date (time_spent). Indicatif.",
+      color: P.offre,
+      bg: "#ede9fe",
+      border: "#7c3aed44",
+      gauche: { label: "JH vendu (offre tech.)", jh: jhOffreComm,  color: P.offre },
+      droite: { label: "Réalisé",                jh: jhRealise,    color: P.dim  },
+      // + = vendu > réalisé → marge restante → VERT
+      // − = réalisé > vendu → dépassement du contrat → ROUGE
+      deltaJH: jhOffreComm - jhRealise,
+      hint: "+ = consommation dans l'enveloppe vendue · − = réalisé dépasse l'offre",
       profils: profils.map((p, i) => ({
         name: p.name, tjm: p.tjm,
-        jhG: p.volumeLead ?? 0,
+        jhG: p.volumeOffreCommerciale ?? 0,
         jhD: p.volumeProjet ?? 0,
-        deltaJH: (p.volumeLead ?? 0) - (p.volumeProjet ?? 0),
+        deltaJH: (p.volumeOffreCommerciale ?? 0) - (p.volumeProjet ?? 0),
         charges: chargesParProfil[i],
       })),
     },

@@ -450,7 +450,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
 
   return (
     <>
-      <Modal show={show} onHide={onClose} fullscreen centered scrollable className="form-lead-modal">
+      <Modal show={show} onHide={onClose} fullscreen centered scrollable>
         <Modal.Header closeButton>
           <Modal.Title>
             {lead

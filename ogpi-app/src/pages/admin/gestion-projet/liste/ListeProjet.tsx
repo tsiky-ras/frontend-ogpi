@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from '../../../../components/header/Header.tsx';
 import Button from '../../../../components/button/Button.tsx';
-import { FaPlus, FaHourglassHalf, FaLayerGroup, FaChartBar, FaCoins } from 'react-icons/fa';
+import { FaPlus, FaHourglassHalf, FaLayerGroup, FaChartBar, FaCoins, FaArchive } from 'react-icons/fa';
 import FilterBar from '../../../../components/filters/FilterBar.tsx';
 import Table from '../../../../components/table/Table.tsx';
 import MenuListeProjet from '../menu/MenuListeProjet.tsx';
@@ -14,6 +14,8 @@ import BacklogProjetModal from '../backlog/BacklogProjetModal.tsx';
 import { ProjetAvancement } from '../../../../services/projet/ProjetAvancementService.tsx';
 import { useComparaisonService } from '../../../../services/projet/comparaison/ComparaisonService.tsx';
 import { useAuth } from '../../../../context/AuthContext.tsx';
+import { ArchiveProjetService } from '../../../../services/projet/ArchiveProjetService.tsx';
+import ConfirmArchiveModal from '../archive/ConfirmArchiveModal.tsx';
 
 const P = {
   charcoal: '#223A46', tomato: '#C93C29', success: '#2d8f47', warning: '#d97706',
@@ -105,6 +107,34 @@ const DEFAULT_VISIBLE_COLUMNS = ['nomProjet', 'statut', 'consoJH', 'marges', 'ac
 
 const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancements, loading, onProjetSaved }) => {
   const { getByProjetId } = useComparaisonService();
+  const { api } = useAuth();
+  const archiveService = useMemo(() => new ArchiveProjetService(api), [api]);
+
+  // ── Archive modal state ────────────────────────────────────────────────────
+  const [archivingId,    setArchivingId]    = useState<number | null>(null);
+  const [archiveTarget,  setArchiveTarget]  = useState<Projet | null>(null);
+  const [archiveToast,   setArchiveToast]   = useState<string | null>(null);
+
+  const showArchiveToast = (msg: string) => {
+    setArchiveToast(msg);
+    setTimeout(() => setArchiveToast(null), 3000);
+  };
+
+  const handleArchiver = async () => {
+    if (!archiveTarget) return;
+    const pid = archiveTarget.idProjet ?? 0;
+    setArchivingId(pid);
+    try {
+      await archiveService.archiver(pid);
+      showArchiveToast(`"${archiveTarget.nomProjet}" archivé avec succès.`);
+      await onProjetSaved();
+    } catch {
+      showArchiveToast('Erreur lors de l\'archivage.');
+    } finally {
+      setArchivingId(null);
+      setArchiveTarget(null);
+    }
+  };
 
   const [finMap, setFinMap]           = useState<Map<number, ProjetFin>>(new Map());
   const [loadedCount, setLoadedCount] = useState(0);
@@ -299,7 +329,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
     },
     { key: 'statut', label: 'Statut', render: (row: Projet) => <StatutBadge statutId={statutMap.get(row.idProjet ?? 0) ?? null} loading={loading} /> },
     {
-      // ── JH réalisé vs vendu avec barre + reste ──
       key: 'consoJH', label: 'JH Réalisé / Vendu',
       render: (row: Projet) => {
         const pid = row.idProjet ?? 0;
@@ -332,7 +361,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
       },
     },
     {
-      // ── Budget projet + charges (valeur brute) ──
       key: 'budgetEtCharges', label: 'Budget & Charges',
       render: (row: Projet) => {
         const fin = finMap.get(row.idProjet ?? 0);
@@ -348,7 +376,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
       },
     },
     {
-      // ── CA encaissé (valeur brute + %) ──
       key: 'ca', label: 'CA Encaissé',
       render: (row: Projet) => {
         const pid       = row.idProjet ?? 0;
@@ -367,7 +394,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
       },
     },
     {
-      // ── Marge nette (valeur + % seulement, sans détails) ──
       key: 'marges', label: 'Marge nette',
       render: (row: Projet) => {
         const fin = finMap.get(row.idProjet ?? 0);
@@ -392,6 +418,8 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
           onDetails={() => { setSelectedProjet(row); setShowProjetDetails(true); }}
           onEdit={() => { setSelectedProjet(row); setFormDirty(false); setShowFormProjet(true); }}
           onViewBacklog={() => handleOpenBacklog(row)}
+          // ── Ouvre le modal de confirmation au lieu d'un confirm inline ──
+          onArchiver={() => setArchiveTarget(row)}
         />
       ),
     },
@@ -500,12 +528,8 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
         <main className="liste-projet-main">
           <div className="container-fluid">
 
-            {/* ════════════════════════════════════════════
-                4 CARDS — SUIVI PRODUCTION
-            ════════════════════════════════════════════ */}
+            {/* Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 20 }}>
-
-              {/* 1 — JH Consommés vs Vendus */}
               <div style={cardBase}>
                 {cardHdr(P.teal, <FaHourglassHalf size={11} />, 'JH Consommés vs Vendus')}
                 <div style={{ padding: '14px 16px' }}>
@@ -524,8 +548,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
                   </>)}
                 </div>
               </div>
-
-              {/* 2 — Reste à produire */}
               <div style={cardBase}>
                 {cardHdr(P.purple, <FaLayerGroup size={11} />, 'Reste à produire')}
                 <div style={{ padding: '14px 16px' }}>
@@ -538,8 +560,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
                   {stats.jhProjet > 0 && <div style={{ fontSize: 11, color: P.dim, marginTop: 3 }}>{fmtJH(Math.max(0, stats.jhProjet - stats.jhRealise))} JH vs backlog projet</div>}
                 </div>
               </div>
-
-              {/* 3 — Valorisation réalisée */}
               <div style={cardBase}>
                 {cardHdr(P.blue, <FaChartBar size={11} />, 'Valorisation réalisée')}
                 <div style={{ padding: '14px 16px' }}>
@@ -552,8 +572,6 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
                   {stats.resteValeur > 0 && <div style={{ marginTop: 4, fontSize: 11, color: P.purple }}>+{fmt(Math.round(stats.resteValeur))} restant à valoriser</div>}
                 </div>
               </div>
-
-              {/* 4 — CA Encaissé */}
               <div style={cardBase}>
                 {cardHdr(P.success, <FaCoins size={11} />, 'CA Encaissé')}
                 <div style={{ padding: '14px 16px' }}>
@@ -570,7 +588,7 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
               </div>
             </div>
 
-            {/* ── Filtres + bouton créer ── */}
+            {/* Filtres + bouton créer */}
             <div className="d-flex align-items-center gap-2 flex-wrap mb-3">
               <div style={{ flex: 1, minWidth: 220 }}>
                 <FilterBar filters={[{ type: 'text', placeholder: 'Rechercher (projet, client, responsable, opportunité…)', onChange: setSearch }]} />
@@ -614,6 +632,31 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
       <FormProjet show={showFormProjet} onClose={handleCloseFormProjet} projet={selectedProjet} onSubmit={async (_saved) => { setFormDirty(true); }} />
       <ProjetDetails show={showProjetDetails} onClose={() => { setShowProjetDetails(false); setSelectedProjet(null); }} projet={selectedProjet} />
       <BacklogProjetModal show={showBacklogModal} onClose={handleCloseBacklog} projetId={selectedProjetForBacklog?.idProjet ?? 0} projetNom={selectedProjetForBacklog?.nomProjet} leadId={selectedProjetForBacklog?.lead?.leadId ?? null} projectStartDate={selectedProjetForBacklog?.dateDebutPrevu ?? null} projectEndDate={selectedProjetForBacklog?.dateFinPrevu ?? null} />
+
+      {/* ── Modal de confirmation d'archivage ── */}
+      <ConfirmArchiveModal
+        show={archiveTarget !== null}
+        mode="archiver"
+        nomProjet={archiveTarget?.nomProjet ?? ''}
+        processing={archivingId !== null}
+        onConfirm={handleArchiver}
+        onCancel={() => setArchiveTarget(null)}
+      />
+
+      {/* ── Toast archivage ── */}
+      {archiveToast && (
+        <div style={{
+          position: 'fixed', bottom: 28, right: 28, zIndex: 9999,
+          background: '#223A46', color: '#fff', borderRadius: 10,
+          padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10,
+          fontSize: '0.85rem', fontWeight: 500,
+          boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
+          animation: 'slideInToast 0.25s ease-out',
+        }}>
+          <FaArchive style={{ color: '#e9c97e' }} />
+          <span>{archiveToast}</span>
+        </div>
+      )}
     </div>
   );
 };

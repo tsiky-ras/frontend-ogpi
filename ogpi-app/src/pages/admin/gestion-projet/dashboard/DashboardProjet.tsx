@@ -160,6 +160,8 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
   const [showFiltres,     setShowFiltres]     = useState(false);
   const [expandedIds,     setExpandedIds]     = useState<Set<number>>(new Set());
   const [triBudgetAlerte, setTriBudgetAlerte] = useState(false);
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const PAGE_SIZE = 8;
 
   const toggleExpand = (id: number) =>
     setExpandedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -294,6 +296,13 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
   }, [projets, filtreStatut, filtreCp, filtreClient, filtreSearch, triBudgetAlerte, statutMap, finMap]);
 
   const activeFilters = [filtreStatut !== 0, filtreCp !== '', filtreClient !== '', filtreSearch !== ''].filter(Boolean).length;
+
+  // Reset page quand les filtres changent
+  React.useEffect(() => { setCurrentPage(1); }, [filtreStatut, filtreCp, filtreClient, filtreSearch, triBudgetAlerte]);
+
+  // Découpage en page
+  const totalPages   = Math.max(1, Math.ceil(projetsFiltres.length / PAGE_SIZE));
+  const projetsPage  = projetsFiltres.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // ── Répartition par statut (pour le mini chart) ───────────────────────────
   const repartitionStatut = useMemo(() => {
@@ -592,7 +601,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
             <div style={{ padding: '32px 14px', textAlign: 'center', color: P.dim, fontSize: 13 }}>
               Aucun projet ne correspond aux filtres sélectionnés.
             </div>
-          ) : projetsFiltres.map(p => {
+          ) : projetsPage.map(p => {
             const pid       = p.idProjet ?? 0;
             const sid       = statutMap.get(pid) ?? null;
             const av        = avancements.get(pid);
@@ -791,10 +800,106 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
           })}
         </div>
 
+        {/* ── Pagination ── */}
         {projetsFiltres.length > 0 && (
-          <div style={{ marginTop: 8, fontSize: 11, color: P.dim, textAlign: 'right' }}>
-            {projetsFiltres.length} projet{projetsFiltres.length > 1 ? 's' : ''} affiché{projetsFiltres.length > 1 ? 's' : ''}
-            {activeFilters > 0 && ` (filtrés sur ${projets.length})`}
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+
+            {/* Compteur */}
+            <span style={{ fontSize: 11, color: P.dim }}>
+              Page <strong style={{ color: P.charcoal }}>{currentPage}</strong> / {totalPages}
+              &nbsp;·&nbsp;
+              <strong style={{ color: P.charcoal }}>{projetsFiltres.length}</strong> projet{projetsFiltres.length > 1 ? 's' : ''}
+              {activeFilters > 0 && <span style={{ color: P.teal }}> (filtrés sur {projets.length})</span>}
+            </span>
+
+            {/* Boutons de page */}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {/* Première page */}
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  style={{
+                    border: `1px solid ${P.linen}`, borderRadius: 6,
+                    background: currentPage === 1 ? '#f1f5f9' : P.white,
+                    color: currentPage === 1 ? '#cbd5e1' : P.charcoal,
+                    padding: '4px 8px', fontSize: 12, fontWeight: 600,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >«</button>
+
+                {/* Précédent */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    border: `1px solid ${P.linen}`, borderRadius: 6,
+                    background: currentPage === 1 ? '#f1f5f9' : P.white,
+                    color: currentPage === 1 ? '#cbd5e1' : P.charcoal,
+                    padding: '4px 10px', fontSize: 12, fontWeight: 600,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >‹</button>
+
+                {/* Pages numérotées */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(pg => pg === 1 || pg === totalPages || Math.abs(pg - currentPage) <= 1)
+                  .reduce<(number | 'ellipsis')[]>((acc, pg, idx, arr) => {
+                    if (idx > 0 && pg - (arr[idx - 1] as number) > 1) acc.push('ellipsis');
+                    acc.push(pg);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === 'ellipsis' ? (
+                      <span key={`ell-${idx}`} style={{ fontSize: 12, color: P.dim, padding: '0 4px' }}>…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => setCurrentPage(item as number)}
+                        style={{
+                          border: `1px solid ${currentPage === item ? P.teal : P.linen}`,
+                          borderRadius: 6, minWidth: 30,
+                          background: currentPage === item ? P.teal : P.white,
+                          color: currentPage === item ? '#fff' : P.charcoal,
+                          padding: '4px 8px', fontSize: 12, fontWeight: currentPage === item ? 800 : 500,
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >{item}</button>
+                    )
+                  )
+                }
+
+                {/* Suivant */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    border: `1px solid ${P.linen}`, borderRadius: 6,
+                    background: currentPage === totalPages ? '#f1f5f9' : P.white,
+                    color: currentPage === totalPages ? '#cbd5e1' : P.charcoal,
+                    padding: '4px 10px', fontSize: 12, fontWeight: 600,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >›</button>
+
+                {/* Dernière page */}
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    border: `1px solid ${P.linen}`, borderRadius: 6,
+                    background: currentPage === totalPages ? '#f1f5f9' : P.white,
+                    color: currentPage === totalPages ? '#cbd5e1' : P.charcoal,
+                    padding: '4px 8px', fontSize: 12, fontWeight: 600,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >»</button>
+              </div>
+            )}
           </div>
         )}
       </div>

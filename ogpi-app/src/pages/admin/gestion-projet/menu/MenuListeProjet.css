@@ -86,3 +86,15 @@
     font-size: 0.9rem;
   }
 }
+/* ── Bouton Archiver ── */
+.menu-item--archive {
+  color: #7c5c2e;
+  border-top: 1px solid #f1e8d8;
+  margin-top: 2px;
+}
+
+.menu-item--archive:hover {
+  background-color: #fdf6ec;
+  color: #b98a3a;
+  padding-left: 1.25rem;
+}

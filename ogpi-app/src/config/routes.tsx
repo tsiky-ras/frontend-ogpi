@@ -19,6 +19,7 @@ import {
   FaProjectDiagram,
   FaCalendarAlt,
   FaCalendarCheck,
+  FaArchive,
 } from "react-icons/fa";
 
 export const routes = [
