@@ -4,9 +4,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
   import Button from "../../../../components/button/Button.tsx";
   import {
     FaPlus, FaSpinner, FaEdit, FaTrash, FaCalendar,
-    FaChevronDown, FaChevronRight, FaUsers, FaEye, FaEyeSlash,
+    FaChevronDown, FaChevronRight, FaUsers, FaUser, FaEye, FaEyeSlash,
     FaCheckCircle, FaTimesCircle, FaClock, FaExclamationTriangle,
+    FaSearch, FaTimes, FaCheck,
   } from "react-icons/fa";
+  import "../../gestion-lead/backlog/BacklogModal.css";
   import { Modal, Form, Alert, Tabs, Tab } from "react-bootstrap";
 
   import { BacklogProjetService }       from "../../../../services/projet/backlog/BacklogProjetService.tsx";
@@ -441,7 +443,8 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     const [showVolModal,    setShowVolModal]    = useState(false);
     const [showColModal,    setShowColModal]    = useState(false);
     const [showCellModal,   setShowCellModal]   = useState(false);
-    const [collabSearch,    setCollabSearch]    = useState("");
+    const [collabSearch,     setCollabSearch]     = useState("");
+    const [collabSearchType, setCollabSearchType] = useState<"name" | "poste">("name");
 
     const [editLot,        setEditLot]        = useState<BacklogLot | null>(null);
     const [editPhase,      setEditPhase]      = useState<BacklogPhase | null>(null);
@@ -481,6 +484,9 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     // ── État sélection ressource dans le modal volume ─────────────────────────
     // "profilId-collaborateurId" ou "profilId-null"
     const [fSelectedRessource, setFSelectedRessource] = useState<string>("");
+
+    const [linePage,     setLinePage]     = useState(1);
+    const LINE_PAGE_SIZE = 20;
 
     const lineBodyRef    = useRef<HTMLTableSectionElement | null>(null);
     const lotsRef        = useRef<HTMLDivElement | null>(null);
@@ -1685,21 +1691,34 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                     <div className="fw-bold">{profil.order}. {profil.name}</div>
                                     {profil.desc && <small className="text-muted">{profil.desc}</small>}
                                     <div className="mt-1"><span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span></div>
-                                    {profil.collaborateurs.length > 0 && (
-                                      <div className="mt-2 d-flex flex-wrap gap-1">
-                                        {profil.collaborateurs.map((c: any) => {
+                                    <div className="profil-collab-section mt-2">
+                                      {profil.collaborateurs.length > 0 ? (
+                                        <div className="d-flex flex-wrap gap-2">
+                                          {profil.collaborateurs.map((c: any) => {
                                             const fullName = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
-                                            const collabLabel = fullName && c.appellation
-                                              ? `${fullName} (${c.appellation})`
-                                              : fullName || c.appellation || "—";
+                                            const activePoste = c.profilPostes?.find((pp: any) => !pp.endDate);
+                                            const posteLabel = activePoste?.poste?.label ?? "";
+                                            const buName     = activePoste?.bu?.name ?? "";
+                                            const meta = [posteLabel, buName].filter(Boolean).join(" · ");
                                             return (
-                                              <option key={c.id} value={`${profil.id}|${c.id}`}>
-                                                {collabLabel}
-                                              </option>
+                                              <div key={c.id} className="profil-collab-badge">
+                                                <FaUser size={11} />
+                                                <span>{fullName || c.appelation || "—"}</span>
+                                                {meta && <span className="profil-collab-poste">{meta}</span>}
+                                              </div>
                                             );
                                           })}
-                                      </div>
-                                    )}
+                                        </div>
+                                      ) : (
+                                        <button
+                                          className="profil-assign-btn"
+                                          onClick={() => openCollabModal(profil)}
+                                        >
+                                          <FaUser className="me-1" size={12} />
+                                          Affecter des collaborateurs
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="d-flex gap-2 align-items-center">
                                     <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={() => openCollabModal(profil)}><FaUsers /><span className="d-none d-md-inline">Collaborateurs</span></button>
@@ -2041,7 +2060,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                     Aucune ligne — cliquez sur « Ajouter une ligne »
                                   </td>
                                 </tr>
-                              ) : lines.map(line => {
+                              ) : lines.slice((linePage - 1) * LINE_PAGE_SIZE, linePage * LINE_PAGE_SIZE).map(line => {
                                 const lot = getLotByPhaseId((line as any).phaseId);
                                 const phaseName = getPhaseNameById((line as any).phaseId);
                                 const sprintId = (line as any).sprintId;
@@ -2314,6 +2333,61 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                             )}
                           </table>
                         </div>
+
+                        {/* ── Pagination ── */}
+                        {lines.length > LINE_PAGE_SIZE && (() => {
+                          const totalPages = Math.ceil(lines.length / LINE_PAGE_SIZE);
+                          return (
+                            <div className="d-flex align-items-center justify-content-between mt-2 px-1">
+                              <span className="text-muted small">
+                                Page {linePage} / {totalPages} — {lines.length} ligne{lines.length > 1 ? 's' : ''}
+                              </span>
+                              <div className="d-flex gap-1">
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  disabled={linePage === 1}
+                                  onClick={() => setLinePage(1)}
+                                  title="Première page"
+                                >«</button>
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  disabled={linePage === 1}
+                                  onClick={() => setLinePage(p => p - 1)}
+                                  title="Page précédente"
+                                >‹</button>
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                  .filter(p => p === 1 || p === totalPages || Math.abs(p - linePage) <= 1)
+                                  .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('…');
+                                    acc.push(p);
+                                    return acc;
+                                  }, [])
+                                  .map((p, i) => p === '…'
+                                    ? <span key={`e${i}`} className="btn btn-sm disabled px-2">…</span>
+                                    : <button
+                                        key={p}
+                                        className={`btn btn-sm ${linePage === p ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                        style={linePage === p ? { background: 'var(--charcoal-blue)', borderColor: 'var(--charcoal-blue)' } : {}}
+                                        onClick={() => setLinePage(p as number)}
+                                      >{p}</button>
+                                  )
+                                }
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  disabled={linePage === totalPages}
+                                  onClick={() => setLinePage(p => p + 1)}
+                                  title="Page suivante"
+                                >›</button>
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  disabled={linePage === totalPages}
+                                  onClick={() => setLinePage(totalPages)}
+                                  title="Dernière page"
+                                >»</button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </Tab>
                       <Tab eventKey="budget" title="Budget">
                         <BudgetTab lots={lots} profils={profils as any} lines={lines} lineProfils={lineProfils as any} selectedBacklogId={backlog?.id ?? null} leadId={leadId ?? null} deviseAbr={deviseAbr} onTotalChange={setBudgetRH} />
@@ -2445,44 +2519,139 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           </Modal.Footer>
         </Modal>
 
-        <Modal show={showCollabModal} onHide={() => !saving && setShowCollabModal(false)} centered size="md">
-          <Modal.Header closeButton><Modal.Title><FaUsers className="me-2" />Collaborateurs — {collabProfil?.name}</Modal.Title></Modal.Header>
+        <Modal show={showCollabModal} onHide={() => !saving && setShowCollabModal(false)} centered size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title className="d-flex align-items-center gap-2">
+              <FaUsers />
+              Collaborateurs — {collabProfil?.name}
+            </Modal.Title>
+          </Modal.Header>
           <Modal.Body>
-            <div className="position-relative mb-3">
-              <Form.Control placeholder="Rechercher un collaborateur…" value={collabSearch} onChange={e => setCollabSearch(e.target.value)} disabled={saving} autoFocus />
-              {collabSearch.trim() && (
-                <div className="border rounded bg-white shadow-sm position-absolute w-100" style={{ zIndex: 1000, maxHeight: 220, overflowY: "auto" }}>
-                  {allCollabs.filter(c => !fCollabIds.includes(c.id) && `${c.nom} ${c.prenom} ${c.appellation ?? ""}`.toLowerCase().includes(collabSearch.toLowerCase())).map((c: any) => (
-                    <div key={c.id} className="px-3 py-2 d-flex align-items-center gap-2" style={{ cursor: "pointer" }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#f0f4ff")}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "")}
-                      onClick={() => { setFCollabIds(prev => [...prev, c.id]); setCollabSearch(""); }}>
-                      <span className="fw-semibold">{c.nom} {c.prenom}</span>
-                      {c.appellation && <small className="text-muted">({c.appellation})</small>}
-                      {c.emailPro && <small className="text-muted ms-auto">{c.emailPro}</small>}
-                    </div>
-                  ))}
+            {/* Barre de recherche */}
+            <div className="collab-search-bar mb-3">
+              <div className="collab-search-type mb-2">
+                <div className="btn-group btn-group-sm w-100">
+                  <button
+                    className={`btn ${collabSearchType === 'name' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    style={collabSearchType === 'name' ? { background: 'var(--charcoal-blue)', borderColor: 'var(--charcoal-blue)' } : {}}
+                    onClick={() => setCollabSearchType('name')}
+                    disabled={saving}
+                  >
+                    <FaUser className="me-1" /> Par nom / prénom
+                  </button>
+                  <button
+                    className={`btn ${collabSearchType === 'poste' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    style={collabSearchType === 'poste' ? { background: 'var(--charcoal-blue)', borderColor: 'var(--charcoal-blue)' } : {}}
+                    onClick={() => setCollabSearchType('poste')}
+                    disabled={saving}
+                  >
+                    <FaSearch className="me-1" /> Par poste / BU
+                  </button>
                 </div>
-              )}
+              </div>
+              <div className="input-group">
+                <span className="input-group-text" style={{ background: 'var(--soft-linen)', borderColor: 'var(--border-grey)' }}>
+                  <FaSearch style={{ color: 'var(--dim-grey)' }} />
+                </span>
+                <Form.Control
+                  placeholder={collabSearchType === 'name' ? "Rechercher par nom ou prénom..." : "Rechercher par poste ou Business Unit..."}
+                  value={collabSearch}
+                  onChange={e => setCollabSearch(e.target.value)}
+                  disabled={saving}
+                  autoFocus
+                />
+                {collabSearch && (
+                  <button className="btn btn-outline-secondary" onClick={() => setCollabSearch("")} disabled={saving}>
+                    <FaTimes />
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Collaborateurs sélectionnés */}
             {fCollabIds.length > 0 ? (
-              <div className="d-flex flex-wrap gap-2">
+              <div className="d-flex flex-wrap gap-2 mb-3">
                 {fCollabIds.map(id => {
                   const c = allCollabs.find((x: any) => x.id === id);
                   if (!c) return null;
+                  const fullName = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
                   return (
-                    <span key={id} className="badge bg-info text-dark d-flex align-items-center gap-1 px-2 py-1" style={{ fontSize: "0.85rem" }}>
-                      {c.nom} {c.prenom}
-                      {c.appellation && <em className="opacity-75 small">({c.appellation})</em>}
-                      <button type="button" className="btn btn-link p-0 ms-1 text-dark" style={{ fontSize: "0.75rem", lineHeight: 1 }} onClick={() => setFCollabIds(prev => prev.filter(x => x !== id))} disabled={saving}>✕</button>
-                    </span>
+                    <div key={id} className="profil-collab-badge">
+                      <FaUser size={11} />
+                      <span>{fullName || c.appelation || "—"}</span>
+                      <button
+                        type="button"
+                        className="profil-collab-change-btn"
+                        onClick={() => setFCollabIds(prev => prev.filter(x => x !== id))}
+                        disabled={saving}
+                        title="Retirer"
+                      >
+                        <FaTimes size={10} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
-            ) : <div className="text-muted fst-italic small">Aucun collaborateur sélectionné.</div>}
+            ) : (
+              <div className="text-muted fst-italic small mb-3">Aucun collaborateur sélectionné.</div>
+            )}
+
+            {/* Liste de résultats */}
+            <div className="collab-results-list">
+              {(() => {
+                const q = collabSearch.toLowerCase().trim();
+                const filtered = allCollabs.filter((c: any) => {
+                  if (fCollabIds.includes(c.id)) return false;
+                  if (!q) return true;
+                  if (collabSearchType === 'name') {
+                    return `${c.nom ?? ""} ${c.prenom ?? ""}`.toLowerCase().includes(q);
+                  }
+                  const activePoste = c.profilPostes?.find((pp: any) => !pp.endDate);
+                  const poste = (activePoste?.poste?.label ?? "").toLowerCase();
+                  const bu    = (activePoste?.bu?.name ?? "").toLowerCase();
+                  return poste.includes(q) || bu.includes(q);
+                });
+
+                if (filtered.length === 0) return (
+                  <div className="text-center text-muted py-4">
+                    <FaUser size={24} className="mb-2 d-block mx-auto" style={{ opacity: 0.3 }} />
+                    Aucun collaborateur trouvé
+                  </div>
+                );
+
+                return filtered.map((c: any) => {
+                  const activePoste = c.profilPostes?.find((pp: any) => !pp.endDate);
+                  const posteLabel  = activePoste?.poste?.label ?? "—";
+                  const buName      = activePoste?.bu?.name ?? "—";
+                  const fullName    = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
+                  return (
+                    <div
+                      key={c.id}
+                      className={`collab-result-item ${saving ? 'disabled' : ''}`}
+                      onClick={() => !saving && setFCollabIds(prev => [...prev, c.id])}
+                    >
+                      <div className="collab-avatar">
+                        {(c.prenom?.[0] ?? "").toUpperCase()}{(c.nom?.[0] ?? "").toUpperCase()}
+                      </div>
+                      <div className="collab-info">
+                        <div className="collab-name">{fullName || c.appelation || "—"}</div>
+                        <div className="collab-meta">
+                          <span className="collab-poste">{posteLabel}</span>
+                          <span className="collab-bu-sep">·</span>
+                          <span className="collab-bu">{buName}</span>
+                        </div>
+                      </div>
+                      <div className="collab-select-icon">
+                        {saving ? <FaSpinner className="fa-spin" /> : <FaCheck />}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </Modal.Body>
           <Modal.Footer>
-            <Button label="Annuler" variant="outline" onClick={() => { setShowCollabModal(false); setCollabSearch(""); }} />
+            <Button label="Annuler" variant="outline" onClick={() => { setShowCollabModal(false); setCollabSearch(""); setCollabSearchType("name"); }} />
             <Button label={saving ? "…" : "Enregistrer"} onClick={saveCollabs} />
           </Modal.Footer>
         </Modal>

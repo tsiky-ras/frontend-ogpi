@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   FaBell, FaCheckDouble, FaTimes, FaUser, FaArrowRight,
@@ -730,13 +731,14 @@ const NotificationBell: React.FC = () => {
         )}
       </div>
 
-      {/* ── Modal de détail ── */}
-      {detailNotif && (
+      {/* ── Modal de détail (portal → échappe tout stacking context parent) ── */}
+      {detailNotif && ReactDOM.createPortal(
         <NotifDetailModal
           notif={detailNotif}
           onClose={() => setDetailNotif(null)}
           onNavigate={handleNavigate}
-        />
+        />,
+        document.body,
       )}
     </>
   );

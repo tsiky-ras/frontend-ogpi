@@ -151,6 +151,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     lotId: number | null; phaseId: number | null; sprintId: number | null;
   }>({ lotId: null, phaseId: null, sprintId: null });
   const [showFilter,     setShowFilter]     = useState(false);
+  const [linePage,       setLinePage]       = useState(1);
+  const LINE_PAGE_SIZE = 20;
 
   // ── UI ────────────────────────────────────────────────────────────────────
   const [loading,             setLoading]             = useState(false);
@@ -919,12 +921,14 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
 
   const applyFilter = () => {
     setAppliedFilter({ lotId: filterLotId, phaseId: filterPhaseId, sprintId: filterSprintId });
+    setLinePage(1);
     setShowFilter(false);
   };
 
   const clearFilter = () => {
     setFilterLotId(null); setFilterPhaseId(null); setFilterSprintId(null);
     setAppliedFilter({ lotId: null, phaseId: null, sprintId: null });
+    setLinePage(1);
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1184,7 +1188,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                   : 'Aucune ligne pour le moment. Cliquez sur "Ajouter une ligne" pour commencer.'}
                               </td>
                             </tr>
-                          ) : filteredLines.map(line => (
+                          ) : filteredLines.slice((linePage - 1) * LINE_PAGE_SIZE, linePage * LINE_PAGE_SIZE).map(line => (
                             <tr key={line.id}>
                               <td className="line-drag-handle" style={{ cursor: 'grab', textAlign: 'center', color: '#aaa' }}>⋮⋮</td>
                               <td className="text-center" style={{ fontWeight: 600, color: 'var(--tomato-jam)' }}>{line.order}</td>
@@ -1234,6 +1238,61 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                         </tbody>
                       </table>
                     </div>
+
+                    {/* ── Pagination ── */}
+                    {filteredLines.length > LINE_PAGE_SIZE && (() => {
+                      const totalPages = Math.ceil(filteredLines.length / LINE_PAGE_SIZE);
+                      return (
+                        <div className="d-flex align-items-center justify-content-between mt-2 px-1">
+                          <span className="text-muted small">
+                            Page {linePage} / {totalPages} — {filteredLines.length} ligne{filteredLines.length > 1 ? 's' : ''}
+                          </span>
+                          <div className="d-flex gap-1">
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              disabled={linePage === 1}
+                              onClick={() => setLinePage(1)}
+                              title="Première page"
+                            >«</button>
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              disabled={linePage === 1}
+                              onClick={() => setLinePage(p => p - 1)}
+                              title="Page précédente"
+                            >‹</button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                              .filter(p => p === 1 || p === totalPages || Math.abs(p - linePage) <= 1)
+                              .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                                if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('…');
+                                acc.push(p);
+                                return acc;
+                              }, [])
+                              .map((p, i) => p === '…'
+                                ? <span key={`e${i}`} className="btn btn-sm disabled px-2">…</span>
+                                : <button
+                                    key={p}
+                                    className={`btn btn-sm ${linePage === p ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                    style={linePage === p ? { background: 'var(--charcoal-blue)', borderColor: 'var(--charcoal-blue)' } : {}}
+                                    onClick={() => setLinePage(p as number)}
+                                  >{p}</button>
+                              )
+                            }
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              disabled={linePage === totalPages}
+                              onClick={() => setLinePage(p => p + 1)}
+                              title="Page suivante"
+                            >›</button>
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              disabled={linePage === totalPages}
+                              onClick={() => setLinePage(totalPages)}
+                              title="Dernière page"
+                            >»</button>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </Tab>
