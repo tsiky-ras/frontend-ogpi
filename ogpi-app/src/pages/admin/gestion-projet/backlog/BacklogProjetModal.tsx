@@ -690,12 +690,12 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       );
     };
 
-    const fmtJH = (v: number) => v.toFixed(v % 1 === 0 ? 0 : 1);
+    const fmtJH = (v: number) => v.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const fmtMnt = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
 
     const fmtEcart = (ecart: number): string => {
-      const abs = Math.abs(ecart);
-      const str = abs.toFixed(abs % 1 === 0 ? 0 : 1);
-      return ecart > 0 ? `+${str}` : ecart < 0 ? `-${str}` : `${str}`;
+      const abs = Math.abs(ecart).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      return ecart > 0 ? `+${abs}` : ecart < 0 ? `-${abs}` : abs;
     };
 
     const toggleLine   = (id: number) => setExpandedLines(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
@@ -1717,7 +1717,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                   <div className="flex-grow-1">
                                     <div className="fw-bold">{profil.order}. {profil.name}</div>
                                     {profil.desc && <small className="text-muted">{profil.desc}</small>}
-                                    <div className="mt-1"><span className="badge bg-warning text-dark">TJM : {profil.tjm.toFixed(0)} {deviseAbr}/j</span></div>
+                                    <div className="mt-1"><span className="badge bg-warning text-dark">TJM : {fmtMnt(profil.tjm)} {deviseAbr}/j</span></div>
                                     <div className="profil-collab-section mt-2">
                                       {profil.collaborateurs.length > 0 ? (
                                         <div className="d-flex flex-wrap gap-2">
@@ -1782,21 +1782,21 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                   return (
                                     <tr key={profil.id}>
                                       <td><strong>{profil.name}</strong>{profil.desc && <small className="text-muted ms-2">{profil.desc}</small>}</td>
-                                      <td className="text-end">{vol.toFixed(2)}</td>
+                                      <td className="text-end">{fmtJH(vol)}</td>
                                       <td className="text-end">
                                         {ts > 0 ? (
-                                          <span style={{ color: progressColor(pct ?? 0), fontWeight: 600 }}>{ts.toFixed(2)}</span>
+                                          <span style={{ color: progressColor(pct ?? 0), fontWeight: 600 }}>{fmtJH(ts)}</span>
                                         ) : <span className="text-muted">—</span>}
                                       </td>
                                       <td className="text-end">
                                         {ecart !== null ? (
                                           <span style={{ color: ecartColor(ecart), fontWeight: 600 }}
-                                            title={ecart >= 0 ? `${ecart.toFixed(2)} JH restants` : `Dépassement de ${Math.abs(ecart).toFixed(2)} JH`}>
+                                            title={ecart >= 0 ? `${fmtJH(ecart)} JH restants` : `Dépassement de ${fmtJH(Math.abs(ecart))} JH`}>
                                             {fmtEcart(ecart)} JH
                                           </span>
                                         ) : <span className="text-muted">—</span>}
                                       </td>
-                                      <td className="text-end">{profil.tjm.toFixed(2)} {deviseAbr}</td>
+                                      <td className="text-end">{fmtMnt(profil.tjm)} {deviseAbr}</td>
                                       <td className="text-end fw-bold">{amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} {deviseAbr}</td>
                                     </tr>
                                   );
@@ -1805,9 +1805,9 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                               <tfoot className="table-active">
                                 <tr>
                                   <td><strong>TOTAL</strong></td>
-                                  <td className="text-end fw-bold">{grandTotalVol.toFixed(2)}</td>
+                                  <td className="text-end fw-bold">{fmtJH(grandTotalVol)}</td>
                                   <td className="text-end fw-bold" style={{ color: progressColor(grandTotalVol > 0 ? Math.round((grandTotalTs / grandTotalVol) * 100) : 0) }}>
-                                    {grandTotalTs > 0 ? grandTotalTs.toFixed(2) : "—"}
+                                    {grandTotalTs > 0 ? fmtJH(grandTotalTs) : "—"}
                                   </td>
                                   <td className="text-end fw-bold">
                                     {grandTotalTs > 0 ? (
@@ -1947,7 +1947,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                                         {profil.desc && <small className="text-muted">— {profil.desc}</small>}
                                       </div>
                                       <div className="d-flex align-items-center gap-2">
-                                        <span className="badge bg-warning text-dark">{profil.tjm.toFixed(0)} {deviseAbr}/j</span>
+                                        <span className="badge bg-warning text-dark">{fmtMnt(profil.tjm)} {deviseAbr}/j</span>
                                         <span className="badge bg-primary">{fmtJH(profilVol)} JH planifiés</span>
                                         {profilTs > 0 && (
                                           <span className="badge" style={{ backgroundColor: progressColor(profilPct ?? 0) }}>
@@ -2868,7 +2868,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                     const ecart = fVolume - fTimeSpent;
                     return (
                       <span style={{ fontSize: "1rem", fontWeight: 700, color: ecartColor(ecart) }}
-                        title={ecart >= 0 ? `${ecart.toFixed(1)} JH restants` : `Dépassement de ${Math.abs(ecart).toFixed(1)} JH`}>
+                        title={ecart >= 0 ? `${fmtJH(ecart)} JH restants` : `Dépassement de ${fmtJH(Math.abs(ecart))} JH`}>
                         {fmtEcart(ecart)} JH
                         {ecart < 0 && <span className="ms-1" style={{ fontSize: "0.8rem" }}></span>}
                       </span>
@@ -2876,11 +2876,11 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                   })()}
                 </div>
                 <div className="text-muted" style={{ fontSize: "0.72rem", marginTop: 2 }}>
-                  {fVolume} JH planifiés − {fTimeSpent} JH réalisés
+                  {fmtJH(fVolume)} JH planifiés − {fmtJH(fTimeSpent)} JH réalisés
                   {fVolume - fTimeSpent > 0
-                    ? <span className="text-success ms-2">= {(fVolume - fTimeSpent).toFixed(1)} JH encore disponibles</span>
+                    ? <span className="text-success ms-2">= {fmtJH(fVolume - fTimeSpent)} JH encore disponibles</span>
                     : fVolume - fTimeSpent < 0
-                      ? <span className="text-danger ms-2">= dépassement de {Math.abs(fVolume - fTimeSpent).toFixed(1)} JH</span>
+                      ? <span className="text-danger ms-2">= dépassement de {fmtJH(Math.abs(fVolume - fTimeSpent))} JH</span>
                       : <span className="text-secondary ms-2">= exactement dans le planning</span>
                   }
                 </div>

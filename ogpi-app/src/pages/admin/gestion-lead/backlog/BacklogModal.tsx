@@ -54,6 +54,9 @@ interface BacklogModalProps {
   leadName?: string;
 }
 
+const fmtJH  = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtMnt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+
 // ─── Helpers pour afficher un collaborateur ──────────────────────────────────
 const getCollaborateurPoste = (c: Collaborateur): string => {
   const active = c.profilPostes?.find(pp => !pp.endDate);
@@ -1043,16 +1046,16 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                               {profilTotals.map(({ profil, totalVolume, totalAmount }) => (
                                 <tr key={profil.id}>
                                   <td><strong>{profil.name}</strong></td>
-                                  <td className="text-end">{totalVolume.toFixed(2)}</td>
-                                  <td className="text-end">{profil.tjm.toFixed(2)}</td>
-                                  <td className="text-end"><strong>{totalAmount.toFixed(2)} {deviseAbr || ''}</strong></td>
+                                  <td className="text-end">{fmtJH(totalVolume)}</td>
+                                  <td className="text-end">{fmtMnt(profil.tjm)}</td>
+                                  <td className="text-end"><strong>{fmtMnt(totalAmount)} {deviseAbr || ''}</strong></td>
                                 </tr>
                               ))}
                               <tr className="table-active">
                                 <td><strong>TOTAL GÉNÉRAL</strong></td>
-                                <td className="text-end"><strong>{profilTotals.reduce((s, pt) => s + pt.totalVolume, 0).toFixed(2)}</strong></td>
+                                <td className="text-end"><strong>{fmtJH(profilTotals.reduce((s, pt) => s + pt.totalVolume, 0))}</strong></td>
                                 <td></td>
-                                <td className="text-end"><strong>{profilTotals.reduce((s, pt) => s + pt.totalAmount, 0).toFixed(2)} {deviseAbr || ''}</strong></td>
+                                <td className="text-end"><strong>{fmtMnt(profilTotals.reduce((s, pt) => s + pt.totalAmount, 0))} {deviseAbr || ''}</strong></td>
                               </tr>
                             </tbody>
                           </table>
@@ -1066,19 +1069,19 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                       <div className="card-body">
                         {lotTotals.map(({ lot, phaseTotals, lotTotalVolume, lotTotalAmount }) => (
                           <div key={lot.id} className="mb-4">
-                            <h6 className="text-primary">{lot.name} — Volume : {lotTotalVolume.toFixed(2)} JH — Montant : {lotTotalAmount.toFixed(2)} {deviseAbr || ''}</h6>
+                            <h6 className="text-primary">{lot.name} — Volume : {fmtJH(lotTotalVolume)} JH — Montant : {fmtMnt(lotTotalAmount)} {deviseAbr || ''}</h6>
                             <div className="table-responsive">
                               <table className="table table-sm table-bordered">
                                 <thead><tr><th>Phase</th><th className="text-end">Volume (JH)</th><th className="text-end">Montant {deviseAbr}</th></tr></thead>
                                 <tbody>
                                   {phaseTotals.map(({ phase, totalVolume, totalAmount }) => (
-                                    <tr key={phase.id}><td>{phase.name}</td><td className="text-end">{totalVolume.toFixed(2)}</td><td className="text-end">{totalAmount.toFixed(2)}</td></tr>
+                                    <tr key={phase.id}><td>{phase.name}</td><td className="text-end">{fmtJH(totalVolume)}</td><td className="text-end">{fmtMnt(totalAmount)}</td></tr>
                                   ))}
                                   {phaseTotals.length > 0 && (
                                     <tr className="table-secondary">
                                       <td><strong>TOTAL {lot.name}</strong></td>
-                                      <td className="text-end"><strong>{lotTotalVolume.toFixed(2)}</strong></td>
-                                      <td className="text-end"><strong>{lotTotalAmount.toFixed(2)}</strong></td>
+                                      <td className="text-end"><strong>{fmtJH(lotTotalVolume)}</strong></td>
+                                      <td className="text-end"><strong>{fmtMnt(lotTotalAmount)}</strong></td>
                                     </tr>
                                   )}
                                 </tbody>
@@ -1195,7 +1198,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                                       {collab.prenom} {collab.nom}
                                     </div>
                                   )}
-                                  <div className="profil-th-tjm">{profil.tjm.toFixed(0)} / j</div>
+                                  <div className="profil-th-tjm">{fmtMnt(profil.tjm)} / j</div>
                                 </th>
                               );
                             })}
@@ -1456,7 +1459,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                             <div className="backlog-content">
                               <div className="backlog-title"><span className="backlog-order">{profil.order}. </span>{profil.name}</div>
                               <div className="backlog-desc">{profil.desc || "—"}</div>
-                              <div className="profil-tjm mt-2"><strong>TJM:</strong> {profil.tjm.toFixed(2)} { deviseAbr }</div>
+                              <div className="profil-tjm mt-2"><strong>TJM:</strong> {fmtMnt(profil.tjm)} {deviseAbr}</div>
                               {/* Collaborateur affecté */}
                               <div className="profil-collab-section mt-2">
                                 {collab ? (

@@ -14,7 +14,7 @@ const Header: React.FC = () => {
     <header className="app-header">
       <div className="header-center">
         <img src={logo} alt="Logo" className="header-logo" />
-        <span className="header-title">BUConsulting</span>
+        <span className="header-title">OGPI</span>
       </div>
 
       <div className="header-actions">

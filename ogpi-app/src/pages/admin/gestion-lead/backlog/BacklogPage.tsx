@@ -25,6 +25,9 @@ import {
   BacklogLineProfil 
 } from "../../../../types/lead/Backlog/Backlog.tsx";
 
+const fmtJH  = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtMnt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+
 const BacklogPage: React.FC = () => {
   const { api } = useAuth();
   const idBacklog = 1;
@@ -941,22 +944,22 @@ const BacklogPage: React.FC = () => {
                           {profilTotals.map(({ profil, totalVolume, totalAmount }) => (
                             <tr key={profil.id}>
                               <td><strong>{profil.name}</strong></td>
-                              <td className="text-end">{totalVolume.toFixed(2)}</td>
-                              <td className="text-end">{profil.tjm.toFixed(2)}</td>
-                              <td className="text-end"><strong>{totalAmount.toFixed(2)}</strong></td>
+                              <td className="text-end">{fmtJH(totalVolume)}</td>
+                              <td className="text-end">{fmtMnt(profil.tjm)}</td>
+                              <td className="text-end"><strong>{fmtMnt(totalAmount)}</strong></td>
                             </tr>
                           ))}
                           <tr className="table-active">
                             <td><strong>TOTAL GÉNÉRAL</strong></td>
                             <td className="text-end">
                               <strong>
-                                {profilTotals.reduce((sum, pt) => sum + pt.totalVolume, 0).toFixed(2)}
+                                {fmtJH(profilTotals.reduce((sum, pt) => sum + pt.totalVolume, 0))}
                               </strong>
                             </td>
                             <td></td>
                             <td className="text-end">
                               <strong>
-                                {profilTotals.reduce((sum, pt) => sum + pt.totalAmount, 0).toFixed(2)}
+                                {fmtMnt(profilTotals.reduce((sum, pt) => sum + pt.totalAmount, 0))}
                               </strong>
                             </td>
                           </tr>
@@ -975,7 +978,7 @@ const BacklogPage: React.FC = () => {
                     {lotTotals.map(({ lot, phaseTotals, lotTotalVolume, lotTotalAmount }) => (
                       <div key={lot.id} className="mb-4">
                         <h6 className="text-primary">
-                          {lot.name} - Volume: {lotTotalVolume.toFixed(2)} JH - Montant: {lotTotalAmount.toFixed(2)} 
+                          {lot.name} - Volume: {fmtJH(lotTotalVolume)} JH - Montant: {fmtMnt(lotTotalAmount)}
                         </h6>
                         <div className="table-responsive">
                           <table className="table table-sm table-bordered">
@@ -990,15 +993,15 @@ const BacklogPage: React.FC = () => {
                               {phaseTotals.map(({ phase, totalVolume, totalAmount }) => (
                                 <tr key={phase.id}>
                                   <td>{phase.name}</td>
-                                  <td className="text-end">{totalVolume.toFixed(2)}</td>
-                                  <td className="text-end">{totalAmount.toFixed(2)}</td>
+                                  <td className="text-end">{fmtJH(totalVolume)}</td>
+                                  <td className="text-end">{fmtMnt(totalAmount)}</td>
                                 </tr>
                               ))}
                               {phaseTotals.length > 0 && (
                                 <tr className="table-secondary">
                                   <td><strong>TOTAL {lot.name}</strong></td>
-                                  <td className="text-end"><strong>{lotTotalVolume.toFixed(2)}</strong></td>
-                                  <td className="text-end"><strong>{lotTotalAmount.toFixed(2)}</strong></td>
+                                  <td className="text-end"><strong>{fmtJH(lotTotalVolume)}</strong></td>
+                                  <td className="text-end"><strong>{fmtMnt(lotTotalAmount)}</strong></td>
                                 </tr>
                               )}
                             </tbody>
@@ -1223,7 +1226,7 @@ const BacklogPage: React.FC = () => {
                           </div>
                           <div className="backlog-desc">{profil.desc || "—"}</div>
                           <div className="profil-tjm mt-2">
-                            <strong>TJM:</strong> {profil.tjm.toFixed(2)} 
+                            <strong>TJM:</strong> {fmtMnt(profil.tjm)}
                           </div>
                         </div>
 
