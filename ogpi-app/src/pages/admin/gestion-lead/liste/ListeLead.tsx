@@ -341,14 +341,8 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
       // 2. Filtre dur depuis l'URL (optionnel)
       const hardFiltered = applyHardFilter(archiveFiltered);
 
-      // 3. Filtre rôle : COLLABORATEUR voit uniquement ses propres leads
-      const FULL_ACCESS_ROLES = [1, 2, 5, 6]; // ADMIN, MANAGER, LEAD PROJECT, LEAD COMMERCIAL
-      const filteredLeads = FULL_ACCESS_ROLES.includes(user?.role?.roleId ?? 0)
-        ? hardFiltered
-        : hardFiltered.filter((lead: Lead) => lead.createdByUser?.id === user?.userId);
-
-      setOpportunities(filteredLeads);
-      calculateKPIs(filteredLeads);
+      setOpportunities(hardFiltered);
+      calculateKPIs(hardFiltered);
     } catch (error) {
       console.error("Erreur chargement leads", error);
     }

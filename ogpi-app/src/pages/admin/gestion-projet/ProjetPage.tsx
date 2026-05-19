@@ -17,7 +17,7 @@ import { Projet } from "../../../types/projet/Projet.tsx";
 // Statut par défaut quand un projet n'a pas encore de statut kanban
 const DEFAULT_STATUT_ID = 1;
 
-const FULL_ACCESS_ROLE_IDS = [1, 2, 5, 6]; // ADMIN, MANAGER, LEAD PROJECT, LEAD COMMERCIAL
+const FULL_ACCESS_ROLE_IDS = [1, 2, 5, 6];
 
 const ProjetPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -43,17 +43,10 @@ const ProjetPage: React.FC = () => {
         statutService.getStatutsCourants(),
       ]);
 
-      const canSeeAll = FULL_ACCESS_ROLE_IDS.includes(user?.role?.roleId ?? 0);
-      const filteredData = canSeeAll
-        ? data
-        : data.filter(p =>
-            p.userCp?.userId === user?.userId ||
-            p.userSuppleante?.userId === user?.userId
-          );
-      setProjets(filteredData);
+      setProjets(data);
 
       const map = new Map<number, number>();
-      filteredData.forEach(p => {
+      data.forEach(p => {
         const id = p.idProjet ?? 0;
         map.set(id, courants.get(id)?.id ?? DEFAULT_STATUT_ID);
       });

@@ -111,7 +111,7 @@ const GestionDroitsPage: React.FC = () => {
           <Sidebar />
         </aside>
         <main className="gd-main">
-          <Title title="Gestion des droits" icon={<FaShieldAlt />} />
+          <Title title="Gestion des droits" subtitle="Matrice des accès par rôle" icon={<FaShieldAlt />} />
 
           {/* Toolbar */}
           <div className="gd-toolbar">
