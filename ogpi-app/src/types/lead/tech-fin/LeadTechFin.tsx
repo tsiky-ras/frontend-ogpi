@@ -16,7 +16,8 @@ export interface TechnoLead {
 }
 
 export interface Devise {
-  id: number;
+  id?: number;
+  idDevise?: number;
   abrDevise: string;
   nomDevise: string;
 }

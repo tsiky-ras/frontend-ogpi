@@ -63,7 +63,7 @@ const EcartBadge: React.FC<{ ecart: number; devise: string; inversed?: boolean }
 };
 
 const ChargesAnnexesDetail: React.FC<{ total: number; transport: number; hebergement: number; perDiem: number; autre: number; devise: string }> = ({ total, transport, hebergement, perDiem, autre, devise }) => {
-  if (total === 0) return <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>—</span>;
+  if (total === 0) return <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>0 {devise}</span>;
   return (
     <div style={{ minWidth: 130 }}>
       <div style={{ fontWeight: 700, color: P.warning, fontSize: '0.85rem', marginBottom: 4 }}>{fmt(total)} {devise}</div>
@@ -227,7 +227,7 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
     const pctConsoVendu = jhVendu > 0 ? (jhRealise / jhVendu) * 100 : null;
     const valorisation  = jhVendu > 0 && montantOffre > 0 ? (jhRealise / jhVendu) * montantOffre : 0;
     const resteValeur   = jhVendu > 0 && montantOffre > 0 ? (jhReste   / jhVendu) * montantOffre : 0;
-    const allDone       = loadedCount >= projetsPeriode.length && projetsPeriode.length > 0;
+    const allDone       = projetsPeriode.length === 0 || loadedCount >= projetsPeriode.length;
     const pctLoaded     = projetsPeriode.length > 0 ? Math.round((loadedCount / projetsPeriode.length) * 100) : 0;
     let deviseAbr = '€';
     if (devCount.size === 1) deviseAbr = [...devCount.keys()][0];
@@ -336,7 +336,9 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
         if (!fin?.loaded) return <div className="avancement-skeleton" style={{ width: 120 }} />;
         if (!row.lead?.leadId) {
           const av = avancements.get(pid);
-          return av && av.tachesTotal > 0 ? <span style={{ fontSize: 12, color: P.dim }}>{av.tachesValidees}/{av.tachesTotal} tâches</span> : <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>—</span>;
+          return av && av.tachesTotal > 0
+            ? <span style={{ fontSize: 12, color: P.dim }}>{av.tachesValidees}/{av.tachesTotal} tâches</span>
+            : <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>0,0 JH</span>;
         }
         const pct   = fin.jhVendu > 0 ? (fin.jhRealise / fin.jhVendu) * 100 : null;
         const reste = Math.max(0, fin.jhVendu - fin.jhRealise);
@@ -365,7 +367,7 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
       render: (row: Projet) => {
         const fin = finMap.get(row.idProjet ?? 0);
         if (!fin?.loaded) return <div className="avancement-skeleton" style={{ width: 120 }} />;
-        if (!row.lead?.leadId) return <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>—</span>;
+        if (!row.lead?.leadId) return <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#94a3b8' }}>0 MGA</span>;
         return (
           <div>
             <span style={{ fontSize: '0.88rem', fontWeight: 800, color: P.teal, whiteSpace: 'nowrap' }}>{fmt(fin.montantProjet)} {fin.deviseAbr}</span>
@@ -383,12 +385,11 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
         const av        = avancements.get(pid);
         const totalPaye = fin?.caEncaisse || (av?.totalPaye ?? 0);
         if (loading) return <div className="avancement-skeleton" style={{ width: 80 }} />;
-        if (!totalPaye) return <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>—</span>;
         const pct = fin && fin.montantOffre > 0 ? (totalPaye / fin.montantOffre) * 100 : null;
         return (
           <div>
-            <span style={{ fontWeight: 700, color: P.success, fontSize: '0.88rem', whiteSpace: 'nowrap' }}>{fmt(totalPaye)} {fin?.deviseAbr ?? '€'}</span>
-            {pct !== null && <div style={{ fontSize: 10, color: P.dim }}>{Math.round(pct)}% encaissé</div>}
+            <span style={{ fontWeight: 700, color: P.success, fontSize: '0.88rem', whiteSpace: 'nowrap' }}>{fmt(totalPaye)} {fin?.deviseAbr ?? 'MGA'}</span>
+            <div style={{ fontSize: 10, color: P.dim }}>{pct != null ? Math.round(pct) : 0}% encaissé</div>
           </div>
         );
       },
@@ -398,15 +399,13 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
       render: (row: Projet) => {
         const fin = finMap.get(row.idProjet ?? 0);
         if (!fin?.loaded) return <div className="avancement-skeleton" style={{ width: 100 }} />;
-        if (!row.lead?.leadId) return <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>—</span>;
+        if (!row.lead?.leadId) return <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>+0 MGA</span>;
         return (
           <div>
             <MargeBadge marge={fin.margeBudgetaireNette} devise={fin.deviseAbr} size="sm" />
-            {fin.tauxMargeBudgetairePct != null && (
-              <div style={{ fontSize: 10, color: fin.margeBudgetaireNette >= 0 ? P.success : P.tomato }}>
-                {Math.round(fin.tauxMargeBudgetairePct)}% de l'offre
-              </div>
-            )}
+            <div style={{ fontSize: 10, color: fin.margeBudgetaireNette >= 0 ? P.success : P.tomato }}>
+              {fin.tauxMargeBudgetairePct != null ? Math.round(fin.tauxMargeBudgetairePct) : 0}% de l'offre
+            </div>
           </div>
         );
       },
@@ -501,11 +500,15 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
             <div className="col-md-3">
               <div style={{ ...cs, background: '#f0f9ff', border: '1px solid #bae6fd' }}>
                 <div style={{ fontSize: 10, color: P.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>CA Encaissé</div>
-                {(fin.caEncaisse || av?.totalPaye) ? (<>
-                  <div style={{ fontWeight: 800, color: P.blue, fontSize: '1rem' }}>{fmt(fin.caEncaisse || av?.totalPaye || 0)} {fin.deviseAbr}</div>
-                  <div style={{ fontSize: 11, color: P.dim, marginTop: 2 }}>/ {fmt(fin.montantOffre)} {fin.deviseAbr} O.vendu</div>
-                  {fin.montantOffre > 0 && (<><div className="avancement-bar-track" style={{ marginTop: 6 }}><div className="avancement-bar-fill" style={{ width: `${Math.min(100, ((fin.caEncaisse || av?.totalPaye || 0) / fin.montantOffre) * 100)}%`, background: P.blue }} /></div><div style={{ fontSize: 10, color: P.dim, marginTop: 2 }}>{Math.round(((fin.caEncaisse || av?.totalPaye || 0) / fin.montantOffre) * 100)}% encaissé</div></>)}
-                </>) : <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Aucun paiement reçu</span>}
+                {(() => {
+                  const montantCa = fin.caEncaisse || av?.totalPaye || 0;
+                  const pctCa = fin.montantOffre > 0 ? Math.min(100, (montantCa / fin.montantOffre) * 100) : 0;
+                  return (<>
+                    <div style={{ fontWeight: 800, color: P.blue, fontSize: '1rem' }}>{fmt(montantCa)} {fin.deviseAbr}</div>
+                    <div style={{ fontSize: 11, color: P.dim, marginTop: 2 }}>/ {fmt(fin.montantOffre)} {fin.deviseAbr} O.vendu</div>
+                    {fin.montantOffre > 0 && (<><div className="avancement-bar-track" style={{ marginTop: 6 }}><div className="avancement-bar-fill" style={{ width: `${pctCa}%`, background: P.blue }} /></div><div style={{ fontSize: 10, color: P.dim, marginTop: 2 }}>{Math.round(pctCa)}% encaissé</div></>)}
+                  </>);
+                })()}
               </div>
             </div>
           </div>

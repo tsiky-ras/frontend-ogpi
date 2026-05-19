@@ -250,6 +250,17 @@ const FormTechFin: React.FC<Props> = ({
                   </option>
                 ))}
               </Form.Select>
+              {form.deviseId && (() => {
+                const sel = localDevises.find((d) => String(d.idDevise) === String(form.deviseId));
+                return sel ? (
+                  <Form.Control
+                    type="text"
+                    readOnly
+                    value={sel.abrDevise}
+                    style={{ maxWidth: 56, textAlign: 'center', fontWeight: 700, background: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }}
+                  />
+                ) : null;
+              })()}
             </InputGroup>
           </Col>
 
@@ -321,20 +332,30 @@ const FormTechFin: React.FC<Props> = ({
         <h4>Synthèse financière</h4>
         <Row className="g-3">
           <Col md={4}>
-            <Form.Label>Montant de l'offre sans charges annexes (devise)</Form.Label>
-            <Form.Control
-              type="number"
-              step="0.01"
-              min="0"
-              value={montantOffre}
-              onChange={(e) =>
-                setForm((prev: any) => ({
-                  ...prev,
-                  montantOffre: Number(e.target.value),
-                  budget: Number(e.target.value),
-                }))
-              }
-            />
+            <Form.Label>Montant de l'offre sans charges annexes</Form.Label>
+            <InputGroup>
+              <Form.Control
+                type="number"
+                step="0.01"
+                min="0"
+                value={montantOffre}
+                onChange={(e) =>
+                  setForm((prev: any) => ({
+                    ...prev,
+                    montantOffre: Number(e.target.value),
+                    budget: Number(e.target.value),
+                  }))
+                }
+              />
+              {form.deviseId && (() => {
+                const sel = localDevises.find((d) => String(d.idDevise) === String(form.deviseId));
+                return sel ? (
+                  <InputGroup.Text style={{ fontWeight: 700, minWidth: 48, justifyContent: 'center' }}>
+                    {sel.abrDevise}
+                  </InputGroup.Text>
+                ) : null;
+              })()}
+            </InputGroup>
           </Col>
 
           <Col md={4}>

@@ -64,9 +64,10 @@ interface DashboardProjetProps {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const fmt   = (n: number, d = '€') => `${n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ${d}`;
+const fmtN  = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+const fmt   = (n: number, d = '€') => `${fmtN(n)} ${d}`;
 const fmtJH = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} JH`;
-const fmtPct = (n: number | null) => n == null ? '—' : `${Math.round(n)}%`;
+const fmtPct = (n: number | null) => n == null ? '0%' : `${Math.round(n)}%`;
 
 // ─── Sous-composants ─────────────────────────────────────────────────────────
 
@@ -198,6 +199,16 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
     setDateDebut(''); setDateFin(''); setDatePreset(''); setFiltreDevise('');
   };
 
+  // Taux de référence pour la devise cible (1 unité devise = X MGA)
+  // Calculé à partir du premier projet ayant cette devise dans finMap
+  const tauxRef = useMemo(() => {
+    if (!filtreDevise || filtreDevise === 'MGA') return 1;
+    for (const [, fin] of finMap) {
+      if (fin.deviseAbr === filtreDevise && fin.tauxChange > 0) return fin.tauxChange;
+    }
+    return 0; // 0 = impossible de convertir (aucun projet dans cette devise)
+  }, [filtreDevise, finMap, loadedCount]);
+
   // Devise d'affichage : si filtre actif → devise sélectionnée, sinon MGA (tout converti)
   const deviseLabel = filtreDevise || 'MGA';
 
@@ -240,9 +251,10 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
     projets.forEach(p => loadFin(p));
   }, [projets]);
 
-  const finLoaded = loadedCount >= projets.length && projets.length > 0;
+  const finLoaded = projets.length === 0 || loadedCount >= projets.length;
 
-  // ── Filtre global date + devise (appliqué aux KPIs ET au récap) ───────────
+  // ── Filtre global date (appliqué aux KPIs ET au récap) ───────────────────
+  // Le filtre devise ne supprime plus de projets : il convertit les montants
   const projetsGlobalFiltres = useMemo(() => {
     let res = projets;
     if (dateDebut) {
@@ -253,11 +265,8 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
       const d = new Date(dateFin);
       res = res.filter(p => !p.dateDebutPrevu || new Date(p.dateDebutPrevu) <= d);
     }
-    if (filtreDevise) {
-      res = res.filter(p => finMap.get(p.idProjet ?? 0)?.deviseAbr === filtreDevise);
-    }
     return res;
-  }, [projets, dateDebut, dateFin, filtreDevise, finMap, loadedCount]);
+  }, [projets, dateDebut, dateFin]);
 
   // ── KPIs globaux ─────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -277,9 +286,11 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
       if (av) { tachesVal += av.tachesValidees; tachesTot += av.tachesTotal; }
       const fin = finMap.get(pid);
       if (fin?.loaded) {
-        // Sans filtre devise → convertir tout en MGA (montant × tauxChange)
-        // Avec filtre devise → afficher dans la devise sélectionnée (montant brut)
-        const taux = filtreDevise ? 1 : (fin.tauxChange ?? 1);
+        // Convertir tous les montants en MGA, puis dans la devise cible
+        // Sans filtre: résultat en MGA (tauxRef=1, taux=tauxChange → MGA)
+        // Avec filtre EUR/USD: résultat en cible (taux=tauxChange/tauxRef)
+        const tauxMGA = fin.tauxChange ?? 1;
+        const taux = tauxRef > 0 ? tauxMGA / tauxRef : tauxMGA;
         jhPlanifie   += fin.jhProjet;   jhRealise  += fin.jhRealise;
         montantOffre += fin.montantOffre          * taux;
         caEncaisse   += fin.caEncaisse            * taux;
@@ -308,7 +319,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
       margeComm, margeBud, tauxMargeComm, tauxMargeBud,
       respectPlanning, alertesRed, alertesOrange,
     };
-  }, [projetsGlobalFiltres, statutMap, avancements, finMap, loadedCount, filtreDevise]);
+  }, [projetsGlobalFiltres, statutMap, avancements, finMap, loadedCount, tauxRef]);
 
   // ── Options filtres ───────────────────────────────────────────────────────
   const cpOptions = useMemo(() => {
@@ -448,19 +459,27 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
                 fontWeight: filtreDevise ? 700 : 400,
               }}>
               <option value="">Toutes — MGA</option>
-              {devises.map(d => (
-                <option key={d.id} value={d.abrDevise}>{d.abrDevise} — {d.nomDevise}</option>
+              {devises.filter(d => d.abrDevise !== 'MGA').map(d => (
+                <option key={d.idDevise ?? d.id} value={d.abrDevise}>{d.abrDevise} — {d.nomDevise}</option>
               ))}
             </select>
           </label>
 
           {/* Indicateur filtre actif */}
-          {projetsGlobalFiltres.length < projets.length && (
+          {filtreDevise && tauxRef > 0 && (
             <span style={{
               marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: P.teal,
               background: '#f0fdfa', borderRadius: 99, padding: '2px 10px', border: '1px solid #a7f3d0',
             }}>
-              {projetsGlobalFiltres.length} / {projets.length} projets
+              Totaux convertis → {filtreDevise}
+            </span>
+          )}
+          {filtreDevise && tauxRef === 0 && (
+            <span style={{
+              marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: P.warning,
+              background: '#fffbeb', borderRadius: 99, padding: '2px 10px', border: '1px solid #fcd34d',
+            }}>
+              Aucun projet en {filtreDevise} — taux inconnu
             </span>
           )}
         </div>
@@ -561,11 +580,11 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
               {[
                 { label: 'JH restants', val: fmtJH(Math.max(0, kpis.jhPlanifie - kpis.jhRealise)), color: P.teal, sub: 'vs planifié' },
                 { label: 'Tâches restantes', val: `${kpis.tachesTot - kpis.tachesVal}`, color: P.blue, sub: `sur ${kpis.tachesTot} total` },
-                { label: 'CA restant', val: kpis.montantOffre > 0 ? `${((kpis.montantOffre - kpis.caEncaisse) / 1000).toFixed(0)}k` : '—', color: P.purple, sub: 'à encaisser' },
+                { label: 'CA restant', val: kpis.montantOffre > 0 ? fmtN(kpis.montantOffre - kpis.caEncaisse) : '0', color: P.purple, sub: 'à encaisser' },
               ].map(({ label, val, color, sub }) => (
                 <div key={label} style={{ textAlign: 'center', padding: '10px 8px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1, marginBottom: 3 }}>
-                    {loading || !finLoaded ? <span style={{ fontSize: 14, color: '#e5e7eb' }}>—</span> : val}
+                    {loading || !finLoaded ? <span style={{ fontSize: 14, color: '#cbd5e1' }}>0</span> : val}
                   </div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: P.charcoal }}>{label}</div>
                   <div style={{ fontSize: 10, color: P.dim }}>{sub}</div>
@@ -617,18 +636,18 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           <KpiCard icon={<FaMoneyBillWave size={14} />} title="Offre signée totale" accent={P.blue} loading={!finLoaded}
-            value={<span style={{ fontSize: 20 }}>{kpis.montantOffre > 1000 ? `${(kpis.montantOffre / 1000).toFixed(0)}k` : kpis.montantOffre.toLocaleString('fr-FR')} <span style={{ fontSize: 13, fontWeight: 600, color: P.blue }}>{deviseLabel}</span></span>}
+            value={<span style={{ fontSize: 20 }}>{fmtN(kpis.montantOffre)} <span style={{ fontSize: 13, fontWeight: 600, color: P.blue }}>{deviseLabel}</span></span>}
             sub="Somme des offres vendues"
           />
           <KpiCard icon={<FaReceipt size={14} />} title="CA encaissé" accent={P.success} loading={!finLoaded}
-            value={<span style={{ fontSize: 20 }}>{kpis.caEncaisse > 1000 ? `${(kpis.caEncaisse / 1000).toFixed(0)}k` : kpis.caEncaisse.toLocaleString('fr-FR')} <span style={{ fontSize: 13, fontWeight: 600, color: P.success }}>{deviseLabel}</span></span>}
+            value={<span style={{ fontSize: 20 }}>{fmtN(kpis.caEncaisse)} <span style={{ fontSize: 13, fontWeight: 600, color: P.success }}>{deviseLabel}</span></span>}
             sub={`${fmtPct(kpis.encaissePct)} de l'offre`}
             trend={<ProgressBar pct={kpis.encaissePct} color={P.success} height={4} />}
           />
           <KpiCard icon={<FaTrophy size={14} />} title="Marge prévisionnelle" accent={kpis.margeComm >= 0 ? P.success : P.tomato} loading={!finLoaded}
             value={
               <span style={{ fontSize: 18, color: kpis.margeComm >= 0 ? P.success : P.tomato }}>
-                {kpis.margeComm >= 0 ? '+' : ''}{kpis.margeComm > 1000 ? `${(kpis.margeComm / 1000).toFixed(0)}k` : kpis.margeComm.toLocaleString('fr-FR')} <span style={{ fontSize: 13 }}>{deviseLabel}</span>
+                {kpis.margeComm >= 0 ? '+' : ''}{fmtN(kpis.margeComm)} <span style={{ fontSize: 13 }}>{deviseLabel}</span>
               </span>
             }
             sub={`${fmtPct(kpis.tauxMargeComm)} · Offre − O.tech`}
@@ -636,7 +655,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
           <KpiCard icon={<FaBalanceScale size={14} />} title="Marge budgétaire nette" accent={kpis.margeBud >= 0 ? P.success : P.tomato} loading={!finLoaded}
             value={
               <span style={{ fontSize: 18, color: kpis.margeBud >= 0 ? P.success : P.tomato }}>
-                {kpis.margeBud >= 0 ? '+' : ''}{kpis.margeBud > 1000 ? `${(kpis.margeBud / 1000).toFixed(0)}k` : kpis.margeBud.toLocaleString('fr-FR')} <span style={{ fontSize: 13 }}>{deviseLabel}</span>
+                {kpis.margeBud >= 0 ? '+' : ''}{fmtN(kpis.margeBud)} <span style={{ fontSize: 13 }}>{deviseLabel}</span>
               </span>
             }
             sub={`${fmtPct(kpis.tauxMargeBud)} · Offre − (Projet + Charges)`}
@@ -848,11 +867,11 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
                   {/* Marge nette */}
                   <div>
                     {!fin?.loaded ? <div style={{ height: 14, width: 70, background: '#e5e7eb', borderRadius: 4 }} /> : !p.lead?.leadId ? (
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: '#94a3b8' }}>+0 MGA</span>
                     ) : (
                       <>
                         <div style={{ fontSize: 13, fontWeight: 800, color: fin.margeBudgetaireNette >= 0 ? P.success : P.tomato, marginBottom: 2 }}>
-                          {fin.margeBudgetaireNette >= 0 ? '+' : ''}{fin.margeBudgetaireNette > 1000 ? `${(fin.margeBudgetaireNette / 1000).toFixed(0)}k` : fin.margeBudgetaireNette.toLocaleString('fr-FR')} {fin.deviseAbr}
+                          {fin.margeBudgetaireNette >= 0 ? '+' : ''}{fmtN(fin.margeBudgetaireNette)} {fin.deviseAbr}
                         </div>
                         <div style={{ fontSize: 10, color: P.dim }}>{fmtPct(fin.tauxMargeBud)} O.vendu</div>
                       </>

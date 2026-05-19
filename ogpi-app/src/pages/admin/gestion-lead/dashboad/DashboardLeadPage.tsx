@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Pie, Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { FaCalendarAlt, FaMoneyBillWave } from "react-icons/fa";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import {
   LeadDashboardService,
@@ -14,11 +15,14 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const P = {
-  navy:  "#0a1f44",
-  blue:  "#3b82f6",
-  green: "#10b981",
-  amber: "#f59e0b",
-  linen: "#e5e7eb",
+  navy:    "#0a1f44",
+  blue:    "#3b82f6",
+  green:   "#10b981",
+  amber:   "#f59e0b",
+  linen:   "#E8E5D7",
+  charcoal:"#223A46",
+  tomato:  "#C93C29",
+  dim:     "#5F6F6E",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -111,16 +115,17 @@ const DashboardLeadPage: React.FC = () => {
   const [data,       setData]       = useState<DashDTO | null>(null);
   const [loading,    setLoading]    = useState(false);
 
-  const deviseLabel = devises.find((d: Devise) => d.id === deviseId)?.abrDevise ?? "MGA";
+  const deviseLabel = devises.find((d: Devise) => (d.idDevise ?? d.id) === deviseId)?.abrDevise ?? "MGA";
 
   useEffect(() => {
     deviseService.getAll().then(setDevises).catch(console.error);
   }, []);
 
   const load = async (debut: string, fin: string, dvId?: number) => {
+    const safeId = dvId != null && !isNaN(dvId) ? dvId : undefined;
     setLoading(true);
     try {
-      setData(await service.getDashboard(debut, fin, dvId));
+      setData(await service.getDashboard(debut, fin, safeId));
     } catch (e) {
       console.error(e);
     } finally {
@@ -165,100 +170,121 @@ const DashboardLeadPage: React.FC = () => {
   const donutAvec = { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.caAvecCharges ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] };
   const donutSans = { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.caSansCharges ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] };
 
-  const btnBase: React.CSSProperties = {
-    padding: "4px 12px", borderRadius: 6, fontSize: 12,
-    fontWeight: 600, cursor: "pointer", border: "1px solid #d1d5db",
-    background: "#f9fafb", color: "#374151",
-  };
-  const btnActive: React.CSSProperties = {
-    ...btnBase, background: P.navy, color: "#fff", border: `1px solid ${P.navy}`,
-  };
-  const inputStyle: React.CSSProperties = {
-    padding: "4px 8px", borderRadius: 6,
-    border: "1px solid #d1d5db", fontSize: 13,
-    color: "#374151", background: "#fff",
-  };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: "8px 0" }}>
 
       {/* ── Barre PÉRIODE & DEVISE ── */}
-      <div style={{
-        background: "#fff", borderRadius: 10, border: `1px solid ${P.linen}`,
-        padding: "12px 16px", marginBottom: 20,
-      }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${P.linen}`, padding: '12px 16px', marginBottom: 20, boxShadow: '0 1px 4px rgba(34,58,70,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <FaCalendarAlt size={11} color={P.charcoal} />
+          <span style={{ fontSize: 10, fontWeight: 800, color: P.charcoal, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Période & Devise</span>
+          {(datePreset !== null || deviseId != null) && (
+            <button
+              onClick={() => {
+                const d = getDefaultDates();
+                setDateDebut(d.dateDebut);
+                setDateFin(d.dateFin);
+                setDatePreset(null);
+                setDeviseId(undefined);
+                load(d.dateDebut, d.dateFin, undefined);
+              }}
+              style={{ marginLeft: 'auto', fontSize: 11, border: 'none', background: 'transparent', color: P.tomato, cursor: 'pointer', fontWeight: 600 }}
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
 
           {/* Presets */}
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>Période</span>
           {(["Semaine", "Mois", "Année"] as Preset[]).map(p => (
-            <button key={p!} style={datePreset === p ? btnActive : btnBase} onClick={() => handlePreset(p)}>{p}</button>
+            <button
+              key={p!}
+              onClick={() => handlePreset(p)}
+              style={{
+                fontSize: 11, fontWeight: 600, borderRadius: 6, padding: '4px 12px', cursor: 'pointer', transition: 'all 0.15s',
+                border: `1px solid ${datePreset === p ? P.charcoal : P.linen}`,
+                background: datePreset === p ? P.charcoal : 'transparent',
+                color: datePreset === p ? '#fff' : P.charcoal,
+              }}
+            >
+              {p}
+            </button>
           ))}
 
-          <span style={{ color: P.linen, margin: "0 4px" }}>|</span>
+          <span style={{ width: 1, height: 20, background: P.linen, flexShrink: 0 }} />
 
           {/* Dates */}
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: P.dim, fontWeight: 500 }}>
             Du
             <input
               type="date"
               value={dateDebut}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setDateDebut(e.target.value); setDatePreset(null); }}
-              style={inputStyle}
+              style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${dateDebut ? P.charcoal : P.linen}`, fontSize: 12, color: P.charcoal, background: '#fff' }}
             />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: P.dim, fontWeight: 500 }}>
             Au
             <input
               type="date"
               value={dateFin}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setDateFin(e.target.value); setDatePreset(null); }}
-              style={inputStyle}
+              style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${dateFin ? P.charcoal : P.linen}`, fontSize: 12, color: P.charcoal, background: '#fff' }}
             />
           </label>
 
-          <span style={{ color: P.linen, margin: "0 4px" }}>|</span>
+          <span style={{ width: 1, height: 20, background: P.linen, flexShrink: 0 }} />
 
           {/* Devise */}
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>Devise</span>
-          <select
-            value={deviseId ?? ""}
-            onChange={e => setDeviseId(e.target.value ? Number(e.target.value) : undefined)}
-            style={{ ...inputStyle, cursor: "pointer" }}
-          >
-            <option value="">MGA (défaut)</option>
-            {devises.map((d: Devise) => (
-              <option key={d.id} value={d.id}>{d.abrDevise} - {d.nomDevise}</option>
-            ))}
-          </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: P.dim, fontWeight: 500 }}>
+            <FaMoneyBillWave size={10} />
+            Devise
+            <select
+              value={deviseId ?? ""}
+              onChange={e => {
+                const parsed = Number(e.target.value);
+                const newId = e.target.value && !isNaN(parsed) ? parsed : undefined;
+                setDeviseId(newId);
+                load(dateDebut, dateFin, newId);
+              }}
+              style={{
+                padding: '3px 8px', borderRadius: 6, fontSize: 12, color: P.charcoal, background: '#fff', cursor: 'pointer',
+                border: `1px solid ${deviseId != null ? P.charcoal : P.linen}`,
+                fontWeight: deviseId != null ? 700 : 400,
+              }}
+            >
+              <option value="">MGA (défaut)</option>
+              {devises.filter((d: Devise) => d.abrDevise !== 'MGA').map((d: Devise) => {
+                const did = d.idDevise ?? d.id;
+                return <option key={did} value={did}>{d.abrDevise} — {d.nomDevise}</option>;
+              })}
+            </select>
+          </label>
 
           <button
             onClick={handleActualiser}
             style={{
-              padding: "6px 18px", borderRadius: 6,
-              background: P.navy, color: "#fff",
-              border: "none", fontSize: 13, cursor: "pointer", fontWeight: 600,
+              fontSize: 11, fontWeight: 600, borderRadius: 6, padding: '4px 12px', cursor: 'pointer',
+              border: `1px solid ${P.charcoal}`, background: P.charcoal, color: '#fff',
             }}
           >
             Actualiser
           </button>
 
-          {loading && <span style={{ fontSize: 13, color: "#6b7280" }}>Chargement…</span>}
-        </div>
+          {loading && <span style={{ fontSize: 11, color: P.dim }}>Chargement…</span>}
 
-        {/* Indicateur filtre actif */}
-        {deviseId != null && (
-          <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-            Affichage en <strong>{deviseLabel}</strong> —{" "}
-            <span
-              style={{ color: P.blue, cursor: "pointer", textDecoration: "underline" }}
-              onClick={() => { setDeviseId(undefined); load(dateDebut, dateFin, undefined); }}
-            >
-              Revenir en MGA
+          {deviseId != null && (
+            <span style={{
+              marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#0ea5e9',
+              background: '#f0fdfa', borderRadius: 99, padding: '2px 10px', border: '1px solid #a7f3d0',
+            }}>
+              Affichage en {deviseLabel}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── KPI Cards ── */}
