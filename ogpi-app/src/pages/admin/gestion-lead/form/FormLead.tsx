@@ -96,9 +96,12 @@ const FeedbackPopup: React.FC<FeedbackPopupProps> = ({ type, message, onClose })
         >
           {c.icon}
         </div>
-        <p style={{ color: c.text, fontSize: 16, fontWeight: 600, margin: 0 }}>
+        <pre style={{
+          color: c.text, fontSize: 14, fontWeight: 500, margin: 0,
+          textAlign: 'left', whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.7,
+        }}>
           {message}
-        </p>
+        </pre>
       </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -359,8 +362,49 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
     };
   };
 
+  const validateQualif = (): string[] => {
+    const missing: string[] = [];
+    if (!form.periode?.trim())     missing.push("Période");
+    else if (!/^\d{4}-\d{2}$/.test(form.periode)) missing.push("Période (format invalide, attendu : AAAA-MM)");
+    if (!form.businessUnit)        missing.push("Business Unit");
+    if (!form.nom?.trim())         missing.push("Nom du Lead");
+    if (!form.reference?.trim())   missing.push("Référence");
+    if (!form.description?.trim()) missing.push("Description");
+    if (!form.client)              missing.push("Client");
+    return missing;
+  };
+
+  const validateOffre = (): string[] => {
+    const missing: string[] = [];
+    if (!formTechFin.deviseId)         missing.push("Devise");
+    if (!formTechFin.typeFacturationId) missing.push("Type de facturation");
+    return missing;
+  };
+
   const handleSave = async () => {
     if (currentStep === "projet") return;
+
+    if (currentStep === "qualification") {
+      const missing = validateQualif();
+      if (missing.length > 0) {
+        setPopup({
+          type: "error",
+          message: `Champs manquants ou invalides :\n• ${missing.join("\n• ")}`,
+        });
+        return;
+      }
+    }
+
+    if (currentStep === "offre") {
+      const missing = validateOffre();
+      if (missing.length > 0) {
+        setPopup({
+          type: "error",
+          message: `Champs manquants :\n• ${missing.join("\n• ")}`,
+        });
+        return;
+      }
+    }
 
     setPopup({ type: "loading", message: "Sauvegarde en cours..." });
 
@@ -379,7 +423,7 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
 
         onSubmit(savedLead);
         setPopup({ type: "success", message: "Qualification sauvegardée avec succès !" });
-        
+
         // Après sauvegarde, rediriger vers l'onglet offre si demandé
         const nextStep = searchParams.get("nextStep");
         if (nextStep === "offre" && savedLead) {
@@ -392,8 +436,6 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
 
       if (currentStep === "offre") {
         if (!currentLeadId) throw new Error("Veuillez d'abord sauvegarder la qualification.");
-        if (!formTechFin.deviseId || !formTechFin.typeFacturationId)
-          throw new Error("Veuillez compléter la devise et le type de facturation.");
 
         const existingTechFin = await leadTechFinService.getByLeadId(currentLeadId);
         const techFinId = existingTechFin?.idLeadTechFinDetails;

@@ -132,6 +132,12 @@ type Props = {
   partenaireService: any;
 };
 
+const supportsMonthInput = (() => {
+  const el = document.createElement('input');
+  el.setAttribute('type', 'month');
+  return el.type === 'month';
+})();
+
 const FormQualif: React.FC<Props> = ({
   form,
   setForm,
@@ -207,7 +213,7 @@ const FormQualif: React.FC<Props> = ({
     setForm((prev: any) => ({ ...prev, partenaires: updated }));
   };
 
-  // Partenaires disponibles (non encore sélectionnés) pour l'autocomplete
+    // Partenaires disponibles (non encore sélectionnés) pour l'autocomplete
   const availablePartenaires = localPartenaires.filter(
     (p) => !form.partenaires?.some((sel: any) => (typeof sel === "object" ? sel.id : sel) === p.id)
   );
@@ -220,7 +226,18 @@ const FormQualif: React.FC<Props> = ({
         <Row className="g-3">
           <Col md={6}>
             <Form.Label className="required-asterisk">Période *</Form.Label>
-            <Form.Control type="month" name="periode" value={form.periode || ""} onChange={handleChange} />
+            <Form.Control
+              type={supportsMonthInput ? 'month' : 'text'}
+              name="periode"
+              value={form.periode || ""}
+              onChange={handleChange}
+              placeholder={supportsMonthInput ? undefined : 'AAAA-MM'}
+            />
+            {!supportsMonthInput && (
+              <Form.Text className="text-muted">
+                Format attendu : <strong>AAAA-MM</strong> — ex : <code>2026-05</code>
+              </Form.Text>
+            )}
           </Col>
           <Col md={6}>
             <Form.Label className="required-asterisk">Business Unit *</Form.Label>
