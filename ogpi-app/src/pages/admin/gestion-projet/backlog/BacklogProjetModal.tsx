@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+  import ExportBacklogBtn, { ExportTabDef } from "../../../../components/export/ExportBacklogBtn.tsx";
   import Sortable from "sortablejs";
 
   import Button from "../../../../components/button/Button.tsx";
@@ -488,6 +489,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     const [linePage,     setLinePage]     = useState(1);
     const LINE_PAGE_SIZE = 20;
 
+    const exportCaptureRef = useRef<HTMLDivElement | null>(null);
     const lineBodyRef    = useRef<HTMLTableSectionElement | null>(null);
     const lotsRef        = useRef<HTMLDivElement | null>(null);
     const profilsRef     = useRef<HTMLDivElement | null>(null);
@@ -1478,15 +1480,40 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       );
     }
 
+    const EXPORT_TABS_PROJET: ExportTabDef[] = [
+      { key: 'lots',            label: 'Lots & Phases'          },
+      { key: 'planning',        label: 'Planning'               },
+      { key: 'profils',         label: 'Profils'                },
+      { key: 'backlog',         label: 'Backlog'                },
+      { key: 'budget',          label: 'Budget'                 },
+      { key: 'charges_annexes', label: 'Charges annexes'        },
+      { key: 'facturation',     label: 'Facturation ressources' },
+      { key: 'paiements',       label: 'Paiements clients'      },
+    ];
+
     return (
       <>
         <Modal show={show} onHide={onClose} size="xl" fullscreen>
           <Modal.Header closeButton>
-            <Modal.Title>Backlog — {projetNom ?? `Projet #${projetId}`}</Modal.Title>
+            <Modal.Title className="d-flex align-items-center gap-2 flex-wrap">
+              Backlog — {projetNom ?? `Projet #${projetId}`}
+            </Modal.Title>
+            {selectedBacklogId && (
+              <div className="ms-auto me-3">
+                <ExportBacklogBtn
+                  tabs={EXPORT_TABS_PROJET}
+                  activeTab={activeTab}
+                  onSwitchTab={k => setActiveTab(k)}
+                  captureRef={exportCaptureRef}
+                  fileName={`recap-projet-${projetNom ?? projetId}`}
+                  contextName={projetNom ?? `Projet #${projetId}`}
+                />
+              </div>
+            )}
           </Modal.Header>
 
           <Modal.Body style={{ backgroundColor: "#f8f9fa" }}>
-            <div className="container-fluid">
+            <div ref={exportCaptureRef} className="container-fluid">
               {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
 
               {!selectedBacklogId && (

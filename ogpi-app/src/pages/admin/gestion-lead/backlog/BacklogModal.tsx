@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import ExportBacklogBtn, { ExportTabDef } from "../../../../components/export/ExportBacklogBtn.tsx";
 import Sortable from "sortablejs";
 
 import Button from "../../../../components/button/Button.tsx";
@@ -164,7 +165,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const [deviseAbr,           setDeviseAbr]           = useState<string | null>(null);
   const [budgetRH,            setBudgetRH]            = useState<number>(0);
 
-  // ── Refs Sortable ─────────────────────────────────────────────────────────
+  // ── Refs ─────────────────────────────────────────────────────────────────
+  const exportCaptureRef       = useRef<HTMLDivElement | null>(null);
   const listRef                = useRef<HTMLDivElement | null>(null);
   const profilListRef          = useRef<HTMLDivElement | null>(null);
   const sortableInstance       = useRef<Sortable | null>(null);
@@ -935,6 +937,15 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
 
+  const EXPORT_TABS_LEAD: ExportTabDef[] = [
+    { key: 'backlog',         label: 'Backlog'         },
+    { key: 'lots',            label: 'Lots et Phases'  },
+    { key: 'profils',         label: 'Profils'         },
+    { key: 'planning',        label: 'Planning'        },
+    { key: 'budget',          label: 'Budget'          },
+    { key: 'charges_annexes', label: 'Charges Annexes' },
+  ];
+
   if (loadingBacklogs) {
     return (
       <Modal show={show} onHide={onClose} size="xl" fullscreen>
@@ -955,16 +966,28 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     <>
       <Modal show={show} onHide={onClose} size="xl" fullscreen>
         <Modal.Header closeButton>
-          <Modal.Title>
+          <Modal.Title className="d-flex align-items-center gap-2 flex-wrap">
             {selectedBacklogId && (
               <Button label="" icon={<FaArrowLeft />} variant="outline" onClick={handleBackToList} className="me-2" />
             )}
             Backlogs - {leadName}
           </Modal.Title>
+          {selectedBacklogId && (
+            <div className="ms-auto me-3">
+              <ExportBacklogBtn
+                tabs={EXPORT_TABS_LEAD}
+                activeTab={activeTab}
+                onSwitchTab={k => setActiveTab(k)}
+                captureRef={exportCaptureRef}
+                fileName={`recap-dao-${leadName ?? 'lead'}`}
+                contextName={leadName ?? undefined}
+              />
+            </div>
+          )}
         </Modal.Header>
 
         <Modal.Body style={{ backgroundColor: '#f8f9fa' }}>
-          <div className="container-fluid">
+          <div ref={exportCaptureRef} className="container-fluid">
             {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
 
             <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || "backlog")} className="mb-4">
