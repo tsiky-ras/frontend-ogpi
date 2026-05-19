@@ -1241,3 +1241,48 @@
 }
 
 .tav-result-btn { width: 100%; justify-content: center; }
+/* ── Champ JH estimé ──────────────────────────────────────────── */
+.mt-jh-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mt-jh-input {
+  width: 90px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--slate-200, #e2e8f0);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--navy, #1e293b);
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.mt-jh-input:focus {
+  outline: none;
+  border-color: var(--navy, #3b82f6);
+}
+
+.mt-jh-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-500, #64748b);
+}
+
+.mt-jh-feedback {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mt-jh-feedback.saving { color: #94a3b8; }
+.mt-jh-feedback.saved  { color: #16a34a; }
+
+.mt-jh-hint {
+  width: 100%;
+  font-size: 11px;
+  color: var(--slate-400, #94a3b8);
+  font-style: italic;
+  line-height: 1.4;
+}

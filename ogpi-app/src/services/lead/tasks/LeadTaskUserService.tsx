@@ -32,4 +32,16 @@ export class LeadTaskUserService {
       throw error;
     }
   }
+
+  /**
+   * Met à jour le JH estimé saisi par le collaborateur sur sa tâche
+   */
+  async updateJhEstime(id: number, jhEstime: number | null) {
+    try {
+      await this.api.patch(`/lead-task-user/${id}/jh-estime`, { jhEstime });
+    } catch (error) {
+      console.error(`Erreur lors de la mise à jour du JH estimé pour la tâche ${id} :`, error);
+      throw error;
+    }
+  }
 }

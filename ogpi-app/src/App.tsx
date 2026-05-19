@@ -32,6 +32,7 @@ import JoursFeriesPage from "./pages/admin/gestion-projet/calendrier/JoursFeries
 import { NotificationProvider } from './context/NotificationContext.tsx';
 import ArchiveLead from "./pages/admin/gestion-lead/archive/ArchiveLead.tsx";
 import ArchiveProjetPage from "./pages/admin/gestion-projet/archive/ArchiveProjetPage.tsx";
+import OccupationCollaborateurPage from "./pages/admin/occupation/OccupationCollaborateurPage.tsx";
 const App: React.FC = () => {
   return (
   <NotificationProvider>
@@ -75,6 +76,7 @@ const App: React.FC = () => {
           <Route path="/admin/config/lead-partenaire" element={<PartenairePage />} />
           <Route path="/admin/config/lead-financement" element={<TypeProjetFinancementPage />} />
           <Route path="/admin/config/jours-feries" element={<JoursFeriesPage />} />
+          <Route path="/admin/occupation-collaborateurs" element={<OccupationCollaborateurPage />} />
         </Route>
 
         {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}

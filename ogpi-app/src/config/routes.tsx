@@ -20,6 +20,7 @@ import {
   FaCalendarAlt,
   FaCalendarCheck,
   FaArchive,
+  FaChartBar,
 } from "react-icons/fa";
 
 export const routes = [
@@ -66,8 +67,13 @@ export const routes = [
     path: "/calendrier/deadlines"
   },
   {
+    path: "/admin/occupation-collaborateurs",
+    label: "Charge & Équipe",
+    icon: <FaChartBar />,
+  },
+  {
     label: "Archives",
-    icon: <FaThList />, 
+    icon: <FaThList />,
     children:[
       {
         path: "/archive-lead",

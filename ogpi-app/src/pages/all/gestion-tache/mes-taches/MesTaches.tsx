@@ -56,6 +56,7 @@ interface LeadTaskUserSummary {
   leadTaskUserId: number; dateAffectation: string; leadTaskUserDeadline: string | null;
   leadTask: { leadTaskId: number; leadTaskName: string; leadTaskDesc: string };
   leadId: number;
+  jhEstime: number | null;
   leadTaskUserStatus: { leadTaskStatus: LeadTaskStatus };
   leadDetails: { leadName: string; leadRef: string };
 }
@@ -78,6 +79,7 @@ interface LeadTaskUserDetails extends LeadTaskUserSummary {
 interface ILeadTaskUserService {
   getAll(): Promise<LeadTaskUserSummary[]>;
   getById(id: number): Promise<LeadTaskUserDetails>;
+  updateJhEstime(id: number, jhEstime: number | null): Promise<void>;
 }
 interface ILeadTaskFileService {
   create(data: TaskFile): Promise<TaskFile>;
@@ -431,19 +433,36 @@ interface ExpandedDetailsProps {
   details: LeadTaskUserDetails;
   fileService: ILeadTaskFileService;
   statusService: ILeadTaskUserStatusService;
+  taskService: ILeadTaskUserService;
   onStatusChanged: (newStatusId: number, newStatusLabel: string) => void;
 }
 
-const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService, statusService, onStatusChanged }) => {
+const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService, statusService, taskService, onStatusChanged }) => {
   const lead = details.leadDetails;
   const [files, setFiles] = useState<TaskFile[]>(details.leadTaskFiles ?? []);
   const [currentStatusId, setCurrentStatusId] = useState(details.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId);
   const [currentStatusLabel, setCurrentStatusLabel] = useState(details.leadTaskUserStatus.leadTaskStatus.leadTaskStatusLabel);
+  const [jhEstime, setJhEstime] = useState<string>(details.jhEstime != null ? String(details.jhEstime) : "");
+  const [jhSaving, setJhSaving] = useState(false);
+  const [jhSaved, setJhSaved] = useState(false);
 
   const handleStatusChanged = (newStatusId: number, newStatusLabel: string) => {
     setCurrentStatusId(newStatusId);
     setCurrentStatusLabel(newStatusLabel);
     onStatusChanged(newStatusId, newStatusLabel);
+  };
+
+  const handleJhBlur = async () => {
+    const val = jhEstime.trim() === "" ? null : parseFloat(jhEstime);
+    if (val !== null && isNaN(val)) return;
+    setJhSaving(true);
+    try {
+      await taskService.updateJhEstime(details.leadTaskUserId, val);
+      setJhSaved(true);
+      setTimeout(() => setJhSaved(false), 2000);
+    } catch { /* ignore */ } finally {
+      setJhSaving(false);
+    }
   };
 
   const isTerminal = TERMINAL_STATUSES.includes(currentStatusId);
@@ -459,6 +478,31 @@ const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService,
           statusService={statusService}
           onStatusChanged={handleStatusChanged}
         />
+      </div>
+
+      {/* JH estimé */}
+      <div className="mt-section">
+        <div className="mt-section-title"><FaClock size={11} /> Charge estimée</div>
+        <div className="mt-jh-row">
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            className="mt-jh-input"
+            placeholder="ex: 2.5"
+            value={jhEstime}
+            onChange={e => setJhEstime(e.target.value)}
+            onBlur={handleJhBlur}
+            disabled={jhSaving}
+          />
+          <span className="mt-jh-label">JH</span>
+          {jhSaving && <span className="mt-jh-feedback saving">Enregistrement…</span>}
+          {jhSaved  && <span className="mt-jh-feedback saved">✓ Enregistré</span>}
+          <span className="mt-jh-hint">
+            Saisissez le nombre de jours que vous estimez nécessaires pour cette tâche.
+            Cette valeur est utilisée pour le calcul de votre occupation.
+          </span>
+        </div>
       </div>
 
       {/* Lead info */}
@@ -634,7 +678,7 @@ const TacheCard: React.FC<{
       </div>
 
       {open && !loadingDetail && details && (
-        <ExpandedDetails details={details} fileService={fileService} statusService={statusService} onStatusChanged={handleStatusChanged} />
+        <ExpandedDetails details={details} fileService={fileService} statusService={statusService} taskService={taskService} onStatusChanged={handleStatusChanged} />
       )}
       {open && loadingDetail && (
         <div className="mt-detail-loading"><FaSpinner className="mt-spin" /> Chargement…</div>
