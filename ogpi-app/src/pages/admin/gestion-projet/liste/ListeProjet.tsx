@@ -107,7 +107,7 @@ const DEFAULT_VISIBLE_COLUMNS = ['nomProjet', 'statut', 'consoJH', 'marges', 'ac
 
 const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancements, loading, onProjetSaved }) => {
   const { getByProjetId } = useComparaisonService();
-  const { api } = useAuth();
+  const { api, hasPerm } = useAuth();
   const archiveService = useMemo(() => new ArchiveProjetService(api), [api]);
 
   // ── Archive modal state ────────────────────────────────────────────────────
@@ -619,7 +619,15 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
                   <button onClick={() => { setSearch(''); setFiltreStatutId(0); setFiltreCp(''); setFiltreClient(''); setFiltreTypeFact(''); }} style={{ fontSize: 11, fontWeight: 600, color: P.tomato, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>Réinitialiser</button>
                 </>
               )}
-              <Button label="Créer un projet" icon={<FaPlus />} onClick={() => { setSelectedProjet(null); setFormDirty(false); setShowFormProjet(true); }} />
+              {hasPerm('PROJ_CREATE') ? (
+                <Button label="Créer un projet" icon={<FaPlus />} onClick={() => { setSelectedProjet(null); setFormDirty(false); setShowFormProjet(true); }} />
+              ) : (
+                <span title="Vous n'avez pas l'autorisation de créer un projet">
+                  <button className="custom-btn primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}>
+                    Créer un projet <span className="btn-icon"><FaPlus /></span>
+                  </button>
+                </span>
+              )}
             </div>
 
             <div className="table-responsive">

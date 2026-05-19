@@ -9,9 +9,13 @@ import MesTachesBacklog from "./mes-taches/MesTachesBacklog.tsx";
 import TachesAValiderBacklog from "./a-valider/TachesAValiderBacklog.tsx";
 import StatutCollaborateurTab from "../../admin/gestion-projet/tabs/StatutCollaborateurTab.tsx";
 import { BacklogTaskService } from "../../../services/projet/backlog/BacklogTaskService.tsx";
+import { ProjetService } from "../../../services/projet/ProjetService.tsx";
+import { ProjetStatutService } from "../../../services/projet/statut/ProjetStatutService.tsx";
 import { useLeadTechFinDetailsService } from "../../../services/lead/tech-fin/LeadTechFinDetailsService.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import "./BacklogTachePage.css";
+
+const STATUT_TERMINE_ID = 9;
 
 const BacklogTachePage: React.FC = () => {
   const location = useLocation();
@@ -24,6 +28,7 @@ const BacklogTachePage: React.FC = () => {
     state.activeTab ?? "afaire"
   );
   const [deviseAbr, setDeviseAbr] = useState<string>("€");
+  const [hiddenProjetIds, setHiddenProjetIds] = useState<Set<number>>(new Set());
   const { api, user } = useAuth();
 
   // Si la notification demande un onglet précis, on le sélectionne au montage
@@ -32,7 +37,22 @@ const BacklogTachePage: React.FC = () => {
   }, [state.activeTab]);
 
   const backlogTaskService = useMemo(() => new BacklogTaskService(api), [api]);
+  const projetService      = useMemo(() => new ProjetService(api), [api]);
+  const statutService      = useMemo(() => new ProjetStatutService(api), [api]);
   const leadTechFinService = useLeadTechFinDetailsService();
+
+  useEffect(() => {
+    Promise.all([projetService.getAll(), statutService.getStatutsCourants()])
+      .then(([projets, courants]) => {
+        const ids = new Set<number>(
+          projets
+            .filter(p => p.idProjet && courants.get(p.idProjet!)?.id === STATUT_TERMINE_ID)
+            .map(p => p.idProjet as number)
+        );
+        setHiddenProjetIds(ids);
+      })
+      .catch(() => {});
+  }, []);
 
   // Récupère la devise via le service de tâches (si disponible),
   // sinon depuis le lead associé au premier backlog trouvé.
@@ -80,6 +100,7 @@ const BacklogTachePage: React.FC = () => {
                   currentUserName={user?.username}
                   deviseAbr={deviseAbr}
                   openBacklogLineProfilId={state.openBacklogLineProfilId ?? null}
+                  hiddenProjetIds={hiddenProjetIds}
                 />
               )}
               {activeTab === "avalider" && (
@@ -87,6 +108,7 @@ const BacklogTachePage: React.FC = () => {
                   service={backlogTaskService}
                   currentUserName={user?.username}
                   deviseAbr={deviseAbr}
+                  hiddenProjetIds={hiddenProjetIds}
                 />
               )}
               {activeTab === "statut_collab" && (

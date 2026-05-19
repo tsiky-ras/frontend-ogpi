@@ -17,9 +17,11 @@ import { Projet } from "../../../types/projet/Projet.tsx";
 // Statut par défaut quand un projet n'a pas encore de statut kanban
 const DEFAULT_STATUT_ID = 1;
 
+const FULL_ACCESS_ROLE_IDS = [1, 2, 5, 6]; // ADMIN, MANAGER, LEAD PROJECT, LEAD COMMERCIAL
+
 const ProjetPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
-  const { api } = useAuth();
+  const { api, user } = useAuth();
 
   // ── Services centralisés ────────────────────────────────────────────────
   const projetService     = useMemo(() => new ProjetService(api),          [api]);
@@ -40,10 +42,18 @@ const ProjetPage: React.FC = () => {
         projetService.getAll(),
         statutService.getStatutsCourants(),
       ]);
-      setProjets(data);
+
+      const canSeeAll = FULL_ACCESS_ROLE_IDS.includes(user?.role?.roleId ?? 0);
+      const filteredData = canSeeAll
+        ? data
+        : data.filter(p =>
+            p.userCp?.userId === user?.userId ||
+            p.userSuppleante?.userId === user?.userId
+          );
+      setProjets(filteredData);
 
       const map = new Map<number, number>();
-      data.forEach(p => {
+      filteredData.forEach(p => {
         const id = p.idProjet ?? 0;
         map.set(id, courants.get(id)?.id ?? DEFAULT_STATUT_ID);
       });
@@ -102,6 +112,7 @@ const ProjetPage: React.FC = () => {
                   statutMap={statutMap}
                   avancements={avancements}
                   loading={loading}
+                  canViewFinancials={FULL_ACCESS_ROLE_IDS.includes(user?.role?.roleId ?? 0)}
                 />
               </Tab>
 

@@ -1,0 +1,154 @@
+/* ── Layout (même pattern que OccupationCollaborateurPage) ─────────────── */
+.gd-layout {
+  min-height: 100vh;
+  background: #f7f9fc;
+  padding-top: 60px;
+}
+
+.gd-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.gd-sidebar {
+  width: 200px;
+  min-width: 200px;
+}
+
+.gd-main {
+  flex: 1;
+  padding: 24px;
+  overflow-x: auto;
+  background: #f7f9fc;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────── */
+.gd-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding: .75rem 1rem;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
+}
+
+/* ── Matrix table ─────────────────────────────────────────────────────── */
+.gd-table-wrap {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.gd-table {
+  border-collapse: collapse;
+  min-width: 600px;
+  width: 100%;
+}
+
+.gd-table th,
+.gd-table td {
+  border: 1px solid #e2e8f0;
+  padding: .5rem .75rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.gd-table thead th {
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #475569;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.gd-table .gd-cat-row th {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: .75rem;
+  font-weight: 700;
+  text-align: left;
+  padding-left: 1rem;
+  letter-spacing: .06em;
+}
+
+.gd-table .gd-perm-label {
+  font-size: .82rem;
+  color: #334155;
+  min-width: 200px;
+}
+
+.gd-table .gd-perm-code {
+  font-size: .7rem;
+  color: #94a3b8;
+  display: block;
+}
+
+.gd-check-cell {
+  text-align: center;
+}
+
+.gd-check {
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+  accent-color: #0ea5e9;
+}
+
+.gd-check:disabled {
+  cursor: not-allowed;
+  opacity: .4;
+}
+
+/* ── Audit log ──────────────────────────────────────────────────────────── */
+.gd-audit {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  padding: 1.25rem;
+}
+
+.gd-audit h6 {
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: .75rem;
+}
+
+.gd-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+
+.gd-audit-table th {
+  background: #f8fafc;
+  padding: .4rem .6rem;
+  text-align: left;
+  font-weight: 600;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.gd-audit-table td {
+  padding: .35rem .6rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.gd-badge-grant  { background: #dcfce7; color: #15803d; font-size: .72rem; padding: .15rem .45rem; border-radius: 20px; font-weight: 600; }
+.gd-badge-revoke { background: #fee2e2; color: #b91c1c; font-size: .72rem; padding: .15rem .45rem; border-radius: 20px; font-weight: 600; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .gd-sidebar  { display: none; }
+  .gd-main     { padding: 16px; }
+}

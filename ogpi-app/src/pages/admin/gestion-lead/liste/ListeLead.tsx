@@ -31,7 +31,7 @@ interface ListeLeadProps {
 
 /* ================= COMPONENT ================= */
 const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
-  const { user, api } = useAuth();
+  const { user, api, hasPerm } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [search, setSearch] = useState('');
@@ -335,11 +335,17 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
         partenaires: [],
       }));
 
-      // 1. Filtre archive (garde ou exclut status 11/12 selon isArchive)
+      // 1. Filtre archive (garde ou exclut status terminaux selon isArchive)
       const archiveFiltered = applyArchiveFilter(leadsData);
 
       // 2. Filtre dur depuis l'URL (optionnel)
-      const filteredLeads = applyHardFilter(archiveFiltered);
+      const hardFiltered = applyHardFilter(archiveFiltered);
+
+      // 3. Filtre rôle : COLLABORATEUR voit uniquement ses propres leads
+      const FULL_ACCESS_ROLES = [1, 2, 5, 6]; // ADMIN, MANAGER, LEAD PROJECT, LEAD COMMERCIAL
+      const filteredLeads = FULL_ACCESS_ROLES.includes(user?.role?.roleId ?? 0)
+        ? hardFiltered
+        : hardFiltered.filter((lead: Lead) => lead.createdByUser?.id === user?.userId);
 
       setOpportunities(filteredLeads);
       calculateKPIs(filteredLeads);
@@ -661,22 +667,34 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
         <main className="liste-lead-main">
           <div className="container-fluid">
             {/* Bouton créer — masqué en mode archive */}
-            {!isArchive && (user?.role?.roleId == 7) && (
+            {!isArchive && (
               <div className="row align-items-center mb-4">
                 <div className="col-lg-4 col-md-12 ms-auto text-lg-end">
-                  <Button
-                    label="Créer une opportunité"
-                    icon={<FaPlus />}
-                    onClick={() => {
-                      setSelectedLead(null);
-                      setInitialStep('qualification');
-                      setShowFormLead(true);
-                      const newParams = new URLSearchParams(searchParams);
-                      newParams.delete('editLead');
-                      newParams.delete('step');
-                      setSearchParams(newParams);
-                    }}
-                  />
+                  {hasPerm('OPP_CREATE') ? (
+                    <Button
+                      label="Créer une opportunité"
+                      icon={<FaPlus />}
+                      onClick={() => {
+                        setSelectedLead(null);
+                        setInitialStep('qualification');
+                        setShowFormLead(true);
+                        const newParams = new URLSearchParams(searchParams);
+                        newParams.delete('editLead');
+                        newParams.delete('step');
+                        setSearchParams(newParams);
+                      }}
+                    />
+                  ) : (
+                    <span title="Vous n'avez pas l'autorisation de créer une opportunité">
+                      <button
+                        className="custom-btn primary"
+                        disabled
+                        style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}
+                      >
+                        Créer une opportunité <span className="btn-icon"><FaPlus /></span>
+                      </button>
+                    </span>
+                  )}
                 </div>
               </div>
             )}

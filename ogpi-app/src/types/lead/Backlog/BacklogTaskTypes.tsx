@@ -70,9 +70,11 @@ export interface BacklogLineProfilAsTask {
   timeSpent: number | null;
   line: BacklogLineTask;
   historyStatus: BacklogTaskStatusHistory[];
-  currentStatus: BacklogTaskStatusHistory;
-  deviseAbr?:     string | null;   
+  currentStatus: BacklogTaskStatusHistory | null;
+  deviseAbr?:     string | null;
   projetNom?:     string | null;
+  leadNom?:       string | null;
+  projetId?:      number | null;
 }
 
 export interface ChangingStatusDTO {

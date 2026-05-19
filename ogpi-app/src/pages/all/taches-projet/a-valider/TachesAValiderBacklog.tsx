@@ -3,7 +3,7 @@ import {
   FaChevronDown, FaChevronUp, FaUser, FaClock, FaFolderOpen, FaBriefcase,
   FaCheckCircle, FaTimesCircle, FaSpinner, FaInbox, FaTag,
   FaLayerGroup, FaCoins, FaBook, FaTimes, FaHourglassHalf,
-  FaBoxOpen, FaStream, FaBolt, FaGift,
+  FaBoxOpen, FaStream, FaBolt, FaGift, FaSearch,
 } from "react-icons/fa";
 
 import "./TachesAValiderBacklog.css";
@@ -243,8 +243,8 @@ const ValidateTaskCard: React.FC<{
     setCurrentStatus(h); setHistory(prev => [...prev, h]); setDecided(true);
   }, []);
 
-  const isValidated = currentStatus.status.id === PROJECT_TASK_STATUS.VALIDE;
-  const isToModify  = currentStatus.status.id === PROJECT_TASK_STATUS.A_MODIFIER;
+  const isValidated = currentStatus?.status?.id === PROJECT_TASK_STATUS.VALIDE;
+  const isToModify  = currentStatus?.status?.id === PROJECT_TASK_STATUS.A_MODIFIER;
   const timeSpent   = task.timeSpent ?? null;
   const pct = task.volume > 0 && timeSpent != null
     ? Math.round((timeSpent / task.volume) * 100) : null;
@@ -271,7 +271,7 @@ const ValidateTaskCard: React.FC<{
 
           <div className="vld-card-toprow">
             <span className="vld-card-epic"><FaTag size={9} />{task.line.epic}</span>
-            <StatusBadge statusId={currentStatus.status.id} />
+            <StatusBadge statusId={currentStatus?.status?.id ?? 1} />
           </div>
           <p className="vld-card-story">{task.line.userStory}</p>
           <div className="vld-card-meta">
@@ -447,12 +447,13 @@ const ValidateTaskCard: React.FC<{
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-interface Props { service: BacklogTaskService; currentUserName?: string; deviseAbr?: string; }
+interface Props { service: BacklogTaskService; currentUserName?: string; deviseAbr?: string; hiddenProjetIds?: Set<number>; }
 
-const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr }) => {
+const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr, hiddenProjetIds }) => {
   const [tasks, setTasks]     = useState<BacklogLineProfilAsTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const [search, setSearch]   = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -467,7 +468,20 @@ const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Ut
     return () => { cancelled = true; };
   }, [service]);
 
-  const pending = tasks.filter(t => t.currentStatus.status.id === PROJECT_TASK_STATUS.EN_ATTENTE_VALIDATION).length;
+  const visible = tasks.filter(t => !hiddenProjetIds?.has(t.projetId!));
+
+  const filtered = visible.filter(t => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (t.projetNom ?? "").toLowerCase().includes(q) ||
+      (t.leadNom ?? "").toLowerCase().includes(q) ||
+      t.line.epic.toLowerCase().includes(q) ||
+      t.line.userStory.toLowerCase().includes(q)
+    );
+  });
+
+  const pending = visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.EN_ATTENTE_VALIDATION).length;
 
   return (
     <div className="mes-taches-wrapper">
@@ -475,35 +489,56 @@ const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Ut
         <div>
           <h4 className="vld-page-title">Tâches à valider</h4>
           <p className="vld-page-sub">
-            {loading ? "Chargement…" : `${tasks.length} tâche${tasks.length !== 1 ? "s" : ""} · ${pending} en attente`}
+            {loading ? "Chargement…" : `${visible.length} tâche${visible.length !== 1 ? "s" : ""} · ${pending} en attente`}
           </p>
         </div>
       </div>
 
-      {!loading && !error && tasks.length > 0 && (
+      {!loading && !error && visible.length > 0 && (
         <div className="vld-stats">
           <div className="vld-stat vld-stat--pending">
             <span className="vld-stat-num">{pending}</span><span className="vld-stat-lbl">En attente</span>
           </div>
           <div className="vld-stat vld-stat--ok">
-            <span className="vld-stat-num">{tasks.filter(t => t.currentStatus.status.id === PROJECT_TASK_STATUS.VALIDE).length}</span>
+            <span className="vld-stat-num">{visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.VALIDE).length}</span>
             <span className="vld-stat-lbl">Validées</span>
           </div>
           <div className="vld-stat vld-stat--ko">
-            <span className="vld-stat-num">{tasks.filter(t => t.currentStatus.status.id === PROJECT_TASK_STATUS.A_MODIFIER).length}</span>
+            <span className="vld-stat-num">{visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.A_MODIFIER).length}</span>
             <span className="vld-stat-lbl">Refusées</span>
           </div>
         </div>
       )}
 
+      {!loading && !error && visible.length > 0 && (
+        <div className="btb-search-bar">
+          <FaSearch className="btb-search-icon" />
+          <input
+            type="text"
+            className="btb-search-input"
+            placeholder="Rechercher par projet, épic, user story…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="btb-search-clear" onClick={() => setSearch("")}><FaTimes size={12} /></button>
+          )}
+        </div>
+      )}
+
       {loading  && <div className="vld-state-box"><FaSpinner className="vld-spin vld-spin--lg" /><p>Chargement…</p></div>}
       {!loading && error && <div className="vld-state-box vld-state-box--error"><FaTimesCircle size={28} /><p>{error}</p></div>}
-      {!loading && !error && tasks.length === 0 && (
+      {!loading && !error && visible.length === 0 && (
         <div className="vld-state-box vld-state-box--empty"><FaInbox size={34} /><p>Aucune tâche à valider</p></div>
       )}
-      {!loading && !error && tasks.length > 0 && (
+      {!loading && !error && visible.length > 0 && filtered.length === 0 && (
+        <div className="vld-state-box vld-state-box--empty">
+          <FaSearch size={28} /><p>Aucun résultat pour « {search} »</p>
+        </div>
+      )}
+      {!loading && !error && filtered.length > 0 && (
         <div className="vld-list">
-          {tasks.map(t => <ValidateTaskCard key={t.id} task={t} service={service} />)}
+          {filtered.map(t => <ValidateTaskCard key={t.id} task={t} service={service} />)}
         </div>
       )}
     </div>

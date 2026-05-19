@@ -3,7 +3,7 @@ import {
   FaChevronDown, FaChevronUp, FaUser, FaClock, FaFolderOpen, FaBriefcase,
   FaCheckCircle, FaArrowRight, FaSpinner, FaInbox, FaTimesCircle,
   FaHourglassHalf, FaTag, FaLayerGroup, FaBook, FaCoins, FaEdit,
-  FaBoxOpen, FaStream, FaBolt, FaGift,
+  FaBoxOpen, FaStream, FaBolt, FaGift, FaSearch, FaTimes,
 } from "react-icons/fa";
 
 import "./MesTachesBacklog.css";
@@ -425,7 +425,7 @@ const TaskCard: React.FC<{
 
             <div className="btb-card-toprow">
               <span className="btb-card-epic"><FaTag size={9} />{task.line.epic}</span>
-              <StatusBadge statusId={currentStatus.status.id} />
+              <StatusBadge statusId={currentStatus?.status?.id ?? 1} />
             </div>
             <p className="btb-card-story">{task.line.userStory}</p>
             <div className="btb-card-meta">
@@ -561,7 +561,7 @@ const TaskCard: React.FC<{
 
             <div className="btb-section">
               <div className="btb-section-title"><FaHourglassHalf size={10} /> Progression</div>
-              <StatusSlider currentStatusId={currentStatus.status.id} taskId={task.id}
+              <StatusSlider currentStatusId={currentStatus?.status?.id ?? 1} taskId={task.id}
                 service={service} onStatusChanged={handleStatusChanged} />
             </div>
 
@@ -592,14 +592,15 @@ interface Props {
   service: BacklogTaskService;
   currentUserName?: string;
   deviseAbr?: string;
-  /** ID de la tâche projet à ouvrir automatiquement (passé via location.state depuis une notification) */
   openBacklogLineProfilId?: number | null;
+  hiddenProjetIds?: Set<number>;
 }
 
-const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr, openBacklogLineProfilId }) => {
+const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisateur", deviseAbr: _deviseAbr, openBacklogLineProfilId, hiddenProjetIds }) => {
   const [tasks, setTasks]   = useState<BacklogLineProfilAsTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -614,10 +615,23 @@ const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisa
     return () => { cancelled = true; };
   }, [service]);
 
+  const visible = tasks.filter(t => !hiddenProjetIds?.has(t.projetId!));
+
+  const filtered = visible.filter(t => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (t.projetNom ?? "").toLowerCase().includes(q) ||
+      (t.leadNom ?? "").toLowerCase().includes(q) ||
+      t.line.epic.toLowerCase().includes(q) ||
+      t.line.userStory.toLowerCase().includes(q)
+    );
+  });
+
   const counts = {
-    enCours:   tasks.filter(t => t.currentStatus.status.id === PROJECT_TASK_STATUS.EN_COURS).length,
-    enAttente: tasks.filter(t => [1,2,3].includes(t.currentStatus.status.id)).length,
-    soumis:    tasks.filter(t => t.currentStatus.status.id === PROJECT_TASK_STATUS.EN_ATTENTE_VALIDATION).length,
+    enCours:   visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.EN_COURS).length,
+    enAttente: visible.filter(t => [1,2,3].includes(t.currentStatus?.status?.id ?? 0)).length,
+    soumis:    visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.EN_ATTENTE_VALIDATION).length,
   };
 
   return (
@@ -627,12 +641,12 @@ const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisa
           <h4 className="btb-page-title">Mes Tâches à faire</h4>
           <p className="btb-page-sub">
             Bonjour <strong>{currentUserName}</strong> —{" "}
-            {loading ? "chargement…" : `${tasks.length} tâche${tasks.length !== 1 ? "s" : ""} assignée${tasks.length !== 1 ? "s" : ""}`}
+            {loading ? "chargement…" : `${visible.length} tâche${visible.length !== 1 ? "s" : ""} assignée${visible.length !== 1 ? "s" : ""}`}
           </p>
         </div>
       </div>
 
-      {!loading && !error && tasks.length > 0 && (
+      {!loading && !error && visible.length > 0 && (
         <div className="btb-stats">
           <div className="btb-stat"><span className="btb-stat-num">{counts.enAttente}</span><span className="btb-stat-lbl">En attente</span></div>
           <div className="btb-stat"><span className="btb-stat-num" style={{ color:"#8b5cf6" }}>{counts.enCours}</span><span className="btb-stat-lbl">En cours</span></div>
@@ -640,14 +654,35 @@ const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisa
         </div>
       )}
 
+      {!loading && !error && visible.length > 0 && (
+        <div className="btb-search-bar">
+          <FaSearch className="btb-search-icon" />
+          <input
+            type="text"
+            className="btb-search-input"
+            placeholder="Rechercher par projet, épic, user story…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="btb-search-clear" onClick={() => setSearch("")}><FaTimes size={12} /></button>
+          )}
+        </div>
+      )}
+
       {loading  && <div className="btb-state-box"><FaSpinner className="btb-spin btb-spin--lg" /><p>Chargement…</p></div>}
       {!loading && error && <div className="btb-state-box btb-state-box--error"><FaTimesCircle size={28} /><p>{error}</p></div>}
-      {!loading && !error && tasks.length === 0 && (
+      {!loading && !error && visible.length === 0 && (
         <div className="btb-state-box btb-state-box--empty"><FaInbox size={34} /><p>Aucune tâche assignée</p></div>
       )}
-      {!loading && !error && tasks.length > 0 && (
+      {!loading && !error && visible.length > 0 && filtered.length === 0 && (
+        <div className="btb-state-box btb-state-box--empty">
+          <FaSearch size={28} /><p>Aucun résultat pour « {search} »</p>
+        </div>
+      )}
+      {!loading && !error && filtered.length > 0 && (
         <div className="btb-list">
-          {tasks.map(t => (
+          {filtered.map(t => (
             <TaskCard
               key={t.id}
               task={t}

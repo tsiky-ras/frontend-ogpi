@@ -33,6 +33,8 @@ import { NotificationProvider } from './context/NotificationContext.tsx';
 import ArchiveLead from "./pages/admin/gestion-lead/archive/ArchiveLead.tsx";
 import ArchiveProjetPage from "./pages/admin/gestion-projet/archive/ArchiveProjetPage.tsx";
 import OccupationCollaborateurPage from "./pages/admin/occupation/OccupationCollaborateurPage.tsx";
+import GestionDroitsPage from "./pages/admin/gestion-droits/GestionDroitsPage.tsx";
+import BackupConfigPage from "./pages/admin/backup/BackupConfigPage.tsx";
 const App: React.FC = () => {
   return (
   <NotificationProvider>
@@ -77,6 +79,8 @@ const App: React.FC = () => {
           <Route path="/admin/config/lead-financement" element={<TypeProjetFinancementPage />} />
           <Route path="/admin/config/jours-feries" element={<JoursFeriesPage />} />
           <Route path="/admin/occupation-collaborateurs" element={<OccupationCollaborateurPage />} />
+          <Route path="/admin/gestion-droits" element={<GestionDroitsPage />} />
+          <Route path="/admin/backup" element={<BackupConfigPage />} />
         </Route>
 
         {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}

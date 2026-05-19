@@ -137,8 +137,10 @@ const OccupationCard: React.FC<{ dto: OccupationDTO }> = ({ dto }) => {
 // ── Page principale ───────────────────────────────────────────────────────────
 
 const OccupationCollaborateurPage: React.FC = () => {
-  const { api, user } = useAuth();
+  const { api, user, hasPerm } = useAuth();
   const isCollaborateur = user?.role?.roleLabel === "COLLABORATEUR";
+  const canViewAll = hasPerm('OCC_VIEW_ALL');
+  const canViewOwn = hasPerm('OCC_VIEW_OWN');
 
   // Période
   const [preset,    setPreset]    = useState<PeriodePreset>("MOIS");
@@ -207,6 +209,12 @@ const OccupationCollaborateurPage: React.FC = () => {
 
         <main className="occ-main">
           <div className="container-fluid">
+
+            {!canViewOwn && !canViewAll && (
+              <div className="alert alert-warning mt-3">
+                Vous n'avez pas l'autorisation de consulter les données d'occupation.
+              </div>
+            )}
 
             {/* Titre */}
             <div className="row mb-3">

@@ -28,6 +28,7 @@ import React, {
   interface AuthContextType {
     user: User | null;
     loading: boolean;
+    hasPerm: (code: string) => boolean;
     register: (
       firstname: string,
       lastname: string,
@@ -56,15 +57,16 @@ import React, {
     function setUserFromToken(token:string){
       const decoded: JwtPayload = jwtDecode(token);
       const object: User = {
-        userId: decoded.userId,     
+        userId: decoded.userId,
         username: decoded.sub,
         email: decoded.email,
         role: {
-          roleId: decoded.roleId,     
-          roleLabel: decoded.role     
+          roleId: decoded.roleId,
+          roleLabel: decoded.role
         },
         is_active: true,
         password: "",
+        perms: Array.isArray(decoded.perms) ? decoded.perms : [],
       };
       setUser(object);
     }
@@ -207,10 +209,14 @@ import React, {
       }
     };
   
+    const hasPerm = (code: string): boolean =>
+      (user?.perms ?? []).includes(code);
+
     // === Valeur du contexte === //
     const value: AuthContextType = {
       user,
       loading,
+      hasPerm,
       register,
       login,
       logout,

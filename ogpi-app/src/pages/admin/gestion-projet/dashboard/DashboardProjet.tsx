@@ -60,6 +60,7 @@ interface DashboardProjetProps {
   statutMap: Map<number, number>;
   avancements: Map<number, ProjetAvancement>;
   loading: boolean;
+  canViewFinancials?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -148,7 +149,7 @@ const Gauge: React.FC<{ pct: number; color: string; size?: number; label?: strin
 };
 
 // ─── Composant principal ─────────────────────────────────────────────────────
-const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, avancements, loading }) => {
+const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, avancements, loading, canViewFinancials = true }) => {
   const { getByProjetId }   = useComparaisonService();
   const leadTechFinService  = useLeadTechFinDetailsService();
   const [finMap, setFinMap] = useState<Map<number, ProjetFin>>(new Map());
@@ -610,6 +611,7 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
       {/* ════════════════════════════════════════════════════════
           SECTION 2 — INDICATEURS FINANCIERS
       ════════════════════════════════════════════════════════ */}
+      {canViewFinancials ? (
       <div style={{ marginBottom: 28 }}>
         {section('Indicateurs financiers', <FaMoneyBillWave size={12} />, P.blue)}
 
@@ -656,6 +658,11 @@ const DashboardProjet: React.FC<DashboardProjetProps> = ({ projets, statutMap, a
           />
         </div>
       </div>
+      ) : (
+        <div style={{ background: '#f8f9fa', border: '1px dashed #cbd5e1', borderRadius: 10, padding: '16px 20px', marginBottom: 28, color: '#64748b', fontSize: 13 }}>
+          🔒 Les indicateurs financiers ne sont pas accessibles avec votre rôle.
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════
           SECTION 3 — RÉCAP PROJETS (vue générale + filtres)

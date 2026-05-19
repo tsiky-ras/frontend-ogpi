@@ -343,7 +343,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       setLoadingBacklogs(true);
       setError(null);
       const fetched  = await backlogService.getByLeadId(leadId);
-      const filtered = fetched.filter(b => b.type !== 1);
+      const filtered = fetched.filter(b => b.type !== 1 && !b.projetId);
       setBacklogs(filtered);
       if (filtered.length === 1) setSelectedBacklogId(filtered[0].id);
     } catch (err) {

@@ -419,9 +419,10 @@ interface Props {
   taskService: ILeadTaskUserService;
   validationService: ILeadTaskValidationService;
   currentUserName?: string;
+  hiddenLeadIds?: Set<number>;
 }
 
-const TachesAValider: React.FC<Props> = ({ taskService, validationService, currentUserName = "Utilisateur" }) => {
+const TachesAValider: React.FC<Props> = ({ taskService, validationService, currentUserName = "Utilisateur", hiddenLeadIds }) => {
   const [taches, setTaches] = useState<LeadTaskUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -457,7 +458,9 @@ const TachesAValider: React.FC<Props> = ({ taskService, validationService, curre
     return () => { cancelled = true; };
   }, [taskService]);
 
-  const filtered = taches.filter((t) => {
+  const visible = taches.filter((t) => !hiddenLeadIds?.has(t.leadId));
+
+  const filtered = visible.filter((t) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -474,12 +477,12 @@ const TachesAValider: React.FC<Props> = ({ taskService, validationService, curre
           <h4 className="mt-title">Tâches à valider</h4>
           <p className="mt-subtitle">
             Bonjour <strong>{currentUserName}</strong> —{" "}
-            {loading ? "chargement…" : `${taches.length} tâche${taches.length !== 1 ? "s" : ""} en attente de validation`}
+            {loading ? "chargement…" : `${visible.length} tâche${visible.length !== 1 ? "s" : ""} en attente de validation`}
           </p>
         </div>
       </div>
 
-      {!loading && !error && taches.length > 0 && (
+      {!loading && !error && visible.length > 0 && (
         <div className="mt-search-bar">
           <FaSearch className="mt-search-icon" />
           <input
@@ -497,13 +500,13 @@ const TachesAValider: React.FC<Props> = ({ taskService, validationService, curre
 
       {loading && <div className="mt-state-box"><FaSpinner className="mt-spin mt-spin--lg" /><p>Chargement des tâches…</p></div>}
       {!loading && error && <div className="mt-state-box mt-state-box--error"><FaTimesCircle size={30} /><p>{error}</p></div>}
-      {!loading && !error && taches.length === 0 && (
+      {!loading && !error && visible.length === 0 && (
         <div className="mt-state-box mt-state-box--empty">
           <FaInbox size={36} className="mt-empty-icon" />
           <p>Aucune tâche à valider pour le moment</p><span>Tout est à jour !</span>
         </div>
       )}
-      {!loading && !error && taches.length > 0 && filtered.length === 0 && (
+      {!loading && !error && visible.length > 0 && filtered.length === 0 && (
         <div className="mt-state-box mt-state-box--empty">
           <FaSearch size={30} className="mt-empty-icon" />
           <p>Aucun résultat pour « {search} »</p>

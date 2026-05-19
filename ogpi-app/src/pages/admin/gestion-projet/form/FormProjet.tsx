@@ -159,14 +159,22 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
     fetchData();
   }, [show]);
 
-  // ── Chargement de tous les leads ────────────────────────────────────────
+  // ── Chargement de tous les leads (en excluant ceux déjà liés à un projet) ─
   useEffect(() => {
     if (!show) return;
     const fetchLeads = async () => {
       setLeadSearchLoading(true);
       try {
-        const results = await leadService.getGagne();
-        setAllLeads(results || []);
+        const [wonLeads, allProjets] = await Promise.all([
+          leadService.getGagne(),
+          projetService.getAll(),
+        ]);
+        const usedLeadIds = new Set<number>(
+          allProjets
+            .filter((p: any) => p.lead?.leadId)
+            .map((p: any) => p.lead.leadId as number)
+        );
+        setAllLeads((wonLeads || []).filter((l: any) => !usedLeadIds.has(l.leadId ?? l.id)));
       } catch (err) {
         console.error(err);
         setAllLeads([]);

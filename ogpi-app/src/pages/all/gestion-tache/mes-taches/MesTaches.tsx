@@ -614,8 +614,10 @@ const TacheCard: React.FC<{
   const [details, setDetails] = useState<LeadTaskUserDetails | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const FALLBACK_STATUS: LeadTaskStatus = { leadTaskStatusId: 1, leadTaskStatusLabel: "En attente" };
+
   const [localStatus, setLocalStatus] = useState<LeadTaskStatus>(
-    tache.leadTaskUserStatus.leadTaskStatus
+    tache.leadTaskUserStatus?.leadTaskStatus ?? FALLBACK_STATUS
   );
 
   const loadDetails = useCallback(async () => {
@@ -696,9 +698,10 @@ interface Props {
   statusService: ILeadTaskUserStatusService;
   currentUserName?: string;
   openLeadTaskId?: number | null;
+  hiddenLeadIds?: Set<number>;
 }
 
-const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, currentUserName = "Utilisateur", openLeadTaskId }) => {
+const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, currentUserName = "Utilisateur", openLeadTaskId, hiddenLeadIds }) => {
   const [searchParams] = useSearchParams();
   // Priorité : prop > URL param
   const urlTaskId = searchParams.get("taskLeadId") ? Number(searchParams.get("taskLeadId")) : null;
@@ -726,7 +729,9 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
     return () => { cancelled = true; };
   }, [taskService]);
 
-  const filtered = taches.filter((t) => {
+  const visible = taches.filter((t) => !hiddenLeadIds?.has(t.leadId));
+
+  const filtered = visible.filter((t) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -736,11 +741,14 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
     );
   });
 
+  const statusId = (t: LeadTaskUserSummary) =>
+    t.leadTaskUserStatus?.leadTaskStatus?.leadTaskStatusId ?? -1;
+
   const counts = {
-    total: taches.length,
-    enAttente: taches.filter((t) => [1, 2].includes(t.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId)).length,
-    attribue: taches.filter((t) => t.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId === 3).length,
-    enCours: taches.filter((t) => t.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId === 4).length,
+    total:     visible.length,
+    enAttente: visible.filter((t) => [1, 2].includes(statusId(t))).length,
+    attribue:  visible.filter((t) => statusId(t) === 3).length,
+    enCours:   visible.filter((t) => statusId(t) === 4).length,
   };
 
   return (
@@ -764,7 +772,7 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
       )}
 
       {/* Barre de recherche */}
-      {!loading && !error && taches.length > 0 && (
+      {!loading && !error && visible.length > 0 && (
         <div className="mt-search-bar">
           <FaSearch className="mt-search-icon" />
           <input
@@ -782,13 +790,13 @@ const MesTaches: React.FC<Props> = ({ taskService, fileService, statusService, c
 
       {loading && <div className="mt-state-box"><FaSpinner className="mt-spin mt-spin--lg" /><p>Chargement des tâches…</p></div>}
       {!loading && error && <div className="mt-state-box mt-state-box--error"><FaTimesCircle size={30} /><p>{error}</p></div>}
-      {!loading && !error && taches.length === 0 && (
+      {!loading && !error && visible.length === 0 && (
         <div className="mt-state-box mt-state-box--empty">
           <FaInbox size={36} className="mt-empty-icon" />
           <p>Aucune tâche pour le moment</p><span>Profitez de votre temps libre !</span>
         </div>
       )}
-      {!loading && !error && taches.length > 0 && filtered.length === 0 && (
+      {!loading && !error && visible.length > 0 && filtered.length === 0 && (
         <div className="mt-state-box mt-state-box--empty">
           <FaSearch size={30} className="mt-empty-icon" />
           <p>Aucun résultat pour « {search} »</p>

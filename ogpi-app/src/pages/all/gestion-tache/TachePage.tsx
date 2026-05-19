@@ -14,8 +14,11 @@ import { LeadTaskFileService } from "../../../services/lead/tasks/LeadTaskFileSe
 import { LeadTaskUserStatusService } from "../../../services/lead/tasks/LeadTaskUserStatusService.tsx";
 import { LeadTaskValidationService } from "../../../services/lead/tasks/LeadTaskValidationService.tsx";
 import { LeadTaskToValidateService } from "../../../services/lead/tasks/LeadTaskToValidateService.tsx";
+import { LeadService } from "../../../services/lead/LeadService.tsx";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import "./TachePage.css";
+
+const HIDDEN_STEP_IDS = new Set([9, 10, 11, 12]);
 
 const TachePage: React.FC = () => {
   const location = useLocation();
@@ -43,6 +46,22 @@ const TachePage: React.FC = () => {
   const leadTaskStatusService    = useMemo(() => new LeadTaskUserStatusService(api), [api]);
   const leadTaskValidationService = useMemo(() => new LeadTaskValidationService(api), [api]);
   const leadTaskToValidateService = useMemo(() => new LeadTaskToValidateService(api), [api]);
+  const leadService               = useMemo(() => new LeadService(api), [api]);
+
+  const [hiddenLeadIds, setHiddenLeadIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    leadService.getAll()
+      .then((leads: any[]) => {
+        const ids = new Set<number>(
+          leads
+            .filter((l: any) => HIDDEN_STEP_IDS.has(l.currentLeadStep?.leadStep?.id))
+            .map((l: any) => l.id as number)
+        );
+        setHiddenLeadIds(ids);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="page-lead-layout">
@@ -83,6 +102,7 @@ const TachePage: React.FC = () => {
                   statusService={leadTaskStatusService}
                   currentUserName={user?.username}
                   openLeadTaskId={state.openLeadTaskId ?? null}
+                  hiddenLeadIds={hiddenLeadIds}
                 />
               )}
               {activeTab === "avalider" && (
@@ -90,6 +110,7 @@ const TachePage: React.FC = () => {
                   taskService={leadTaskToValidateService}
                   validationService={leadTaskValidationService}
                   currentUserName={user?.username}
+                  hiddenLeadIds={hiddenLeadIds}
                 />
               )}
             </div>

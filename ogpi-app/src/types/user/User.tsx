@@ -12,5 +12,6 @@ export interface User {
   is_active: boolean;
   role?: Role;
   permissions?: Permission[];
+  perms?: string[];   // perm codes from JWT (e.g. ["OPP_VIEW", "PROJ_CREATE"])
   profil?: Profil;
 }
