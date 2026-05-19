@@ -120,6 +120,7 @@ function formatDate(dateStr?: string): string {
 interface CardProps {
   lead: Lead;
   colColor: string;
+  canDrag: boolean;
   onDragStart: (e: React.DragEvent, lead: Lead) => void;
   onDetails: () => void;
   onEdit: () => void;
@@ -127,7 +128,7 @@ interface CardProps {
 }
 
 const KanbanCard: React.FC<CardProps> = ({
-  lead, colColor, onDragStart, onDetails, onEdit, onBacklog,
+  lead, colColor, canDrag, onDragStart, onDetails, onEdit, onBacklog,
 }) => {
   const stepId = lead.currentLeadStep?.leadStep?.id;
   const statusId = lead.status?.id;
@@ -137,9 +138,9 @@ const KanbanCard: React.FC<CardProps> = ({
   return (
     <div
       className="kb-card"
-      style={{ "--col-color": colColor } as React.CSSProperties}
-      draggable
-      onDragStart={(e) => onDragStart(e, lead)}
+      style={{ "--col-color": colColor, cursor: canDrag ? 'grab' : 'default' } as React.CSSProperties}
+      draggable={canDrag}
+      onDragStart={canDrag ? (e) => onDragStart(e, lead) : undefined}
     >
       {/* Header */}
       <div className="kb-card-header">
@@ -223,6 +224,7 @@ const KanbanCard: React.FC<CardProps> = ({
 interface ColumnProps {
   col: KanbanColumn;
   leads: Lead[];
+  canDrag: boolean;
   onDragStart: (e: React.DragEvent, lead: Lead) => void;
   onDrop: (e: React.DragEvent, colKey: string) => void;
   onDetails: (lead: Lead) => void;
@@ -231,7 +233,7 @@ interface ColumnProps {
 }
 
 const KanbanColumn: React.FC<ColumnProps> = ({
-  col, leads, onDragStart, onDrop, onDetails, onEdit, onBacklog,
+  col, leads, canDrag, onDragStart, onDrop, onDetails, onEdit, onBacklog,
 }) => {
   const [over, setOver] = useState(false);
 
@@ -239,9 +241,9 @@ const KanbanColumn: React.FC<ColumnProps> = ({
     <div
       className={`kb-column ${over ? "kb-column--over" : ""}`}
       style={{ "--col-color": col.color } as React.CSSProperties}
-      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => { setOver(false); onDrop(e, col.key); }}
+      onDragOver={canDrag ? (e) => { e.preventDefault(); setOver(true); } : undefined}
+      onDragLeave={canDrag ? () => setOver(false) : undefined}
+      onDrop={canDrag ? (e) => { setOver(false); onDrop(e, col.key); } : undefined}
     >
       <div className="kb-column-header">
         <col.Icon className="kb-column-icon" />
@@ -261,6 +263,7 @@ const KanbanColumn: React.FC<ColumnProps> = ({
             key={lead.id}
             lead={lead}
             colColor={col.color}
+            canDrag={canDrag}
             onDragStart={onDragStart}
             onDetails={() => onDetails(lead)}
             onEdit={() => onEdit(lead)}
@@ -275,7 +278,8 @@ const KanbanColumn: React.FC<ColumnProps> = ({
 // ─── Main KanbanLead ──────────────────────────────────────────────────────────
 
 const KanbanLead: React.FC = () => {
-  const { api } = useAuth();
+  const { api, hasPerm } = useAuth();
+  const canDrag = hasPerm('KANBAN_LEAD_DRAG');
   const leadService = new LeadService(api);
   const leadTechFinService = useLeadTechFinDetailsService();
 
@@ -558,6 +562,7 @@ const KanbanLead: React.FC = () => {
               key={col.key}
               col={col}
               leads={grouped[col.key] || []}
+              canDrag={canDrag}
               onDragStart={handleDragStart}
               onDrop={handleDrop}
               onDetails={handleDetails}

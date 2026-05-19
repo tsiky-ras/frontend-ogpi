@@ -57,6 +57,7 @@ const initials = (nom: string) => {
 interface CardProps {
   projet: Projet;
   statutId: number;
+  canDrag: boolean;
   onDragStart: (e: React.DragEvent, p: Projet) => void;
   onDetails: () => void;
   onEdit: () => void;
@@ -64,16 +65,16 @@ interface CardProps {
 }
 
 const ProjetCard: React.FC<CardProps> = ({
-  projet, statutId, onDragStart, onDetails, onEdit, onBacklog,
+  projet, statutId, canDrag, onDragStart, onDetails, onEdit, onBacklog,
 }) => {
   const col = COLUMNS.find(c => c.statutId === statutId) ?? COLUMNS[0];
 
   return (
     <div
       className="kbp-card"
-      style={{ '--col-color': col.color } as React.CSSProperties}
-      draggable
-      onDragStart={e => onDragStart(e, projet)}
+      style={{ '--col-color': col.color, cursor: canDrag ? 'grab' : 'default' } as React.CSSProperties}
+      draggable={canDrag}
+      onDragStart={canDrag ? e => onDragStart(e, projet) : undefined}
     >
       <div className="kbp-card-header">
         <div
@@ -145,6 +146,7 @@ const ProjetCard: React.FC<CardProps> = ({
 interface ColProps {
   col: KanbanColumn;
   projets: Projet[];
+  canDrag: boolean;
   onDragStart: (e: React.DragEvent, p: Projet) => void;
   onDrop: (e: React.DragEvent, statutId: number) => void;
   statutMap: Map<number, number>;
@@ -154,7 +156,7 @@ interface ColProps {
 }
 
 const KanbanColonne: React.FC<ColProps> = ({
-  col, projets, onDragStart, onDrop, statutMap,
+  col, projets, canDrag, onDragStart, onDrop, statutMap,
   onDetails, onEdit, onBacklog,
 }) => {
   const [over, setOver] = useState(false);
@@ -163,9 +165,9 @@ const KanbanColonne: React.FC<ColProps> = ({
     <div
       className={`kbp-column${over ? ' kbp-column--over' : ''}`}
       style={{ '--col-color': col.color } as React.CSSProperties}
-      onDragOver={e => { e.preventDefault(); setOver(true); }}
-      onDragLeave={() => setOver(false)}
-      onDrop={e => { setOver(false); onDrop(e, col.statutId); }}
+      onDragOver={canDrag ? e => { e.preventDefault(); setOver(true); } : undefined}
+      onDragLeave={canDrag ? () => setOver(false) : undefined}
+      onDrop={canDrag ? e => { setOver(false); onDrop(e, col.statutId); } : undefined}
     >
       <div className="kbp-column-header">
         <col.Icon className="kbp-column-icon" />
@@ -185,6 +187,7 @@ const KanbanColonne: React.FC<ColProps> = ({
             key={p.idProjet}
             projet={p}
             statutId={statutMap.get(p.idProjet ?? 0) ?? DEFAULT_STATUT_ID}
+            canDrag={canDrag}
             onDragStart={onDragStart}
             onDetails={() => onDetails(p)}
             onEdit={() => onEdit(p)}
@@ -215,8 +218,9 @@ const KanbanProjet: React.FC<KanbanProjetProps> = ({
   onProjetSaved,
   onStatutChange,
 }) => {
-  const { api } = useAuth();
+  const { api, hasPerm } = useAuth();
   const statutService = useMemo(() => new ProjetStatutService(api), [api]);
+  const canDrag = hasPerm('KANBAN_PROJ_DRAG');
 
   // Filtres
   const [search, setSearch]           = useState('');
@@ -390,6 +394,7 @@ const KanbanProjet: React.FC<KanbanProjetProps> = ({
               key={col.statutId}
               col={col}
               projets={grouped[col.statutId] ?? []}
+              canDrag={canDrag}
               onDragStart={handleDragStart}
               onDrop={handleDrop}
               statutMap={statutMap}

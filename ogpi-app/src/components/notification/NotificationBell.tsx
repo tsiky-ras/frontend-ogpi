@@ -650,86 +650,88 @@ const NotificationBell: React.FC = () => {
           )}
         </button>
 
-        {/* ── Dropdown (position: fixed pour passer au-dessus de tout) ── */}
-        {open && (
-          <div style={{
-            position: 'fixed', top: dropdownPos.top, right: dropdownPos.right,
-            zIndex: 999998,
-            width: 390, maxHeight: 540,
-            display: 'flex', flexDirection: 'column',
-            background: '#fff', borderRadius: 14,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
-            border: '1px solid #e2e8f0', overflow: 'hidden',
-          }}>
-
-            {/* En-tête */}
-            <div style={{
-              padding: '12px 16px', borderBottom: '1px solid #f1f5f9',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              background: '#fff', flexShrink: 0,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FaBell size={13} color="#0f172a" />
-                <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
-                  Notifications
-                </span>
-                {nonLus > 0 && (
-                  <span style={{
-                    background: '#fef2f2', color: '#C93C29',
-                    fontSize: 10, fontWeight: 800, borderRadius: 99,
-                    padding: '1px 7px', border: '1px solid #fecaca',
-                  }}>
-                    {nonLus} non {nonLus === 1 ? 'lue' : 'lues'}
-                  </span>
-                )}
-              </div>
-              {nonLus > 0 && (
-                <button
-                  onClick={marquerTousLus}
-                  style={{
-                    fontSize: 11, color: '#2563eb', background: 'none', border: 'none',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                    fontWeight: 600, padding: '3px 6px', borderRadius: 6,
-                  }}
-                >
-                  <FaCheckDouble size={10} /> Tout lire
-                </button>
-              )}
-            </div>
-
-            {/* Corps scrollable */}
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              {notifications.length === 0 ? (
-                <div style={{ padding: '36px 24px', textAlign: 'center', color: '#94a3b8' }}>
-                  <FaBell size={28} style={{ marginBottom: 10, opacity: 0.25 }} />
-                  <div style={{ fontSize: 13 }}>Aucune notification</div>
-                </div>
-              ) : (
-                <>
-                  {nonLues.length > 0 && (
-                    <>
-                      <SectionLabel text="Non lues" />
-                      {nonLues.map(n => (
-                        <NotifRow key={n.notificationId} notif={n}
-                          onRead={marquerLu} onOpenDetail={handleOpenDetail} />
-                      ))}
-                    </>
-                  )}
-                  {lues.length > 0 && (
-                    <>
-                      <SectionLabel text="Lues" />
-                      {lues.map(n => (
-                        <NotifRow key={n.notificationId} notif={n}
-                          onRead={marquerLu} onOpenDetail={handleOpenDetail} />
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ── Dropdown (portal → échappe tout stacking context parent) ── */}
+      {open && ReactDOM.createPortal(
+        <div style={{
+          position: 'fixed', top: dropdownPos.top, right: dropdownPos.right,
+          zIndex: 999998,
+          width: 390, maxHeight: 540,
+          display: 'flex', flexDirection: 'column',
+          background: '#fff', borderRadius: 14,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
+          border: '1px solid #e2e8f0', overflow: 'hidden',
+        }}>
+
+          {/* En-tête */}
+          <div style={{
+            padding: '12px 16px', borderBottom: '1px solid #f1f5f9',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            background: '#fff', flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FaBell size={13} color="#0f172a" />
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                Notifications
+              </span>
+              {nonLus > 0 && (
+                <span style={{
+                  background: '#fef2f2', color: '#C93C29',
+                  fontSize: 10, fontWeight: 800, borderRadius: 99,
+                  padding: '1px 7px', border: '1px solid #fecaca',
+                }}>
+                  {nonLus} non {nonLus === 1 ? 'lue' : 'lues'}
+                </span>
+              )}
+            </div>
+            {nonLus > 0 && (
+              <button
+                onClick={marquerTousLus}
+                style={{
+                  fontSize: 11, color: '#2563eb', background: 'none', border: 'none',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                  fontWeight: 600, padding: '3px 6px', borderRadius: 6,
+                }}
+              >
+                <FaCheckDouble size={10} /> Tout lire
+              </button>
+            )}
+          </div>
+
+          {/* Corps scrollable */}
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {notifications.length === 0 ? (
+              <div style={{ padding: '36px 24px', textAlign: 'center', color: '#94a3b8' }}>
+                <FaBell size={28} style={{ marginBottom: 10, opacity: 0.25 }} />
+                <div style={{ fontSize: 13 }}>Aucune notification</div>
+              </div>
+            ) : (
+              <>
+                {nonLues.length > 0 && (
+                  <>
+                    <SectionLabel text="Non lues" />
+                    {nonLues.map(n => (
+                      <NotifRow key={n.notificationId} notif={n}
+                        onRead={marquerLu} onOpenDetail={handleOpenDetail} />
+                    ))}
+                  </>
+                )}
+                {lues.length > 0 && (
+                  <>
+                    <SectionLabel text="Lues" />
+                    {lues.map(n => (
+                      <NotifRow key={n.notificationId} notif={n}
+                        onRead={marquerLu} onOpenDetail={handleOpenDetail} />
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* ── Modal de détail (portal → échappe tout stacking context parent) ── */}
       {detailNotif && ReactDOM.createPortal(
