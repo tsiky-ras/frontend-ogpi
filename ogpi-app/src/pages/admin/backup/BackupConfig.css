@@ -1,0 +1,96 @@
+/* ── Layout (même pattern que OccupationCollaborateurPage) ─────────────── */
+.bc-layout {
+  min-height: 100vh;
+  background: #f7f9fc;
+  padding-top: 60px;
+}
+
+.bc-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.bc-sidebar {
+  width: 200px;
+  min-width: 200px;
+}
+
+.bc-main {
+  flex: 1;
+  padding: 24px;
+  overflow-x: auto;
+  background: #f7f9fc;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────── */
+.bc-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.bc-card h6 {
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+/* ── Frequency buttons ──────────────────────────────────────────────────── */
+.bc-freq-btn {
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: .5rem 1.25rem;
+  font-weight: 600;
+  font-size: .85rem;
+  color: #475569;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.bc-freq-btn.active {
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.bc-freq-btn:hover:not(.active) {
+  border-color: #94a3b8;
+}
+
+/* ── Status indicators ──────────────────────────────────────────────────── */
+.bc-status-ok    { color: #15803d; font-weight: 600; }
+.bc-status-error { color: #b91c1c; font-weight: 600; }
+.bc-status-none  { color: #94a3b8; }
+
+/* ── Export buttons ─────────────────────────────────────────────────────── */
+.bc-export-btn {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: .85rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+
+.bc-export-btn:hover:not(:disabled) { opacity: .85; }
+.bc-export-btn:disabled             { opacity: .5; cursor: not-allowed; }
+
+.bc-export-csv  { background: #dcfce7; color: #15803d; }
+.bc-export-xlsx { background: #e0f2fe; color: #0369a1; }
+.bc-export-json { background: #fef9c3; color: #92400e; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .bc-sidebar  { display: none; }
+  .bc-main     { padding: 16px; }
+}

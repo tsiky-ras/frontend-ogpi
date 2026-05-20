@@ -1,0 +1,188 @@
+/* ═══════════════════════════════════════════════════════════
+   HomePage.css — design system OGPI
+   Navy #08143d | Bg #f7f9fc | Slate borders #e2e8f0
+═══════════════════════════════════════════════════════════ */
+
+.hp-container {
+  padding: 2rem 1.5rem;
+  max-width: 1100px;
+}
+
+/* ── Bandeau de bienvenue ── */
+.hp-welcome {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: #08143d;
+  border-radius: 14px;
+  padding: 1.75rem 2rem;
+  margin-bottom: 2rem;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(8, 20, 61, 0.18);
+}
+
+.hp-welcome-icon {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hp-welcome-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.hp-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.hp-subtitle {
+  font-size: 0.875rem;
+  opacity: 0.72;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Section label ── */
+.hp-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #94a3b8;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Grille de cards ── */
+.hp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+/* ── Card de navigation ── */
+.hp-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.hp-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--card-accent, #08143d);
+  border-radius: 12px 0 0 12px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.hp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(8, 20, 61, 0.1);
+  border-color: var(--card-accent, #08143d);
+}
+
+.hp-card:hover::before {
+  opacity: 1;
+}
+
+/* ── Icône de la card ── */
+.hp-card-icon {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #08143d;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.hp-card:hover .hp-card-icon {
+  background: var(--card-accent, #08143d);
+  color: #fff;
+}
+
+/* ── Texte de la card ── */
+.hp-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.hp-card-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hp-card-desc {
+  font-size: 0.77rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* ── Flèche ── */
+.hp-card-arrow {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: #cbd5e1;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.hp-card:hover .hp-card-arrow {
+  color: var(--card-accent, #08143d);
+  transform: translateX(3px);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .hp-container {
+    padding: 1rem;
+  }
+
+  .hp-welcome {
+    padding: 1.25rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .hp-title {
+    font-size: 1.2rem;
+  }
+
+  .hp-grid {
+    grid-template-columns: 1fr;
+  }
+}

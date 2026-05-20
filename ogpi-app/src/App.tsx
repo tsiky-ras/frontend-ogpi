@@ -1,0 +1,95 @@
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/login/Login.tsx";
+import ListeUser from "./pages/admin/gestion-user/liste/ListeUser.tsx";
+import AdminLayout from "./pages/admin/AdminLayout.tsx";
+import AuthGuard from "./components/auth/AuthGuard.tsx";
+import ListeProfils from "./pages/admin/gestion-profil/liste/ListeProfils.tsx";
+import BusinessUnitPage from "./pages/admin/gestion-profil/referentiel/BuisnessUnitPage.tsx";
+import DiplomePage from "./pages/admin/gestion-profil/referentiel/DiplomePage.tsx";
+import EtablissementPage from "./pages/admin/gestion-profil/referentiel/EtablissementPage.tsx";
+import FilierePage from "./pages/admin/gestion-profil/referentiel/FilierePage.tsx";
+import HardSkillPage from "./pages/admin/gestion-profil/referentiel/HardSkillPage.tsx"; 
+import SoftSkillPage from "./pages/admin/gestion-profil/referentiel/SoftSkillPage.tsx";
+import PostePage from "./pages/admin/gestion-profil/referentiel/PostePage.tsx";
+import CertificationPage from "./pages/admin/gestion-profil/referentiel/CertificationPage.tsx";
+import OrganismePage from "./pages/admin/gestion-profil/referentiel/OrganismePage.tsx";
+import ListeLead from "./pages/admin/gestion-lead/liste/ListeLead.tsx";
+import ClientPage from "./pages/admin/gestion-lead/referentiel/ClientPage.tsx";
+import LeadCategoryPage from "./pages/admin/gestion-lead/referentiel/LeadCategoryPage.tsx";
+import LeadSecteurPage from "./pages/admin/gestion-lead/referentiel/LeadSecteurPage.tsx";
+import LeadStatusPage from "./pages/admin/gestion-lead/referentiel/LeadStatusPage.tsx";
+import LeadTypePage from "./pages/admin/gestion-lead/referentiel/LeadTypePage.tsx";
+import PartenairePage from "./pages/admin/gestion-lead/referentiel/PartenairePage.tsx";
+import TypeProjetFinancementPage from "./pages/admin/gestion-lead/referentiel/TypeProjetFinancementPage.tsx";
+import BacklogPage from "./pages/admin/gestion-lead/backlog/BacklogPage.tsx";
+import LeadPage from "./pages/admin/gestion-lead/LeadPage.tsx";
+import TachePage from "./pages/all/gestion-tache/TachePage.tsx";
+import BacklogTachePage from "./pages/all/taches-projet/BacklogTachePage.tsx";
+import ProjetPage from "./pages/admin/gestion-projet/ProjetPage.tsx";
+import CalendrierPage from "./pages/all/calendrier/CalendrierPage.tsx";
+import JoursFeriesPage from "./pages/admin/gestion-projet/calendrier/JoursFeriesPage.tsx";
+import { NotificationProvider } from './context/NotificationContext.tsx';
+import ArchiveLead from "./pages/admin/gestion-lead/archive/ArchiveLead.tsx";
+import ArchiveProjetPage from "./pages/admin/gestion-projet/archive/ArchiveProjetPage.tsx";
+import OccupationCollaborateurPage from "./pages/admin/occupation/OccupationCollaborateurPage.tsx";
+import GestionDroitsPage from "./pages/admin/gestion-droits/GestionDroitsPage.tsx";
+import BackupConfigPage from "./pages/admin/backup/BackupConfigPage.tsx";
+import HomePage from "./pages/home/HomePage.tsx";
+const App: React.FC = () => {
+  return (
+  <NotificationProvider>
+    <Router>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/gestion-taches" element={<TachePage />} />
+        <Route path="/archive-lead" element={<ArchiveLead />} />
+        <Route path="/gestion-taches-projet" element={<BacklogTachePage />} />
+        <Route path="/gestion-opportunites" element={<LeadPage />} /> 
+        <Route path="/gestion-projets" element={<ProjetPage />} />
+        <Route path="/archive-projets" element={<ArchiveProjetPage />} />
+        <Route path="/calendrier/deadlines" element={<CalendrierPage />} />
+        {/* Admin sécurisé */}
+        <Route
+          path="/admin"
+          element={
+            <AuthGuard>
+              <AdminLayout />
+            </AuthGuard>
+          } 
+        >
+          <Route path="/admin/gestion-user" element={<ListeUser />} />
+          <Route path="/admin/collaborateurs" element={<ListeProfils />} />
+          <Route path="/admin/config/business-units" element={<BusinessUnitPage />} />
+          <Route path="/admin/config/diplomes" element={<DiplomePage />} />
+          <Route path="/admin/config/etablissements" element={<EtablissementPage />} />
+          <Route path="/admin/config/filieres" element={<FilierePage />} />
+          <Route path="/admin/config/hard-skills" element={<HardSkillPage />} />
+          <Route path="/admin/config/soft-skills" element={<SoftSkillPage />} />
+          <Route path="/admin/config/postes" element={<PostePage />} />
+          <Route path="/admin/config/certifications" element={<CertificationPage />} />
+          <Route path="/admin/config/organismes" element={<OrganismePage />} />   
+          <Route path="/admin/config/lead-clients" element={<ClientPage />} /> 
+          <Route path="/admin/config/lead-categories" element={<LeadCategoryPage />} />
+          <Route path="/admin/config/lead-secteur" element={<LeadSecteurPage />} />
+          <Route path="/admin/config/lead-statut" element={<LeadStatusPage />} />
+          <Route path="/admin/config/lead-types" element={<LeadTypePage />} />
+          <Route path="/admin/config/lead-partenaire" element={<PartenairePage />} />
+          <Route path="/admin/config/lead-financement" element={<TypeProjetFinancementPage />} />
+          <Route path="/admin/config/jours-feries" element={<JoursFeriesPage />} />
+          <Route path="/admin/occupation-collaborateurs" element={<OccupationCollaborateurPage />} />
+          <Route path="/admin/gestion-droits" element={<GestionDroitsPage />} />
+          <Route path="/admin/backup" element={<BackupConfigPage />} />
+        </Route>
+
+        {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}
+      </Routes>
+    </Router>
+    </NotificationProvider>
+  );
+};
+
+export default App;

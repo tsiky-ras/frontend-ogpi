@@ -1,0 +1,78 @@
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+/* Numéros */
+.page-btn {
+  all: unset; 
+  box-sizing: border-box;
+
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #ddd;
+  background: #fff;
+
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1; 
+
+  color: #08143d;
+  cursor: pointer;
+
+  transition: background 0.2s ease, border 0.2s ease;
+}
+
+.page-btn:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+.page-btn.active {
+  background: #08143d;
+  color: #fff;
+  border-color: #08143d;
+  font-weight: 600;
+}
+
+/* Flèches */
+.nav-btn {
+  all: unset;
+  box-sizing: border-box;
+
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #ddd;
+  background: #fff;
+
+  font-size: 16px;
+  color: #08143d;
+  cursor: pointer;
+
+  transition: background 0.2s ease;
+}
+
+.nav-btn:hover {
+  background: #f5f5f5;
+}
+
+.nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+

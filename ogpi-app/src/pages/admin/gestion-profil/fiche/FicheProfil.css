@@ -1,0 +1,217 @@
+.fiche-profil-body {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.6;
+  background: #f7f7f5;
+  padding: 28px;
+}
+
+/* Sections */
+.fiche-section {
+  margin-bottom: 20px;
+  padding: 22px 26px;
+  border-radius: 12px;
+  background: #fff;
+  transition: box-shadow 0.2s ease;
+  border-left: 5px solid #c93c29;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.fiche-section:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+/* Titres des sections */
+.fiche-section h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #08143d;
+  margin-bottom: 16px;
+  border-left: 4px solid #c9a35b;
+  padding-left: 10px;
+  letter-spacing: 0.3px;
+}
+
+/* Grid pour informations */
+.fiche-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 24px;
+  margin-bottom: 12px;
+}
+
+/* Liens */
+.fiche-link {
+  color: #c93c29;
+  text-decoration: none;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+.fiche-link:hover {
+  text-decoration: underline;
+}
+
+/* Badges Hard Skills / Soft Skills / Certifications */
+.soft-skill,
+.hard-skill,
+.cert-badge {
+  color: #08143d;
+  padding: 7px 14px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+
+/* Section diplôme avec upload PDF */
+.fiche-diplome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fiche-diplome a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #c93c29;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.fiche-diplome a:hover {
+  background: #b13424;
+  transform: translateY(-2px);
+}
+
+/* Petites info */
+.fiche-info {
+  font-size: 13px;
+  color: #5F6F6E;
+}
+
+.fiche-info span {
+  font-weight: 600;
+  color: #08143d;
+}
+
+/* Table / List styles si besoin */
+.fiche-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.fiche-list li {
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #08143d;
+}
+
+/* Ajout d’une transition douce pour tout élément */
+.fiche-profil-body * {
+  transition: all 0.3s ease;
+}
+
+/* Wrapper pour le sticker, flottant à droite et avec marge */
+.type-collab-badge-wrapper {
+  display: flex;
+  justify-content: flex-end; /* sticker à droite */
+  margin-bottom: 20px;       /* espace avant la section suivante */
+}
+
+/* Badge */
+.type-collab-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 12px;
+  color: #fff;
+  text-align: center;
+}
+
+.type-collab-badge.interne {
+  background: linear-gradient(
+    135deg,
+    var(--color-tomato),
+    var(--color-tuscan)
+  );
+}
+
+.type-collab-badge.externe {
+  background: linear-gradient(
+    135deg,
+    var(--color-dim),
+    var(--color-charcoal)
+  );
+}
+
+.soft-skills-list {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin: 0;
+  color: #08143d;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.soft-skills-list li {
+  margin-bottom: 6px;
+}
+.cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-item {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 220px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.card-item strong {
+  color: #333;
+}
+
+/* ===== Fullscreen Modal ===== */
+.fiche-profil-modal.modal.fullscreen {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-radius: 0;
+}
+
+.fiche-profil-modal.modal.fullscreen .modal-content {
+  height: 100vh;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fiche-profil-modal.modal.fullscreen .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none;
+}
+
+.fiche-profil-modal .btn-close {
+  filter: brightness(0) invert(1);
+}
+
+

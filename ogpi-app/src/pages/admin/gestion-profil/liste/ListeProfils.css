@@ -1,0 +1,91 @@
+@import '../../../../styles/shared-lists.css';
+
+/* ===============================
+   Page layout for ListeProfils
+   =============================== */
+
+.listeprofils-layout {
+  min-height: 100vh;
+  background: #f7f9fc;
+  padding-top: 60px; 
+}
+
+.listeprofils-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+/* Sidebar */
+.listeprofils-sidebar {
+  width: 200px;
+  min-width: 200px;
+}
+
+/* Main content */
+.listeprofils-main {
+  flex: 1;
+  padding: 24px;
+  overflow-x: auto;
+  background-color: #f7f9fc;
+}
+
+/* Content wrapper */
+.listeprofils-content {
+  flex: 1;
+}
+
+/* Container */
+.listeprofils-content .container {
+  max-width: 1200px;
+  margin: 24px auto;
+}
+
+/* ===============================
+   Stats cards
+   =============================== */
+
+.stats-cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* stat-card rules and variants are provided by shared-lists.css */
+
+/* ===============================
+   Page header
+   =============================== */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* page-title h1/h2 and .table-responsive are provided by shared-lists.css */
+
+/* Responsive tweaks similar to ListeUser */
+@media (max-width: 768px) {
+  .listeprofils-wrapper {
+    flex-direction: column;
+  }
+
+  .listeprofils-sidebar {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 20px;
+  }
+}
+
+/* Actions (bouton ajouter) */
+.page-actions {
+  display: flex;
+  align-items: center;
+}

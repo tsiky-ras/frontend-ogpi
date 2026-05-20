@@ -1,0 +1,118 @@
+@import '../../../../styles/shared-lists.css';
+
+/* ================= Page layout for ListeUser ================= */
+
+.listeuser-layout {
+  min-height: 100vh;
+  background: #f7f9fc; /* fond clair de la palette */
+  padding-top: 60px; /* hauteur du Header */
+}
+
+.listeuser-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.listeuser-body {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* Sidebar */
+.listeuser-sidebar {
+  width: 200px; 
+  min-width: 200px;
+  color: #E8E5D7;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* Main content */
+.listeuser-main {
+  flex: 1;
+  padding: 24px;
+  overflow-x: auto;
+}
+
+/* Content wrapper */
+.listeuser-content {
+  flex: 1;
+}
+
+/* Content container to center and limit width */
+.listeuser-content .container {
+  max-width: 1200px;
+  margin: 24px auto;
+}
+
+/* Page header */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #C93C29; /* accent principal */
+}
+
+.page-title h2 {
+  font-size: 16px;
+  color: #5F6F6E; /* texte secondaire */
+  font-weight: 500;
+}
+
+/* Boutons bien alignés */
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Stats cards */
+.stats-cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* stat-card rules and variants are provided by shared-lists.css */
+
+.stat-card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.stat-title {
+  font-size: 14px;
+  color: #5F6F6E; /* texte secondaire */
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+/* variants live in shared-lists.css */
+
+/* Table wrapper */
+.table-responsive {
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .listeuser-wrapper {
+    flex-direction: column;
+  }
+
+  .listeuser-sidebar {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 20px;
+  }
+}

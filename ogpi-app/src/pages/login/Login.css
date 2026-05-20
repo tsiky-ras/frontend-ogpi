@@ -1,0 +1,250 @@
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.login-page {
+  display: flex;
+  height: 100vh;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── Panneau gauche ──────────────────────────────────────────────────────── */
+.login-left {
+  flex: 1.1;
+  background: linear-gradient(145deg, #000428 0%, #0a1f44 55%, #004e92 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 48px;
+}
+
+/* Cercles décoratifs */
+.login-left-deco {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.08;
+  background: #fff;
+  pointer-events: none;
+}
+.deco-1 { width: 420px; height: 420px; top: -120px; right: -120px; }
+.deco-2 { width: 260px; height: 260px; bottom: -60px; left: -80px; }
+.deco-3 { width: 140px; height: 140px; bottom: 120px; right: 60px; opacity: 0.05; }
+
+/* Branding */
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  z-index: 1;
+}
+
+.login-brand-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.login-brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.login-brand-name {
+  font-size: 52px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 6px;
+  margin: 0;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+}
+
+.login-brand-tagline {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.06em;
+  text-align: center;
+  margin: 0;
+  font-weight: 400;
+}
+
+.login-left-footer {
+  position: absolute;
+  bottom: 24px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.04em;
+}
+
+/* ── Panneau droit ───────────────────────────────────────────────────────── */
+.login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
+  background: #f0f2f5;
+}
+
+/* ── Carte formulaire ────────────────────────────────────────────────────── */
+.login-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 48px 44px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 4px 32px rgba(10, 31, 68, 0.10), 0 1px 4px rgba(10, 31, 68, 0.06);
+  animation: loginFadeUp 0.35s ease-out both;
+}
+
+@keyframes loginFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.login-card-header {
+  margin-bottom: 36px;
+}
+
+.login-card-header h2 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0a1f44;
+  margin: 0 0 6px;
+  letter-spacing: -0.3px;
+}
+
+.login-card-header p {
+  font-size: 14px;
+  color: #8a9bab;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ── Formulaire ──────────────────────────────────────────────────────────── */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.login-field label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0a1f44;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.login-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.login-input-icon {
+  position: absolute;
+  left: 14px;
+  color: #8a9bab;
+  font-size: 14px;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.login-input-wrap input {
+  width: 100%;
+  padding: 13px 44px 13px 40px;
+  font-size: 14.5px;
+  border-radius: 10px;
+  border: 1.5px solid #e4e9ee;
+  background: #f8fafc;
+  color: #0a1f44;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.login-input-wrap input::placeholder {
+  color: #b8c5cf;
+}
+
+.login-input-wrap input:focus {
+  border-color: #0a1f44;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(10, 31, 68, 0.10);
+}
+
+.login-input-wrap input:focus + .login-input-icon,
+.login-input-wrap:focus-within .login-input-icon {
+  color: #0a1f44;
+}
+
+/* Bouton œil */
+.login-eye {
+  position: absolute;
+  right: 13px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #8a9bab;
+  font-size: 15px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.login-eye:hover { color: #0a1f44; }
+
+/* ── Bouton connexion ────────────────────────────────────────────────────── */
+.login-btn {
+  margin-top: 6px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0a1f44 0%, #004e92 100%);
+  color: #fff;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(10, 31, 68, 0.35);
+}
+
+.login-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(10, 31, 68, 0.42);
+}
+
+.login-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .login-left { display: none; }
+  .login-right { background: #0a1f44; }
+  .login-card {
+    box-shadow: none;
+    border-radius: 16px;
+  }
+}

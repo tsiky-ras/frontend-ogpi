@@ -1,0 +1,212 @@
+/* ===== MODAL HEADER ===== */
+.tache-modal-header {
+  background: linear-gradient(135deg, #223A46 0%, #2d4d5c 100%);
+  border-bottom: 3px solid #C93C29;
+  padding: 20px 24px;
+}
+
+.tache-modal-header .modal-title {
+  color: #E8E5D7;
+  font-weight: 700;
+  font-size: 1.5rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tache-modal-header .btn-close {
+  filter: brightness(0) invert(1);
+  opacity: 0.8;
+}
+
+.tache-modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+/* ===== MODAL BODY ===== */
+.tache-modal-body {
+  background: linear-gradient(135deg, #E8E5D7 0%, #ffffff 100%);
+  padding: 32px;
+}
+
+/* ===== FORM LABELS ===== */
+.form-label-custom {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #223A46;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.form-label-custom .required {
+  color: #C93C29;
+  margin-left: 4px;
+}
+
+/* ===== FORM INPUTS ===== */
+.form-input-custom {
+  border: 2px solid #5F6F6E;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: #ffffff;
+}
+
+.form-input-custom:focus {
+  border-color: #C93C29;
+  box-shadow: 0 0 0 3px rgba(201, 60, 41, 0.1);
+  background: #ffffff;
+}
+
+.form-input-custom::placeholder {
+  color: #5F6F6E;
+  opacity: 0.6;
+}
+
+/* ===== STATUS RADIO GROUP ===== */
+.status-radio-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.status-radio-custom {
+  background: #ffffff;
+  border: 2px solid #5F6F6E;
+  border-radius: 12px;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 120px;
+}
+
+.status-radio-custom:hover {
+  border-color: #EABF5B;
+  background: rgba(234, 191, 91, 0.1);
+}
+
+.status-radio-custom .form-check-input {
+  margin-right: 8px;
+}
+
+.status-radio-custom .form-check-input:checked {
+  background-color: #C93C29;
+  border-color: #C93C29;
+}
+
+.status-radio-custom .form-check-label {
+  cursor: pointer;
+  font-weight: 600;
+  color: #223A46;
+}
+
+/* ===== CHECKBOX ===== */
+.checkbox-custom {
+  background: #ffffff;
+  border: 2px solid #5F6F6E;
+  border-radius: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.checkbox-custom:hover {
+  border-color: #EABF5B;
+  background: rgba(234, 191, 91, 0.1);
+}
+
+.checkbox-custom .form-check-input {
+  width: 24px;
+  height: 24px;
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+.checkbox-custom .form-check-input:checked {
+  background-color: #C93C29;
+  border-color: #C93C29;
+}
+
+.checkbox-custom .form-check-label {
+  cursor: pointer;
+  font-weight: 600;
+  color: #223A46;
+  font-size: 1rem;
+}
+
+/* ===== FORM ACTIONS ===== */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 2px solid #E8E5D7;
+}
+
+.btn-cancel {
+  background: transparent;
+  border: 2px solid #5F6F6E;
+  color: #5F6F6E;
+  padding: 12px 32px;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+  background: #5F6F6E;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(95, 111, 110, 0.25);
+}
+
+.btn-submit {
+  background: linear-gradient(135deg, #C93C29 0%, #d44a37 100%);
+  border: none;
+  color: #ffffff;
+  padding: 12px 32px;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(201, 60, 41, 0.25);
+  transition: all 0.3s ease;
+}
+
+.btn-submit:hover {
+  background: linear-gradient(135deg, #d44a37 0%, #C93C29 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(201, 60, 41, 0.35);
+}
+
+.btn-submit:active,
+.btn-cancel:active {
+  transform: translateY(0);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .tache-modal-body {
+    padding: 24px;
+  }
+
+  .status-radio-group {
+    flex-direction: column;
+  }
+
+  .status-radio-custom {
+    min-width: 100%;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+
+  .btn-cancel,
+  .btn-submit {
+    width: 100%;
+  }
+}

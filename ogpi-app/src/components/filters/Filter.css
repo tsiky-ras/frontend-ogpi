@@ -1,0 +1,27 @@
+.filter-container {
+  display: inline-block;
+  margin: 10px 0;
+}
+
+.status-select {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  color: #08143d;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.status-select:hover {
+  border-color: #1a2a6c;
+}
+
+.status-select:focus {
+  border-color: #1a2a6c;
+  box-shadow: 0 0 4px rgba(26, 42, 108, 0.3);
+}

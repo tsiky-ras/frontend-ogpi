@@ -1,0 +1,107 @@
+/* Shared styles for list pages (stat cards, headers, palette variables) */
+
+:root {
+  --color-tomato: #C93C29;
+  --color-linen: #E8E5D7;
+  --color-tuscan: #EABF5B;
+  --color-dim: #5F6F6E;
+  --color-charcoal: #223A46;
+  --text-default: #223A46;
+}
+
+/* Page base text styles */
+.
+/* Using a class to avoid interfering globally; components can rely on .listeuser-layout / .listeprofils-layout */
+
+.lists-base {
+  font-family: 'Poppins', sans-serif;
+  color: var(--text-default);
+}
+
+/* Stat card base */
+.stat-card {
+  --accent: var(--color-tomato);
+  background: #fff;
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  transition: all 0.3s ease;
+}
+
+.stat-title {
+  font-size: 14px;
+  color: var(--color-dim);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent, var(--color-tomato));
+}
+
+/* Variants using gentle gradients and subtle left border for visual grouping */
+.stat-card--tomato {
+  --accent: var(--color-tomato);
+  background: linear-gradient(180deg, rgba(201,60,41,0.06), #fff);
+  border-left: 6px solid rgba(201,60,41,0.12);
+}
+
+.stat-card--tuscan {
+  --accent: var(--color-tuscan);
+  background: linear-gradient(180deg, rgba(234,191,91,0.06), #fff);
+  border-left: 6px solid rgba(234,191,91,0.12);
+}
+
+.stat-card--linen {
+  --accent: var(--color-dim);
+  background: linear-gradient(180deg, rgba(232,229,215,0.28), #fff);
+  border-left: 6px solid rgba(95,111,110,0.06);
+}
+
+.stat-card--charcoal {
+  --accent: var(--color-charcoal);
+  background: linear-gradient(180deg, rgba(34,58,70,0.06), #fff);
+  border-left: 6px solid rgba(34,58,70,0.12);
+}
+
+/* Table wrapper shared appearance */
+.table-responsive {
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+}
+
+/* Page title styles shared */
+.page-title h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-tomato);
+}
+
+.page-title h2 {
+  font-size: 16px;
+  color: var(--color-dim);
+  font-weight: 500;
+}
+
+/* Responsive tweaks used by list pages */
+@media (max-width: 768px) {
+  .lists-stack {
+    flex-direction: column;
+  }
+
+  .lists-sidebar-full {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 20px;
+  }
+}

@@ -1,0 +1,22 @@
+.info-general-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem; 
+}
+
+.info-item {
+  background-color: #f9f9f9;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+}
+
+.info-item label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.info-item p {
+  margin: 0;
+  word-break: break-word;
+}

@@ -1,0 +1,898 @@
+/* ===========================
+   PALETTE DE COULEURS
+   =========================== */
+   :root {
+    --tomato-jam: #C93C29;
+    --soft-linen: #E8E5D7;
+    --tuscan-sun: #EABF5B;
+    --dim-grey: #5F6F6E;
+    --charcoal-blue: #223A46;
+    --white: #ffffff;
+    --light-grey: #f8f9fa;
+    --border-grey: #e5e7eb;
+  
+    /* Couleurs distinctes pour colonnes profil */
+    --profil-0: #223A46;   /* charcoal-blue */
+    --profil-0-bg: #e8f0f4;
+    --profil-0-hover: #d0e2ea;
+  
+    --profil-1: #C93C29;   /* tomato-jam */
+    --profil-1-bg: #faeae7;
+    --profil-1-hover: #f5d0ca;
+  
+    --profil-2: #2e7d32;   /* vert */
+    --profil-2-bg: #e8f5e9;
+    --profil-2-hover: #c8e6c9;
+  
+    --profil-3: #7b3fbe;   /* violet */
+    --profil-3-bg: #f3e8ff;
+    --profil-3-hover: #e1c8ff;
+  }
+  
+  /* ===========================
+     BACKLOG TABLE WRAPPER
+     =========================== */
+  .backlog-table-wrapper {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(34, 58, 70, 0.09);
+  }
+  
+  /* ===========================
+     BACKLOG TABLE
+     =========================== */
+  .backlog-table {
+    font-size: 0.88rem;
+    border-color: var(--border-grey);
+    margin-bottom: 0;
+  }
+  
+  .backlog-table thead th {
+    background-color: var(--charcoal-blue);
+    color: var(--white);
+    font-weight: 600;
+    border-color: rgba(255,255,255,0.15);
+    padding: 10px 10px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+  }
+  
+  .backlog-table tbody td {
+    padding: 9px 10px;
+    vertical-align: middle;
+    border-color: var(--border-grey);
+    color: var(--charcoal-blue);
+  }
+  
+  .profil-col-header {
+    border-left: 3px solid rgba(255,255,255,0.3) !important;
+    position: relative;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    font-weight: 600;
+    background: #1a3a5c; /* Fallback */
+  }
+  
+  /* Bleu marine - texte blanc */
+  .profil-col-0 { 
+    background: #1a3a5c !important;
+  }
+  .profil-col-0:hover { 
+    background: #1e4570 !important;
+  }
+  
+  /* Gold/Or - texte blanc (fond suffisamment foncé) */
+  .profil-col-1 { 
+    background: #8B6914 !important; /* Gold foncé pour texte blanc lisible */
+  }
+  .profil-col-1:hover { 
+    background: #A67C18 !important;
+  }
+  
+  /* Rouge bordeaux - texte blanc */
+  .profil-col-2 { 
+    background: #8B2A1F !important; /* Rouge foncé */
+  }
+  .profil-col-2:hover { 
+    background: #A83426 !important;
+  }
+  
+  /* Vert forêt - texte blanc */
+  .profil-col-3 { 
+    background: #1B5A48 !important; /* Vert foncé */
+  }
+  .profil-col-3:hover { 
+    background: #237A62 !important;
+  }
+  
+  /* Texte dans les cellules */
+  .profil-th-name {
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+  
+  .profil-th-collab {
+    font-size: 0.7rem;
+    opacity: 0.9;
+    margin: 3px 0;
+  }
+  
+  .profil-th-tjm {
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-top: 4px;
+    opacity: 0.95;
+  }
+  
+  /* ── Colonnes profil — cellules ── */
+  .backlog-profil-cell {
+    border-left: 3px solid rgba(200,200,200,0.4) !important;
+    transition: all 0.18s ease;
+    font-weight: 600;
+  }
+  
+  .profil-cell-0 { background-color: var(--profil-0-bg); color: var(--profil-0); }
+  .profil-cell-1 { background-color: var(--profil-1-bg); color: var(--profil-1); }
+  .profil-cell-2 { background-color: var(--profil-2-bg); color: var(--profil-2); }
+  .profil-cell-3 { background-color: var(--profil-3-bg); color: var(--profil-3); }
+  
+  .profil-cell-0:hover { background-color: var(--profil-0-hover); transform: scale(1.04); box-shadow: 0 2px 8px rgba(34,58,70,0.15); }
+  .profil-cell-1:hover { background-color: var(--profil-1-hover); transform: scale(1.04); box-shadow: 0 2px 8px rgba(201,60,41,0.15); }
+  .profil-cell-2:hover { background-color: var(--profil-2-hover); transform: scale(1.04); box-shadow: 0 2px 8px rgba(38,100,42,0.15); }
+  .profil-cell-3:hover { background-color: var(--profil-3-hover); transform: scale(1.04); box-shadow: 0 2px 8px rgba(100,50,170,0.15); }
+  
+  .profil-volume-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    background: rgba(255,255,255,0.65);
+  }
+  
+  /* ===========================
+     SPRINT BREADCRUMB (dans le tableau)
+     =========================== */
+  .sprint-breadcrumb-cell {
+    padding: 6px 10px !important;
+  }
+  
+  .sprint-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px;
+    font-size: 0.8rem;
+  }
+  
+  .bc-lot {
+    background: var(--charcoal-blue);
+    color: var(--white);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  
+  .bc-phase {
+    background: var(--tuscan-sun);
+    color: var(--charcoal-blue);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  
+  .bc-sprint {
+    background: var(--soft-linen);
+    color: var(--dim-grey);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  
+  .bc-sep {
+    color: var(--dim-grey);
+    font-size: 0.7rem;
+    opacity: 0.5;
+  }
+  
+  /* ===========================
+     DRAG HANDLE POUR LIGNES
+     =========================== */
+  .line-drag-handle {
+    cursor: grab;
+    user-select: none;
+    color: var(--dim-grey);
+    font-size: 16px;
+    transition: color 0.2s ease;
+  }
+  
+  .line-drag-handle:hover {
+    color: var(--tomato-jam);
+  }
+  
+  .line-drag-handle:active {
+    cursor: grabbing;
+    color: var(--tuscan-sun);
+  }
+  
+  /* ===========================
+     BACKLOG LIST (LOTS/PROFILS)
+     =========================== */
+  .backlog-list,
+  .profil-list {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(34, 58, 70, 0.08);
+    border: 1px solid var(--border-grey);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .backlog-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    border-bottom: 2px solid var(--soft-linen);
+    align-items: flex-start;
+    transition: all 0.3s ease;
+    background: var(--white);
+    border-radius: 8px;
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .backlog-item:last-child {
+    border-bottom: none;
+  }
+  
+  .backlog-item:hover {
+    background-color: rgba(232, 229, 215, 0.3);
+    box-shadow: 0 2px 8px rgba(34, 58, 70, 0.08);
+  }
+  
+  /* ===========================
+     DRAG HANDLES (LOTS/PROFILS)
+     =========================== */
+  .drag-handle,
+  .drag-handle-profil {
+    cursor: grab;
+    font-size: 20px;
+    color: var(--dim-grey);
+    user-select: none;
+    padding-top: 4px;
+    transition: all 0.2s ease;
+    min-width: 24px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .drag-handle:hover,
+  .drag-handle-profil:hover {
+    color: var(--tomato-jam);
+    transform: scale(1.2);
+  }
+  
+  .drag-handle:active,
+  .drag-handle-profil:active {
+    cursor: grabbing;
+    color: var(--tuscan-sun);
+  }
+  
+  /* ===========================
+     BACKLOG CONTENT
+     =========================== */
+  .backlog-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .backlog-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--charcoal-blue);
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  
+  .backlog-order {
+    margin-right: 8px;
+    color: var(--tomato-jam);
+    font-weight: 600;
+    font-size: 18px;
+  }
+  
+  .backlog-desc {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--dim-grey);
+    line-height: 1.6;
+  }
+  
+  .profil-tjm {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background-color: var(--soft-linen);
+    border-radius: 6px;
+    display: inline-block;
+    font-size: 14px;
+    color: var(--charcoal-blue);
+    border-left: 3px solid var(--tuscan-sun);
+  }
+  
+  .profil-tjm strong {
+    color: var(--tomato-jam);
+    margin-right: 4px;
+  }
+  
+  /* ===========================
+     PROFIL COLLABORATEUR (onglet Profils)
+     =========================== */
+  .profil-collab-section {
+    display: flex;
+    align-items: center;
+  }
+  
+  .profil-collab-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(34,58,70,0.07) 0%, rgba(234,191,91,0.12) 100%);
+    border: 1px solid rgba(34,58,70,0.15);
+    border-left: 3px solid var(--charcoal-blue);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.88rem;
+    color: var(--charcoal-blue);
+    font-weight: 500;
+  }
+  
+  .profil-collab-poste {
+    font-size: 0.75rem;
+    color: var(--dim-grey);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  
+  .profil-collab-change-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--dim-grey);
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+  }
+  
+  .profil-collab-change-btn:hover {
+    background: var(--soft-linen);
+    color: var(--charcoal-blue);
+  }
+  
+  .profil-assign-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px dashed rgba(34,58,70,0.3);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 0.82rem;
+    color: var(--dim-grey);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .profil-assign-btn:hover {
+    border-color: var(--charcoal-blue);
+    color: var(--charcoal-blue);
+    background: rgba(34,58,70,0.04);
+  }
+  
+  /* ===========================
+     MODAL COLLABORATEUR
+     =========================== */
+  .collab-search-bar {
+    /* Pas de style particulier, simple wrapper */
+  }
+  
+  .collab-search-type {
+    /* Wrapper des boutons de sélection du type de recherche */
+  }
+  
+  .collab-results-list {
+    max-height: 380px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-grey);
+  }
+  
+  .collab-result-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-grey);
+    transition: all 0.18s ease;
+  }
+  
+  .collab-result-item:last-child {
+    border-bottom: none;
+  }
+  
+  .collab-result-item:hover {
+    background: linear-gradient(90deg, rgba(34,58,70,0.05) 0%, rgba(234,191,91,0.08) 100%);
+  }
+  
+  .collab-result-item.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .collab-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--charcoal-blue), #3a6070);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  
+  .collab-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .collab-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--charcoal-blue);
+  }
+  
+  .collab-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  
+  .collab-poste {
+    font-size: 0.78rem;
+    color: var(--tomato-jam);
+    font-weight: 500;
+  }
+  
+  .collab-bu-sep {
+    color: var(--dim-grey);
+    font-size: 0.75rem;
+  }
+  
+  .collab-bu {
+    font-size: 0.78rem;
+    color: var(--dim-grey);
+  }
+  
+  .collab-select-icon {
+    color: var(--dim-grey);
+    opacity: 0;
+    transition: all 0.15s ease;
+    font-size: 0.85rem;
+  }
+  
+  .collab-result-item:hover .collab-select-icon {
+    opacity: 1;
+    color: var(--charcoal-blue);
+  }
+  
+  /* ===========================
+     SÉLECTEUR EN CASCADE (Ligne)
+     =========================== */
+  .cascade-selector {
+    background: linear-gradient(135deg, rgba(34,58,70,0.04) 0%, rgba(234,191,91,0.06) 100%);
+    border: 1px solid rgba(34,58,70,0.12);
+    border-left: 4px solid var(--charcoal-blue);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  
+  .cascade-selector-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--charcoal-blue);
+    margin-bottom: 10px;
+  }
+  
+  .cascade-select {
+    border-color: rgba(34,58,70,0.2);
+    font-size: 0.9rem;
+  }
+  
+  .cascade-select:focus {
+    border-color: var(--charcoal-blue);
+    box-shadow: 0 0 0 0.2rem rgba(34,58,70,0.15);
+  }
+  
+  .cascade-select:disabled {
+    opacity: 0.5;
+    background-color: rgba(232,229,215,0.4);
+  }
+  
+  .cascade-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(40,167,69,0.08);
+    border: 1px solid rgba(40,167,69,0.2);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.82rem;
+    color: #1a6b2e;
+    font-weight: 500;
+  }
+  
+  /* ===========================
+     FILTRE PANEL
+     =========================== */
+  .filter-panel {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  /* ===========================
+     BACKLOG ACTIONS
+     =========================== */
+  .backlog-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: flex-start;
+  }
+  
+  /* ===========================
+     PHASES SECTION
+     =========================== */
+  .phases-section {
+    padding-left: 24px;
+    border-left: 3px solid var(--tuscan-sun);
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+  
+  .phases-header {
+    font-size: 0.95rem;
+    color: var(--dim-grey);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+  
+  .phases-list-sortable {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .phase-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    background-color: var(--soft-linen);
+    border-radius: 8px;
+    border: 1px solid var(--border-grey);
+    transition: all 0.25s ease;
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .phase-item:hover {
+    background-color: rgba(234, 191, 91, 0.2);
+    border-color: var(--tuscan-sun);
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(34, 58, 70, 0.1);
+  }
+  
+  .phase-drag-handle {
+    cursor: grab;
+    color: var(--dim-grey);
+    font-size: 16px;
+    padding: 0 4px;
+    user-select: none;
+    transition: all 0.2s ease;
+  }
+  
+  .phase-drag-handle:hover {
+    color: var(--tomato-jam);
+    transform: scale(1.2);
+  }
+  
+  .phase-drag-handle:active {
+    cursor: grabbing;
+    color: var(--tuscan-sun);
+  }
+  
+  .phase-content {
+    flex: 1;
+    width: 100%;
+  }
+  
+  .phase-order {
+    font-weight: 600;
+    color: var(--tomato-jam);
+    margin-right: 6px;
+    min-width: 28px;
+    font-size: 15px;
+  }
+  
+  .phase-name {
+    color: var(--charcoal-blue);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+  
+  .phase-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  
+  /* ===========================
+     LIVRABLES SECTION
+     =========================== */
+  .deliverables-section {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: var(--white);
+    border-radius: 6px;
+    border-left: 3px solid var(--tomato-jam);
+    box-shadow: 0 1px 3px rgba(34, 58, 70, 0.05);
+  }
+  
+  .deliverable-item {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    background: var(--soft-linen);
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-grey);
+    transition: all 0.2s ease;
+    margin-bottom: 6px;
+  }
+  
+  .deliverable-item:hover {
+    box-shadow: 0 2px 6px rgba(201, 60, 41, 0.15);
+    border-color: var(--tomato-jam);
+    transform: translateX(2px);
+  }
+  
+  .deliverable-content {
+    flex: 1;
+  }
+  
+  .deliverable-actions {
+    display: flex;
+    gap: 0.25rem;
+    align-items: flex-start;
+  }
+  
+  /* ===========================
+     BUTTONS (ICON & GENERAL)
+     =========================== */
+  .btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--dim-grey);
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .btn-icon:hover {
+    background-color: var(--soft-linen);
+    color: var(--charcoal-blue);
+    transform: translateY(-1px);
+  }
+  
+  .btn-icon:active {
+    transform: scale(0.95);
+  }
+  
+  /* ===========================
+     SORTABLE STYLES
+     =========================== */
+  .sortable-ghost {
+    opacity: 0.5;
+    background-color: rgba(234, 191, 91, 0.3);
+    border: 2px dashed var(--tuscan-sun);
+  }
+  
+  .sortable-chosen {
+    opacity: 0.9;
+    background-color: var(--soft-linen);
+    box-shadow: 0 4px 12px rgba(34, 58, 70, 0.15);
+  }
+  
+  .sortable-drag {
+    opacity: 0.8;
+    box-shadow: 0 6px 20px rgba(34, 58, 70, 0.2);
+    transform: rotate(2deg);
+  }
+  
+  .sortable-empty-row {
+    background-color: rgba(232, 229, 215, 0.3);
+  }
+  
+  /* ===========================
+     CARDS (TOTAUX)
+     =========================== */
+  .card {
+    border: 1px solid var(--border-grey);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(34, 58, 70, 0.05);
+    overflow: hidden;
+  }
+  
+  .card-header {
+    background-color: var(--charcoal-blue);
+    border-bottom: 2px solid var(--tuscan-sun);
+    padding: 14px 20px;
+  }
+  
+  .card-header h5 {
+    color: var(--white);
+    font-weight: 600;
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  
+  .card-body {
+    padding: 20px;
+    background-color: var(--white);
+  }
+  
+  /* ===========================
+     TABLES (TOTAUX)
+     =========================== */
+  .table {
+    margin-bottom: 0;
+  }
+  
+  .table thead th {
+    background-color: var(--soft-linen);
+    color: var(--charcoal-blue);
+    font-weight: 600;
+    border-bottom: 2px solid var(--tuscan-sun);
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+  
+  .table tbody tr:hover {
+    background-color: rgba(234, 191, 91, 0.1);
+  }
+  
+  .table-active {
+    background-color: var(--soft-linen);
+    font-weight: 600;
+  }
+  
+  .table-active td {
+    color: var(--charcoal-blue);
+    border-top: 2px solid var(--tuscan-sun);
+  }
+  
+  .table-secondary {
+    background-color: rgba(232, 229, 215, 0.5);
+    font-weight: 600;
+  }
+  
+  .table-secondary td {
+    color: var(--charcoal-blue);
+  }
+  
+  .text-primary {
+    color: var(--tomato-jam) !important;
+  }
+  
+  /* ===========================
+     RESPONSIVE
+     =========================== */
+  @media (max-width: 768px) {
+    .backlog-item {
+      flex-direction: column;
+      gap: 12px;
+    }
+    .backlog-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+    .phase-item {
+      flex-wrap: wrap;
+    }
+    .phases-section {
+      padding-left: 12px;
+    }
+    .deliverables-section {
+      margin-left: 0;
+    }
+  }
+  
+  /* ===========================
+     ANIMATIONS
+     =========================== */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* ===========================
+     UTILITIES
+     =========================== */
+  .text-end    { text-align: right; }
+  .text-center { text-align: center; }
+  .text-muted  { color: var(--dim-grey) !important; }
+  .mb-0        { margin-bottom: 0 !important; }
+  .mt-2        { margin-top: 0.5rem !important; }
+  .mt-3        { margin-top: 1rem !important; }
+  .mb-3        { margin-bottom: 1rem !important; }
+  .mb-4        { margin-bottom: 1.5rem !important; }
+  .py-3        { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+  .py-5        { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+  
+  /* ===========================
+     SCROLLBAR PERSONNALISÉE
+     =========================== */
+  .table-responsive::-webkit-scrollbar,
+  .collab-results-list::-webkit-scrollbar {
+    height: 8px;
+    width: 6px;
+  }
+  
+  .table-responsive::-webkit-scrollbar-track,
+  .collab-results-list::-webkit-scrollbar-track {
+    background: var(--soft-linen);
+    border-radius: 4px;
+  }
+  
+  .table-responsive::-webkit-scrollbar-thumb,
+  .collab-results-list::-webkit-scrollbar-thumb {
+    background: var(--dim-grey);
+    border-radius: 4px;
+  }
+  
+  .table-responsive::-webkit-scrollbar-thumb:hover,
+  .collab-results-list::-webkit-scrollbar-thumb:hover {
+    background: var(--charcoal-blue);
+  }
