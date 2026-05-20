@@ -646,11 +646,20 @@ const MesTachesBacklog: React.FC<Props> = ({ service, currentUserName = "Utilisa
         </div>
       </div>
 
-      {!loading && !error && visible.length > 0 && (
+      {!loading && !error && (
         <div className="btb-stats">
-          <div className="btb-stat"><span className="btb-stat-num">{counts.enAttente}</span><span className="btb-stat-lbl">En attente</span></div>
-          <div className="btb-stat"><span className="btb-stat-num" style={{ color:"#8b5cf6" }}>{counts.enCours}</span><span className="btb-stat-lbl">En cours</span></div>
-          <div className="btb-stat"><span className="btb-stat-num" style={{ color:"#f97316" }}>{counts.soumis}</span><span className="btb-stat-lbl">Soumis</span></div>
+          <div className="btb-stat-pill">
+            <FaClock className="sp-icon sp-wait" />
+            <div><span className="sp-num">{counts.enAttente}</span><span className="sp-lbl">En attente</span></div>
+          </div>
+          <div className="btb-stat-pill">
+            <FaHourglassHalf className="sp-icon sp-progress" />
+            <div><span className="sp-num">{counts.enCours}</span><span className="sp-lbl">En cours</span></div>
+          </div>
+          <div className="btb-stat-pill">
+            <FaCheckCircle className="sp-icon sp-assigned" />
+            <div><span className="sp-num">{counts.soumis}</span><span className="sp-lbl">Soumis</span></div>
+          </div>
         </div>
       )}
 

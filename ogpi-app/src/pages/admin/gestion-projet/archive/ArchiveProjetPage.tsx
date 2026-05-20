@@ -5,8 +5,9 @@ import Title from '../../../../components/title/Title.tsx';
 import FilterBar from '../../../../components/filters/FilterBar.tsx';
 import Table from '../../../../components/table/Table.tsx';
 import {
-  FaArchive, FaBoxOpen, FaProjectDiagram,
+  FaArchive, FaBoxOpen, FaProjectDiagram, FaCoins, FaFileAlt,
 } from 'react-icons/fa';
+import StatCard from '../../../../components/stat/StatCard.tsx';
 import { useAuth } from '../../../../context/AuthContext.tsx';
 import { ArchiveProjetService } from '../../../../services/projet/ArchiveProjetService.tsx';
 import { Projet } from '../../../../types/projet/Projet.tsx';
@@ -215,11 +216,16 @@ const ArchiveProjetPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="archive-stat-banner mb-3">
-              <FaArchive className="archive-stat-icon" />
-              <span>
-                <strong>{projets.length}</strong> projet{projets.length !== 1 ? 's' : ''} archivé{projets.length !== 1 ? 's' : ''}
-              </span>
+            <div className="row g-3 mb-4">
+              <div className="col-md-4">
+                <StatCard title="Total archivés" value={projets.length} variant="#08143d" icon={<FaArchive />} />
+              </div>
+              <div className="col-md-4">
+                <StatCard title="Facturables" value={projets.filter(p => p.typeFacturation?.isFacturable).length} variant="#10b981" icon={<FaCoins />} />
+              </div>
+              <div className="col-md-4">
+                <StatCard title="Avec réf. BC" value={projets.filter(p => !!p.refBC).length} variant="#3b82f6" icon={<FaFileAlt />} />
+              </div>
             </div>
 
             <div className="d-flex align-items-center gap-2 mb-3">

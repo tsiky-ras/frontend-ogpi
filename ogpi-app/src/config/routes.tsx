@@ -104,7 +104,7 @@ export const routes: RouteConfig[] = [
     children: [
       {
         path: "/archive-lead",
-        label: "Archives Leads",
+        label: "Archives Opportunités",
         icon: <FaThList />,
         requiredPerm: "ARCHIVE_VIEW",
       },

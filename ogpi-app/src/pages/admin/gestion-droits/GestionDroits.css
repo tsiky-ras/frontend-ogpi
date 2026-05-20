@@ -1,4 +1,4 @@
-/* ── Layout (même pattern que OccupationCollaborateurPage) ─────────────── */
+/* ── Layout ─────────────────────────────────────────────────────────────── */
 .gd-layout {
   min-height: 100vh;
   background: #f7f9fc;
@@ -22,24 +22,27 @@
   background: #f7f9fc;
 }
 
-/* ── Toolbar ──────────────────────────────────────────────────────────── */
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
 .gd-toolbar {
   display: flex;
   align-items: center;
   gap: .75rem;
   flex-wrap: wrap;
   margin-bottom: 1.25rem;
-  padding: .75rem 1rem;
+  padding: .875rem 1.25rem;
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(8, 20, 61, 0.06);
+  border: 1px solid #e8edf5;
+  border-left: 4px solid #c93c29;
 }
 
-/* ── Matrix table ─────────────────────────────────────────────────────── */
+/* ── Matrix table ────────────────────────────────────────────────────────── */
 .gd-table-wrap {
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(8, 20, 61, 0.06);
+  border: 1px solid #e8edf5;
   overflow-x: auto;
   margin-bottom: 1.5rem;
 }
@@ -52,56 +55,76 @@
 
 .gd-table th,
 .gd-table td {
-  border: 1px solid #e2e8f0;
-  padding: .5rem .75rem;
+  border: 1px solid #e8edf5;
+  padding: .5rem .875rem;
   vertical-align: middle;
   white-space: nowrap;
 }
 
+/* Sticky header — navy */
 .gd-table thead th {
-  background: #f8fafc;
-  font-weight: 600;
-  font-size: .8rem;
+  background: #08143d;
+  font-weight: 700;
+  font-size: .75rem;
   text-transform: uppercase;
-  letter-spacing: .04em;
-  color: #475569;
+  letter-spacing: .06em;
+  color: #fff;
   text-align: center;
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-.gd-table .gd-cat-row th {
-  background: #e0f2fe;
-  color: #0369a1;
-  font-size: .75rem;
-  font-weight: 700;
+.gd-table thead th:first-child {
   text-align: left;
-  padding-left: 1rem;
-  letter-spacing: .06em;
 }
 
+/* Category separator rows */
+.gd-table .gd-cat-row th {
+  background: rgba(8, 20, 61, 0.06);
+  color: #08143d;
+  font-size: .72rem;
+  font-weight: 700;
+  text-align: left;
+  padding: .45rem 1rem;
+  letter-spacing: .07em;
+  border-left: 3px solid #c93c29;
+}
+
+/* Permission label cell */
 .gd-table .gd-perm-label {
   font-size: .82rem;
   color: #334155;
-  min-width: 200px;
+  min-width: 210px;
 }
 
 .gd-table .gd-perm-code {
-  font-size: .7rem;
+  font-size: .68rem;
   color: #94a3b8;
   display: block;
+  font-family: ui-monospace, monospace;
+  margin-top: 1px;
 }
 
+/* Row hover */
+.gd-table tbody tr:hover td {
+  background: #fdf8f7;
+}
+
+.gd-table tbody tr:hover .gd-perm-label {
+  color: #c93c29;
+}
+
+/* Checkbox cells */
 .gd-check-cell {
   text-align: center;
 }
 
 .gd-check {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.1rem;
+  height: 1.1rem;
   cursor: pointer;
-  accent-color: #0ea5e9;
+  accent-color: #c93c29;
 }
 
 .gd-check:disabled {
@@ -109,18 +132,28 @@
   opacity: .4;
 }
 
-/* ── Audit log ──────────────────────────────────────────────────────────── */
+/* Highlight granted cells */
+.gd-check-cell:has(.gd-check:checked) {
+  background: rgba(201, 60, 41, 0.05);
+}
+
+/* ── Audit log ───────────────────────────────────────────────────────────── */
 .gd-audit {
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
-  padding: 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(8, 20, 61, 0.06);
+  border: 1px solid #e8edf5;
+  border-left: 4px solid #c93c29;
+  padding: 1.375rem 1.5rem;
 }
 
 .gd-audit h6 {
   font-weight: 700;
-  color: #475569;
-  margin-bottom: .75rem;
+  color: #08143d;
+  margin-bottom: .875rem;
+  font-size: .82rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
 }
 
 .gd-audit-table {
@@ -131,23 +164,47 @@
 
 .gd-audit-table th {
   background: #f8fafc;
-  padding: .4rem .6rem;
+  padding: .4rem .75rem;
   text-align: left;
-  font-weight: 600;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+  font-size: .73rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
 
 .gd-audit-table td {
-  padding: .35rem .6rem;
+  padding: .45rem .75rem;
   border-bottom: 1px solid #f1f5f9;
   color: #334155;
 }
 
-.gd-badge-grant  { background: #dcfce7; color: #15803d; font-size: .72rem; padding: .15rem .45rem; border-radius: 20px; font-weight: 600; }
-.gd-badge-revoke { background: #fee2e2; color: #b91c1c; font-size: .72rem; padding: .15rem .45rem; border-radius: 20px; font-weight: 600; }
+.gd-audit-table tbody tr:hover td {
+  background: #fdf8f7;
+}
 
-/* ── Search & filters ───────────────────────────────────────────────────── */
+.gd-badge-grant {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: .72rem;
+  padding: .2rem .55rem;
+  border-radius: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gd-badge-revoke {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: .72rem;
+  padding: .2rem .55rem;
+  border-radius: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Search & filters ────────────────────────────────────────────────────── */
 .gd-search-wrap {
   position: relative;
   display: flex;
@@ -167,9 +224,9 @@
 
 .gd-search-input {
   width: 100%;
-  padding: .32rem .75rem .32rem 2rem;
+  padding: .38rem .75rem .38rem 2rem;
   border: 1px solid #e2e8f0;
-  border-radius: 7px;
+  border-radius: 8px;
   font-size: .83rem;
   color: #334155;
   background: #f8fafc;
@@ -178,8 +235,8 @@
 }
 
 .gd-search-input:focus {
-  border-color: #223A46;
-  box-shadow: 0 0 0 3px rgba(34, 58, 70, 0.09);
+  border-color: #c93c29;
+  box-shadow: 0 0 0 3px rgba(201, 60, 41, 0.12);
   background: #fff;
 }
 
@@ -195,45 +252,50 @@
   align-items: center;
 }
 
-.gd-search-clear:hover { color: #475569; }
+.gd-search-clear:hover { color: #c93c29; }
 
 .gd-cat-select {
-  padding: .32rem .65rem;
+  padding: .38rem .75rem;
   border: 1px solid #e2e8f0;
-  border-radius: 7px;
+  border-radius: 8px;
   font-size: .83rem;
   color: #334155;
   background: #f8fafc;
   cursor: pointer;
   outline: none;
-  transition: border-color .15s;
+  transition: border-color .15s, box-shadow .15s;
 }
 
 .gd-cat-select:focus {
-  border-color: #223A46;
-  box-shadow: 0 0 0 3px rgba(34, 58, 70, 0.09);
+  border-color: #c93c29;
+  box-shadow: 0 0 0 3px rgba(201, 60, 41, 0.12);
 }
 
 .gd-reset-btn {
   background: none;
   border: none;
-  color: #C93C29;
+  color: #c93c29;
   font-size: .8rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  padding: 0;
+  padding: .3rem .6rem;
+  border-radius: 6px;
   white-space: nowrap;
+  transition: background .15s;
 }
 
-.gd-reset-btn:hover { opacity: .75; }
+.gd-reset-btn:hover {
+  background: rgba(201, 60, 41, 0.08);
+}
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .gd-empty {
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(8, 20, 61, 0.06);
+  border: 1px solid #e8edf5;
   padding: 3rem 1rem;
   text-align: center;
   color: #94a3b8;

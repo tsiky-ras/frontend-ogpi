@@ -1,40 +1,36 @@
 .fiche-profil-body {
   font-family: 'Poppins', sans-serif;
   font-size: 14px;
-  color: #223A46;
+  color: #334155;
   line-height: 1.6;
-  background: #ffffff;
-  padding: 30px;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  transition: 0.3s;
+  background: #f7f7f5;
+  padding: 28px;
 }
 
 /* Sections */
 .fiche-section {
-  margin-bottom: 30px;
-  padding: 20px 25px;
+  margin-bottom: 20px;
+  padding: 22px 26px;
   border-radius: 12px;
-  background: #F9F6F0;
-  transition: all 0.3s ease;
-  border-left: 5px solid #a95350;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  background: #fff;
+  transition: box-shadow 0.2s ease;
+  border-left: 5px solid #c93c29;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .fiche-section:hover {
-  background: #F9F6F0;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
 /* Titres des sections */
 .fiche-section h4 {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
-  color: #223A46;
-  margin-bottom: 18px;
-  border-left: 6px solid #6F3533;
-  padding-left: 12px;
-  letter-spacing: 0.5px;
+  color: #08143d;
+  margin-bottom: 16px;
+  border-left: 4px solid #c9a35b;
+  padding-left: 10px;
+  letter-spacing: 0.3px;
 }
 
 /* Grid pour informations */
@@ -47,7 +43,7 @@
 
 /* Liens */
 .fiche-link {
-  color: #6F3533;
+  color: #c93c29;
   text-decoration: none;
   font-weight: 500;
   transition: 0.2s;
@@ -61,7 +57,7 @@
 .soft-skill,
 .hard-skill,
 .cert-badge {
-  color: #223A46;
+  color: #08143d;
   padding: 7px 14px;
   margin-right: 8px;
   margin-bottom: 8px;
@@ -82,7 +78,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #6F3533;
+  background: #c93c29;
   color: #fff;
   padding: 6px 12px;
   border-radius: 8px;
@@ -94,7 +90,7 @@
 }
 
 .fiche-diplome a:hover {
-  background: #A02E22;
+  background: #b13424;
   transform: translateY(-2px);
 }
 
@@ -106,7 +102,7 @@
 
 .fiche-info span {
   font-weight: 600;
-  color: #223A46;
+  color: #08143d;
 }
 
 /* Table / List styles si besoin */
@@ -119,7 +115,7 @@
 .fiche-list li {
   margin-bottom: 8px;
   font-size: 14px;
-  color: #223A46;
+  color: #08143d;
 }
 
 /* Ajout d’une transition douce pour tout élément */
@@ -165,7 +161,7 @@
   list-style-type: disc;
   padding-left: 20px;
   margin: 0;
-  color: #223A46;
+  color: #08143d;
   font-size: 14px;
   line-height: 1.6;
 }

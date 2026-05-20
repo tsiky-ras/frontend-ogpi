@@ -494,18 +494,19 @@ const TachesAValiderBacklog: React.FC<Props> = ({ service, currentUserName = "Ut
         </div>
       </div>
 
-      {!loading && !error && visible.length > 0 && (
+      {!loading && !error && (
         <div className="vld-stats">
-          <div className="vld-stat vld-stat--pending">
-            <span className="vld-stat-num">{pending}</span><span className="vld-stat-lbl">En attente</span>
+          <div className="vld-stat-pill">
+            <FaHourglassHalf className="sp-icon sp-wait" />
+            <div><span className="sp-num">{pending}</span><span className="sp-lbl">En attente</span></div>
           </div>
-          <div className="vld-stat vld-stat--ok">
-            <span className="vld-stat-num">{visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.VALIDE).length}</span>
-            <span className="vld-stat-lbl">Validées</span>
+          <div className="vld-stat-pill">
+            <FaCheckCircle className="sp-icon sp-progress" />
+            <div><span className="sp-num">{visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.VALIDE).length}</span><span className="sp-lbl">Validées</span></div>
           </div>
-          <div className="vld-stat vld-stat--ko">
-            <span className="vld-stat-num">{visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.A_MODIFIER).length}</span>
-            <span className="vld-stat-lbl">Refusées</span>
+          <div className="vld-stat-pill">
+            <FaTimes className="sp-icon sp-ko" />
+            <div><span className="sp-num">{visible.filter(t => t.currentStatus?.status?.id === PROJECT_TASK_STATUS.A_MODIFIER).length}</span><span className="sp-lbl">Refusées</span></div>
           </div>
         </div>
       )}

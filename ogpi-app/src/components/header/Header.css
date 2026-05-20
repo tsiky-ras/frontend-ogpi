@@ -53,11 +53,25 @@
 .header-profile {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+  text-align: left;
+}
+
+.header-profile:hover {
+  background: rgba(8, 20, 61, 0.06);
+  box-shadow: 0 0 0 1px rgba(8, 20, 61, 0.08);
+}
+
+.header-profile--loading {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .header-avatar {
