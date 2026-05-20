@@ -228,22 +228,18 @@ const ArchiveProjetPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <div style={{ flex: 1, maxWidth: 420 }}>
-                <FilterBar
-                  filters={[{
-                    type: 'text',
-                    placeholder: 'Rechercher un projet archivé…',
-                    onChange: setSearch,
-                  }]}
-                />
-              </div>
-              {search && (
-                <span style={{ fontSize: '0.8rem', color: P.dim }}>
-                  <strong style={{ color: P.charcoal }}>{filtered.length}</strong> / {projets.length}
-                </span>
-              )}
-            </div>
+            <FilterBar
+              filters={[{
+                type: 'text',
+                placeholder: 'Rechercher un projet archivé…',
+                onChange: setSearch,
+              }]}
+            />
+            {search && (
+              <span style={{ fontSize: '0.8rem', color: P.dim, display: 'block', marginTop: -16, marginBottom: 8 }}>
+                <strong style={{ color: P.charcoal }}>{filtered.length}</strong> / {projets.length}
+              </span>
+            )}
 
             {loading ? (
               <div className="archive-loading">
