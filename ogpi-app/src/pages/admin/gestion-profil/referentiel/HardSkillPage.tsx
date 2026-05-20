@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import ConfigEntityPage from "./ConfigEntityPage.tsx";
 import { HardSkill } from "../../../../types/profil/skills/HardSkill.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
@@ -6,7 +6,7 @@ import { HardSkillsService } from "../../../../services/profil/hardskills/HardSk
 
 const HardSkillPage: React.FC = () => {
   const { api } = useAuth();
-  const hardSkillService = new HardSkillsService(api);
+  const hardSkillService = useMemo(() => new HardSkillsService(api), [api]);
   
   return (
     <ConfigEntityPage<HardSkill>

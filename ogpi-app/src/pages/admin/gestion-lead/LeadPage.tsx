@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import Header from "../../../components/header/Header.tsx";
 import Sidebar from "../../../components/sidebar/Sidebar.tsx";
@@ -22,26 +22,25 @@ const LeadPage: React.FC = () => {
     searchParams.get("page") ?? "dashboard"
   );
   const { api } = useAuth();
-  const leadService = new LeadService(api);
+  const leadService = useMemo(() => new LeadService(api), [api]);
   const [validationCount, setValidationCount] = useState<number>(0);
 
-  const fetchValidationCount = async () => {
+  const fetchValidationCount = useCallback(async () => {
     try {
       const data = await leadService.getToValidate();
       setValidationCount(Array.isArray(data) ? data.length : 0);
-    } catch (err) {
-      console.error("Erreur fetch validation count", err);
+    } catch {
       setValidationCount(0);
     }
-  };
+  }, [leadService]);
 
   useEffect(() => {
     fetchValidationCount();
-  }, []);
+  }, [fetchValidationCount]);
 
   useEffect(() => {
     if (activeTab === "validation") fetchValidationCount();
-  }, [activeTab]);
+  }, [activeTab, fetchValidationCount]);
 
   return (
     <div className="page-lead-layout">
@@ -68,8 +67,8 @@ const LeadPage: React.FC = () => {
               activeKey={activeTab}
               onSelect={(k) => k && setActiveTab(k)}
               className="mb-4"
-              mountOnEnter     
-              unmountOnExit    
+              mountOnEnter
+              unmountOnExit={false}
             >
               <Tab eventKey="dashboard" title="Dashboard">
                 <DashboardLeadPage />

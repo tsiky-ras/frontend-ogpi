@@ -436,9 +436,10 @@ interface ExpandedDetailsProps {
   statusService: ILeadTaskUserStatusService;
   taskService: ILeadTaskUserService;
   onStatusChanged: (newStatusId: number, newStatusLabel: string) => void;
+  onJhEstimeChange?: (val: number | null) => void;
 }
 
-const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService, statusService, taskService, onStatusChanged }) => {
+const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService, statusService, taskService, onStatusChanged, onJhEstimeChange }) => {
   const lead = details.leadDetails;
   const [files, setFiles] = useState<TaskFile[]>(details.leadTaskFiles ?? []);
   const [currentStatusId, setCurrentStatusId] = useState(details.leadTaskUserStatus.leadTaskStatus.leadTaskStatusId);
@@ -459,6 +460,7 @@ const ExpandedDetails: React.FC<ExpandedDetailsProps> = ({ details, fileService,
     setJhSaving(true);
     try {
       await taskService.updateJhEstime(details.leadTaskUserId, val);
+      onJhEstimeChange?.(val);
       setJhSaved(true);
       setTimeout(() => setJhSaved(false), 2000);
     } catch { /* ignore */ } finally {
@@ -654,6 +656,10 @@ const TacheCard: React.FC<{
     setLocalStatus({ leadTaskStatusId: newStatusId, leadTaskStatusLabel: newStatusLabel });
   }, []);
 
+  const handleJhEstimeChange = useCallback((val: number | null) => {
+    setDetails(prev => prev ? { ...prev, jhEstime: val } : prev);
+  }, []);
+
   const overdue = isOverdue(tache.leadTaskUserDeadline);
   const soon = isSoon(tache.leadTaskUserDeadline);
 
@@ -681,7 +687,7 @@ const TacheCard: React.FC<{
       </div>
 
       {open && !loadingDetail && details && (
-        <ExpandedDetails details={details} fileService={fileService} statusService={statusService} taskService={taskService} onStatusChanged={handleStatusChanged} />
+        <ExpandedDetails details={details} fileService={fileService} statusService={statusService} taskService={taskService} onStatusChanged={handleStatusChanged} onJhEstimeChange={handleJhEstimeChange} />
       )}
       {open && loadingDetail && (
         <div className="mt-detail-loading"><FaSpinner className="mt-spin" /> Chargement…</div>

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from '../../../../components/header/Header.tsx';
 import Sidebar from '../../../../components/sidebar/Sidebar.tsx';
 import Title from '../../../../components/title/Title.tsx';
 import Button from '../../../../components/button/Button.tsx';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaBriefcase, FaBuilding, FaGlobe } from 'react-icons/fa';
 import FilterBar from '../../../../components/filters/FilterBar.tsx';
 import Table from '../../../../components/table/Table.tsx';
 import StatCard from '../../../../components/stat/StatCard.tsx';
@@ -46,15 +46,14 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
   const [initialStep, setInitialStep] = useState<string>('qualification');
   const [hardFilterIds, setHardFilterIds] = useState<number[]>([]);
   
-  const leadService = new LeadService(api);
+  const leadService        = useMemo(() => new LeadService(api), [api]);
+  const backlogService     = useMemo(() => new BacklogService(api), [api]);
   const leadTechFinService = useLeadTechFinDetailsService();
 
   // States pour le backlog
   const [showBacklogModal, setShowBacklogModal] = useState(false);
   const [selectedLeadName, setSelectedLeadName] = useState<string>('');
   const [selectedLeadIdForBacklog, setSelectedLeadIdForBacklog] = useState<number | null>(null);
-  
-  const backlogService = new BacklogService(api);
 
   const [kpis, setKpis] = useState({
     activeOpportunitiesThisPeriod: 0,
@@ -241,7 +240,7 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
     }
   }, [searchParams, opportunities, showFormLead, selectedLead, hardFilterIds, isFilterEnabled]);
 
-  const loadFullLeadDetails = async (leadId: number) => {
+  const loadFullLeadDetails = useCallback(async (leadId: number) => {
     try {      
       const fullLead = await leadService.getById(leadId);
       const techFinDetails = await leadTechFinService.getByLeadId(leadId);
@@ -301,9 +300,9 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
       console.error("Erreur lors du chargement des détails complets:", error);
       throw error;
     }
-  };
+  }, [leadService, leadTechFinService]);
 
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
     try {
       const data = await leadService.getAll();
 
@@ -346,11 +345,11 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
     } catch (error) {
       console.error("Erreur chargement leads", error);
     }
-  };
+  }, [leadService, period, hardFilterIds, isArchive]);
 
   useEffect(() => {
     loadLeads();
-  }, [period, hardFilterIds, isArchive]);
+  }, [loadLeads]);
 
   const getCurrencySymbol = () => {
     switch (currency) {
@@ -436,7 +435,7 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
   };
 
   /* ================= TABLE COLUMNS ================= */
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: 'periode',
       label: 'Période',
@@ -565,7 +564,8 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
         />
       ),
     },
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [openLeadDetails, openLeadForm, openBacklog]);
 
   const renderExpandedRow = (row: any) => (
     <div className="expanded-row-content p-4 bg-light">
@@ -692,6 +692,18 @@ const ListeLead: React.FC<ListeLeadProps> = ({ isArchive = false }) => {
                 </div>
               </div>
             )}
+
+            <div className="row g-3 mb-4">
+              <div className="col-md-4">
+                <StatCard title="Total opportunités" value={opportunities.length} variant="#08143d" icon={<FaBriefcase />} />
+              </div>
+              <div className="col-md-4">
+                <StatCard title="Zone locale" value={opportunities.filter(o => o.zone === 0).length} variant="#3b82f6" icon={<FaBuilding />} />
+              </div>
+              <div className="col-md-4">
+                <StatCard title="Zone offshore" value={opportunities.filter(o => o.zone !== 0).length} variant="#10b981" icon={<FaGlobe />} />
+              </div>
+            </div>
 
             <FilterBar
               filters={[{ type: 'text', placeholder: 'Rechercher...', onChange: setSearch }]}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { apiError } from "../../../../utils/apiError.ts";
 import { FaTrophy, FaTimesCircle, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import FilterBar from "../../../../components/filters/FilterBar.tsx";
@@ -340,7 +340,7 @@ interface EvaluationLeadPageProps {
 
 const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) => {
   const { api } = useAuth();
-  const leadService = new LeadService(api);
+  const leadService = useMemo(() => new LeadService(api), [api]);
 
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -361,7 +361,7 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
   }>({ visible: false, type: "won", leadId: null, leadName: undefined });
 
   /* ================= LOAD ================= */
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
     setLoading(true);
     try {
       const data = await leadService.getEvaluating();
@@ -371,11 +371,11 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [leadService]);
 
   useEffect(() => {
     loadLeads();
-  }, []);
+  }, [loadLeads]);
 
   /* ================= ACTIONS ================= */
   const handleWin = (leadId: number) => {

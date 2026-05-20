@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "../../../../components/header/Header.tsx";
 import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
 import Table from "../../../../components/table/Table.tsx";
 import FilterBar from "../../../../components/filters/FilterBar.tsx";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaUsers, FaBuilding, FaHandshake } from "react-icons/fa";
 import StatCard from "../../../../components/stat/StatCard.tsx";
 import Title from "../../../../components/title/Title.tsx";
 import Button from "../../../../components/button/Button.tsx";
@@ -46,7 +46,8 @@ const DEFAULT_VISIBLE_COLUMNS = ["matricule", "nom", "prenom", "actions"];
 /* ================= COMPONENT ================= */
 const ListeProfils: React.FC = () => {
   const { getAll } = useProfilService();
-  const { api } = useAuth();
+  const { api }    = useAuth();
+  const buService  = useMemo(() => new BusinessUnitService(api), [api]);
 
   const [profils, setProfils] = useState<Profil[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,18 +68,17 @@ const ListeProfils: React.FC = () => {
       : null;
 
   /* ===== Chargement BU ===== */
-  const fetchBU = async () => {
+  const fetchBU = useCallback(async () => {
     try {
-      const buService = new BusinessUnitService(api);
       const data = await buService.getAll();
       setBus(data.map(b => ({ id: b.id, name: b.name })));
     } catch (err) {
       console.error("Erreur chargement BU", err);
     }
-  };
+  }, [buService]);
 
   /* ===== Chargement profils ===== */
-  const fetchProfils = async () => {
+  const fetchProfils = useCallback(async () => {
     try {
       const data = await getAll();
       setProfils(data);
@@ -87,12 +87,12 @@ const ListeProfils: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAll]);
 
   useEffect(() => {
     fetchProfils();
     fetchBU();
-  }, []);
+  }, [fetchProfils, fetchBU]);
 
   /* ===== Options BU ===== */
   const buOptions = [
@@ -121,7 +121,7 @@ const ListeProfils: React.FC = () => {
   });
 
   /* ===== Colonnes tableau ===== */
-  const columns = [
+  const columns = useMemo(() => [
     { key: "matricule", label: "Matricule" },
     { key: "nom", label: "Nom" },
     { key: "prenom", label: "Prénom(s)" },
@@ -166,7 +166,7 @@ const ListeProfils: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [setSelectedProfilId, setMode, setShowFormProfil]);
 
   if (loading) {
     return <div className="p-4">Chargement des collaborateurs...</div>;
@@ -206,13 +206,13 @@ const ListeProfils: React.FC = () => {
 
             <div className="row mb-4">
               <div className="col-md-4">
-                <StatCard title="Total collaborateurs" value={profils.length} variant={["tomato", "charcoal"]} />
+                <StatCard title="Total collaborateurs" value={profils.length} variant={["tomato", "charcoal"]} icon={<FaUsers />} />
               </div>
               <div className="col-md-4">
-                <StatCard title="Collaborateurs internes" value={profils.filter(p => p.type === 1).length} variant={["dim", "linen"]} />
+                <StatCard title="Collaborateurs internes" value={profils.filter(p => p.type === 1).length} variant={["dim", "linen"]} icon={<FaBuilding />} />
               </div>
               <div className="col-md-4">
-                <StatCard title="Collaborateurs externes" value={profils.filter(p => p.type === 2).length} variant={["tuscan", "linen"]} />
+                <StatCard title="Collaborateurs externes" value={profils.filter(p => p.type === 2).length} variant={["tuscan", "linen"]} icon={<FaHandshake />} />
               </div>
             </div>
 

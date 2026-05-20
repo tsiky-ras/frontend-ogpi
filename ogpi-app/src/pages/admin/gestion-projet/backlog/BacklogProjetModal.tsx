@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiError } from "../../../../utils/apiError.ts";
   import ExportBacklogBtn, { ExportTabDef } from "../../../../components/export/ExportBacklogBtn.tsx";
   import Sortable from "sortablejs";
@@ -359,19 +359,20 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
              role.includes("business analyst");
     }, [user]);
 
-    const projetService = new ProjetService(api);
+    const projetService = useMemo(() => new ProjetService(api), [api]);
     const svc = useRef({
-      backlog    : new BacklogProjetService(api),
-      lot        : new BacklogProjetLotService(api),
-      phase      : new BacklogProjetPhaseService(api),
-      profil     : new BacklogProjetProfilService(api),
-      line       : new BacklogProjetLineService(api),
-      lineProfil : new BacklogProjetLineProfilService(api),
-      column     : new BacklogProjetColumnService(api),
-      planning   : new BacklogPlanningService(api),
-      date    : new BacklogDateService(api),
-      paiement: new CalendrierPaiementService(api),
-      burndown: new BurndownService(api),
+      backlog        : new BacklogProjetService(api),
+      lot            : new BacklogProjetLotService(api),
+      phase          : new BacklogProjetPhaseService(api),
+      profil         : new BacklogProjetProfilService(api),
+      line           : new BacklogProjetLineService(api),
+      lineProfil     : new BacklogProjetLineProfilService(api),
+      column         : new BacklogProjetColumnService(api),
+      planning       : new BacklogPlanningService(api),
+      date           : new BacklogDateService(api),
+      paiement       : new CalendrierPaiementService(api),
+      burndown       : new BurndownService(api),
+      chargesAnnexes : new ChargesAnnexesService(api),
     }).current;
 
     // ── Appel API changeStatus OK/KO ──────────────────────────────────────────
@@ -1497,7 +1498,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         <Modal show={show} onHide={onClose} size="xl" fullscreen>
           <Modal.Header closeButton>
             <Modal.Title className="d-flex align-items-center gap-2 flex-wrap">
-              Backlog — {projetNom ?? `Projet #${projetId}`}
+              Workload — {projetNom ?? `Projet #${projetId}`}
             </Modal.Title>
             {selectedBacklogId && (
               <div className="ms-auto me-3">
@@ -1535,10 +1536,10 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                   ) : (
                     <>
                       <BacklogFormProjet show={showBacklogForm} onClose={() => setShowBacklogForm(false)} onSubmit={handleCreateBacklog} projetId={projetId} leadId={leadId} />
-                      <Button label="Créer un backlog" icon={<FaPlus />} onClick={() => setShowBacklogForm(true)} className="mb-3" />
+                      <Button label="Créer un workload" icon={<FaPlus />} onClick={() => setShowBacklogForm(true)} className="mb-3" />
                       <div className="text-center text-muted py-5">
-                        <p>Aucun backlog pour ce projet.</p>
-                        <p className="small">Cliquez sur "Créer un backlog" pour commencer.</p>
+                        <p>Aucun workload pour ce projet.</p>
+                        <p className="small">Cliquez sur "Créer un workload" pour commencer.</p>
                       </div>
                     </>
                   )}
@@ -2425,7 +2426,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
                           backlogId={backlog?.id ?? null}
                           deviseAbr={deviseAbr}
                           budgetRH={budgetRH}
-                          service={new ChargesAnnexesService(api)}
+                          service={svc.chargesAnnexes}
                         />
                       </Tab>
                       <Tab eventKey="facturation" title="Facturation des ressources">

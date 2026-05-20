@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from '../../../../components/header/Header.tsx';
 import Button from '../../../../components/button/Button.tsx';
-import { FaPlus, FaHourglassHalf, FaLayerGroup, FaChartBar, FaCoins, FaArchive } from 'react-icons/fa';
+import { FaPlus, FaHourglassHalf, FaLayerGroup, FaChartBar, FaCoins, FaArchive, FaCheckCircle } from 'react-icons/fa';
+import StatCard from '../../../../components/stat/StatCard.tsx';
 import FilterBar from '../../../../components/filters/FilterBar.tsx';
 import Table from '../../../../components/table/Table.tsx';
 import MenuListeProjet from '../menu/MenuListeProjet.tsx';
@@ -588,6 +589,19 @@ const ListeProjet: React.FC<ListeProjetProps> = ({ projets, statutMap, avancemen
                     {progBar((stats.caEncaisse / stats.montantOffre) * 100, P.success)}
                   </>)}
                 </div>
+              </div>
+            </div>
+
+            {/* Stat cards */}
+            <div className="row g-3 mb-4">
+              <div className="col-md-4">
+                <StatCard title="Total projets" value={projets.length} variant="#08143d" icon={<FaLayerGroup />} />
+              </div>
+              <div className="col-md-4">
+                <StatCard title="En cours" value={projets.filter(p => statutMap.get(p.idProjet ?? 0) === 3).length} variant="#3b82f6" icon={<FaHourglassHalf />} />
+              </div>
+              <div className="col-md-4">
+                <StatCard title="Terminés / Validés" value={projets.filter(p => [8, 9].includes(statutMap.get(p.idProjet ?? 0) ?? -1)).length} variant="#10b981" icon={<FaCheckCircle />} />
               </div>
             </div>
 

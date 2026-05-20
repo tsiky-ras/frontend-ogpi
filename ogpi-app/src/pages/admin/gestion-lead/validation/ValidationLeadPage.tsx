@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { apiError } from "../../../../utils/apiError.ts";
 import { FaTimesCircle, FaCheckCircle, FaHourglassHalf } from "react-icons/fa";
 import ValidationFormPage from "./ValidationFormPage.tsx";
@@ -115,9 +115,9 @@ interface ValidationLeadPageProps {
 const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) => {
   const { api, user } = useAuth();
 
-  const leadService = new LeadService(api);
-  const leadStatusService = new LeadStatusService(api);
-  const validationService = new ValidationService(api);
+  const leadService       = useMemo(() => new LeadService(api), [api]);
+  const leadStatusService = useMemo(() => new LeadStatusService(api), [api]);
+  const validationService = useMemo(() => new ValidationService(api), [api]);
 
   const [search, setSearch] = useState("");
   const [leads, setLeads] = useState<any[]>([]);
@@ -136,7 +136,7 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
   }>({ visible: false, type: "validated", nextRole: null });
 
   /* ================= LOAD DATA ================= */
-  const loadLeadsToValidate = async () => {
+  const loadLeadsToValidate = useCallback(async () => {
     setLoading(true);
     try {
       const data = await leadService.getToValidate();
@@ -146,18 +146,18 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [leadService]);
 
-  const loadLeadStatuses = async () => {
+  const loadLeadStatuses = useCallback(async () => {
     try {
       const data = await leadStatusService.getAll();
       setLeadStatuses(data);
     } catch (e) {
       console.error("Erreur chargement lead status", e);
     }
-  };
+  }, [leadStatusService]);
 
-  const loadLeadDetails = async (leadId: number) => {
+  const loadLeadDetails = useCallback(async (leadId: number) => {
     if (leadDetails.has(leadId)) return;
 
     setLoadingLeadDetails(prev => new Set(prev).add(leadId));
@@ -173,7 +173,7 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
         return newSet;
       });
     }
-  };
+  }, [leadService, leadDetails]);
 
   const handleToggleExpand = (leadId: number, isExpanded: boolean) => {
     if (isExpanded) loadLeadDetails(leadId);
@@ -257,7 +257,7 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
   useEffect(() => {
     loadLeadsToValidate();
     loadLeadStatuses();
-  }, []);
+  }, [loadLeadsToValidate, loadLeadStatuses]);
 
   /* ================= FILTER ================= */
   const STATUS_FILTER_BY_LABEL: Record<string, "all" | "pending" | "go" | "nogo"> = {

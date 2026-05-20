@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { apiError } from "../../../../utils/apiError.ts";
 import ExportBacklogBtn, { ExportTabDef } from "../../../../components/export/ExportBacklogBtn.tsx";
 import Sortable from "sortablejs";
@@ -72,17 +72,17 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const { api } = useAuth();
 
   // ── Services ──────────────────────────────────────────────────────────────
-  const backlogService              = new BacklogService(api);
-  const backlogLotService           = new BacklogLotService(api);
-  const backlogPhaseService         = new BacklogPhaseService(api);
-  const backlogProfilService        = new BacklogProfilService(api);
-  const backlogLineService          = new BacklogLineService(api);
-  const backlogLineProfilService    = new BacklogProjetLineProfilService(api);
-  const backlogPlanningService      = new BacklogPlanningService(api);
-  const leadTechFinService          = useLeadTechFinDetailsService();
-  const chargesAnnexesService       = new ChargesAnnexesService(api);
-  const phaseService                = new BacklogProjetPhaseService(api);
-  const collaborateurService        = new BacklogProfilCollaborateurService(api);
+  const backlogService           = useMemo(() => new BacklogService(api), [api]);
+  const backlogLotService        = useMemo(() => new BacklogLotService(api), [api]);
+  const backlogPhaseService      = useMemo(() => new BacklogPhaseService(api), [api]);
+  const backlogProfilService     = useMemo(() => new BacklogProfilService(api), [api]);
+  const backlogLineService       = useMemo(() => new BacklogLineService(api), [api]);
+  const backlogLineProfilService = useMemo(() => new BacklogProjetLineProfilService(api), [api]);
+  const backlogPlanningService   = useMemo(() => new BacklogPlanningService(api), [api]);
+  const leadTechFinService       = useLeadTechFinDetailsService();
+  const chargesAnnexesService    = useMemo(() => new ChargesAnnexesService(api), [api]);
+  const phaseService             = useMemo(() => new BacklogProjetPhaseService(api), [api]);
+  const collaborateurService     = useMemo(() => new BacklogProfilCollaborateurService(api), [api]);
 
   // ── Liste des backlogs ────────────────────────────────────────────────────
   const [backlogs,          setBacklogs]          = useState<Backlog[]>([]);
@@ -271,18 +271,18 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   // FETCH COLLABORATEURS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const fetchCollaborateurs = async () => {
+  const fetchCollaborateurs = useCallback(async () => {
     try {
       const res = await api.get("/profils/all");
       setAllCollaborateurs(res.data || []);
     } catch (err) {
       console.error("Erreur chargement collaborateurs:", err);
     }
-  };
+  }, [api]);
 
   useEffect(() => {
     if (show) fetchCollaborateurs();
-  }, [show]);
+  }, [show, fetchCollaborateurs]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // AFFECTER UN COLLABORATEUR À UN BACKLOG PROFIL
@@ -338,11 +338,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   // FETCH LISTE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  useEffect(() => {
-    if (show && leadId) fetchBacklogsList();
-  }, [show, leadId]);
-
-  const fetchBacklogsList = async () => {
+  const fetchBacklogsList = useCallback(async () => {
     try {
       setLoadingBacklogs(true);
       setError(null);
@@ -356,15 +352,15 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     } finally {
       setLoadingBacklogs(false);
     }
-  };
+  }, [backlogService, leadId]);
+
+  useEffect(() => {
+    if (show && leadId) fetchBacklogsList();
+  }, [show, leadId, fetchBacklogsList]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FETCH BACKLOG COMPLET
   // ═══════════════════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    if (selectedBacklogId) fetchBacklog();
-  }, [selectedBacklogId]);
 
   useEffect(() => {
     const fetchDevise = async () => {
@@ -380,7 +376,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
     fetchDevise();
   }, [leadId]);
 
-  const fetchBacklog = async () => {
+  const fetchBacklog = useCallback(async () => {
     if (!selectedBacklogId) return;
     setPlanningReady(false);
     try {
@@ -432,7 +428,11 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       setLoading(false);
       setPlanningReady(true);
     }
-  };
+  }, [selectedBacklogId, backlogService, backlogPlanningService]);
+
+  useEffect(() => {
+    if (selectedBacklogId) fetchBacklog();
+  }, [selectedBacklogId, fetchBacklog]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RETOUR À LA LISTE
@@ -953,10 +953,10 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   if (loadingBacklogs) {
     return (
       <Modal show={show} onHide={onClose} size="xl" fullscreen>
-        <Modal.Header closeButton><Modal.Title>Backlogs - {leadName || 'Chargement...'}</Modal.Title></Modal.Header>
+        <Modal.Header closeButton><Modal.Title>Workloads - {leadName || 'Chargement...'}</Modal.Title></Modal.Header>
         <Modal.Body>
           <div className="d-flex justify-content-center align-items-center" style={{ height: "50vh" }}>
-            <FaSpinner className="fa-spin me-2" /><span>Chargement des backlogs...</span>
+            <FaSpinner className="fa-spin me-2" /><span>Chargement des workloads...</span>
           </div>
         </Modal.Body>
       </Modal>
@@ -974,7 +974,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
             {selectedBacklogId && (
               <Button label="" icon={<FaArrowLeft />} variant="outline" onClick={handleBackToList} className="me-2" />
             )}
-            Backlogs - {leadName}
+            Workloads - {leadName}
           </Modal.Title>
           {selectedBacklogId && (
             <div className="ms-auto me-3">
@@ -1003,10 +1003,10 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
                     {backlogs.length === 0 && (
                       <>
                         <BacklogForm show={showBacklogFormModal} onClose={() => setShowBacklogFormModal(false)} onSubmit={handleCreateBacklog} leadId={leadId} />
-                        <Button label="Créer un backlog" icon={<FaPlus />} onClick={() => setShowBacklogFormModal(true)} variant="primary" className="mb-3" />
+                        <Button label="Créer un workload" icon={<FaPlus />} onClick={() => setShowBacklogFormModal(true)} variant="primary" className="mb-3" />
                         <div className="text-center text-muted py-5">
-                          <p>Aucun backlog trouvé pour ce lead.</p>
-                          <p className="small">Cliquez sur "Créer un backlog" pour commencer.</p>
+                          <p>Aucun workload trouvé pour ce lead.</p>
+                          <p className="small">Cliquez sur "Créer un workload" pour commencer.</p>
                         </div>
                       </>
                     )}

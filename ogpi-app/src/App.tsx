@@ -35,6 +35,7 @@ import ArchiveProjetPage from "./pages/admin/gestion-projet/archive/ArchiveProje
 import OccupationCollaborateurPage from "./pages/admin/occupation/OccupationCollaborateurPage.tsx";
 import GestionDroitsPage from "./pages/admin/gestion-droits/GestionDroitsPage.tsx";
 import BackupConfigPage from "./pages/admin/backup/BackupConfigPage.tsx";
+import HomePage from "./pages/home/HomePage.tsx";
 const App: React.FC = () => {
   return (
   <NotificationProvider>
@@ -43,6 +44,7 @@ const App: React.FC = () => {
         {/* Public */}
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/gestion-taches" element={<TachePage />} />
         <Route path="/archive-lead" element={<ArchiveLead />} />
         <Route path="/gestion-taches-projet" element={<BacklogTachePage />} />

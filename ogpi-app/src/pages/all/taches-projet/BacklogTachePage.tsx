@@ -82,7 +82,7 @@ const BacklogTachePage: React.FC = () => {
           <div className="container-fluid">
             <div className="row mb-3">
               <div className="col">
-                <Title title="Tâches Backlog" subtitle="Suivi et validation des tâches de projet" />
+                <Title title="Tâches Workload" subtitle="Suivi et validation des tâches de projet" />
               </div>
             </div>
 

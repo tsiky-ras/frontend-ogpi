@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import ConfigEntityPage from "./ConfigEntityPage.tsx";
 import { Diplome } from "../../../../types/profil/etude/Diplome.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
@@ -7,7 +7,7 @@ import { DiplomeService } from "../../../../services/profil/etude/DiplomeService
 const DiplomePage: React.FC = () => {
   
   const { api } = useAuth();
-  const diplomeService= new DiplomeService(api);
+  const diplomeService = useMemo(() => new DiplomeService(api), [api]);
   
   return (
     <ConfigEntityPage<Diplome>

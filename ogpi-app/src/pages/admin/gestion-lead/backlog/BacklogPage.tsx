@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiError } from "../../../../utils/apiError.ts";
 import Sortable from "sortablejs";
 
@@ -32,12 +32,12 @@ const fmtMnt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits:
 const BacklogPage: React.FC = () => {
   const { api } = useAuth();
   const idBacklog = 1;
-  const backlogService = new BacklogService(api);
-  const backlogLotService = new BacklogLotService(api);
-  const backlogPhaseService = new BacklogPhaseService(api);
-  const backlogProfilService = new BacklogProfilService(api);
-  const backlogLineService = new BacklogLineService(api);
-  const backlogLineProfilService = new BacklogLineProfilService(api);
+  const backlogService          = useMemo(() => new BacklogService(api), [api]);
+  const backlogLotService       = useMemo(() => new BacklogLotService(api), [api]);
+  const backlogPhaseService     = useMemo(() => new BacklogPhaseService(api), [api]);
+  const backlogProfilService    = useMemo(() => new BacklogProfilService(api), [api]);
+  const backlogLineService      = useMemo(() => new BacklogLineService(api), [api]);
+  const backlogLineProfilService = useMemo(() => new BacklogLineProfilService(api), [api]);
 
   const [backlog, setBacklog] = useState<Backlog | null>(null);
   const [lots, setLots] = useState<BacklogLot[]>([]);
@@ -90,11 +90,7 @@ const BacklogPage: React.FC = () => {
   const lineSortableInstance = useRef<Sortable | null>(null);
 
   /* ================= FETCH BACKLOG COMPLET ================= */
-  useEffect(() => {
-    fetchBacklog();
-  }, [idBacklog]);
-
-  const fetchBacklog = async () => {
+  const fetchBacklog = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -125,7 +121,11 @@ const BacklogPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [backlogService]);
+
+  useEffect(() => {
+    fetchBacklog();
+  }, [fetchBacklog]);
 
   /* ================= SORTABLE LINES (tableau) ================= */
   useEffect(() => {
@@ -878,7 +878,7 @@ const BacklogPage: React.FC = () => {
               style={{ height: "50vh" }}
             >
               <FaSpinner className="fa-spin me-2" />
-              <span>Chargement du backlog...</span>
+              <span>Chargement du workload...</span>
             </div>
           </main>
         </div>
@@ -904,8 +904,8 @@ const BacklogPage: React.FC = () => {
             <div className="row align-items-center mb-4">
               <div className="col-md-8">
                 <Title
-                  title={backlog?.name || "Backlog"}
-                  subtitle={backlog?.desc || "Gérez votre backlog"}
+                  title={backlog?.name || "Workload"}
+                  subtitle={backlog?.desc || "Gérez votre workload"}
                 />
               </div>
             </div>

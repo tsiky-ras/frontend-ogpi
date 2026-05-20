@@ -1,8 +1,9 @@
 // src/pages/lead/leads/dashboard/DashboardLeadPage.tsx
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pie, Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import { FaCalendarAlt, FaMoneyBillWave } from "react-icons/fa";
+import { FaCalendarAlt, FaMoneyBillWave, FaBriefcase, FaChartPie, FaWallet } from "react-icons/fa";
+import StatCard from "../../../../components/stat/StatCard.tsx";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import {
   LeadDashboardService,
@@ -15,14 +16,14 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const P = {
-  navy:    "#0a1f44",
+  navy:    "#08143d",
   blue:    "#3b82f6",
   green:   "#10b981",
-  amber:   "#f59e0b",
-  linen:   "#E8E5D7",
-  charcoal:"#223A46",
+  amber:   "#d4a017",
+  linen:   "#e2e8f0",
+  charcoal:"#08143d",
   tomato:  "#C93C29",
-  dim:     "#5F6F6E",
+  dim:     "#64748b",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -75,21 +76,6 @@ const chartOptions = {
   maintainAspectRatio: true,
 };
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-const KpiCard: React.FC<{
-  label: string; value: string; sub?: string; color?: string;
-}> = ({ label, value, sub, color = P.navy }) => (
-  <div style={{
-    background: "#fff", borderRadius: 12, padding: "20px 24px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.07)", borderTop: `4px solid ${color}`,
-    flex: 1, minWidth: 180,
-  }}>
-    <p style={{ margin: 0, fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>{label}</p>
-    <p style={{ margin: "8px 0 4px", fontSize: 26, fontWeight: 700, color }}>{value}</p>
-    {sub && <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{sub}</p>}
-  </div>
-);
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <h6 style={{
@@ -103,7 +89,7 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 const DashboardLeadPage: React.FC = () => {
   const { api } = useAuth();
-  const service      = new LeadDashboardService(api);
+  const service       = useMemo(() => new LeadDashboardService(api), [api]);
   const deviseService = useDeviseService();
 
   const defaults = getDefaultDates();
@@ -117,11 +103,7 @@ const DashboardLeadPage: React.FC = () => {
 
   const deviseLabel = devises.find((d: Devise) => (d.idDevise ?? d.id) === deviseId)?.abrDevise ?? "MGA";
 
-  useEffect(() => {
-    deviseService.getAll().then(setDevises).catch(console.error);
-  }, []);
-
-  const load = async (debut: string, fin: string, dvId?: number) => {
+  const load = useCallback(async (debut: string, fin: string, dvId?: number) => {
     const safeId = dvId != null && !isNaN(dvId) ? dvId : undefined;
     setLoading(true);
     try {
@@ -131,44 +113,54 @@ const DashboardLeadPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [service]);
 
-  useEffect(() => { load(dateDebut, dateFin, deviseId); }, []);
+  useEffect(() => {
+    deviseService.getAll().then(setDevises).catch(console.error);
+  }, []);
 
-  const handlePreset = (p: Preset) => {
+  useEffect(() => { load(dateDebut, dateFin, deviseId); }, [load]);
+
+  const handlePreset = useCallback((p: Preset) => {
     setDatePreset(p);
     const { dateDebut: d, dateFin: f } = applyPreset(p);
     setDateDebut(d);
     setDateFin(f);
     load(d, f, deviseId);
-  };
+  }, [load, deviseId]);
 
-  const handleActualiser = () => load(dateDebut, dateFin, deviseId);
+  const handleActualiser = useCallback(() => load(dateDebut, dateFin, deviseId), [load, dateDebut, dateFin, deviseId]);
 
   // ── Taux de conversion ────────────────────────────────────────────────────
-  const tauxConversion = (() => {
+  const tauxConversion = useMemo(() => {
     if (!data) return { taux: 0, total: 0, gagnes: 0 };
     const total  = data.parStatut.reduce((s, x) => s + x.nbOffresPipeline, 0);
     const gagnes = data.parStatut.find(s => s.leadStatusId === 5)?.nbOffresPipeline ?? 0;
     const taux   = total === 0 ? 0 : Math.round((gagnes / total) * 100);
     return { taux, total, gagnes };
-  })();
+  }, [data]);
 
   // ── Pie charts par statut ─────────────────────────────────────────────────
-  const statutLabels = data?.parStatut.map(s => s.leadStatusLabel) ?? [];
-  const statutColors = data?.parStatut.map((_, i) => COLORS[i % COLORS.length]) ?? [];
-
-  const pieNb   = { labels: statutLabels, datasets: [{ data: data?.parStatut.map(s => s.nbOffresPipeline      ?? 0) ?? [], backgroundColor: statutColors, borderWidth: 1 }] };
-  const pieAvec = { labels: statutLabels, datasets: [{ data: data?.parStatut.map(s => s.caPipelineAvecCharges ?? 0) ?? [], backgroundColor: statutColors, borderWidth: 1 }] };
-  const pieSans = { labels: statutLabels, datasets: [{ data: data?.parStatut.map(s => s.caPipelineSansCharges ?? 0) ?? [], backgroundColor: statutColors, borderWidth: 1 }] };
+  const { pieNb, pieAvec, pieSans } = useMemo(() => {
+    const statutLabels = data?.parStatut.map(s => s.leadStatusLabel) ?? [];
+    const statutColors = data?.parStatut.map((_, i) => COLORS[i % COLORS.length]) ?? [];
+    return {
+      pieNb:   { labels: statutLabels, datasets: [{ data: data?.parStatut.map(s => s.nbOffresPipeline      ?? 0) ?? [], backgroundColor: statutColors, borderWidth: 1 }] },
+      pieAvec: { labels: statutLabels, datasets: [{ data: data?.parStatut.map(s => s.caPipelineAvecCharges ?? 0) ?? [], backgroundColor: statutColors, borderWidth: 1 }] },
+      pieSans: { labels: statutLabels, datasets: [{ data: data?.parStatut.map(s => s.caPipelineSansCharges ?? 0) ?? [], backgroundColor: statutColors, borderWidth: 1 }] },
+    };
+  }, [data]);
 
   // ── Donut charts par type ─────────────────────────────────────────────────
-  const typeLabels = data?.parType.map(t => t.leadTypeLabel) ?? [];
-  const typeColors = data?.parType.map((_, i) => COLORS[i % COLORS.length]) ?? [];
-
-  const donutNb   = { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.nbOffres      ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] };
-  const donutAvec = { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.caAvecCharges ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] };
-  const donutSans = { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.caSansCharges ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] };
+  const { donutNb, donutAvec, donutSans } = useMemo(() => {
+    const typeLabels = data?.parType.map(t => t.leadTypeLabel) ?? [];
+    const typeColors = data?.parType.map((_, i) => COLORS[i % COLORS.length]) ?? [];
+    return {
+      donutNb:   { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.nbOffres      ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] },
+      donutAvec: { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.caAvecCharges ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] },
+      donutSans: { labels: typeLabels, datasets: [{ data: data?.parType.map(t => t.caSansCharges ?? 0) ?? [], backgroundColor: typeColors, borderWidth: 1 }] },
+    };
+  }, [data]);
 
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -288,12 +280,33 @@ const DashboardLeadPage: React.FC = () => {
       </div>
 
       {/* ── KPI Cards ── */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <KpiCard label="Nb offres pipeline"         value={String(data?.global.nbOffresPipeline ?? 0)}                          color={P.navy}  />
-        <KpiCard label="CA pipeline (avec charges)" value={`${fmt(data?.global.caPipelineAvecCharges ?? 0)} ${deviseLabel}`}    color={P.blue}  />
-        <KpiCard label="CA pipeline (sans charges)" value={`${fmt(data?.global.caPipelineSansCharges ?? 0)} ${deviseLabel}`}    color={P.green} sub="Informatif" />
-        <KpiCard label="Taux de conversion"         value={`${tauxConversion.taux} %`}                                          color={P.amber}
-          sub={`${tauxConversion.gagnes} gagnés / ${tauxConversion.total} total`} />
+      <div className="stats-grid">
+        <StatCard
+          title="Nb offres pipeline"
+          value={data?.global.nbOffresPipeline ?? 0}
+          variant={P.navy}
+          icon={<FaBriefcase />}
+        />
+        <StatCard
+          title="CA pipeline (avec charges)"
+          value={`${fmt(data?.global.caPipelineAvecCharges ?? 0)} ${deviseLabel}`}
+          variant={P.blue}
+          icon={<FaMoneyBillWave />}
+        />
+        <StatCard
+          title="CA pipeline (sans charges)"
+          value={`${fmt(data?.global.caPipelineSansCharges ?? 0)} ${deviseLabel}`}
+          subtitle="Informatif"
+          variant={P.green}
+          icon={<FaWallet />}
+        />
+        <StatCard
+          title="Taux de conversion"
+          value={`${tauxConversion.taux} %`}
+          subtitle={`${tauxConversion.gagnes} gagnés / ${tauxConversion.total} total`}
+          variant={P.amber}
+          icon={<FaChartPie />}
+        />
       </div>
 
       {/* ── Pie charts par statut ── */}

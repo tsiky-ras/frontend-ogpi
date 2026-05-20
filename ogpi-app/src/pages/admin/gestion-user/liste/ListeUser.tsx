@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "../../../../components/header/Header.tsx";
 import Sidebar from "../../../../components/sidebar/Sidebar.tsx";
 import Table from "../../../../components/table/Table.tsx";
 import FilterBar from "../../../../components/filters/FilterBar.tsx";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaUsers, FaUserCheck, FaUserTimes } from "react-icons/fa";
 import StatCard from "../../../../components/stat/StatCard.tsx";
 import Title from "../../../../components/title/Title.tsx";
 import Button from "../../../../components/button/Button.tsx";
@@ -30,31 +30,31 @@ const ListeUser: React.FC = () => {
   const [showFormUser, setShowFormUser] = useState(false);
   const { getAll } = useUserService();
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const data = await getAll();
       setUsers(data);
     } catch (error) {
       console.error("Erreur lors du chargement des utilisateurs :", error);
     }
-  };
+  }, [getAll]);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
-  const openUser = (user: any, mode: "view" | "edit") => {
+  const openUser = useCallback((user: any, mode: "view" | "edit") => {
     setSelectedUser(user.userId);
     setMode(mode);
-  };
+  }, []);
 
-  const saveUser = async () => {
+  const saveUser = useCallback(async () => {
     await fetchUsers();
     setSelectedUser(null);
     setMode(null);
-  };
+  }, [fetchUsers]);
 
-  const columns = [
+  const columns = useMemo(() => [
     { key: "username", label: "Utilisateur" },
     {
       key: "nom",
@@ -98,9 +98,9 @@ const ListeUser: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [openUser]);
 
-  const filteredUsers = users.filter(u => {
+  const filteredUsers = useMemo(() => users.filter(u => {
     const matchesSearch =
       u.username.toLowerCase().includes(search.toLowerCase()) ||
       (u.profil?.nom?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
@@ -110,7 +110,7 @@ const ListeUser: React.FC = () => {
       (statusFilter === "active" && u.isActive) ||
       (statusFilter === "inactive" && !u.isActive);
     return matchesSearch && matchesStatus;
-  });
+  }), [users, search, statusFilter]);
 
   return (
     <div className="listeuser-layout">
@@ -130,13 +130,13 @@ const ListeUser: React.FC = () => {
 
             <div className="row mb-4">
               <div className="col-md-4">
-                <StatCard title="Tous les utilisateurs" value={users.length} variant={["tomato", "charcoal"]} />
+                <StatCard title="Tous les utilisateurs" value={users.length} variant={["tomato", "charcoal"]} icon={<FaUsers />} />
               </div>
               <div className="col-md-4">
-                <StatCard title="Utilisateurs actifs" value={users.filter(u => u.isActive).length} variant={["dim", "linen"]} />
+                <StatCard title="Utilisateurs actifs" value={users.filter(u => u.isActive).length} variant={["dim", "linen"]} icon={<FaUserCheck />} />
               </div>
               <div className="col-md-4">
-                <StatCard title="Utilisateurs inactifs" value={users.filter(u => !u.isActive).length} variant={["tuscan", "linen"]} />
+                <StatCard title="Utilisateurs inactifs" value={users.filter(u => !u.isActive).length} variant={["tuscan", "linen"]} icon={<FaUserTimes />} />
               </div>
             </div>
 

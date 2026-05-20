@@ -104,7 +104,7 @@ const EventDetailModal: React.FC<{
 
   return (
     <Modal show={!!event} onHide={onClose} centered size="sm">
-      <Modal.Header closeButton style={{ background: "#223A46", color: "#fff", borderBottom: "2px solid " + m.color }}>
+      <Modal.Header closeButton style={{ background: "#08143d", color: "#fff", borderBottom: "2px solid " + m.color }}>
         <div className="cal-modal-header">
           <span className="cal-modal-type-dot" style={{ background: m.dot }} />
           <div>
@@ -169,10 +169,8 @@ const EventDetailModal: React.FC<{
           </div>
         </div>
       </Modal.Body>
-      <Modal.Footer style={{ background: "#fafaf9", borderTop: "1px solid #e5e7eb" }}>
-        <button
-          style={{ padding: "6px 16px", borderRadius: 7, background: "#223A46", color: "#fff", border: "none", fontSize: ".82rem", fontWeight: 600, cursor: "pointer" }}
-          onClick={onClose}>
+      <Modal.Footer style={{ background: "#fafaf9", borderTop: "1px solid #e2e8f0" }}>
+        <button className="cal-modal-btn cal-modal-btn--close" onClick={onClose}>
           Fermer
         </button>
       </Modal.Footer>
@@ -251,8 +249,8 @@ const AddEventModal: React.FC<{
   };
 
   return (
-    <Modal show={show} onHide={onClose} centered size="sm">
-      <Modal.Header closeButton style={{ background: "#223A46", color: "#fff" }}>
+    <Modal show={show} onHide={onClose} centered size="lg">
+      <Modal.Header closeButton style={{ background: "#08143d", color: "#fff" }}>
         <Modal.Title style={{ fontSize: ".95rem", color: "#fff" }}>
           <FaPlus size={12} className="me-2" /> Nouvel événement
         </Modal.Title>
@@ -318,24 +316,18 @@ const AddEventModal: React.FC<{
               style={{ resize: "none" }} />
           </div>
 
-          {error && (
-            <div style={{ fontSize: ".78rem", color: "#C93C29", background: "#fff5f5", padding: "6px 10px", borderRadius: 6, border: "1px solid #f8d0cb" }}>
-              {error}
-            </div>
-          )}
+          {error && <div className="cal-add-error">{error}</div>}
         </div>
       </Modal.Body>
-      <Modal.Footer style={{ background: "#fafaf9", borderTop: "1px solid #e5e7eb" }}>
-        <button style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid #e5e7eb", background: "transparent", cursor: "pointer", fontSize: ".82rem" }}
-          onClick={onClose} disabled={saving}>Annuler</button>
-        <button style={{
-          padding: "6px 16px", borderRadius: 7, background: "#C93C29", color: "#fff",
-          border: "none", fontSize: ".82rem", fontWeight: 700,
-          cursor: saving ? "wait" : "pointer", opacity: saving ? .7 : 1,
-          display: "inline-flex", alignItems: "center", gap: 6,
-        }}
-          onClick={handleSave} disabled={saving || !form.titre.trim() || !form.date}>
-          {saving && <FaSpinner size={10} style={{ animation: "spin 1s linear infinite" }} />}
+      <Modal.Footer style={{ background: "#fafaf9", borderTop: "1px solid #e2e8f0" }}>
+        <button className="cal-modal-btn cal-modal-btn--cancel" onClick={onClose} disabled={saving}>
+          Annuler
+        </button>
+        <button
+          className="cal-modal-btn cal-modal-btn--submit"
+          onClick={handleSave}
+          disabled={saving || !form.titre.trim() || !form.date}>
+          {saving && <FaSpinner size={10} className="fa-spin" />}
           Ajouter
         </button>
       </Modal.Footer>
@@ -532,7 +524,7 @@ const AgendaView: React.FC<{
                     : <FaCalendarAlt size={13} style={{ color: "#94a3b8" }} />
                   }
                   {ev.type === "PAIEMENT" && ev.meta2 && (
-                    <div style={{ marginTop: 4, fontWeight: 700, color: "#223A46", fontSize: ".78rem" }}>
+                    <div style={{ marginTop: 4, fontWeight: 700, color: "#08143d", fontSize: ".78rem" }}>
                       {parseFloat(ev.meta2).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}
                     </div>
                   )}
@@ -699,11 +691,13 @@ const CalendrierPage: React.FC = () => {
   }, [filtered]);
 
   return (
-    <div className="cal-page">
+    <div className="page-lead-layout">
       <Header />
-      <div style={{ display: "flex" }}>
-        <Sidebar />
-        <main className="cal-main">
+      <div className="liste-lead-wrapper">
+        <aside className="liste-lead-sidebar">
+          <Sidebar />
+        </aside>
+        <main className="liste-lead-main">
           <div className="cal-content">
 
             {/* ── Titre ── */}
@@ -797,6 +791,7 @@ const CalendrierPage: React.FC = () => {
       />
     </div>
   );
+
 };
 
 export default CalendrierPage;

@@ -24,7 +24,7 @@ const Login: React.FC = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        navigate('/admin/gestion-user');
+        navigate('/home');
       } else {
         setErrorMessage(result.error || 'Identifiants incorrects');
       }

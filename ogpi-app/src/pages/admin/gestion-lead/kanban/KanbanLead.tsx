@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useAuth } from "../../../../context/AuthContext.tsx";
 import { LeadService } from "../../../../services/lead/LeadService.tsx";
 import { Lead } from "../../../../types/lead/Lead.tsx";
@@ -280,7 +280,7 @@ const KanbanColumn: React.FC<ColumnProps> = ({
 const KanbanLead: React.FC = () => {
   const { api, hasPerm } = useAuth();
   const canDrag = hasPerm('KANBAN_LEAD_DRAG');
-  const leadService = new LeadService(api);
+  const leadService = useMemo(() => new LeadService(api), [api]);
   const leadTechFinService = useLeadTechFinDetailsService();
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -301,7 +301,7 @@ const KanbanLead: React.FC = () => {
   const dragging = useRef<Lead | null>(null);
 
   // ── Chargement leads (même mapping que ListeLead) ─────────────────────────
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
     try {
       const data = await leadService.getAll();
       const leadsData: Lead[] = data.map((lead: any) => ({
@@ -337,9 +337,9 @@ const KanbanLead: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [leadService]);
 
-  useEffect(() => { loadLeads(); }, []);
+  useEffect(() => { loadLeads(); }, [loadLeads]);
 
   // ── Chargement détails complets (identique ListeLead) ────────────────────
   const loadFullLeadDetails = async (leadId: number) => {
@@ -437,31 +437,37 @@ const KanbanLead: React.FC = () => {
   };
 
   // ── Filtres & groupement ──────────────────────────────────────────────────
-  const businessUnits = Array.from(
-    new Set(leads.map((l) => l.businessUnit?.name).filter(Boolean))
-  ) as string[];
+  const businessUnits = useMemo(
+    () => Array.from(new Set(leads.map((l) => l.businessUnit?.name).filter(Boolean))) as string[],
+    [leads]
+  );
 
-  const filtered = leads.filter((l) => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    const matchSearch =
-      !search ||
-      l.name?.toLowerCase().includes(q) ||
-      l.reference?.toLowerCase().includes(q) ||
-      l.client?.name?.toLowerCase().includes(q) ||
-      l.createdByUser?.username?.toLowerCase().includes(q);
-    const matchBU = !filterBU || l.businessUnit?.name === filterBU;
-    const matchStatus = !filterStatus || String(l.status?.id) === filterStatus;
-    return matchSearch && matchBU && matchStatus;
-  });
+    return leads.filter((l) => {
+      const matchSearch =
+        !search ||
+        l.name?.toLowerCase().includes(q) ||
+        l.reference?.toLowerCase().includes(q) ||
+        l.client?.name?.toLowerCase().includes(q) ||
+        l.createdByUser?.username?.toLowerCase().includes(q);
+      const matchBU = !filterBU || l.businessUnit?.name === filterBU;
+      const matchStatus = !filterStatus || String(l.status?.id) === filterStatus;
+      return matchSearch && matchBU && matchStatus;
+    });
+  }, [leads, search, filterBU, filterStatus]);
 
-  const grouped = COLUMNS.reduce<Record<string, Lead[]>>((acc, col) => {
-    acc[col.key] = filtered.filter((l) => getColumnKey(l) === col.key);
-    return acc;
-  }, {});
+  const grouped = useMemo(
+    () => COLUMNS.reduce<Record<string, Lead[]>>((acc, col) => {
+      acc[col.key] = filtered.filter((l) => getColumnKey(l) === col.key);
+      return acc;
+    }, {}),
+    [filtered]
+  );
 
   const totalLeads = filtered.length;
-  const wonLeads = grouped["gagnee"]?.length || 0;
-  const convRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
+  const wonLeads   = grouped["gagnee"]?.length || 0;
+  const convRate   = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
