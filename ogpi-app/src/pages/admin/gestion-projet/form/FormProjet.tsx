@@ -19,6 +19,7 @@ import { Projet } from "../../../../types/projet/Projet.tsx";
 import FormLead from "../../gestion-lead/form/FormLead.tsx";
 import { FaPlus } from "react-icons/fa";
 import GenericForm from "../../../../components/form/GenericForm.tsx";
+import { apiError } from "../../../../utils/apiError.ts";
 
 type FormProjetProps = {
   onSubmit: (projet: Projet) => void | Promise<void>;
@@ -360,7 +361,8 @@ const FormProjet: React.FC<FormProjetProps> = ({ show, onClose, onSubmit, projet
       }, 1500);
     } catch (err) {
       setShowLoadingMessage(false);
-      setErrorMessage(err instanceof Error ? err.message : "Erreur inconnue");
+      const ctx = projet?.idProjet ? "Impossible de modifier le projet" : "Impossible de créer le projet";
+      setErrorMessage(err instanceof Error ? err.message : apiError(err, ctx));
       setShowErrorMessage(true);
     }
   };

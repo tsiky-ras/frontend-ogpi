@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { apiError } from "../../utils/apiError.ts";
 import { FaChevronDown, FaSpinner, FaHistory, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import "./TaskStatusCell.css";
 
@@ -192,7 +193,7 @@ const TaskStatusCell: React.FC<TaskStatusCellProps> = ({
                   // KO → Réattribué (id=2) pour que le collab le retrouve dans "Mes tâches"
                   await doChange(TASK_STATUS.REATTRIBUE, koMotif.trim());
                   setKoForm(false); setKoMotif("");
-                } catch { setKoErr("Erreur."); }
+                } catch (err) { setKoErr(apiError(err, "Impossible de marquer la tâche comme KO")); }
                 finally { setSavingKo(false); }
               }}
               disabled={savingKo || !koMotif.trim()}>

@@ -9,6 +9,7 @@ import "./FormLead.css";
 import FormJira from "./Jira/FormJira.tsx";
 import FormProjetInline from "../../gestion-projet/form/FormProjetInline.tsx";
 
+import { apiError } from "../../../../utils/apiError.ts";
 import { BusinessUnitService } from "../../../../services/profil/poste/BusinessUnitService.tsx";
 import { LeadTypeService } from "../../../../services/lead/LeadTypeService.tsx";
 import { LeadCategoryService } from "../../../../services/lead/LeadCategoryService.tsx";
@@ -476,9 +477,14 @@ const FormLead: React.FC<FormLeadProps> = ({ show, onClose, onSubmit, lead, init
       }
     } catch (err) {
       console.error("=== ERREUR handleSave ===", err);
+      const ctx =
+        currentStep === "qualification" ? "Impossible de sauvegarder l'opportunité" :
+        currentStep === "offre"         ? "Impossible de sauvegarder l'offre technique & financière" :
+        currentStep === "etapes"        ? "Impossible de sauvegarder les étapes & validations" :
+                                          "Impossible de sauvegarder";
       setPopup({
         type: "error",
-        message: err instanceof Error ? err.message : "Erreur inconnue lors de la sauvegarde.",
+        message: err instanceof Error ? err.message : apiError(err, ctx),
       });
     }
   };

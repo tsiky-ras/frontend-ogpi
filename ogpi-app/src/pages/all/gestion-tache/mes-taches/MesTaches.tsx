@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
 import { useSearchParams } from "react-router-dom";
 import {
   FaClock, FaHourglassHalf, FaCheckCircle, FaChevronDown, FaChevronUp,
@@ -284,7 +285,7 @@ const FileModal: React.FC<FileModalProps> = ({ mode, initial, onSave, onClose })
     if (!form.driveFile.link.trim()) { setError("Le lien est requis."); return; }
     setSaving(true);
     try { await onSave(form); onClose(); }
-    catch { setError("Une erreur est survenue."); }
+    catch (err) { setError(apiError(err, "Impossible de sauvegarder le fichier")); }
     finally { setSaving(false); }
   };
 

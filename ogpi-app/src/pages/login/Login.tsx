@@ -29,7 +29,7 @@ const Login: React.FC = () => {
         setErrorMessage(result.error || 'Identifiants incorrects');
       }
     } catch {
-      setErrorMessage('Erreur inattendue. Veuillez réessayer.');
+      setErrorMessage('Le serveur est injoignable. Vérifiez votre connexion et réessayez.');
     } finally {
       setLoading(false);
     }

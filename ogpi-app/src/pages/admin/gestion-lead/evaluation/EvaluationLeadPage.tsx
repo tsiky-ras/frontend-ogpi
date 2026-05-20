@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
 import { FaTrophy, FaTimesCircle, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import FilterBar from "../../../../components/filters/FilterBar.tsx";
 import { LeadService } from "../../../../services/lead/LeadService.tsx";
@@ -346,6 +347,7 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
   const [search, setSearch] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
 
+  const [actionError, setActionError] = useState<string | null>(null);
   const [popup, setPopup] = useState<{ visible: boolean; type: "won" | "lost" }>({
     visible: false,
     type: "won",
@@ -402,7 +404,7 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
       setPopup({ visible: true, type });
     } catch (e) {
       console.error("Erreur action lead", e);
-      alert(`Erreur lors du passage en ${type === "won" ? "gagné" : "perdu"}`);
+      setActionError(apiError(e, `Impossible de passer le lead en ${type === "won" ? "gagné" : "perdu"}`));
     } finally {
       setLoadingAction(false);
     }
@@ -443,6 +445,13 @@ const EvaluationLeadPage: React.FC<EvaluationLeadPageProps> = ({ onUpdated }) =>
           type={popup.type}
           onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
         />
+      )}
+
+      {actionError && (
+        <div style={{ padding: '8px 12px', marginBottom: 12, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#C93C29', fontSize: '0.9rem' }}>
+          {actionError}
+          <button onClick={() => setActionError(null)} style={{ marginLeft: 8, background: 'none', border: 'none', color: '#C93C29', cursor: 'pointer', fontWeight: 600 }}>×</button>
+        </div>
       )}
 
       <div className="mb-3 d-flex align-items-center gap-2">

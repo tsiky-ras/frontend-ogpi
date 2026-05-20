@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
 import Sortable from "sortablejs";
 
 import Header from "../../../../components/header/Header.tsx";
@@ -348,7 +349,7 @@ const BacklogPage: React.FC = () => {
 
   const saveLot = async () => {
     if (!newLot.name.trim()) {
-      alert("Le nom du lot est requis");
+      setError("Le nom du lot est requis.");
       return;
     }
 
@@ -379,7 +380,7 @@ const BacklogPage: React.FC = () => {
       setNewLot({ name: "", desc: "" });
     } catch (err) {
       console.error("Erreur lors de la sauvegarde du lot:", err);
-      alert("Une erreur est survenue lors de la sauvegarde.");
+      setError(apiError(err, "Impossible de sauvegarder le lot"));
     } finally {
       setSaving(false);
     }
@@ -405,7 +406,7 @@ const BacklogPage: React.FC = () => {
       await backlogLotService.updateOrder(orderUpdates);
     } catch (err) {
       console.error("Erreur lors de la suppression:", err);
-      alert("Impossible de supprimer le lot.");
+      setError(apiError(err, "Impossible de supprimer le lot"));
     }
   };
 
@@ -426,7 +427,7 @@ const BacklogPage: React.FC = () => {
 
   const savePhase = async () => {
     if (!newPhase.name.trim()) {
-      alert("Le nom de la phase est requis");
+      setError("Le nom de la phase est requis.");
       return;
     }
 
@@ -482,7 +483,7 @@ const BacklogPage: React.FC = () => {
       setCurrentLotId(null);
     } catch (err) {
       console.error("Erreur lors de la sauvegarde de la phase:", err);
-      alert("Une erreur est survenue lors de la sauvegarde.");
+      setError(apiError(err, "Impossible de sauvegarder la phase"));
     } finally {
       setSaving(false);
     }
@@ -520,7 +521,7 @@ const BacklogPage: React.FC = () => {
       }
     } catch (err) {
       console.error("Erreur lors de la suppression de la phase:", err);
-      alert("Impossible de supprimer la phase.");
+      setError(apiError(err, "Impossible de supprimer la phase"));
     }
   };
 
@@ -539,12 +540,12 @@ const BacklogPage: React.FC = () => {
 
   const saveProfil = async () => {
     if (!newProfil.name.trim()) {
-      alert("Le nom du profil est requis");
+      setError("Le nom du profil est requis.");
       return;
     }
 
     if (newProfil.tjm < 0) {
-      alert("Le TJM doit être positif");
+      setError("Le TJM doit être un nombre positif.");
       return;
     }
 
@@ -577,7 +578,7 @@ const BacklogPage: React.FC = () => {
       setNewProfil({ name: "", desc: "", tjm: 0 });
     } catch (err) {
       console.error("Erreur lors de la sauvegarde du profil:", err);
-      alert("Une erreur est survenue lors de la sauvegarde.");
+      setError(apiError(err, "Impossible de sauvegarder le profil"));
     } finally {
       setSaving(false);
     }
@@ -603,7 +604,7 @@ const BacklogPage: React.FC = () => {
       await backlogProfilService.updateOrder(orderUpdates);
     } catch (err) {
       console.error("Erreur lors de la suppression:", err);
-      alert("Impossible de supprimer le profil.");
+      setError(apiError(err, "Impossible de supprimer le profil"));
     }
   };
 
@@ -638,7 +639,7 @@ const BacklogPage: React.FC = () => {
 
   const saveLine = async () => {
     if (!newLine.phaseId) {
-      alert("La phase est requise");
+      setError("Veuillez sélectionner une phase avant de sauvegarder la ligne.");
       return;
     }
 
@@ -675,7 +676,7 @@ const BacklogPage: React.FC = () => {
       setNewLine({ epic: "", userStory: "", description: "", resultat: "", phaseId: null });
     } catch (err) {
       console.error("Erreur lors de la sauvegarde de la ligne:", err);
-      alert("Une erreur est survenue lors de la sauvegarde.");
+      setError(apiError(err, "Impossible de sauvegarder la ligne du backlog"));
     } finally {
       setSaving(false);
     }
@@ -704,7 +705,7 @@ const BacklogPage: React.FC = () => {
       await backlogLineService.updateOrder(orderUpdates);
     } catch (err) {
       console.error("Erreur lors de la suppression:", err);
-      alert("Impossible de supprimer la ligne.");
+      setError(apiError(err, "Impossible de supprimer la ligne du backlog"));
     }
   };
 
@@ -768,7 +769,7 @@ const BacklogPage: React.FC = () => {
       setCurrentProfilId(null);
     } catch (err) {
       console.error("Erreur lors de la sauvegarde du volume:", err);
-      alert("Une erreur est survenue lors de la sauvegarde.");
+      setError(apiError(err, "Impossible de sauvegarder le volume JH"));
     } finally {
       setSaving(false);
     }
@@ -791,7 +792,7 @@ const BacklogPage: React.FC = () => {
       setCurrentProfilId(null);
     } catch (err) {
       console.error("Erreur lors de la suppression:", err);
-      alert("Impossible de supprimer le volume.");
+      setError(apiError(err, "Impossible de supprimer le volume JH"));
     }
   };
 

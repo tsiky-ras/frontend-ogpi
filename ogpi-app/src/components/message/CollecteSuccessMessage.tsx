@@ -1,4 +1,5 @@
 import React from "react";
+import { FaCheckCircle, FaTimes } from "react-icons/fa";
 import "./CollecteMessages.css";
 
 interface CollecteMessageProps {
@@ -14,21 +15,20 @@ const CollecteSuccessMessage: React.FC<CollecteMessageProps> = ({
 }) => {
   if (!visible) return null;
 
-  const handleBackdropClick = () => {
-    if (onClose) onClose();
-  };
-
-  const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
-
   return (
     <div
       className="collecte-message"
       role="dialog"
       aria-modal="true"
-      onClick={handleBackdropClick}
+      onClick={onClose}
     >
-      <div className="collecte-card collecte-success" onClick={stopPropagation}>
-        <i className="bi bi-check-circle collecte-icon" aria-hidden="true"></i>
+      <div className="collecte-card collecte-success" onClick={e => e.stopPropagation()}>
+        {onClose && (
+          <button className="collecte-close" onClick={onClose} aria-label="Fermer">
+            <FaTimes size={13} />
+          </button>
+        )}
+        <FaCheckCircle className="collecte-icon collecte-icon-react" aria-hidden="true" />
         <p className="collecte-text">{message}</p>
       </div>
     </div>

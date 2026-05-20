@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { apiError } from "../../../../../utils/apiError.ts";
 import { Spinner } from "react-bootstrap";
 import { FaTimes, FaSearch } from "react-icons/fa";
 
@@ -350,6 +351,7 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
   const [jira, setJira] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const fetchedRef = useRef(false);
 
   const statusId = lead?.currentLeadStatus?.leadStatus?.id;
@@ -387,7 +389,7 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
         onDataReady?.(jiraData);
       } catch (err) {
         console.error("Erreur chargement:", err);
-        alert("Erreur lors du chargement des données");
+        setFetchError(apiError(err, "Impossible de charger les données Jira"));
       } finally {
         setLoading(false);
       }
@@ -417,6 +419,10 @@ const FormJira: React.FC<Props> = ({ lead, leadService, userService, onDataReady
   }, []);
 
   if (!canShow) return null;
+
+  if (fetchError) {
+    return <div style={{ padding: 16, color: "#C93C29", fontWeight: 500 }}>{fetchError}</div>;
+  }
 
   if (loading) {
     return (

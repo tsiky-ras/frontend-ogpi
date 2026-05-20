@@ -37,10 +37,10 @@
 
 /* Card container */
 .collecte-card {
-  background: #000000;
+  background: #ffffff;
   border-radius: 14px;
   padding: 28px 24px;
-  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.18);
   text-align: center;
   min-width: 280px;
   max-width: 400px;
@@ -62,32 +62,38 @@
 /* Success card */
 .collecte-card.collecte-success {
   border-left-color: #28a745;
-  background: linear-gradient(
-    135deg,
-    rgba(40, 167, 69, 0.05) 0%,
-    rgba(40, 167, 69, 0.02) 100%
-  );
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
 }
 
 /* Error card */
 .collecte-card.collecte-error {
   border-left-color: var(--tomato-jam);
-  background: linear-gradient(
-    135deg,
-    rgba(201, 60, 41, 0.05) 0%,
-    rgba(201, 60, 41, 0.02) 100%
-  );
+  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
 }
 
 /* Loading card */
 .collecte-card.collecte-loading {
   border-left-color: var(--tuscan-sun);
-  background: linear-gradient(
-    135deg,
-    rgba(234, 191, 91, 0.05) 0%,
-    rgba(234, 191, 91, 0.02) 100%
-  );
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
 }
+
+/* Close button */
+.collecte-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color .15s;
+}
+.collecte-close:hover { color: #475569; }
+.collecte-card { position: relative; }
 
 /* Icon styling */
 .collecte-icon {
@@ -96,11 +102,20 @@
   display: block;
 }
 
-.collecte-success .collecte-icon {
+/* react-icons override */
+.collecte-icon-react {
+  font-size: 48px;
+  margin: 0 auto 12px;
+  display: block;
+}
+
+.collecte-success .collecte-icon,
+.collecte-success .collecte-icon-react {
   color: #28a745;
 }
 
-.collecte-error .collecte-icon {
+.collecte-error .collecte-icon,
+.collecte-error .collecte-icon-react {
   color: var(--tomato-jam);
 }
 

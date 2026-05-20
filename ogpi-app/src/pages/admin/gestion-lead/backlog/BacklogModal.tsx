@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
 import ExportBacklogBtn, { ExportTabDef } from "../../../../components/export/ExportBacklogBtn.tsx";
 import Sortable from "sortablejs";
 
@@ -308,7 +309,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       setSelectedBacklogProfilId(null);
     } catch (err) {
       console.error("Erreur affectation collaborateur:", err);
-      alert("Impossible d'affecter le collaborateur.");
+      setError(apiError(err, "Impossible d'affecter le collaborateur"));
     } finally {
       setSavingCollab(false);
     }
@@ -329,7 +330,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       setShowBacklogFormModal(false);
     } catch (err) {
       console.error("Erreur création backlog:", err);
-      alert("Impossible de créer le backlog.");
+      setError(apiError(err, "Impossible de créer le backlog"));
     }
   };
 
@@ -557,7 +558,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const openEditLot = (lot: BacklogLot) => { setEditingLot(lot); setNewLot({ name: lot.name, desc: lot.desc || "" }); setShowLotModal(true); };
 
   const saveLot = async () => {
-    if (!newLot.name.trim()) { alert("Le nom du lot est requis"); return; }
+    if (!newLot.name.trim()) { setError("Le nom du lot est requis."); return; }
     if (!selectedBacklogId) return;
     setSaving(true);
     try {
@@ -570,7 +571,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         setLots([...lots, created]);
       }
       setShowLotModal(false); setEditingLot(null); setNewLot({ name: "", desc: "" });
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de sauvegarder le lot")); }
     finally { setSaving(false); }
   };
 
@@ -581,7 +582,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       const updated = lots.filter(l => l.id !== id).map((l, i) => ({ ...l, order: i + 1 }));
       setLots(updated);
       await backlogLotService.updateOrder(updated.map(l => ({ id: l.id, order: l.order })));
-    } catch (err) { console.error(err); alert("Impossible de supprimer le lot."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de supprimer le lot")); }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -592,7 +593,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const openEditPhase = (phase: BacklogPhase, lotId: number) => { setCurrentLotId(lotId); setEditingPhase(phase); setNewPhase({ name: phase.name }); setShowPhaseModal(true); };
 
   const savePhase = async () => {
-    if (!newPhase.name.trim()) { alert("Le nom de la phase est requis"); return; }
+    if (!newPhase.name.trim()) { setError("Le nom de la phase est requis."); return; }
     if (currentLotId === null) return;
     setSaving(true);
     try {
@@ -610,7 +611,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
           : lot));
       }
       setShowPhaseModal(false); setEditingPhase(null); setNewPhase({ name: "" }); setCurrentLotId(null);
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de sauvegarder la phase")); }
     finally { setSaving(false); }
   };
 
@@ -629,7 +630,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
           currentLot.phases.filter(p => p.id !== phaseId).map((p, i) => ({ id: p.id, order: i + 1 }))
         );
       }
-    } catch (err) { console.error(err); alert("Impossible de supprimer la phase."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de supprimer la phase")); }
   };
 
   const togglePhase = (phaseId: number) => {
@@ -648,7 +649,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const openEditSprint = (sprint: BacklogSprint) => { setCurrentPhaseId(sprint.phaseId); setEditingSprint(sprint); setNewSprint({ name: sprint.name }); setShowSprintModal(true); };
 
   const saveSprint = async () => {
-    if (!newSprint.name.trim()) { alert("Le nom du sprint est requis"); return; }
+    if (!newSprint.name.trim()) { setError("Le nom du sprint est requis."); return; }
     if (currentPhaseId === null) return;
     setSaving(true);
     try {
@@ -673,7 +674,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         setSprintDeliverables(prev => new Map(prev).set(created.id, []));
       }
       setShowSprintModal(false); setEditingSprint(null); setNewSprint({ name: "" }); setCurrentPhaseId(null);
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde du sprint."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de sauvegarder le sprint")); }
     finally { setSaving(false); }
   };
 
@@ -689,7 +690,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       })));
       setSprintDeliverables(prev => { const next = new Map(prev); next.delete(sprintId); return next; });
       setExpandedSprints(prev => { const next = new Set(prev); next.delete(sprintId); return next; });
-    } catch (err) { console.error(err); alert("Impossible de supprimer le sprint."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de supprimer le sprint")); }
   };
 
   const toggleSprint = (sprintId: number) => {
@@ -717,7 +718,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   };
 
   const saveDeliverable = async () => {
-    if (!newDeliverable.name.trim()) { alert("Le nom du livrable est requis"); return; }
+    if (!newDeliverable.name.trim()) { setError("Le nom du livrable est requis."); return; }
     if (currentSprintId === null || currentPhaseId === null) return;
     setSaving(true);
     try {
@@ -743,7 +744,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       }
       setShowDeliverableModal(false); setEditingDeliverable(null); setNewDeliverable({ name: "", description: "" });
       setCurrentSprintId(null); setCurrentPhaseId(null);
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde du livrable."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de sauvegarder le livrable")); }
     finally { setSaving(false); }
   };
 
@@ -757,7 +758,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         next.set(sprintId, updated);
         return next;
       });
-    } catch (err) { console.error(err); alert("Impossible de supprimer le livrable."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de supprimer le livrable")); }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -768,8 +769,8 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   const openEditProfil = (profil: BacklogProfil) => { setEditingProfil(profil); setNewProfil({ name: profil.name, desc: profil.desc || "", tjm: profil.tjm }); setShowProfilModal(true); };
 
   const saveProfil = async () => {
-    if (!newProfil.name.trim()) { alert("Le nom du profil est requis"); return; }
-    if (newProfil.tjm < 0)     { alert("Le TJM doit être positif"); return; }
+    if (!newProfil.name.trim()) { setError("Le nom du profil est requis."); return; }
+    if (newProfil.tjm < 0)     { setError("Le TJM doit être un nombre positif."); return; }
     if (!selectedBacklogId)    return;
     setSaving(true);
     try {
@@ -782,7 +783,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         setProfils([...profils, created]);
       }
       setShowProfilModal(false); setEditingProfil(null); setNewProfil({ name: "", desc: "", tjm: 0 });
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de sauvegarder le profil")); }
     finally { setSaving(false); }
   };
 
@@ -793,7 +794,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       const updated = profils.filter(p => p.id !== id).map((p, i) => ({ ...p, order: i + 1 }));
       setProfils(updated);
       await backlogProfilService.updateOrder(updated.map(p => ({ id: p.id, order: p.order })));
-    } catch (err) { console.error(err); alert("Impossible de supprimer le profil."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de supprimer le profil")); }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -820,9 +821,9 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
   };
 
   const saveLine = async () => {
-    if (!newLine.sprintId) { alert("Le sprint est requis"); return; }
+    if (!newLine.sprintId) { setError("Veuillez sélectionner un sprint avant de sauvegarder la ligne."); return; }
     const sprint = getAllSprints().find(s => s.id === newLine.sprintId);
-    if (!sprint) { alert("Sprint introuvable"); return; }
+    if (!sprint) { setError("Le sprint sélectionné est introuvable."); return; }
     setSaving(true);
     try {
       if (editingLine) {
@@ -841,7 +842,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       }
       setShowLineModal(false); setEditingLine(null);
       setNewLine({ epic: "", userStory: "", description: "", resultat: "", lotId: null, phaseId: null, sprintId: null });
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de sauvegarder la ligne du backlog")); }
     finally { setSaving(false); }
   };
 
@@ -853,7 +854,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       setLines(updated);
       setLineProfils(prev => prev.filter(lp => lp.lineId !== id));
       await backlogLineService.updateOrder(updated.map(l => ({ id: l.id, order: l.order })));
-    } catch (err) { console.error(err); alert("Impossible de supprimer la ligne."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de supprimer la ligne du backlog")); }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -883,7 +884,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
         setLineProfils([...lineProfils, created]);
       }
       setShowLineProfilModal(false); setEditingLineProfil(null); setNewLineProfil({ volume: 0 }); setCurrentLineId(null); setCurrentProfilId(null);
-    } catch (err) { console.error(err); alert("Une erreur est survenue lors de la sauvegarde."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de sauvegarder le volume JH")); }
     finally { setSaving(false); }
   };
 
@@ -894,7 +895,7 @@ const BacklogModal: React.FC<BacklogModalProps> = ({ show, onClose, leadId, lead
       await backlogLineProfilService.delete(editingLineProfil.id);
       setLineProfils(lineProfils.filter(lp => lp.id !== editingLineProfil.id));
       setShowLineProfilModal(false); setEditingLineProfil(null); setNewLineProfil({ volume: 0 }); setCurrentLineId(null); setCurrentProfilId(null);
-    } catch (err) { console.error(err); alert("Impossible de supprimer le volume."); }
+    } catch (err) { console.error(err); setError(apiError(err, "Impossible de supprimer le volume JH")); }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════

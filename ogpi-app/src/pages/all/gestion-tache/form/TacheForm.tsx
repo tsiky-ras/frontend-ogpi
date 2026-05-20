@@ -54,6 +54,7 @@ const TacheForm: React.FC<TacheFormProps> = ({
   users = mockUsers,     // <-- par défaut on utilise les mockups
 }) => {
   const [titre, setTitre] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [statut, setStatut] = useState<TacheStatus>("À faire");
   const [description, setDescription] = useState("");
 
@@ -103,8 +104,9 @@ const TacheForm: React.FC<TacheFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!titre.trim()) {
-      alert("Le titre est obligatoire");
+      setFormError("Le titre de la tâche est obligatoire.");
       return;
     }
 
@@ -133,6 +135,7 @@ const TacheForm: React.FC<TacheFormProps> = ({
     setTitre("");
     setStatut("À faire");
     setDescription("");
+    setFormError(null);
     setResponsableName("");
     setResponsableId(undefined);
     setLinkedName("");
@@ -151,6 +154,11 @@ const TacheForm: React.FC<TacheFormProps> = ({
 
       <Modal.Body className="tache-modal-body">
         <Form onSubmit={handleSubmit}>
+          {formError && (
+            <div style={{ padding: '8px 12px', marginBottom: 12, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#C93C29', fontSize: '0.9rem' }}>
+              {formError}
+            </div>
+          )}
           {/* Lead / Projet lié */}
           <Form.Group className="mb-4 position-relative">
             <Form.Label className="form-label-custom">Opportunité / Projet lié</Form.Label>

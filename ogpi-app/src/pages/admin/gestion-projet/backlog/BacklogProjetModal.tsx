@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
   import ExportBacklogBtn, { ExportTabDef } from "../../../../components/export/ExportBacklogBtn.tsx";
   import Sortable from "sortablejs";
 
@@ -813,7 +814,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           setLots(prev => [...prev, { ...created, phases: [] }]);
         }
         setShowLotModal(false);
-      } catch { alert("Erreur lors de la sauvegarde du lot."); }
+      } catch (err) { setError(apiError(err, "Impossible de sauvegarder le lot")); }
       finally { setSaving(false); }
     };
 
@@ -824,7 +825,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         const updated = lots.filter(l => l.id !== id).map((l, i) => ({ ...l, order: i + 1 }));
         setLots(updated);
         if (updated.length) await svc.lot.updateOrder(updated.map(l => ({ id: l.id, order: l.order })));
-      } catch { alert("Impossible de supprimer le lot."); }
+      } catch (err) { setError(apiError(err, "Impossible de supprimer le lot")); }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -850,7 +851,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           setDeliverables(prev => new Map(prev).set(created.id, []));
         }
         setShowPhaseModal(false);
-      } catch { alert("Erreur lors de la sauvegarde de la phase."); }
+      } catch (err) { setError(apiError(err, "Impossible de sauvegarder la phase")); }
       finally { setSaving(false); setCtxLotId(null); }
     };
 
@@ -867,7 +868,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           await svc.date.propagateFromLot(lotId);
           await reloadLots();
         } catch(e) { console.warn("Propagation dates échouée (non bloquant):", e); }
-      } catch { alert("Impossible de supprimer la phase."); }
+      } catch (err) { setError(apiError(err, "Impossible de supprimer la phase")); }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -923,7 +924,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
 
       } catch (err) {
         console.error("Erreur sauvegarde sprint:", err);
-        alert("Erreur lors de la sauvegarde du sprint.");
+        setError(apiError(err, "Impossible de sauvegarder le sprint"));
         setSaving(false);
         setCtxPhaseId(null);
         return;
@@ -953,7 +954,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           await svc.date.propagateFromPhase(phaseId);
           await reloadLots();
         } catch(e) { console.warn("Propagation dates échouée (non bloquant):", e); }
-      } catch { alert("Impossible de supprimer le sprint."); }
+      } catch (err) { setError(apiError(err, "Impossible de supprimer le sprint")); }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -981,7 +982,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           setDeliverables(prev => new Map(prev).set(ctxPhaseId, [...existing, created]));
         }
         setShowDelivModal(false);
-      } catch { alert("Erreur lors de la sauvegarde du livrable."); }
+      } catch (err) { setError(apiError(err, "Impossible de sauvegarder le livrable")); }
       finally { setSaving(false); setCtxPhaseId(null); }
     };
 
@@ -990,14 +991,14 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       try {
         await svc.phase.deleteDeliverable(delivId);
         setDeliverables(prev => new Map(prev).set(phaseId, (deliverables.get(phaseId) ?? []).filter(d => d.id !== delivId)));
-      } catch { alert("Impossible de supprimer le livrable."); }
+      } catch (err) { setError(apiError(err, "Impossible de supprimer le livrable")); }
     };
 
     const deliverLivrable = async (delivId: number, phaseId: number) => {
       try {
         await svc.phase.deliverDeliverable(delivId);
         setDeliverables(prev => new Map(prev).set(phaseId, (prev.get(phaseId) ?? []).map(d => d.id === delivId ? { ...d, isDelivered: true } : d)));
-      } catch { alert({delivId}+"Impossible de marquer le livrable comme livré."); }
+      } catch (err) { setError(apiError(err, "Impossible de marquer le livrable comme livré")); }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1022,7 +1023,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           await reload();
         }
         setShowProfilModal(false);
-      } catch { alert("Erreur lors de la sauvegarde du profil."); }
+      } catch (err) { setError(apiError(err, "Impossible de sauvegarder le profil")); }
       finally { setSaving(false); }
     };
 
@@ -1033,7 +1034,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         await svc.profil.replaceCollaborateurs(collabProfil.id, fCollabIds);
         setProfils(prev => prev.map(p => p.id !== collabProfil.id ? p : { ...p, collaborateurs: allCollabs.filter(c => fCollabIds.includes(c.id)) }));
         setShowCollabModal(false);
-      } catch { alert("Erreur lors de la mise à jour des collaborateurs."); }
+      } catch (err) { setError(apiError(err, "Impossible de mettre à jour les collaborateurs")); }
       finally { setSaving(false); setCollabProfil(null); }
     };
 
@@ -1044,7 +1045,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         const updated = profils.filter(p => p.id !== id).map((p, i) => ({ ...p, order: i + 1 }));
         setProfils(updated);
         if (updated.length) await svc.profil.updateOrder(updated.map(p => ({ id: p.id, order: p.order })));
-      } catch { alert("Impossible de supprimer le profil."); }
+      } catch (err) { setError(apiError(err, "Impossible de supprimer le profil")); }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1067,7 +1068,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     };
 
     const saveLine = async () => {
-      if (!fLine.phaseId) { alert("Veuillez sélectionner une phase."); return; }
+      if (!fLine.phaseId) { setError("Veuillez sélectionner une phase avant de sauvegarder la ligne."); return; }
       setSaving(true);
       try {
         const payload = { epic: fLine.epic, userStory: fLine.userStory, description: fLine.description, resultat: fLine.resultat, phaseId: fLine.phaseId, sprintId: fLine.sprintId, facturable: fLine.facturable, };
@@ -1084,7 +1085,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
           setLines(prev => [...prev, createdNorm]);
         }
         setShowLineModal(false);
-      } catch { alert("Erreur lors de la sauvegarde de la ligne."); }
+      } catch (err) { setError(apiError(err, "Impossible de sauvegarder la ligne du backlog")); }
       finally { setSaving(false); }
     };
 
@@ -1097,7 +1098,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         setLineProfils(prev => prev.filter(lp => lp.lineId !== id));
         setColValues(prev => { const m = new Map(prev); m.delete(id); return m; });
         if (updated.length) await svc.line.updateOrder(updated.map(l => ({ id: l.id, order: l.order })));
-      } catch { alert("Impossible de supprimer la ligne."); }
+      } catch (err) { setError(apiError(err, "Impossible de supprimer la ligne du backlog")); }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1272,8 +1273,8 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
       if (selectedBacklogId) {
         loadLineProfils(selectedBacklogId).catch(console.warn);
       }
-    } catch {
-      alert("Erreur lors de la sauvegarde du volume.");
+    } catch (err) {
+      setError(apiError(err, "Impossible de sauvegarder le volume JH"));
     } finally {
       setSaving(false);
       setCtxLineId(null);
@@ -1286,7 +1287,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         await svc.lineProfil.delete(editLineProfil.id);
         setLineProfils(prev => prev.filter(lp => lp.id !== editLineProfil.id));
         setShowVolModal(false);
-      } catch { alert("Impossible de supprimer le volume."); }
+      } catch (err) { setError(apiError(err, "Impossible de supprimer le volume JH")); }
       finally { setCtxLineId(null); setCtxProfilId(null); }
     };
 
@@ -1311,7 +1312,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
     const deleteColumn = async (col: BacklogColumn) => {
       if (!window.confirm("Supprimer cette colonne ?")) return;
       try { await svc.column.deleteColumn(col.id); setColumns(prev => new Map(prev).set(col.sprintId, (prev.get(col.sprintId) ?? []).filter(c => c.id !== col.id))); }
-      catch { alert("Impossible de supprimer la colonne."); }
+      catch (err) { setError(apiError(err, "Impossible de supprimer la colonne")); }
     };
 
     const openCellEdit = (lineId: number, col: BacklogColumn) => {
@@ -1327,7 +1328,7 @@ import BurndownTab from "../tabs/BurndownTab.tsx";
         const saved = await svc.column.upsertValue({ value: fCellVal, lineId: editCell.lineId, columnId: editCell.columnId });
         setColValues(prev => { const m = new Map(prev); const vals = (m.get(editCell.lineId) ?? []).filter(v => (v.column as any)?.id !== editCell.columnId); m.set(editCell.lineId, [...vals, saved]); return m; });
         setShowCellModal(false);
-      } catch { alert("Erreur lors de la sauvegarde de la valeur."); }
+      } catch (err) { setError(apiError(err, "Impossible de sauvegarder la valeur")); }
       finally { setSaving(false); }
     };
 

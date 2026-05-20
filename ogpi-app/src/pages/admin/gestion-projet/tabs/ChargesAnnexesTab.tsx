@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
 import {
   FaPlus, FaTrash, FaEdit, FaSave, FaTimes, FaSpinner,
   FaCar, FaHotel, FaUtensils, FaFileInvoiceDollar, FaBoxOpen,
@@ -227,7 +228,7 @@ const ChargesAnnexesTab: React.FC<ChargesAnnexesTabProps> = ({
     try {
       await service.delete(id);
       setCharges(prev => prev.filter(c => c.id !== id));
-    } catch { alert("Erreur lors de la suppression."); }
+    } catch (err) { setFormError(apiError(err, "Impossible de supprimer la charge annexe")); }
     finally { setDeleting(null); }
   };
 

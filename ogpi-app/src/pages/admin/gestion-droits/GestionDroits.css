@@ -147,8 +147,108 @@
 .gd-badge-grant  { background: #dcfce7; color: #15803d; font-size: .72rem; padding: .15rem .45rem; border-radius: 20px; font-weight: 600; }
 .gd-badge-revoke { background: #fee2e2; color: #b91c1c; font-size: .72rem; padding: .15rem .45rem; border-radius: 20px; font-weight: 600; }
 
+/* ── Search & filters ───────────────────────────────────────────────────── */
+.gd-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.gd-search-icon {
+  position: absolute;
+  left: 9px;
+  color: #94a3b8;
+  pointer-events: none;
+  font-size: .8rem;
+}
+
+.gd-search-input {
+  width: 100%;
+  padding: .32rem .75rem .32rem 2rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: .83rem;
+  color: #334155;
+  background: #f8fafc;
+  transition: border-color .15s, box-shadow .15s;
+  outline: none;
+}
+
+.gd-search-input:focus {
+  border-color: #223A46;
+  box-shadow: 0 0 0 3px rgba(34, 58, 70, 0.09);
+  background: #fff;
+}
+
+.gd-search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.gd-search-clear:hover { color: #475569; }
+
+.gd-cat-select {
+  padding: .32rem .65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: .83rem;
+  color: #334155;
+  background: #f8fafc;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s;
+}
+
+.gd-cat-select:focus {
+  border-color: #223A46;
+  box-shadow: 0 0 0 3px rgba(34, 58, 70, 0.09);
+}
+
+.gd-reset-btn {
+  background: none;
+  border: none;
+  color: #C93C29;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.gd-reset-btn:hover { opacity: .75; }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.gd-empty {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: .88rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+}
+
+.gd-empty p { margin: 0; }
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .gd-sidebar  { display: none; }
   .gd-main     { padding: 16px; }
+  .gd-search-wrap { max-width: 100%; }
 }

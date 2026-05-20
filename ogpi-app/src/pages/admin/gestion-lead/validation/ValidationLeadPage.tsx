@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
 import { FaTimesCircle, FaCheckCircle, FaHourglassHalf } from "react-icons/fa";
 import ValidationFormPage from "./ValidationFormPage.tsx";
 import FilterBar from "../../../../components/filters/FilterBar.tsx";
@@ -127,6 +128,7 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
   const [leadDetails, setLeadDetails] = useState<Map<number, Lead>>(new Map());
 
   // Popup state
+  const [actionError, setActionError] = useState<string | null>(null);
   const [popup, setPopup] = useState<{
     visible: boolean;
     type: "validated" | "pending" | "rejected";
@@ -180,7 +182,7 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
   /* ================= VALIDATE / REJECT ================= */
   const handleValidate = async (leadId: number, comment: string) => {
     if (!user) {
-      alert("Impossible de valider : utilisateur non connecté.");
+      setActionError("Impossible de valider : session expirée. Veuillez vous reconnecter.");
       return;
     }
 
@@ -214,13 +216,13 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
       await loadLeadDetails(leadId);
     } catch (e) {
       console.error("Erreur validation lead", e);
-      alert("Erreur lors de la validation");
+      setActionError(apiError(e, "Impossible de valider le lead"));
     }
   };
 
   const handleReject = async (leadId: number, comment: string) => {
     if (!user) {
-      alert("Impossible de rejeter : utilisateur non connecté.");
+      setActionError("Impossible de rejeter : session expirée. Veuillez vous reconnecter.");
       return;
     }
 
@@ -248,7 +250,7 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
       await loadLeadDetails(leadId);
     } catch (e) {
       console.error("Erreur rejet lead", e);
-      alert("Erreur lors du rejet");
+      setActionError(apiError(e, "Impossible de rejeter le lead"));
     }
   };
 
@@ -341,6 +343,13 @@ const ValidationLeadPage: React.FC<ValidationLeadPageProps> = ({ onUpdated }) =>
           nextRole={popup.nextRole}
           onClose={() => setPopup(prev => ({ ...prev, visible: false }))}
         />
+      )}
+
+      {actionError && (
+        <div style={{ padding: '8px 12px', marginBottom: 12, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#C93C29', fontSize: '0.9rem' }}>
+          {actionError}
+          <button onClick={() => setActionError(null)} style={{ marginLeft: 8, background: 'none', border: 'none', color: '#C93C29', cursor: 'pointer', fontWeight: 600 }}>×</button>
+        </div>
       )}
 
       <div className="mb-4 d-flex gap-2 flex-wrap">

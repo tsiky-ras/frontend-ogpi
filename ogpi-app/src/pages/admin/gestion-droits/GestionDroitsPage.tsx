@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { FaShieldAlt, FaHistory, FaSync } from 'react-icons/fa';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { FaShieldAlt, FaHistory, FaSync, FaSearch, FaTimes } from 'react-icons/fa';
 import { useAuth } from '../../../context/AuthContext.tsx';
 import Header from '../../../components/header/Header.tsx';
 import Sidebar from '../../../components/sidebar/Sidebar.tsx';
@@ -47,12 +47,14 @@ const GestionDroitsPage: React.FC = () => {
   const { api, user } = useAuth();
   const isAdmin = (user?.role?.roleId === 1 || user?.role?.roleId === 2);
 
-  const [matrix, setMatrix]       = useState<PermMatrix | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [toggling, setToggling]   = useState<string | null>(null);
-  const [showAudit, setShowAudit] = useState(false);
-  const [grantMap, setGrantMap]   = useState<Record<number, Set<number>>>({});
+  const [matrix, setMatrix]           = useState<PermMatrix | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [toggling, setToggling]       = useState<string | null>(null);
+  const [showAudit, setShowAudit]     = useState(false);
+  const [grantMap, setGrantMap]       = useState<Record<number, Set<number>>>({});
+  const [searchPerm, setSearchPerm]   = useState('');
+  const [filterCat, setFilterCat]     = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +105,26 @@ const GestionDroitsPage: React.FC = () => {
   const groups = matrix?.permsGroups ?? [];
   const audit  = matrix?.recentAudit ?? [];
 
+  const allCategories = useMemo(() => groups.map(g => g.category), [groups]);
+
+  const filteredGroups = useMemo(() => {
+    const q = searchPerm.trim().toLowerCase();
+    return groups
+      .filter(g => !filterCat || g.category === filterCat)
+      .map(g => ({
+        ...g,
+        perms: g.perms.filter(p =>
+          !q ||
+          p.permLabel.toLowerCase().includes(q) ||
+          p.permCode.toLowerCase().includes(q)
+        ),
+      }))
+      .filter(g => g.perms.length > 0);
+  }, [groups, searchPerm, filterCat]);
+
+  const hasFilter = searchPerm.trim() !== '' || filterCat !== '';
+  const resetFilters = () => { setSearchPerm(''); setFilterCat(''); };
+
   return (
     <div className="gd-layout">
       <Header />
@@ -115,9 +137,42 @@ const GestionDroitsPage: React.FC = () => {
 
           {/* Toolbar */}
           <div className="gd-toolbar">
-            <span className="text-muted" style={{ fontSize: '.85rem' }}>
-              Matrice des accès par rôle — cochez / décochez pour modifier
-            </span>
+            {/* Barre de recherche */}
+            <div className="gd-search-wrap">
+              <FaSearch className="gd-search-icon" />
+              <input
+                type="text"
+                className="gd-search-input"
+                placeholder="Rechercher une permission…"
+                value={searchPerm}
+                onChange={e => setSearchPerm(e.target.value)}
+              />
+              {searchPerm && (
+                <button className="gd-search-clear" onClick={() => setSearchPerm('')} aria-label="Effacer">
+                  <FaTimes size={11} />
+                </button>
+              )}
+            </div>
+
+            {/* Filtre catégorie */}
+            <select
+              className="gd-cat-select"
+              value={filterCat}
+              onChange={e => setFilterCat(e.target.value)}
+            >
+              <option value="">Toutes les catégories</option>
+              {allCategories.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+
+            {/* Réinitialiser */}
+            {hasFilter && (
+              <button className="gd-reset-btn" onClick={resetFilters}>
+                <FaTimes size={10} className="me-1" /> Réinitialiser
+              </button>
+            )}
+
             <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={load}>
               <FaSync className="me-1" /> Actualiser
             </button>
@@ -133,6 +188,16 @@ const GestionDroitsPage: React.FC = () => {
 
           {loading ? (
             <div className="text-center py-5 text-muted">Chargement…</div>
+          ) : filteredGroups.length === 0 ? (
+            <div className="gd-empty">
+              <FaSearch size={28} style={{ opacity: .3, marginBottom: 8 }} />
+              <p>Aucune permission ne correspond à votre recherche.</p>
+              {hasFilter && (
+                <button className="gd-reset-btn" onClick={resetFilters}>
+                  <FaTimes size={10} className="me-1" /> Réinitialiser les filtres
+                </button>
+              )}
+            </div>
           ) : (
             <div className="gd-table-wrap">
               <table className="gd-table">
@@ -145,7 +210,7 @@ const GestionDroitsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map(group => (
+                  {filteredGroups.map(group => (
                     <React.Fragment key={group.category}>
                       <tr className="gd-cat-row">
                         <th colSpan={roles.length + 1}>{group.category.toUpperCase()}</th>

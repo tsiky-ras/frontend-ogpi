@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { apiError } from "../../../../utils/apiError.ts";
 import {
   FaPlus, FaEdit, FaTrash, FaMoneyBillWave, FaTimes,
   FaSpinner, FaCheckCircle, FaBan, FaCalendarAlt,
@@ -293,7 +294,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
       setEcheances(prev => prev.filter(e => e.id !== id));
       if (backlogId) setTotaux(await service.getTotaux(backlogId));
     } catch (err: any) {
-      alert(err?.response?.data?.message ?? "Impossible de supprimer.");
+      setError(apiError(err, "Impossible de supprimer l'échéance"));
     }
   };
 
@@ -303,7 +304,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
       await service.annuler(id);
       setEcheances(prev => prev.map(e => e.id === id ? { ...e, statut: "ANNULE" as StatutPaiement } : e));
     } catch (err: any) {
-      alert(err?.response?.data?.message ?? "Impossible d'annuler.");
+      setError(apiError(err, "Impossible d'annuler l'échéance"));
     }
   };
 
@@ -320,7 +321,7 @@ const CalendrierPaiementTab: React.FC<CalendrierPaiementTabProps> = ({
       setPayTarget(null);
       onPaiementValide?.();
     } catch (err: any) {
-      alert(err?.response?.data?.message ?? "Erreur lors du paiement.");
+      setError(apiError(err, "Impossible d'enregistrer le paiement"));
     } finally { setPayingId(null); }
   };
 
